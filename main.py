@@ -10,116 +10,217 @@ with warnings.catch_warnings():
 import os
 import asyncio
 
-# Глобальный словарь для фото оставляем тут
-user_photos = {}
-
-# Легкий обработчик для Render
 async def handle_ping(request):
     from aiohttp import web
     return web.Response(text="Bot is alive")
 
 async def main():
-    # === 1. ТЯЖЕЛЫЕ ИМПОРТЫ ТОЛЬКО ЗДЕСЬ ===
     import aiohttp
     from aiohttp import web
     from vkbottle import Bot, Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
     from vkbottle.bot import Message
-    from database import add_user, get_balance, decrease_balance, init_db
-    from ai_service import process_image
+    from database import get_user, create_user, update_user, init_db
+    from ai_service import generate_text, generate_image
 
-    # === 2. ИНИЦИАЛИЗАЦИЯ БОТА И БД ===
     vk_token = os.environ.get("VK_TOKEN", "")
     bot = Bot(token=vk_token)
     
     await init_db()
 
-    # === 3. ЛОГИКА БОТА И ХЕНДЛЕРЫ ===
-    def get_keyboard() -> Keyboard:
+    user_states = {}
+    core_purchased_users = set()
+
+    def get_dynamic_keyboard(user: dict | None) -> str:
         keyboard = Keyboard(inline=False)
-        keyboard.add(Text("Премиум минимализм"), color=KeyboardButtonColor.PRIMARY)
-        keyboard.row()
-        keyboard.add(Text("Продающий стиль"), color=KeyboardButtonColor.PRIMARY)
-        keyboard.row()
-        keyboard.add(Text("Улучшить свет"), color=KeyboardButtonColor.PRIMARY)
+        if not user:
+            return keyboard.get_json()
+
+        vk_id = user.get("vk_id")
+
+        # Core sale is always available
+        keyboard.add(Text("Купить полный разбор"), color=KeyboardButtonColor.PRIMARY)
+
+        # Subscription and upsell are unlocked after core purchase
+        if vk_id in core_purchased_users:
+            keyboard.row()
+            if not user.get("is_subscribed"):
+                keyboard.add(Text("Подписка на транзиты"), color=KeyboardButtonColor.SECONDARY)
+            keyboard.add(Text("Проверка совместимости"), color=KeyboardButtonColor.SECONDARY)
+
         return keyboard.get_json()
 
     @bot.on.message(text=["Начать", "start", "/start"])
     async def start_handler(message: Message):
-        await add_user(message.from_id)
-        balance = await get_balance(message.from_id)
-        greeting = (
-            f"Привет! Я AI-бот для обработки фото.\n"
-            f"Твой баланс: {balance} генераций.\n"
-            f"Отправь мне фото, а затем выбери стиль!"
-        )
-        await message.answer(greeting, keyboard=get_keyboard())
-
-    @bot.on.message(func=lambda message: message.attachments and message.attachments[0].photo)
-    async def photo_handler(message: Message):
-        photo = message.attachments[0].photo
-        largest_size = max(photo.sizes, key=lambda size: size.width * size.height)
-
-        user_photos[message.from_id] = largest_size.url
-        await message.answer("Фото сохранено! Теперь выбери стиль из меню.", keyboard=get_keyboard())
-
-    @bot.on.message(text=["Премиум минимализм", "Продающий стиль", "Улучшить свет"])
-    async def style_handler(message: Message):
         vk_id = message.from_id
-        balance = await get_balance(vk_id)
+        user = await get_user(vk_id)
+        if user and user.get("free_teaser_used"):
+            await message.answer("Добро пожаловать обратно в элитный астрологический сервис.", keyboard=get_dynamic_keyboard(user))
+        else:
+            user_states[vk_id] = {"step": "waiting_date"}
+            await message.answer("Добро пожаловать. Введите дату вашего рождения (например, 15.04.1990):")
+
+    @bot.on.message(func=lambda msg: user_states.get(msg.from_id, {}).get("step") == "waiting_date")
+    async def process_date(message: Message):
+        vk_id = message.from_id
+        user_states[vk_id]["date"] = message.text
+        user_states[vk_id]["step"] = "waiting_time"
+        await message.answer("Введите время вашего рождения (например, 14:30):")
+
+    @bot.on.message(func=lambda msg: user_states.get(msg.from_id, {}).get("step") == "waiting_time")
+    async def process_time(message: Message):
+        vk_id = message.from_id
+        user_states[vk_id]["time"] = message.text
+        user_states[vk_id]["step"] = "waiting_city"
+        await message.answer("Введите город вашего рождения:")
+
+    @bot.on.message(func=lambda msg: user_states.get(msg.from_id, {}).get("step") == "waiting_city")
+    async def process_city(message: Message):
+        vk_id = message.from_id
+        city = message.text
+        date = user_states[vk_id]["date"]
+        time = user_states[vk_id]["time"]
+
+        await create_user(vk_id, date, time, city)
+        await update_user(vk_id, {"free_teaser_used": True})
+        del user_states[vk_id]
+
+        await message.answer("Анализирую данные... Ожидайте.")
+
+        prompt = (
+            f"Ты премиальный психолог-астролог. Составь короткий, интригующий тизер личности (2-3 абзаца) "
+            f"по данным: дата {date}, время {time}, город {city}. "
+            f"Избегай банальностей. Используй юнгианские архетипы, анализ теневой стороны. "
+            f"Текст должен быть строгим, проницательным. Это лид-магнит."
+        )
+        teaser = await generate_text(prompt)
+        if not teaser:
+            teaser = "Не удалось сгенерировать тизер, но ваши данные сохранены."
+
+        user = await get_user(vk_id)
+        await message.answer(teaser, keyboard=get_dynamic_keyboard(user))
+
+    @bot.on.message(text="Купить полный разбор")
+    async def buy_full_chart(message: Message):
+        vk_id = message.from_id
+        user = await get_user(vk_id)
+        if not user:
+            await message.answer("Сначала введите свои данные. Напишите 'Начать'.")
+            return
+
+        await message.answer("Оплата прошла успешно! Генерирую полный разбор и сакральную визуальную карту... Это займет около минуты.")
+
+        # Mark as purchased
+        core_purchased_users.add(vk_id)
+
+        date = user.get("birth_date", "неизвестно")
+        time = user.get("birth_time", "неизвестно")
+        city = user.get("birth_city", "неизвестно")
+
+        text_prompt = (
+            f"Ты премиальный психолог-астролог. Составь глубокий и полный анализ личности "
+            f"по данным: дата {date}, время {time}, город {city}. "
+            f"Избегай банальностей и ванильной астрологии. Используй юнгианские архетипы, "
+            f"анализ теневой стороны личности и кармических узлов. Текст должен быть строгим, "
+            f"проницательным, с долей холодного интеллекта. Пиши так, чтобы человек почувствовал "
+            f"легкий шок от того, насколько точно вскрыты его скрытые мотивы."
+        )
+        full_text = await generate_text(text_prompt)
+
+        image_prompt = (
+            "Стиль Премиум минимализм. Темный графитовый фон, тонкие линии из матового золота. "
+            "Создай абстрактную карту таро. Включи элементы строгой сакральной геометрии. "
+            "Добавь легкие, едва уловимые отсылки к египетской мифологии, например, строгий профиль "
+            "Анубиса или золотые весы, стилизованные под созвездия. Никакого киберпанка, глитчей или "
+            "хакерских элементов. Изображение должно излучать спокойствие, роскошь и древнюю власть."
+        )
+        image_bytes = await generate_image(image_prompt)
+
+        user = await get_user(vk_id)
+        if full_text:
+            if image_bytes:
+                try:
+                    uploader = PhotoMessageUploader(bot.api)
+                    photo_attachment = await uploader.upload(image_bytes, peer_id=message.peer_id)
+                    await message.answer(full_text, attachment=photo_attachment, keyboard=get_dynamic_keyboard(user))
+                except Exception as e:
+                    await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{full_text}", keyboard=get_dynamic_keyboard(user))
+            else:
+                await message.answer(f"Не удалось сгенерировать изображение.\n\n{full_text}", keyboard=get_dynamic_keyboard(user))
+        else:
+            await message.answer("Произошла ошибка при генерации разбора.")
+
+    @bot.on.message(text="Подписка на транзиты")
+    async def subscribe_transits(message: Message):
+        vk_id = message.from_id
+        if vk_id not in core_purchased_users:
+            await message.answer("Сначала необходимо купить полный разбор.")
+            return
+
+        await update_user(vk_id, {"is_subscribed": True})
+        user = await get_user(vk_id)
+        await message.answer("Подписка оформлена. Теперь вы будете получать жесткий ежедневный прогноз.", keyboard=get_dynamic_keyboard(user))
+
+    @bot.on.message(text="Проверка совместимости")
+    async def check_compatibility(message: Message):
+        vk_id = message.from_id
+        user = await get_user(vk_id)
+        if not user:
+            await message.answer("Пользователь не найден.")
+            return
+
+        if vk_id not in core_purchased_users:
+            await message.answer("Сначала необходимо купить полный разбор.")
+            return
+
+        balance = user.get("compatibility_balance", 0)
 
         if balance <= 0:
-            await message.answer("У вас закончились генерации. Пожалуйста, пополните баланс.")
+            await message.answer("Ваш баланс проверок совместимости равен 0. Пожалуйста, пополните баланс (напишите 'Пополнить').")
             return
 
-        if vk_id not in user_photos:
-            await message.answer("Сначала отправьте фото, которое нужно обработать.")
+        user_states[vk_id] = {"step": "waiting_partner_data"}
+        await message.answer(f"Ваш баланс: {balance} проверок. Введите данные партнера (дата, время, город) для глубокого анализа синастрии:")
+
+    @bot.on.message(text="Пополнить")
+    async def top_up_balance(message: Message):
+        vk_id = message.from_id
+        user = await get_user(vk_id)
+        if user:
+            new_balance = user.get("compatibility_balance", 0) + 1
+            await update_user(vk_id, {"compatibility_balance": new_balance})
+            user = await get_user(vk_id)
+            await message.answer(f"Баланс пополнен! Текущий баланс: {new_balance}", keyboard=get_dynamic_keyboard(user))
+        else:
+            await message.answer("Пользователь не найден.")
+
+    @bot.on.message(func=lambda msg: user_states.get(msg.from_id, {}).get("step") == "waiting_partner_data")
+    async def process_partner_data(message: Message):
+        vk_id = message.from_id
+        partner_data = message.text
+        del user_states[vk_id]
+
+        user = await get_user(vk_id)
+        if not user:
             return
 
-        photo_url = user_photos[vk_id]
-        await message.answer("Начинаю обработку... Это может занять несколько секунд.")
+        new_balance = user.get("compatibility_balance", 0) - 1
+        await update_user(vk_id, {"compatibility_balance": new_balance})
 
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(photo_url) as resp:
-                    if resp.status == 200:
-                        image_bytes = await resp.read()
-                    else:
-                        await message.answer("Не удалось скачать фото.")
-                        return
-        except Exception as e:
-            await message.answer("Ошибка при скачивании фото.")
-            return
+        await message.answer("Анализирую синастрию... Это займет немного времени.")
+        prompt = (
+            f"Ты премиальный психолог-астролог. Проведи жесткий и честный анализ совместимости "
+            f"с партнером, чьи данные: {partner_data}. Используй теневые аспекты и кармические узлы."
+        )
+        result = await generate_text(prompt)
+        if not result:
+            result = "Ошибка анализа совместимости."
 
-        # Обработка фото через ai_service
-        prompt_type = message.text
-        processed_image_bytes = await process_image(prompt_type, image_bytes)
+        user = await get_user(vk_id)
+        await message.answer(f"{result}\n\nОстаток проверок совместимости: {new_balance}", keyboard=get_dynamic_keyboard(user))
 
-        if not processed_image_bytes:
-            await message.answer("Произошла ошибка при обработке. Ваша попытка не списана, попробуйте другое фото.")
-            return
-
-        try:
-            uploader = PhotoMessageUploader(bot.api)
-            photo_attachment = await uploader.upload(processed_image_bytes, peer_id=message.peer_id)
-
-            # Списываем баланс только в случае успеха
-            await decrease_balance(vk_id)
-            new_balance = balance - 1
-
-            await message.answer(
-                f"Готово! Твой новый баланс: {new_balance} генераций.",
-                attachment=photo_attachment,
-                keyboard=get_keyboard()
-            )
-        except Exception as e:
-            await message.answer(f"Ошибка при загрузке готового фото: {e}")
-
-    # === 4. ЗАПУСК БОТА И СЕРВЕРА ===
-    # Установим флаг, чтобы vkbottle не конфликтовал с текущим loop
     bot.loop_wrapper._running = True
     asyncio.create_task(bot.run_polling())
     
-    # Поднимаем веб-сервер для Render
     app = web.Application()
     app.router.add_get('/', handle_ping)
     
@@ -132,7 +233,6 @@ async def main():
     
     print(f"Сервер запущен на порту {port}. Бот слушает сообщения...")
     
-    # Поддерживаем жизнь процесса
     while True:
         await asyncio.sleep(3600)
 
