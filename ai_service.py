@@ -1,9 +1,8 @@
 import os
-import asyncio
-from google import genai
-from google.genai import types
+import aiohttp
+import base64
 
-def process_image(prompt_type: str, image_bytes: bytes) -> bytes | None:
+async def process_image(prompt_type: str, image_bytes: bytes) -> bytes | None:
     api_keys_str = os.environ.get('GEMINI_API_KEYS', '')
     if not api_keys_str:
         # Fallback to single key if multiple not provided
@@ -31,39 +30,33 @@ def process_image(prompt_type: str, image_bytes: bytes) -> bytes | None:
 
     prompt = base_instruction + style_instruction
 
+    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
     last_exception = None
 
     for api_key in api_keys:
-        client = genai.Client(api_key=api_key)
-        try:
-            result = client.models.edit_image(
-                model='imagen-4-generate',
-                prompt=prompt,
-                reference_images=[
-                    types.RawReferenceImage(
-                        reference_id=1,
-                        reference_image=types.Image(
-                            image_bytes=image_bytes,
-                            mime_type="image/jpeg"
-                        )
-                    )
-                ],
-                config=types.EditImageConfig(
-                    number_of_images=1,
-                    output_mime_type="image/jpeg"
-                )
-            )
-            return result.generated_images[0].image.image_bytes
-        except Exception as e:
-            last_exception = e
-            error_msg = str(e).lower()
-            # If rate limit or quota exceeded, rotate key
-            if "429" in error_msg or "resource exhausted" in error_msg or "quota" in error_msg:
-                print(f"Rate limit hit for key. Rotating... Error: {e}")
-                continue
-            else:
-                # Some other error, break out or rotate as well?
-                # Best effort is to rotate in case other keys work, but let's just log and continue
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3:predict?key={api_key}"
+        payload = {
+            "instances": [{"prompt": prompt, "image": {"bytesBase64Encoded": image_base64}}],
+            "parameters": {"sampleCount": 1}
+        }
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(url, json=payload) as resp:
+                    if resp.status == 200:
+                        res_data = await resp.json()
+                        output_b64 = res_data['predictions'][0]['bytesBase64Encoded']
+                        return base64.b64decode(output_b64)
+                    elif resp.status == 429:
+                        print(f"Rate limit hit for key. Rotating...")
+                        continue
+                    else:
+                        print(f"API Error status {resp.status}. Trying next key if available.")
+                        error_text = await resp.text()
+                        print(f"Error details: {error_text}")
+                        continue
+            except Exception as e:
+                last_exception = e
                 print(f"API Error: {e}. Trying next key if available.")
                 continue
 

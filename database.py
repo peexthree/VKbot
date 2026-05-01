@@ -1,37 +1,37 @@
 import os
-import asyncio
-from supabase import create_async_client, AsyncClient
+import aiohttp
 
-url: str = os.environ.get("SUPABASE_URL", "")
-key: str = os.environ.get("SUPABASE_KEY", "")
-
-_client: AsyncClient | None = None
-
-async def get_client() -> AsyncClient:
-    global _client
-    if _client is None:
-        _client = await create_async_client(url, key)
-    return _client
+URL = os.environ.get("SUPABASE_URL")
+KEY = os.environ.get("SUPABASE_KEY")
+HEADERS = {
+    "apikey": KEY,
+    "Authorization": f"Bearer {KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}
 
 async def add_user(vk_id: int):
-    client = await get_client()
-    # Check if user exists
-    response = await client.table("vk_ai_users").select("*").eq("vk_id", vk_id).execute()
-    if not response.data:
-        # User does not exist, add with default balance 3
-        await client.table("vk_ai_users").insert({"vk_id": vk_id, "balance": 3}).execute()
+    async with aiohttp.ClientSession() as session:
+        # Пытаемся получить юзера
+        async with session.get(f"{URL}/rest/v1/vk_ai_users?vk_id=eq.{vk_id}", headers=HEADERS) as r:
+            data = await r.json()
+            if not data:
+                # Если нет — создаем
+                payload = {"vk_id": vk_id, "balance": 3}
+                await session.post(f"{URL}/rest/v1/vk_ai_users", headers=HEADERS, json=payload)
 
 async def get_balance(vk_id: int) -> int:
-    client = await get_client()
-    response = await client.table("vk_ai_users").select("balance").eq("vk_id", vk_id).execute()
-    if response.data:
-        return response.data[0]["balance"]
-    return 0
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{URL}/rest/v1/vk_ai_users?vk_id=eq.{vk_id}", headers=HEADERS) as r:
+            data = await r.json()
+            return data[0]["balance"] if data else 0
 
 async def decrease_balance(vk_id: int):
-    client = await get_client()
-    # First get the current balance
-    current_balance = await get_balance(vk_id)
-    if current_balance > 0:
-        new_balance = current_balance - 1
-        await client.table("vk_ai_users").update({"balance": new_balance}).eq("vk_id", vk_id).execute()
+    current = await get_balance(vk_id)
+    async with aiohttp.ClientSession() as session:
+        payload = {"balance": current - 1}
+        await session.patch(f"{URL}/rest/v1/vk_ai_users?vk_id=eq.{vk_id}", headers=HEADERS, json=payload)
+
+async def init_db():
+    # На REST API таблица должна быть уже создана через SQL Editor
+    pass
