@@ -91,5 +91,6 @@ async def style_handler(message: Message):
     except Exception as e:
         await message.answer(f"Ошибка при загрузке готового фото: {e}")
 
-if __name__ == "__main__":
-    bot.run_forever()
+if name == "main":
+bot.loop_wrapper.on_startup.append(init_db)
+bot.run_forever()
