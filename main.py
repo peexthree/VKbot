@@ -3,7 +3,7 @@ import asyncio
 import aiohttp
 from vkbottle import Bot, Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
 from vkbottle.bot import Message
-from database import add_user, get_balance, decrease_balance
+from database import add_user, get_balance, decrease_balance, init_db
 from ai_service import process_image
 
 vk_token = os.environ.get("VK_TOKEN", "")
