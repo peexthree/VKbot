@@ -1,3 +1,4 @@
-vkbottle
+vkbottle==4.3.12
+pydantic<2.0.0
 aiohttp
 pillow
