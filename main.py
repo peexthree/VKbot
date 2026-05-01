@@ -68,9 +68,9 @@ async def style_handler(message: Message):
         await message.answer("Ошибка при скачивании фото.")
         return
 
-    # Process image in a separate thread so it doesn't block the event loop
+    # Process image using aiohttp, naturally non-blocking
     prompt_type = message.text
-    processed_image_bytes = await asyncio.to_thread(process_image, prompt_type, image_bytes)
+    processed_image_bytes = await process_image(prompt_type, image_bytes)
 
     if not processed_image_bytes:
         await message.answer("Произошла ошибка при обработке. Ваша попытка не списана, попробуйте другое фото.")
@@ -101,7 +101,9 @@ async def main():
     await init_db()
     
     # Запускаем бота как фоновую задачу
-    asyncio.create_task(bot.run_polled())
+    # Установим флаг, чтобы vkbottle понимал, что цикл уже запущен, и не вызывал loop.run_until_complete внутри
+    bot.loop_wrapper._running = True
+    asyncio.create_task(bot.run_polling())
     
     # Поднимаем веб-сервер для Render, чтобы он не убил процесс
     app = web.Application()
