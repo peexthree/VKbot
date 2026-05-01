@@ -1,6 +1,7 @@
 import os
 import asyncio
 import aiohttp
+from aiohttp import web
 from vkbottle import Bot, Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
 from vkbottle.bot import Message
 from database import add_user, get_balance, decrease_balance, init_db
@@ -91,6 +92,31 @@ async def style_handler(message: Message):
     except Exception as e:
         await message.answer(f"Ошибка при загрузке готового фото: {e}")
 
-if name == "main":
-bot.loop_wrapper.on_startup.append(init_db)
-bot.run_forever()
+# --- НАСТРОЙКА СЕРВЕРА ДЛЯ RENDER ---
+async def handle_ping(request):
+    return web.Response(text="Bot is alive")
+
+async def main():
+    # Инициализация базы данных
+    await init_db()
+    
+    # Запускаем бота как фоновую задачу
+    asyncio.create_task(bot.run_polled())
+    
+    # Поднимаем веб-сервер для Render, чтобы он не убил процесс
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    
+    # Бесконечный цикл, чтобы программа не завершилась
+    while True:
+        await asyncio.sleep(3600)
+
+if __name__ == "__main__":
+    asyncio.run(main())
