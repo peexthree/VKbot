@@ -1,3 +1,12 @@
+import ast
+import warnings
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    for attr in ("Num", "Str", "Bytes", "NameConstant", "Ellipsis"):
+        if not hasattr(ast, attr):
+            setattr(ast, attr, type(attr, (ast.Constant,), {}))
+
 import os
 import asyncio
 
