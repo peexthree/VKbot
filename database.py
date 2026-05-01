@@ -23,6 +23,17 @@ async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
                     return data[0]
             return None
 
+async def get_all_subscribed_users() -> list[Dict[str, Any]]:
+    """Получает список всех подписанных пользователей для утренних прогнозов"""
+    if not URL or not KEY:
+        return []
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?is_subscribed=eq.true", headers=HEADERS) as r:
+            if r.status == 200:
+                data = await r.json()
+                return data
+            return []
+
 async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: str) -> Optional[Dict[str, Any]]:
     if not URL or not KEY:
         return None
@@ -30,7 +41,8 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "vk_id": vk_id,
         "birth_date": birth_date,
         "birth_time": birth_time,
-        "birth_city": birth_city
+        "birth_city": birth_city,
+        "partners": []
     }
     async with aiohttp.ClientSession() as session:
         async with session.post(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS, json=payload) as r:
