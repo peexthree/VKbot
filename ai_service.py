@@ -72,11 +72,8 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
         print("No API keys provided")
         return None
 
-    # Пожелание клиента: перебор моделей.
-    # Так как мы используем REST API Google, мы будем менять URL на разные версии Gemini,
-    # если 2.5-flash недоступна. (Gemma через REST API Google не всегда стабильна, но
-    # можно добавить fallback на gemini-1.5-pro или gemini-1.5-flash).
-    models = ["gemini-3-flash-preview", "gemma-4-26b-a4b-it", "gemma-4-31b-it"]
+    # Используем модели Gemma 3
+    models = ["gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it", "gemma-3-1b-it"]
     last_exception = None
 
     for model in models:

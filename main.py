@@ -80,7 +80,6 @@ async def main():
             buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=300"}}])
 
         keyboard_obj = {
-            "one_time": False,
             "inline": True,
             "buttons": buttons
         }
@@ -253,12 +252,23 @@ async def main():
                     if first_name:
                         base_text = f"{first_name},\n\n" + base_text
                     kb_json = await get_sections_keyboard(vk_id, user)
-                    await message.answer(
-                        base_text,
-                        keyboard=kb_json
-                    )
+                    try:
+                        await message.answer(
+                            base_text,
+                            keyboard=kb_json
+                        )
+                    except Exception as e:
+                        print(f"Error sending message with keyboard in process_time: {e}")
+                        try:
+                            # Fallback without keyboard
+                            await message.answer(base_text)
+                        except Exception as e_fallback:
+                            print(f"Fallback send failed in process_time: {e_fallback}")
                 else:
-                    await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
+                    try:
+                        await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
+                    except Exception as e:
+                        print(f"Error sending navigation menu: {e}")
             else:
                 await set_user_state(vk_id, json.dumps({"step": "city", "date": date_str, "time": time_str}))
                 await message.answer("Укажите ГОРОД рождения:")
@@ -318,12 +328,22 @@ async def main():
 
             # Отправляем базу с кнопками покупки остальных разделов
             kb_json = await get_sections_keyboard(vk_id, user)
-            await message.answer(
-                f"✦ БАЗА ✦\n\n{base_text}",
-                keyboard=kb_json
-            )
+            try:
+                await message.answer(
+                    f"✦ БАЗА ✦\n\n{base_text}",
+                    keyboard=kb_json
+                )
+            except Exception as e:
+                print(f"Error sending message with keyboard in process_city: {e}")
+                try:
+                    await message.answer(f"✦ БАЗА ✦\n\n{base_text}")
+                except Exception as e_fallback:
+                    print(f"Fallback send failed in process_city: {e_fallback}")
             # Отправляем навигатор отдельно
-            await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
+            try:
+                await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
+            except Exception as e:
+                print(f"Error sending navigation menu in process_city: {e}")
 
         finally:
             active_tasks.discard(vk_id)
@@ -516,13 +536,25 @@ async def main():
                         uploader = PhotoMessageUploader(bot.api)
                         photo_attachment = await uploader.upload(image_bytes, peer_id=vk_id)
                         kb_json = await get_sections_keyboard(vk_id, user)
-                        await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
+                        try:
+                            await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
+                        except Exception as inner_e:
+                            print(f"Error sending message with attachment and keyboard: {inner_e}")
+                            await message.answer(display_text, attachment=photo_attachment)
                     except Exception as e:
                         kb_json = await get_sections_keyboard(vk_id, user)
-                        await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{display_text}", keyboard=kb_json)
+                        try:
+                            await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{display_text}", keyboard=kb_json)
+                        except Exception as inner_e2:
+                            print(f"Error sending message with error text and keyboard: {inner_e2}")
+                            await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{display_text}")
                 else:
                     kb_json = await get_sections_keyboard(vk_id, user)
-                    await message.answer(f"{display_text}", keyboard=kb_json)
+                    try:
+                        await message.answer(f"{display_text}", keyboard=kb_json)
+                    except Exception as e:
+                        print(f"Error sending display text with keyboard: {e}")
+                        await message.answer(f"{display_text}")
 
                 if target_section == "final":
                     # Generate summary for memory
@@ -536,7 +568,11 @@ async def main():
                         await update_user(vk_id, {"core_profile": core_profile})
             else:
                 kb_json = await get_sections_keyboard(vk_id, user)
-                await message.answer(result_text, keyboard=kb_json)
+                try:
+                    await message.answer(result_text, keyboard=kb_json)
+                except Exception as e:
+                    print(f"Error sending text with keyboard: {e}")
+                    await message.answer(result_text)
 
         finally:
             active_tasks.discard(vk_id)
