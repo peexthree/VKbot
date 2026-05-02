@@ -39,48 +39,6 @@ async def main():
 
         return keyboard.get_json()
 
-    def get_inline_profile_keyboard(user: dict | None) -> str:
-        import json
-
-        purchased = user.get("purchased_sections", {}) if user else {}
-
-        buttons = []
-
-        # Секс
-        if not purchased.get("sex"):
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
-            buttons.append([{"action": action_obj}])
-
-        # Деньги
-        if not purchased.get("money"):
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
-            buttons.append([{"action": action_obj}])
-
-        # Тень
-        if not purchased.get("shadow"):
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
-            buttons.append([{"action": action_obj}])
-
-        # Финал
-        if not purchased.get("final"):
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
-            buttons.append([{"action": action_obj}])
-
-        # Бандл: если куплено меньше двух разделов
-        purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
-        if purchased_count < 2:
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
-            buttons.append([{"action": action_obj}])
-
-        # Кнопка возврата в меню
-        buttons.append([{"action": {"type": "text", "label": "В ГЛАВНОЕ МЕНЮ"}, "color": "primary"}])
-
-        keyboard_obj = {
-            "inline": True,
-            "buttons": buttons
-        }
-
-        return json.dumps(keyboard_obj, ensure_ascii=False)
 
     async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
         import json
@@ -177,12 +135,14 @@ async def main():
             import json
             # Если вк вернул bdate (в формате D.M.YYYY) и город
             if bdate and city:
-                await set_user_state(vk_id, json.dumps({"step": "time", "date": bdate, "city": city}))
+                await set_user_state(vk_id, json.dumps({"step": "confirm_data", "date": bdate, "city": city}))
                 kb = Keyboard(inline=True)
-                kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
+                kb.add(Text("ВЕРНО"), color=KeyboardButtonColor.POSITIVE)
+                kb.add(Text("ИЗМЕНИТЬ"), color=KeyboardButtonColor.NEGATIVE)
                 await message.answer(
-                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}. Твой город ({city}) и дата рождения ({bdate}) загружены.\n"
-                    "Укажите ВРЕМЯ рождения (например, 14:30):", keyboard=kb.get_json()
+                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}.\n"
+                    f"ТВОЙ ГОРОД - {city}, ДАТА РОЖДЕНИЯ - {bdate}. ЭТИ ДАННЫЕ ВЕРНЫ? СИСТЕМА НЕ ПРОЩАЕТ ОШИБОК ПРИ РАСЧЕТЕ СУДЬБЫ.",
+                    keyboard=kb.get_json()
                 )
             elif bdate:
                 await set_user_state(vk_id, json.dumps({"step": "time", "date": bdate}))
@@ -205,6 +165,44 @@ async def main():
                     f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\n{greeting}\n"
                     "Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):"
                 )
+        finally:
+            active_tasks.discard(vk_id)
+
+    async def is_waiting_confirm_data(message: Message) -> bool:
+        if message.text and message.text.lower() in ["начать", "start", "/start"]:
+            return False
+        state_dict = await get_fsm_step(message.from_id)
+        return state_dict is not None and state_dict.get("step") == "confirm_data"
+
+    @bot.on.message(func=is_waiting_confirm_data)
+    async def process_confirm_data(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            text = message.text.strip().lower()
+            state_dict = await get_fsm_step(vk_id)
+
+            import json
+
+            if text == "верно":
+                date_str = state_dict.get("date", "")
+                city_str = state_dict.get("city", "")
+
+                await set_user_state(vk_id, json.dumps({"step": "time", "date": date_str, "city": city_str}))
+                kb = Keyboard(inline=True)
+                kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
+                await message.answer("Укажите ВРЕМЯ рождения (например, 14:30):", keyboard=kb.get_json())
+            elif text == "изменить":
+                await set_user_state(vk_id, json.dumps({"step": "date"}))
+                await message.answer("Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):")
+            else:
+                kb = Keyboard(inline=True)
+                kb.add(Text("ВЕРНО"), color=KeyboardButtonColor.POSITIVE)
+                kb.add(Text("ИЗМЕНИТЬ"), color=KeyboardButtonColor.NEGATIVE)
+                await message.answer("Используйте кнопки 'ВЕРНО' или 'ИЗМЕНИТЬ'.", keyboard=kb.get_json())
         finally:
             active_tasks.discard(vk_id)
 
@@ -274,6 +272,7 @@ async def main():
             if city_str_existing:
                 await message.answer("Анализирую координаты...")
                 await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+                await asyncio.sleep(5)
 
                 user = await update_user(vk_id, {
                     "birth_date": date_str,
@@ -294,19 +293,32 @@ async def main():
                 if base_text:
                     if first_name:
                         base_text = f"{first_name},\n\n" + base_text
+
                     kb_json = await get_sections_keyboard(vk_id, user)
-                    try:
-                        await message.answer(
-                            base_text,
-                            keyboard=kb_json
-                        )
-                    except Exception as e:
-                        print(f"Error sending message with keyboard in process_time: {e}")
+
+                    # Split base_text if "БАЗА" exists
+                    import re
+                    parts = re.split(r"(?i)\bБАЗА\b", base_text, maxsplit=1)
+
+                    if len(parts) > 1:
+                        intro = parts[0].strip()
+                        main_part = "БАЗА\n" + parts[1].strip()
+
+                        await message.answer(intro)
+                        await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+                        await asyncio.sleep(4)
+
                         try:
-                            # Fallback without keyboard
+                            await message.answer(main_part, keyboard=kb_json)
+                        except Exception as e:
+                            print(f"Error sending message with keyboard in process_time: {e}")
+                            await message.answer(main_part)
+                    else:
+                        try:
+                            await message.answer(base_text, keyboard=kb_json)
+                        except Exception as e:
+                            print(f"Error sending message with keyboard in process_time: {e}")
                             await message.answer(base_text)
-                        except Exception as e_fallback:
-                            print(f"Fallback send failed in process_time: {e_fallback}")
                 else:
                     try:
                         await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
@@ -341,6 +353,7 @@ async def main():
 
             await message.answer("Анализирую координаты...")
             await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+            await asyncio.sleep(5)
 
             # Мгновенный коммит
             user = await update_user(vk_id, {
@@ -366,22 +379,40 @@ async def main():
             if base_text:
                 if first_name:
                     base_text = f"{first_name},\n\n" + base_text
+
+                kb_json = await get_sections_keyboard(vk_id, user)
+
+                import re
+                parts = re.split(r"(?i)\bБАЗА\b", base_text, maxsplit=1)
+
+                if len(parts) > 1:
+                    intro = parts[0].strip()
+                    main_part = "✦ БАЗА ✦\n\n" + parts[1].strip()
+
+                    await message.answer(intro)
+                    await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+                    await asyncio.sleep(4)
+
+                    try:
+                        await message.answer(main_part, keyboard=kb_json)
+                    except Exception as e:
+                        print(f"Error sending message with keyboard in process_city: {e}")
+                        await message.answer(main_part)
+                else:
+                    full_text = f"✦ БАЗА ✦\n\n{base_text}"
+                    try:
+                        await message.answer(full_text, keyboard=kb_json)
+                    except Exception as e:
+                        print(f"Error sending message with keyboard in process_city: {e}")
+                        await message.answer(full_text)
             else:
                 base_text = "ДАННЫЕ СОХРАНЕНЫ. СИСТЕМА В ОЖИДАНИИ."
-
-            # Отправляем базу с кнопками покупки остальных разделов
-            kb_json = await get_sections_keyboard(vk_id, user)
-            try:
-                await message.answer(
-                    f"✦ БАЗА ✦\n\n{base_text}",
-                    keyboard=kb_json
-                )
-            except Exception as e:
-                print(f"Error sending message with keyboard in process_city: {e}")
+                kb_json = await get_sections_keyboard(vk_id, user)
                 try:
+                    await message.answer(f"✦ БАЗА ✦\n\n{base_text}", keyboard=kb_json)
+                except Exception as e:
                     await message.answer(f"✦ БАЗА ✦\n\n{base_text}")
-                except Exception as e_fallback:
-                    print(f"Fallback send failed in process_city: {e_fallback}")
+
             # Отправляем навигатор отдельно
             try:
                 await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
@@ -393,6 +424,7 @@ async def main():
 
     @bot.on.message(text=["✦ Мой профиль", "Мой профиль"])
     async def show_profile(message: Message):
+        import json
         vk_id = message.from_id
         user = await get_user(vk_id)
         if not user:
@@ -407,30 +439,77 @@ async def main():
 
         name_line = f"ИМЯ: {first_name}\n" if first_name else ""
 
-        # Генерируем прайс-лист для некупленных разделов
-        price_list = []
+        elements = []
+
         if not purchased.get("sex"):
-            price_list.append("ГРЯЗНЫЕ СЕКРЕТЫ (СЕКС) - 100 РУБ")
+            elements.append({
+                "title": "ГРЯЗНЫЕ СЕКРЕТЫ",
+                "description": "СЕКС - 100 РУБ",
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
+                }]
+            })
+
         if not purchased.get("money"):
-            price_list.append("МАГНИТ ДЛЯ КРИПТЫ (ДЕНЬГИ) - 90 РУБ")
+            elements.append({
+                "title": "МАГНИТ ДЛЯ КРИПТЫ",
+                "description": "ДЕНЬГИ - 90 РУБ",
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
+                }]
+            })
+
         if not purchased.get("shadow"):
-            price_list.append("ТЕМНЫЕ ДЕМОНЫ (ТЕНЬ) - 70 РУБ")
+            elements.append({
+                "title": "ТЕМНЫЕ ДЕМОНЫ",
+                "description": "ТЕНЬ - 70 РУБ",
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
+                }]
+            })
+
         if not purchased.get("final"):
-            price_list.append("ПОЛНЫЙ РАСКЛАД (ФИНАЛ) - 120 РУБ")
+            elements.append({
+                "title": "ПОЛНЫЙ РАСКЛАД",
+                "description": "ФИНАЛ - 120 РУБ",
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
+                }]
+            })
 
         purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
         if purchased_count < 2:
-            price_list.append("ВЕСЬ ПАКЕТ СУДЬБЫ - 300 РУБ")
+            elements.append({
+                "title": "ВЕСЬ ПАКЕТ СУДЬБЫ",
+                "description": "БАНДЛ - 300 РУБ",
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
+                }]
+            })
 
-        price_text = "\n\n" + "\n\n".join(price_list) if price_list else ""
+        status_text = ""
+        template_json = None
+
+        if elements:
+            template = {
+                "type": "carousel",
+                "elements": elements
+            }
+            template_json = json.dumps(template, ensure_ascii=False)
+        else:
+            status_text = "\n\nВСЕ РАЗДЕЛЫ ОТКРЫТЫ."
 
         profile_text = (
             f"✦ ПРОФИЛЬ АСКЕТА ✦\n\n"
             f"{name_line}ТОЧКА ВХОДА: {date} {time}\n"
             f"ЛОКАЦИЯ: {city}"
-            f"{price_text}"
+            f"{status_text}"
         )
-        await message.answer(profile_text, keyboard=get_inline_profile_keyboard(user))
+
+        if template_json:
+            await message.answer(profile_text, template=template_json)
+        else:
+            await message.answer(profile_text)
 
 
     @bot.on.raw_event(GroupEventType.VKPAY_TRANSACTION, dataclass=dict)
@@ -518,6 +597,39 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
+    @bot.on.message(text=["ЛАЙН ГОЛОС"])
+    async def god_mode_handler(message: Message):
+        vk_id = message.from_id
+
+        if vk_id in active_tasks:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            user = await get_user(vk_id)
+            if not user:
+                await message.answer("Сначала напиши 'Начать'")
+                return
+
+            purchased = user.get("purchased_sections", {})
+            purchased["sex"] = True
+            purchased["money"] = True
+            purchased["shadow"] = True
+            purchased["final"] = True
+
+            await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
+
+            # Need to get updated user for keyboard
+            user = await get_user(vk_id)
+            kb_json = await get_sections_keyboard(vk_id, user)
+
+            await message.answer(
+                "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ ИГОРЬ.",
+                keyboard=kb_json
+            )
+        finally:
+            active_tasks.discard(vk_id)
+
     @bot.on.message(text=["В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
     async def back_to_main_menu(message: Message):
         vk_id = message.from_id
@@ -573,6 +685,7 @@ async def main():
         active_tasks.add(vk_id)
         try:
             await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+            await asyncio.sleep(5)
 
             date = user.get("birth_date", "неизвестно")
             time = user.get("birth_time", "неизвестно")
@@ -593,15 +706,18 @@ async def main():
 
             if target_section in ["sex", "money", "shadow", "final"]:
                 import re
-                match = re.search(r"ID_ТАРО:\s*(\d+)", result_text)
+                match = re.search(r"ID_?ТАРО:\s*(\d+)", result_text)
                 card_id = "0"
                 if match:
                     num = int(match.group(1))
                     if 0 <= num <= 77:
                         card_id = str(num)
 
+                print(f"[DEBUG] Parsed Card ID: {card_id}")
+
                 # Fetch image from github
-                image_url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{card_id}.jpeg"
+                ext = "jpeg" if int(card_id) <= 21 else "png"
+                image_url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{card_id}.{ext}"
                 image_bytes = None
                 try:
                     import aiohttp
@@ -609,37 +725,68 @@ async def main():
                         async with session.get(image_url) as resp:
                             if resp.status == 200:
                                 image_bytes = await resp.read()
+                            else:
+                                print(f"[DEBUG] Failed to fetch image, status: {resp.status}, url: {image_url}")
                 except Exception as e:
                     print(f"Failed to fetch tarot card {card_id}: {e}")
 
                 # Убираем техническую строку с ID_ТАРО из финального текста
-                display_text = re.sub(r"ID_ТАРО:\s*\d+", "", result_text).strip()
+                display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
 
+                # Split display_text if the section header exists (e.g. "СЕКС", "ДЕНЬГИ", "ТЕНЬ", "ФИНАЛ")
+                section_header = target_section_ru = {
+                    "sex": "СЕКС",
+                    "money": "ДЕНЬГИ",
+                    "shadow": "ТЕНЬ",
+                    "final": "ФИНАЛ"
+                }[target_section]
+
+                parts = re.split(rf"(?i)\b{section_header}\b", display_text, maxsplit=1)
+
+                intro = ""
+                main_part = display_text
+
+                if len(parts) > 1:
+                    intro = parts[0].strip()
+                    main_part = f"{section_header}\n" + parts[1].strip()
+
+                photo_attachment = None
                 if image_bytes:
                     try:
                         from vkbottle import PhotoMessageUploader
                         uploader = PhotoMessageUploader(bot.api)
                         photo_attachment = await uploader.upload(image_bytes, peer_id=vk_id)
-                        kb_json = await get_sections_keyboard(vk_id, user)
-                        try:
-                            await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
-                        except Exception as inner_e:
-                            print(f"Error sending message with attachment and keyboard: {inner_e}")
-                            await message.answer(display_text, attachment=photo_attachment)
                     except Exception as e:
-                        kb_json = await get_sections_keyboard(vk_id, user)
-                        try:
-                            await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{display_text}", keyboard=kb_json)
-                        except Exception as inner_e2:
-                            print(f"Error sending message with error text and keyboard: {inner_e2}")
-                            await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{display_text}")
-                else:
-                    kb_json = await get_sections_keyboard(vk_id, user)
+                        print(f"Error uploading image: {e}")
+
+                kb_json = await get_sections_keyboard(vk_id, user)
+
+                if intro:
+                    if photo_attachment:
+                        await message.answer(intro, attachment=photo_attachment)
+                    else:
+                        await message.answer(intro)
+
+                    await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+                    await asyncio.sleep(4)
+
                     try:
-                        await message.answer(f"{display_text}", keyboard=kb_json)
+                        await message.answer(main_part, keyboard=kb_json)
                     except Exception as e:
-                        print(f"Error sending display text with keyboard: {e}")
-                        await message.answer(f"{display_text}")
+                        print(f"Error sending message with keyboard: {e}")
+                        await message.answer(main_part)
+                else:
+                    try:
+                        if photo_attachment:
+                            await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
+                        else:
+                            await message.answer(display_text, keyboard=kb_json)
+                    except Exception as inner_e:
+                        print(f"Error sending message with attachment and keyboard: {inner_e}")
+                        if photo_attachment:
+                            await message.answer(display_text, attachment=photo_attachment)
+                        else:
+                            await message.answer(display_text)
 
                 if target_section == "final":
                     # Generate summary for memory
