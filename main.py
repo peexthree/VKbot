@@ -22,7 +22,7 @@ async def main():
     from vkbottle import Bot, Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
     from vkbottle.bot import Message
     from database import get_user, create_user, update_user, init_db, get_user_state, set_user_state
-    from ai_service import generate_text, generate_image
+    from ai_service import generate_text
 
     vk_token = os.environ.get("VK_TOKEN", "")
     bot = Bot(token=vk_token)
@@ -578,25 +578,10 @@ async def main():
             )
             card_text = await generate_text(text_prompt)
 
-            # Генерация изображения карты
-            image_prompt = (
-                "Стиль Премиум минимализм. Темный графитовый фон, тонкие линии из матового золота. "
-                "Абстрактная карта таро. Сакральная геометрия, строгие формы. "
-                "Изображение должно излучать спокойствие, роскошь и древнюю власть."
-            )
-            image_bytes = await generate_image(image_prompt)
-
-            if card_text and image_bytes:
-                try:
-                    uploader = PhotoMessageUploader(bot.api)
-                    photo_attachment = await uploader.upload(image_bytes, peer_id=message.peer_id)
-                    await message.answer(card_text, attachment=photo_attachment, keyboard=get_dynamic_keyboard(user))
-                except Exception as e:
-                    await message.answer(f"Аркан вытянут, но визуализация недоступна.\n\n{card_text}", keyboard=get_dynamic_keyboard(user))
-            elif card_text:
-                await message.answer(f"Визуализация недоступна.\n\n{card_text}", keyboard=get_dynamic_keyboard(user))
+            if card_text:
+                await message.answer(card_text, keyboard=get_dynamic_keyboard(user))
             else:
-                await message.answer("Колода молчит. Попробуйте позже.")
+                await message.answer("Колода молчит. Попробуйте позже.", keyboard=get_dynamic_keyboard(user))
 
         finally:
             active_tasks.discard(vk_id)
