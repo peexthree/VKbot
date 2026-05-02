@@ -59,16 +59,90 @@ async def main():
         keyboard.add(Text("Пополнить баланс"), color=KeyboardButtonColor.POSITIVE)
         return keyboard.get_json()
 
-    def get_inline_buy_full_chart(user_id: int) -> str:
+    import uuid
+    async def create_yookassa_payment(amount: int, description: str, user_id: int, section: str, host: str) -> str:
+        shop_id = os.environ.get("YOOKASSA_SHOP_ID")
+        secret_key = os.environ.get("YOOKASSA_SECRET_KEY")
+        if not shop_id or not secret_key:
+            return f"{host}/payment/webhook?user_id={user_id}&amount={amount}&section={section}&secret=dummy_secret_123"
+
+        import aiohttp
+        url = "https://api.yookassa.ru/v3/payments"
+        auth = aiohttp.BasicAuth(shop_id, secret_key)
+        headers = {
+            "Idempotence-Key": str(uuid.uuid4()),
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "amount": {
+                "value": f"{amount}.00",
+                "currency": "RUB"
+            },
+            "capture": True,
+            "confirmation": {
+                "type": "redirect",
+                "return_url": "https://vk.com/"
+            },
+            "description": description,
+            "metadata": {
+                "user_id": str(user_id),
+                "section": section
+            }
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers, auth=auth) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data["confirmation"]["confirmation_url"]
+                else:
+                    return f"{host}/payment/webhook?user_id={user_id}&amount={amount}&section={section}&secret=dummy_secret_123"
+
+    async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
         from vkbottle import OpenLink
         keyboard = Keyboard(inline=True)
         port = os.environ.get("PORT", 10000)
-        # Assuming the Render app URL or local, we just provide a dummy localhost link for now
-        # But we need a host. Render provides RENDER_EXTERNAL_URL
         host = os.environ.get("RENDER_EXTERNAL_URL", f"http://localhost:{port}")
-        payment_url = f"{host}/payment/webhook?user_id={user_id}&amount=990&secret=dummy_secret_123"
 
-        keyboard.add(OpenLink(payment_url, "Оплатить разбор (990₽)"))
+        purchased = user.get("purchased_sections", {}) if user else {}
+
+        # Секс
+        if purchased.get("sex"):
+            keyboard.add(Text("✦ СЕКС (Открыто)"), color=KeyboardButtonColor.POSITIVE)
+        else:
+            pay_url = await create_yookassa_payment(99, "СЕКС", user_id, "sex", host)
+            keyboard.add(OpenLink(pay_url, "✦ СЕКС за 99р"))
+        keyboard.row()
+
+        # Деньги
+        if purchased.get("money"):
+            keyboard.add(Text("✦ ДЕНЬГИ (Открыто)"), color=KeyboardButtonColor.POSITIVE)
+        else:
+            pay_url = await create_yookassa_payment(99, "ДЕНЬГИ", user_id, "money", host)
+            keyboard.add(OpenLink(pay_url, "✦ ДЕНЬГИ за 99р"))
+        keyboard.row()
+
+        # Тень
+        if purchased.get("shadow"):
+            keyboard.add(Text("✦ ТЕНЬ (Открыто)"), color=KeyboardButtonColor.POSITIVE)
+        else:
+            pay_url = await create_yookassa_payment(99, "ТЕНЬ", user_id, "shadow", host)
+            keyboard.add(OpenLink(pay_url, "✦ ТЕНЬ за 99р"))
+        keyboard.row()
+
+        # Финал
+        if purchased.get("final"):
+            keyboard.add(Text("✦ ФИНАЛ (Открыто)"), color=KeyboardButtonColor.POSITIVE)
+        else:
+            pay_url = await create_yookassa_payment(99, "ФИНАЛ", user_id, "final", host)
+            keyboard.add(OpenLink(pay_url, "✦ ФИНАЛ за 99р"))
+
+        # Кнопка бандла, если не все куплено
+        if not all([purchased.get("sex"), purchased.get("money"), purchased.get("shadow"), purchased.get("final")]):
+            keyboard.row()
+            pay_url_all = await create_yookassa_payment(399, "ОТКРЫТЬ ВСЁ", user_id, "all", host)
+            keyboard.add(OpenLink(pay_url_all, "✦ ОТКРЫТЬ ВСЁ ЗА 399р"))
+
         return keyboard.get_json()
 
     @bot.on.message(text=["Начать", "start", "/start"])
@@ -85,75 +159,128 @@ async def main():
             else:
                 if not user:
                     await create_user(vk_id, "", "", "")
-                await set_user_state(vk_id, "registration")
+                import json
+                await set_user_state(vk_id, json.dumps({"step": "date"}))
 
-                kb = Keyboard(inline=True)
-                kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
                 await message.answer(
-                    "СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nУкажите дату, время и город вашего прихода в этот мир в любом удобном формате.",
-                    keyboard=kb.get_json()
+                    "СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nУкажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):"
                 )
         finally:
             active_tasks.discard(vk_id)
 
-    async def is_waiting_data(message: Message) -> bool:
+    async def get_fsm_step(vk_id: int) -> dict | None:
+        state = await get_user_state(vk_id)
+        if not state:
+            return None
+        try:
+            import json
+            return json.loads(state)
+        except:
+            if state == "registration":
+                return {"step": "date"}
+            return None
+
+    async def is_waiting_date(message: Message) -> bool:
         if message.text and message.text.lower() in ["начать", "start", "/start"]:
             return False
-        state = await get_user_state(message.from_id)
-        return state == "registration"
+        state_dict = await get_fsm_step(message.from_id)
+        return state_dict is not None and state_dict.get("step") == "date"
 
-    @bot.on.message(func=is_waiting_data)
-    async def process_data(message: Message):
+    @bot.on.message(func=is_waiting_date)
+    async def process_date(message: Message):
         vk_id = message.from_id
         if vk_id in active_tasks:
             return
 
         active_tasks.add(vk_id)
         try:
+            date_str = message.text.strip()
+
+            # В реальном проекте тут нужна валидация даты
+            import json
+            await set_user_state(vk_id, json.dumps({"step": "time", "date": date_str}))
+
+            kb = Keyboard(inline=True)
+            kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
+            await message.answer("Укажите ВРЕМЯ рождения (например, 14:30):", keyboard=kb.get_json())
+        finally:
+            active_tasks.discard(vk_id)
+
+    async def is_waiting_time(message: Message) -> bool:
+        if message.text and message.text.lower() in ["начать", "start", "/start"]:
+            return False
+        state_dict = await get_fsm_step(message.from_id)
+        return state_dict is not None and state_dict.get("step") == "time"
+
+    @bot.on.message(func=is_waiting_time)
+    async def process_time(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            time_str = message.text.strip()
+            if time_str.lower() == "не знаю время" or time_str.lower() == "не знаю время (12:00)":
+                time_str = "12:00"
+
+            state_dict = await get_fsm_step(vk_id)
+            date_str = state_dict.get("date", "")
+
+            import json
+            await set_user_state(vk_id, json.dumps({"step": "city", "date": date_str, "time": time_str}))
+
+            await message.answer("Укажите ГОРОД рождения:")
+        finally:
+            active_tasks.discard(vk_id)
+
+    async def is_waiting_city(message: Message) -> bool:
+        if message.text and message.text.lower() in ["начать", "start", "/start"]:
+            return False
+        state_dict = await get_fsm_step(message.from_id)
+        return state_dict is not None and state_dict.get("step") == "city"
+
+    @bot.on.message(func=is_waiting_city)
+    async def process_city(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            city_str = message.text.strip()
+            state_dict = await get_fsm_step(vk_id)
+
+            date = state_dict.get("date", "")
+            time = state_dict.get("time", "")
+            city = city_str
+
             await message.answer("Анализирую координаты...")
             await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
 
-            # Support "Не знаю время (12:00)" button fallback
-            user_text = message.text
-            if user_text.lower() == "не знаю время" or user_text.lower() == "не знаю время (12:00)":
-                user_text = "Я не знаю время своего рождения, но вот мои дата и город (попробуй найти их в предыдущих сообщениях или попроси пользователя ввести)."
-                await message.answer("Хорошо, время установлено на 12:00. Напишите дату и город.")
-                return
-
-            from ai_service import extract_birth_data
-            data = await extract_birth_data(user_text)
-
-            if not data or not data.get("date") or not data.get("city"):
-                await message.answer("СИСТЕМА НЕ СМОГЛА РАСПОЗНАТЬ ДАННЫЕ.\n\nПожалуйста, уточните дату, время и город.")
-                return
-
-            date = data["date"]
-            time = data["time"]
-            city = data["city"]
-
-            await update_user(vk_id, {
+            user = await update_user(vk_id, {
                 "birth_date": date,
                 "birth_time": time,
                 "birth_city": city,
                 "free_teaser_used": True
             })
+            if not user:
+                await message.answer("СИСТЕМА ДАЛА СБОЙ. Не удалось сохранить данные. Повторите попытку.")
+                return
+
             await set_user_state(vk_id, "")
 
-            prompt = (
-                f"Ты премиальный психолог-астролог. Составь короткий, интригующий тизер личности (2-3 абзаца) "
-                f"по данным: дата {date}, время {time}, город {city}. "
-                f"Избегай банальностей. Используй юнгианские архетипы, анализ теневой стороны. "
-                f"Текст должен быть строгим, проницательным. Это лид-магнит. Закончи мысль на самом интересном месте."
-            )
-            teaser = await generate_text(prompt)
-            if not teaser:
-                teaser = "ДАННЫЕ СОХРАНЕНЫ. СИСТЕМА В ОЖИДАНИИ."
+            from ai_service import generate_section
+            base_text = await generate_section("base", date, time, city)
+            if not base_text:
+                base_text = "ДАННЫЕ СОХРАНЕНЫ. СИСТЕМА В ОЖИДАНИИ."
 
             user = await get_user(vk_id)
-            # Отправляем тизер с инлайн кнопкой покупки
+            # Отправляем базу с кнопками покупки остальных разделов
+            kb_json = await get_sections_keyboard(vk_id, user)
             await message.answer(
-                f"✦ ПЕРВИЧНЫЙ СРЕЗ\n\n{teaser}",
-                keyboard=get_inline_buy_full_chart(vk_id)
+                f"✦ БАЗА ✦\n\n{base_text}",
+                keyboard=kb_json
             )
             # Отправляем навигатор отдельно
             await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
@@ -184,7 +311,7 @@ async def main():
         )
         await message.answer(profile_text, keyboard=get_inline_profile_keyboard())
 
-    async def process_payment_and_generate(vk_id: int):
+    async def process_payment_and_generate(vk_id: int, section: str):
         if vk_id in active_tasks:
             return
         user = await get_user(vk_id)
@@ -193,59 +320,124 @@ async def main():
 
         active_tasks.add(vk_id)
         try:
-            await bot.api.messages.send(peer_id=vk_id, message="Входящий платеж подтвержден.\n\nВрата открыты. Генерирую полный разбор и сакральную визуальную карту... Это займет около минуты.", random_id=0)
-            await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-
             # Mark as purchased in database
-            await update_user(vk_id, {"has_full_chart": True})
+            purchased = user.get("purchased_sections", {})
+            if section == "all":
+                purchased = {"sex": True, "money": True, "shadow": True, "final": True}
+                await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
+                await bot.api.messages.send(peer_id=vk_id, message="ОПЛАТА УСПЕШНА.\n\nВсе Врата открыты.", random_id=0)
+            elif section in purchased:
+                purchased[section] = True
+                updates = {"purchased_sections": purchased}
+                if all(purchased.values()):
+                    updates["has_full_chart"] = True
+                await update_user(vk_id, updates)
+                await bot.api.messages.send(peer_id=vk_id, message="ОПЛАТА УСПЕШНА.\n\nРаздел открыт.", random_id=0)
+
+            user = await get_user(vk_id)
+            kb_json = await get_sections_keyboard(vk_id, user)
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message="Используйте меню для вызова нужного раздела:",
+                keyboard=kb_json,
+                random_id=0
+            )
+
+        finally:
+            active_tasks.discard(vk_id)
+
+    @bot.on.message(text=["✦ СЕКС (Открыто)", "✦ ДЕНЬГИ (Открыто)", "✦ ТЕНЬ (Открыто)", "✦ ФИНАЛ (Открыто)"])
+    async def handle_section_request(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            return
+
+        purchased = user.get("purchased_sections", {})
+        text_lower = message.text.lower()
+
+        section_map = {
+            "секс": "sex",
+            "деньги": "money",
+            "тень": "shadow",
+            "финал": "final"
+        }
+
+        target_section = None
+        for key in section_map:
+            if key in text_lower:
+                target_section = section_map[key]
+                break
+
+        if not target_section or not purchased.get(target_section):
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
 
             date = user.get("birth_date", "неизвестно")
             time = user.get("birth_time", "неизвестно")
             city = user.get("birth_city", "неизвестно")
 
-            text_prompt = (
-                f"Ты премиальный психолог-астролог. Составь глубокий и полный анализ личности "
-                f"по данным: дата {date}, время {time}, город {city}. "
-                f"Избегай банальностей и ванильной астрологии. Используй юнгианские архетипы, "
-                f"анализ теневой стороны личности и кармических узлов. Текст должен быть строгим, "
-                f"проницательным, с долей холодного интеллекта. Пиши так, чтобы человек почувствовал "
-                f"легкий шок от того, насколько точно вскрыты его скрытые мотивы."
-            )
-            full_text = await generate_text(text_prompt)
+            from ai_service import generate_section
+            result_text = await generate_section(target_section, date, time, city)
 
-            # Генерируем выжимку для памяти (core_profile)
-            if full_text:
-                summary_prompt = (
-                    f"Сделай очень короткую выжимку (психологический профиль, 2-3 предложения) "
-                    f"из этого текста: {full_text[:1000]}. Это нужно для системной памяти бота."
-                )
-                core_profile = await generate_text(summary_prompt)
-                if core_profile:
-                    await update_user(vk_id, {"core_profile": core_profile})
+            if not result_text:
+                kb_json = await get_sections_keyboard(vk_id, user)
+                await message.answer("Ошибка генерации.", keyboard=kb_json)
+                return
 
-            image_prompt = (
-                "Стиль Премиум минимализм. Темный графитовый фон, тонкие линии из матового золота. "
-                "Создай абстрактную карту таро. Включи элементы строгой сакральной геометрии. "
-                "Добавь легкие, едва уловимые отсылки к египетской мифологии, например, строгий профиль "
-                "Анубиса или золотые весы, стилизованные под созвездия. Никакого киберпанка, глитчей или "
-                "хакерских элементов. Изображение должно излучать спокойствие, роскошь и древнюю власть."
-            )
-            image_bytes = await generate_image(image_prompt)
+            if target_section == "final":
+                import re
+                match = re.search(r"ID_ТАРО:\s*(\d+)", result_text)
+                card_id = "0"
+                if match:
+                    num = int(match.group(1))
+                    if 0 <= num <= 77:
+                        card_id = str(num)
 
-            user = await get_user(vk_id)
-            if full_text:
+                # Fetch image from github
+                image_url = f"https://raw.githubusercontent.com/cyber-olesya/tarot-cards/main/cards/{card_id}.png"
+                image_bytes = None
+                try:
+                    import aiohttp
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(image_url) as resp:
+                            if resp.status == 200:
+                                image_bytes = await resp.read()
+                except Exception as e:
+                    print(f"Failed to fetch tarot card {card_id}: {e}")
+
                 if image_bytes:
                     try:
                         from vkbottle import PhotoMessageUploader
                         uploader = PhotoMessageUploader(bot.api)
                         photo_attachment = await uploader.upload(image_bytes, peer_id=vk_id)
-                        await bot.api.messages.send(peer_id=vk_id, message=full_text, attachment=photo_attachment, keyboard=get_dynamic_keyboard(user), random_id=0)
+                        kb_json = await get_sections_keyboard(vk_id, user)
+                        await message.answer(result_text, attachment=photo_attachment, keyboard=kb_json)
                     except Exception as e:
-                        await bot.api.messages.send(peer_id=vk_id, message=f"Текст сгенерирован, но ошибка с фото: {e}\n\n{full_text}", keyboard=get_dynamic_keyboard(user), random_id=0)
+                        kb_json = await get_sections_keyboard(vk_id, user)
+                        await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{result_text}", keyboard=kb_json)
                 else:
-                    await bot.api.messages.send(peer_id=vk_id, message=f"Не удалось сгенерировать изображение.\n\n{full_text}", keyboard=get_dynamic_keyboard(user), random_id=0)
+                    kb_json = await get_sections_keyboard(vk_id, user)
+                    await message.answer(f"{result_text}", keyboard=kb_json)
+
+                # Generate summary for memory
+                from ai_service import generate_text
+                summary_prompt = (
+                    f"Сделай очень короткую выжимку (психологический профиль, 2-3 предложения) "
+                    f"из этого текста: {result_text[:1000]}. Это нужно для системной памяти бота."
+                )
+                core_profile = await generate_text(summary_prompt)
+                if core_profile:
+                    await update_user(vk_id, {"core_profile": core_profile})
             else:
-                await bot.api.messages.send(peer_id=vk_id, message="Произошла ошибка при генерации разбора.", random_id=0)
+                kb_json = await get_sections_keyboard(vk_id, user)
+                await message.answer(result_text, keyboard=kb_json)
 
         finally:
             active_tasks.discard(vk_id)
@@ -500,21 +692,35 @@ async def main():
     
     async def payment_webhook(request):
         try:
-            # We simulate a webhook via POST to simulate real YooKassa
-            data = await request.post() if request.method == "POST" else request.query
-            user_id_str = data.get('user_id')
-            secret = data.get('secret')
+            import json
+            user_id_str = None
+            section = None
 
-            # Simple security check for our dummy webhook
-            if secret != "dummy_secret_123":
-                return web.Response(text="Unauthorized", status=401)
+            if request.method == "POST":
+                try:
+                    data = await request.json()
+                    # YooKassa webhook format
+                    if data.get("event") == "payment.succeeded":
+                        metadata = data.get("object", {}).get("metadata", {})
+                        user_id_str = metadata.get("user_id")
+                        section = metadata.get("section")
+                except json.JSONDecodeError:
+                    # fallback for dummy form post
+                    data = await request.post()
+                    user_id_str = data.get('user_id')
+                    section = data.get('section')
+            else:
+                data = request.query
+                user_id_str = data.get('user_id')
+                section = data.get('section')
 
-            if not user_id_str:
-                return web.Response(text="Missing user_id", status=400)
+            if not user_id_str or not section:
+                return web.Response(text="Missing user_id or section", status=400)
             user_id = int(user_id_str)
+            print("Платеж получен")
 
             # Fire and forget the processing
-            asyncio.create_task(process_payment_and_generate(user_id))
+            asyncio.create_task(process_payment_and_generate(user_id, section))
 
             return web.Response(text="Payment processed successfully! You can close this window and return to the bot.")
         except Exception as e:
