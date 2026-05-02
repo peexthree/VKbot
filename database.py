@@ -38,7 +38,7 @@ async def get_all_subscribed_users() -> list[Dict[str, Any]]:
         return []
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?is_subscribed=eq.true", headers=HEADERS) as r:
+            async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?has_full_chart=eq.true", headers=HEADERS) as r:
                 if r.status == 200:
                     data = await r.json()
                     return data
@@ -79,7 +79,6 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "birth_city": birth_city,
         "partners": [],
         "has_full_chart": False,
-        "free_card_used": False,
         "purchased_sections": {"sex": False, "money": False, "shadow": False, "final": False}
     }
     try:
