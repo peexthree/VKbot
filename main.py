@@ -59,89 +59,42 @@ async def main():
         keyboard.add(Text("Пополнить баланс"), color=KeyboardButtonColor.POSITIVE)
         return keyboard.get_json()
 
-    import uuid
-    async def create_yookassa_payment(amount: int, description: str, user_id: int, section: str, host: str) -> str:
-        shop_id = os.environ.get("YOOKASSA_SHOP_ID")
-        secret_key = os.environ.get("YOOKASSA_SECRET_KEY")
-        if not shop_id or not secret_key:
-            return f"{host}/payment/webhook?user_id={user_id}&amount={amount}&section={section}&secret=dummy_secret_123"
-
-        import aiohttp
-        url = "https://api.yookassa.ru/v3/payments"
-        auth = aiohttp.BasicAuth(shop_id, secret_key)
-        headers = {
-            "Idempotence-Key": str(uuid.uuid4()),
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "amount": {
-                "value": f"{amount}.00",
-                "currency": "RUB"
-            },
-            "capture": True,
-            "confirmation": {
-                "type": "redirect",
-                "return_url": "https://vk.com/"
-            },
-            "description": description,
-            "metadata": {
-                "user_id": str(user_id),
-                "section": section
-            }
-        }
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers, auth=auth) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    return data["confirmation"]["confirmation_url"]
-                else:
-                    return f"{host}/payment/webhook?user_id={user_id}&amount={amount}&section={section}&secret=dummy_secret_123"
-
     async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
-        from vkbottle import OpenLink
+        from vkbottle import VKPay
         keyboard = Keyboard(inline=True)
-        port = os.environ.get("PORT", 10000)
-        host = os.environ.get("RENDER_EXTERNAL_URL", f"http://localhost:{port}")
-
         purchased = user.get("purchased_sections", {}) if user else {}
 
         # Секс
         if purchased.get("sex"):
             keyboard.add(Text("✦ СЕКС (Открыто)"), color=KeyboardButtonColor.POSITIVE)
         else:
-            pay_url = await create_yookassa_payment(99, "СЕКС", user_id, "sex", host)
-            keyboard.add(OpenLink(pay_url, "✦ СЕКС за 99р"))
+            keyboard.add(VKPay(payload={"section": "sex"}, hash="action=transfer-to-group&group_id=219181948&amount=99"))
         keyboard.row()
 
         # Деньги
         if purchased.get("money"):
             keyboard.add(Text("✦ ДЕНЬГИ (Открыто)"), color=KeyboardButtonColor.POSITIVE)
         else:
-            pay_url = await create_yookassa_payment(99, "ДЕНЬГИ", user_id, "money", host)
-            keyboard.add(OpenLink(pay_url, "✦ ДЕНЬГИ за 99р"))
+            keyboard.add(VKPay(payload={"section": "money"}, hash="action=transfer-to-group&group_id=219181948&amount=99"))
         keyboard.row()
 
         # Тень
         if purchased.get("shadow"):
             keyboard.add(Text("✦ ТЕНЬ (Открыто)"), color=KeyboardButtonColor.POSITIVE)
         else:
-            pay_url = await create_yookassa_payment(99, "ТЕНЬ", user_id, "shadow", host)
-            keyboard.add(OpenLink(pay_url, "✦ ТЕНЬ за 99р"))
+            keyboard.add(VKPay(payload={"section": "shadow"}, hash="action=transfer-to-group&group_id=219181948&amount=99"))
         keyboard.row()
 
         # Финал
         if purchased.get("final"):
             keyboard.add(Text("✦ ФИНАЛ (Открыто)"), color=KeyboardButtonColor.POSITIVE)
         else:
-            pay_url = await create_yookassa_payment(99, "ФИНАЛ", user_id, "final", host)
-            keyboard.add(OpenLink(pay_url, "✦ ФИНАЛ за 99р"))
+            keyboard.add(VKPay(payload={"section": "final"}, hash="action=transfer-to-group&group_id=219181948&amount=99"))
 
         # Кнопка бандла, если не все куплено
         if not all([purchased.get("sex"), purchased.get("money"), purchased.get("shadow"), purchased.get("final")]):
             keyboard.row()
-            pay_url_all = await create_yookassa_payment(399, "ОТКРЫТЬ ВСЁ", user_id, "all", host)
-            keyboard.add(OpenLink(pay_url_all, "✦ ОТКРЫТЬ ВСЁ ЗА 399р"))
+            keyboard.add(VKPay(payload={"section": "all"}, hash="action=transfer-to-group&group_id=219181948&amount=399"))
 
         return keyboard.get_json()
 
@@ -258,6 +211,7 @@ async def main():
             await message.answer("Анализирую координаты...")
             await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
 
+            # Мгновенный коммит
             user = await update_user(vk_id, {
                 "birth_date": date,
                 "birth_time": time,
@@ -265,9 +219,10 @@ async def main():
                 "free_teaser_used": True
             })
             if not user:
-                await message.answer("СИСТЕМА ДАЛА СБОЙ. Не удалось сохранить данные. Повторите попытку.")
+                await message.answer("СИСТЕМА ДАЛА СБОЙ. Не удалось сохранить данные в базу. Повторите попытку позже.")
                 return
 
+            # Очистка состояния
             await set_user_state(vk_id, "")
 
             from ai_service import generate_section
@@ -310,6 +265,61 @@ async def main():
             f"▱ Подписка: {sub}"
         )
         await message.answer(profile_text, keyboard=get_inline_profile_keyboard())
+
+
+    @bot.on.raw_event("money_transfer", dataclass=dict)
+    async def money_transfer_handler(event: dict):
+        try:
+            # VK API typically sends event within an object depending on the exact callback format
+            # In message_event or money_transfer, we can extract from_id and amount
+            obj = event.get("object", {})
+            vk_id = obj.get("from_id")
+            amount = obj.get("amount")
+
+            if not vk_id or not amount:
+                return
+
+            # amount is in kopecks or rubles? standard money_transfer is rubles usually, but if kopecks it's amount / 100
+            # Let's check amount string or integer. In VK it's typically an integer amount.
+            # Assuming 99 or 399
+
+            amount_val = int(amount)
+            if amount_val > 1000: # if it's in kopecks like 9900
+                amount_val = amount_val // 100
+
+            if amount_val not in (99, 399):
+                return
+
+            # If we don't know the exact section from payload (money_transfer might not have payload),
+            # we open sections incrementally or all if 399.
+            # But wait, VKPay button has payload! Let's check if there's a payload.
+            payload_str = obj.get("payload")
+            section = "unknown"
+            if payload_str:
+                import json
+                try:
+                    payload = json.loads(payload_str)
+                    section = payload.get("section", "unknown")
+                except:
+                    pass
+
+            if amount_val == 399:
+                section = "all"
+            elif section == "unknown":
+                # Fallback incrementally if no payload
+                user = await get_user(vk_id)
+                if user:
+                    purchased = user.get("purchased_sections", {})
+                    if not purchased.get("sex"): section = "sex"
+                    elif not purchased.get("money"): section = "money"
+                    elif not purchased.get("shadow"): section = "shadow"
+                    elif not purchased.get("final"): section = "final"
+                    else: section = "all"
+
+            if section != "unknown":
+                await process_payment_and_generate(vk_id, section)
+        except Exception as e:
+            print(f"Error handling money_transfer: {e}")
 
     async def process_payment_and_generate(vk_id: int, section: str):
         if vk_id in active_tasks:
@@ -401,7 +411,7 @@ async def main():
                         card_id = str(num)
 
                 # Fetch image from github
-                image_url = f"https://raw.githubusercontent.com/cyber-olesya/tarot-cards/main/cards/{card_id}.png"
+                image_url = f"https://raw.githubusercontent.com/peexthree/vkbot_5/main/cards/{card_id}.png"
                 image_bytes = None
                 try:
                     import aiohttp
@@ -690,45 +700,8 @@ async def main():
     asyncio.create_task(bot.run_polling())
     asyncio.create_task(daily_forecast_cron())
     
-    async def payment_webhook(request):
-        try:
-            import json
-            user_id_str = None
-            section = None
-
-            if request.method == "POST":
-                try:
-                    data = await request.json()
-                    # YooKassa webhook format
-                    if data.get("event") == "payment.succeeded":
-                        metadata = data.get("object", {}).get("metadata", {})
-                        user_id_str = metadata.get("user_id")
-                        section = metadata.get("section")
-                except json.JSONDecodeError:
-                    # fallback for dummy form post
-                    data = await request.post()
-                    user_id_str = data.get('user_id')
-                    section = data.get('section')
-            else:
-                data = request.query
-                user_id_str = data.get('user_id')
-                section = data.get('section')
-
-            if not user_id_str or not section:
-                return web.Response(text="Missing user_id or section", status=400)
-            user_id = int(user_id_str)
-            print("Платеж получен")
-
-            # Fire and forget the processing
-            asyncio.create_task(process_payment_and_generate(user_id, section))
-
-            return web.Response(text="Payment processed successfully! You can close this window and return to the bot.")
-        except Exception as e:
-            return web.Response(text=str(e), status=500)
-
     app = web.Application()
     app.router.add_get('/', handle_ping)
-    app.router.add_route('*', '/payment/webhook', payment_webhook)
     
     runner = web.AppRunner(app)
     await runner.setup()
