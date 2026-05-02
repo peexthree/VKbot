@@ -39,10 +39,43 @@ async def main():
 
         return keyboard.get_json()
 
-    def get_inline_profile_keyboard() -> str:
-        keyboard = Keyboard(inline=True)
-        # Убрана кнопка "Пополнить баланс", так как балансы синастрий удалены
-        return keyboard.get_json()
+    def get_inline_profile_keyboard(user: dict | None) -> str:
+        import json
+
+        purchased = user.get("purchased_sections", {}) if user else {}
+
+        buttons = []
+
+        # Секс
+        if not purchased.get("sex"):
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=100"}}])
+
+        # Деньги
+        if not purchased.get("money"):
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=90"}}])
+
+        # Тень
+        if not purchased.get("shadow"):
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=70"}}])
+
+        # Финал
+        if not purchased.get("final"):
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=120"}}])
+
+        # Бандл: если куплено меньше двух разделов
+        purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
+        if purchased_count < 2:
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=300"}}])
+
+        # Кнопка возврата в меню
+        buttons.append([{"action": {"type": "text", "label": "В ГЛАВНОЕ МЕНЮ"}, "color": "primary"}])
+
+        keyboard_obj = {
+            "inline": True,
+            "buttons": buttons
+        }
+
+        return json.dumps(keyboard_obj, ensure_ascii=False)
 
     async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
         import json
@@ -362,13 +395,32 @@ async def main():
         purchased = user.get("purchased_sections", {})
         first_name = purchased.get("first_name", "")
 
-        name_line = f"Имя: {first_name}\n" if first_name else ""
+        name_line = f"ИМЯ: {first_name}\n" if first_name else ""
+
+        # Генерируем прайс-лист для некупленных разделов
+        price_list = []
+        if not purchased.get("sex"):
+            price_list.append("ГРЯЗНЫЕ СЕКРЕТЫ (СЕКС) - 100 РУБ")
+        if not purchased.get("money"):
+            price_list.append("МАГНИТ ДЛЯ КРИПТЫ (ДЕНЬГИ) - 90 РУБ")
+        if not purchased.get("shadow"):
+            price_list.append("ТЕМНЫЕ ДЕМОНЫ (ТЕНЬ) - 70 РУБ")
+        if not purchased.get("final"):
+            price_list.append("ПОЛНЫЙ РАСКЛАД (ФИНАЛ) - 120 РУБ")
+
+        purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
+        if purchased_count < 2:
+            price_list.append("ВЕСЬ ПАКЕТ СУДЬБЫ - 300 РУБ")
+
+        price_text = "\n\n" + "\n\n".join(price_list) if price_list else ""
+
         profile_text = (
             f"✦ ПРОФИЛЬ АСКЕТА ✦\n\n"
-            f"{name_line}Точка входа: {date} {time}\n"
-            f"Локация: {city}"
+            f"{name_line}ТОЧКА ВХОДА: {date} {time}\n"
+            f"ЛОКАЦИЯ: {city}"
+            f"{price_text}"
         )
-        await message.answer(profile_text, keyboard=get_inline_profile_keyboard())
+        await message.answer(profile_text, keyboard=get_inline_profile_keyboard(user))
 
 
     @bot.on.raw_event(GroupEventType.VKPAY_TRANSACTION, dataclass=dict)
@@ -453,6 +505,29 @@ async def main():
                 random_id=0
             )
 
+        finally:
+            active_tasks.discard(vk_id)
+
+    @bot.on.message(text=["В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
+    async def back_to_main_menu(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            kb_json = await get_sections_keyboard(vk_id, user)
+            await message.answer(
+                "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
+                keyboard=kb_json
+            )
+        except Exception as e:
+            print(f"Error sending main menu: {e}")
         finally:
             active_tasks.discard(vk_id)
 
