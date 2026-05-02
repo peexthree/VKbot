@@ -19,7 +19,7 @@ async def handle_ping(request):
 async def main():
     import aiohttp
     from aiohttp import web
-    from vkbottle import Bot, Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
+    from vkbottle import Bot, Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader, GroupEventType
     from vkbottle.bot import Message
     from database import get_user, create_user, update_user, init_db, get_user_state, set_user_state
     from ai_service import generate_text
@@ -37,26 +37,11 @@ async def main():
         # Базовая клавиатура - навигатор
         keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.SECONDARY)
 
-        if user.get("has_full_chart"):
-            keyboard.row()
-            keyboard.add(Text("☾ Совместимость"), color=KeyboardButtonColor.SECONDARY)
-            keyboard.add(Text("▱ Карта дня"), color=KeyboardButtonColor.SECONDARY)
-
-            keyboard.row()
-            keyboard.add(Text("Теневой режим"), color=KeyboardButtonColor.NEGATIVE)
-
-            if not user.get("is_subscribed"):
-                keyboard.row()
-                keyboard.add(Text("Подписка на транзиты"), color=KeyboardButtonColor.SECONDARY)
-        elif not user.get("free_card_used", False):
-            keyboard.row()
-            keyboard.add(Text("▱ Карта дня (Демо)"), color=KeyboardButtonColor.SECONDARY)
-
         return keyboard.get_json()
 
     def get_inline_profile_keyboard() -> str:
         keyboard = Keyboard(inline=True)
-        keyboard.add(Text("Пополнить баланс"), color=KeyboardButtonColor.POSITIVE)
+        # Убрана кнопка "Пополнить баланс", так как балансы синастрий удалены
         return keyboard.get_json()
 
     async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
@@ -107,7 +92,7 @@ async def main():
         active_tasks.add(vk_id)
         try:
             user = await get_user(vk_id)
-            if user and user.get("free_teaser_used"):
+            if user and user.get("birth_city"):
                 await message.answer("СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nС возвращением.", keyboard=get_dynamic_keyboard(user))
             else:
                 if not user:
@@ -215,8 +200,7 @@ async def main():
             user = await update_user(vk_id, {
                 "birth_date": date,
                 "birth_time": time,
-                "birth_city": city,
-                "free_teaser_used": True
+                "birth_city": city
             })
             if not user:
                 await message.answer("СИСТЕМА ДАЛА СБОЙ. Не удалось сохранить данные в базу. Повторите попытку позже.")
@@ -254,22 +238,22 @@ async def main():
         date = user.get("birth_date", "Неизвестно")
         time = user.get("birth_time", "Неизвестно")
         city = user.get("birth_city", "Неизвестно")
-        balance = user.get("compatibility_balance", 0)
-        sub = "Активна" if user.get("is_subscribed") else "Отсутствует"
 
         profile_text = (
             f"✦ ПРОФИЛЬ АСКЕТА ✦\n\n"
             f"Точка входа: {date} {time}\n"
-            f"Локация: {city}\n\n"
-            f"▱ Баланс синастрий: {balance}\n"
-            f"▱ Подписка: {sub}"
+            f"Локация: {city}"
         )
         await message.answer(profile_text, keyboard=get_inline_profile_keyboard())
 
 
-    @bot.on.raw_event("vkpay_transaction", dataclass=dict)
+    @bot.on.raw_event(GroupEventType.MONEY_TRANSFER, dataclass=dict)
     async def money_transfer_handler(event: dict):
         try:
+            group_id = event.get("group_id")
+            if group_id != 219181948:
+                return
+
             # VK API typically sends event within an object depending on the exact callback format
             # In message_event or money_transfer, we can extract from_id and amount
             obj = event.get("object", {})
@@ -452,175 +436,6 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
-    @bot.on.message(text="Подписка на транзиты")
-    async def subscribe_transits(message: Message):
-        vk_id = message.from_id
-        user = await get_user(vk_id)
-        if not user or not user.get("has_full_chart"):
-            await message.answer("Сначала необходимо купить полный разбор.")
-            return
-
-        await update_user(vk_id, {"is_subscribed": True})
-        user = await get_user(vk_id)
-        await message.answer("Подписка оформлена. Теперь вы будете получать жесткий ежедневный прогноз.", keyboard=get_dynamic_keyboard(user))
-
-    @bot.on.message(text=["☾ Совместимость", "Проверка совместимости"])
-    async def check_compatibility(message: Message):
-        vk_id = message.from_id
-        user = await get_user(vk_id)
-        if not user:
-            await message.answer("Пользователь не найден.")
-            return
-
-        if not user.get("has_full_chart"):
-            await message.answer("Сначала необходимо купить полный разбор.")
-            return
-
-        balance = user.get("compatibility_balance", 0)
-
-        if balance <= 0:
-            await message.answer("Ваш баланс проверок совместимости равен 0. Пожалуйста, пополните баланс (напишите 'Пополнить').")
-            return
-
-        await set_user_state(vk_id, "waiting_partner_data")
-        await message.answer(f"Ваш баланс: {balance} проверок. Введите данные партнера (дата, время, город) для глубокого анализа синастрии:")
-
-    @bot.on.message(text=["Пополнить баланс", "Пополнить"])
-    async def top_up_balance(message: Message):
-        vk_id = message.from_id
-        user = await get_user(vk_id)
-        if user:
-            new_balance = user.get("compatibility_balance", 0) + 1
-            await update_user(vk_id, {"compatibility_balance": new_balance})
-            user = await get_user(vk_id)
-            await message.answer(f"Баланс пополнен! Текущий баланс: {new_balance}", keyboard=get_dynamic_keyboard(user))
-        else:
-            await message.answer("Пользователь не найден.")
-
-    async def is_waiting_partner_data(message: Message) -> bool:
-        if message.text and message.text.lower() in ["начать", "start", "/start"]:
-            return False
-        state = await get_user_state(message.from_id)
-        return state == "waiting_partner_data"
-
-    @bot.on.message(func=is_waiting_partner_data)
-    async def process_partner_data(message: Message):
-        vk_id = message.from_id
-
-        if vk_id in active_tasks:
-            return
-
-        active_tasks.add(vk_id)
-        try:
-            partner_data = message.text
-
-            user = await get_user(vk_id)
-            if not user:
-                return
-
-            new_balance = user.get("compatibility_balance", 0) - 1
-            await update_user(vk_id, {
-                "compatibility_balance": new_balance
-            })
-            await set_user_state(vk_id, "")
-
-            await message.answer("Анализирую синастрию... Это займет немного времени.")
-            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
-
-            core_profile = user.get("core_profile", "Нет данных о пользователе.")
-            prompt = (
-                f"Ты премиальный психолог-астролог. Проведи жесткий и честный анализ совместимости.\n"
-                f"Данные пользователя (из памяти): {core_profile}\n"
-                f"Данные партнера: {partner_data}.\n"
-                f"Используй теневые аспекты и кармические узлы. Отвечай жестко и прямо."
-            )
-            result = await generate_text(prompt)
-            if not result:
-                result = "Ошибка анализа совместимости."
-
-            user = await get_user(vk_id)
-            await message.answer(f"{result}\n\nОстаток проверок совместимости: {new_balance}", keyboard=get_dynamic_keyboard(user))
-
-        finally:
-            active_tasks.discard(vk_id)
-
-    @bot.on.message(text=["▱ Карта дня", "Карта дня", "▱ Карта дня (Демо)"])
-    async def draw_card_of_the_day(message: Message):
-        vk_id = message.from_id
-        if vk_id in active_tasks:
-            return
-
-        active_tasks.add(vk_id)
-        try:
-            user = await get_user(vk_id)
-            if not user:
-                return
-
-            is_demo = not user.get("has_full_chart")
-            if is_demo:
-                if user.get("free_card_used"):
-                    await message.answer("ДЕМО ИСЧЕРПАНО.\n\nДля продолжения работы с Оракулом требуется полный разбор.")
-                    return
-                await update_user(vk_id, {"free_card_used": True})
-                user = await get_user(vk_id) # Refresh to update keyboard
-
-            await message.answer("Колода перемешивается... Вытягиваю аркан.")
-            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
-
-            core_profile = user.get("core_profile", "Неизвестный странник")
-
-            # Генерация наставления
-            text_prompt = (
-                f"Ты Оракул. Пользователь: {core_profile}. "
-                f"Вытяни одну случайную карту Таро для него на сегодняшний день. "
-                f"Дай короткое (2-3 предложения), жесткое и метафоричное наставление. "
-                f"Назови карту в начале (например: ✦ АРКАН: БАШНЯ ✦)."
-            )
-            card_text = await generate_text(text_prompt)
-
-            if card_text:
-                await message.answer(card_text, keyboard=get_dynamic_keyboard(user))
-            else:
-                await message.answer("Колода молчит. Попробуйте позже.", keyboard=get_dynamic_keyboard(user))
-
-        finally:
-            active_tasks.discard(vk_id)
-
-    @bot.on.message(text="Теневой режим")
-    async def toggle_shadow_mode(message: Message):
-        vk_id = message.from_id
-        if vk_id in active_tasks: return
-        active_tasks.add(vk_id)
-        try:
-            user = await get_user(vk_id)
-            if not user or not user.get("has_full_chart"):
-                await message.answer("ФУНКЦИЯ НЕДОСТУПНА.\n\nТребуется полный разбор.")
-                return
-
-            await message.answer("Активирую Теневой режим...")
-            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
-
-            core_profile = user.get("core_profile", "Неизвестный странник")
-            text_prompt = (
-                f"Ты Злой Оракул. Прочитай профиль этого человека: {core_profile}. "
-                f"Выдай ему одну короткую, крайне жесткую и неприятную правду о нем. "
-                f"Никакого позитива или надежды. Только обнаженная тьма его личности."
-            )
-            shadow_text = await generate_text(text_prompt)
-            if shadow_text:
-                await message.answer(f"✦ ТЕНЕВОЙ РЕЖИМ ✦\n\n{shadow_text}")
-                # Голосовое сообщение для пущего эффекта (Киллер-фича)
-                from ai_service import generate_audio_prediction
-                from vkbottle import AudioMessageUploader
-                audio_bytes = await generate_audio_prediction(shadow_text)
-                if audio_bytes and audio_bytes != b"dummy_audio_data":
-                    # Заглушка: в реальном мире загружаем войс через AudioMessageUploader
-                    pass
-            else:
-                await message.answer("Тень молчит. Попробуйте позже.")
-        finally:
-            active_tasks.discard(vk_id)
-
     async def daily_forecast_cron():
         from database import get_all_subscribed_users, get_inactive_free_users
         import datetime
@@ -664,13 +479,13 @@ async def main():
                 inactive_users = await get_inactive_free_users()
                 for user in inactive_users:
                     vk_id = user.get("vk_id")
-                    if vk_id and user.get("free_teaser_used"):
+                    if vk_id and user.get("birth_city"):
                         try:
-                            kb = get_inline_buy_full_chart(vk_id)
+                            # Для кармических пушей мы можем отправить ссылку на оплату
+                            # или просто текст, так как get_inline_buy_full_chart больше нет
                             await bot.api.messages.send(
                                 peer_id=vk_id,
                                 message="Теневой аспект активен. Вы игнорируете свою суть. Ваш профиль меркнет.\n\nПродолжите работу с Оракулом, чтобы получить ответы.",
-                                keyboard=kb,
                                 random_id=0
                             )
                         except Exception as e:
