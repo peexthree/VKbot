@@ -14,6 +14,8 @@ import json
 import re
 
 async def generate_audio_prediction(text: str) -> bytes | None:
+    if not text.strip():
+        text = " "
     api_keys = await get_gemini_api_keys()
     if not api_keys:
         print("No API keys provided")
@@ -93,7 +95,9 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
                     "5. Использовать пустые строки для воздуха и строгие символы (✦, ▱, ☾) для списков, если нужно.\n\n"
                 )
 
-            final_prompt = prompt
+            final_prompt = prompt.strip()
+            if not final_prompt:
+                final_prompt = " "
             if system_instruction:
                 final_prompt = system_instruction + final_prompt
 
