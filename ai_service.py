@@ -92,7 +92,8 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
                     "2. Использовать только короткие тире (-). СТРОГО ЗАПРЕЩЕНО использовать длинные тире —.\n"
                     "3. Акценты выделять КАПСОМ.\n"
                     "4. Текст должен быть строгим, проницательным, с долей холодного интеллекта.\n"
-                    "5. Использовать пустые строки для воздуха и строгие символы (✦, ▱, ☾) для списков, если нужно.\n\n"
+                    "5. Использовать пустые строки для воздуха и строгие символы (✦, ▱, ☾) для списков, если нужно.\n"
+                    "6. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО НАЧИНАТЬ ОТВЕТ С ПЕРЕЧИСЛЕНИЯ ДАТЫ РОЖДЕНИЯ И ГОРОДА ПОЛЬЗОВАТЕЛЯ. Начинай сразу с жесткого, философского инсайта или дерзкого панчлайна. Каждый раз используй новую формулировку для вступления, избегай шаблонов.\n\n"
                 )
 
             final_prompt = prompt.strip()
@@ -179,9 +180,16 @@ async def extract_birth_data(text: str) -> dict | None:
         print(f"Failed to decode JSON from extraction: {res}")
         return None
 
-async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "") -> str | None:
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0) -> str | None:
     """Генерирует определенную порцию анализа в зависимости от section."""
-    base_info = f"Данные: {date}, время {time}, город {city}."
+    gender_str = "МУЖЧИНА" if sex == 2 else "ЖЕНЩИНА" if sex == 1 else "НЕИЗВЕСТНО"
+
+    base_info = f"Данные: {date}, время {time}, город {city}. ПОЛЬЗОВАТЕЛЬ - {gender_str}."
+    if first_name:
+        base_info += f" ИМЯ - {first_name}."
+
+    base_info += " ОБРАЩАЙСЯ СТРОГО В ПРАВИЛЬНОМ РОДЕ."
+
     if core_profile:
         base_info += f" Прошлый анализ (учитывай это, чтобы показать, что ты знаешь пользователя): {core_profile}."
 

@@ -44,6 +44,7 @@ async def main():
         return keyboard.get_json()
 
 
+
     async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
         import json
 
@@ -54,35 +55,21 @@ async def main():
         # Секс
         if purchased.get("sex"):
             buttons.append([{"action": {"type": "text", "label": "✦ СЕКС (Открыто)"}, "color": "positive"}])
-        else:
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
-            buttons.append([{"action": action_obj}])
 
         # Деньги
         if purchased.get("money"):
             buttons.append([{"action": {"type": "text", "label": "✦ ДЕНЬГИ (Открыто)"}, "color": "positive"}])
-        else:
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
-            buttons.append([{"action": action_obj}])
 
         # Тень
         if purchased.get("shadow"):
             buttons.append([{"action": {"type": "text", "label": "✦ ТЕНЬ (Открыто)"}, "color": "positive"}])
-        else:
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
-            buttons.append([{"action": action_obj}])
 
         # Финал
         if purchased.get("final"):
             buttons.append([{"action": {"type": "text", "label": "✦ ФИНАЛ (Открыто)"}, "color": "positive"}])
-        else:
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
-            buttons.append([{"action": action_obj}])
 
-        # Кнопка бандла, если не все куплено
-        if not all([purchased.get("sex"), purchased.get("money"), purchased.get("shadow"), purchased.get("final")]):
-            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
-            buttons.append([{"action": action_obj}])
+        if not buttons:
+            buttons.append([{"action": {"type": "text", "label": "✦ Услуги"}, "color": "secondary"}])
 
         keyboard_obj = {
             "inline": True,
@@ -133,7 +120,7 @@ async def main():
                 # Store first_name and sex in purchased_sections jsonb field
                 purchased = user.get("purchased_sections", {})
                 purchased["first_name"] = first_name
-                purchased["sex"] = sex
+                purchased["sex_val"] = sex # Avoid overwriting the "sex" purchased section key
                 await update_user(vk_id, {"purchased_sections": purchased})
 
             import json
@@ -469,6 +456,85 @@ async def main():
 
         await message.answer(f"ТВОЙ БАЛАНС.\nПриобретено услуг на сумму: {value} RUB.")
 
+    async def get_carousel_template(purchased: dict) -> str | None:
+        import json
+        elements = []
+
+        if not purchased.get("sex"):
+            elements.append({
+                "title": "ГРЯЗНЫЕ СЕКРЕТЫ",
+                "description": "СЕКС - 100 РУБ",
+                "photo_id": "photo-219181948_457239052",
+                "action": {"type": "open_photo"},
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
+                }]
+            })
+
+        if not purchased.get("money"):
+            elements.append({
+                "title": "МАГНИТ ДЛЯ КРИПТЫ",
+                "description": "ДЕНЬГИ - 90 РУБ",
+                "photo_id": "photo-219181948_457239053",
+                "action": {"type": "open_photo"},
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
+                }]
+            })
+
+        if not purchased.get("shadow"):
+            elements.append({
+                "title": "ТЕМНЫЕ ДЕМОНЫ",
+                "description": "ТЕНЬ - 70 РУБ",
+                "photo_id": "photo-219181948_457239054",
+                "action": {"type": "open_photo"},
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
+                }]
+            })
+
+        if not purchased.get("final"):
+            elements.append({
+                "title": "ПОЛНЫЙ РАСКЛАД",
+                "description": "ФИНАЛ - 120 РУБ",
+                "photo_id": "photo-219181948_457239055",
+                "action": {"type": "open_photo"},
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
+                }]
+            })
+
+        purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
+        if purchased_count < 2:
+            elements.append({
+                "title": "ВЕСЬ ПАКЕТ СУДЬБЫ",
+                "description": "БАНДЛ - 300 РУБ",
+                "photo_id": "photo-219181948_457239056",
+                "action": {"type": "open_photo"},
+                "buttons": [{
+                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
+                }]
+            })
+
+        # Oracle freemium skip button
+        elements.append({
+            "title": "ВОПРОС СУДЬБЕ",
+            "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
+            "photo_id": "photo-219181948_457239057",
+            "action": {"type": "open_photo"},
+            "buttons": [{
+                "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
+            }]
+        })
+
+        if elements:
+            template = {
+                "type": "carousel",
+                "elements": elements
+            }
+            return json.dumps(template, ensure_ascii=False)
+        return None
+
     @bot.on.message(text=["✦ Услуги", "Услуги"])
     async def show_services(message: Message):
         vk_id = message.from_id
@@ -477,11 +543,14 @@ async def main():
             await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
             return
 
+        purchased = user.get("purchased_sections", {})
+        template_json = await get_carousel_template(purchased)
         kb_json = await get_sections_keyboard(vk_id, user)
-        await message.answer(
-            "ДОСТУПНЫЕ УСЛУГИ И РАЗДЕЛЫ:",
-            keyboard=kb_json
-        )
+
+        if template_json:
+            await message.answer("ДОСТУПНЫЕ УСЛУГИ И РАЗДЕЛЫ:", template=template_json, keyboard=kb_json)
+        else:
+            await message.answer("ВСЕ РАЗДЕЛЫ ОТКРЫТЫ. НОВЫХ УСЛУГ ПОКА НЕТ.", keyboard=kb_json)
 
     @bot.on.message(text=["✦ Мой профиль", "Мой профиль"])
     async def show_profile(message: Message):
@@ -500,65 +569,8 @@ async def main():
 
         name_line = f"ИМЯ: {first_name}\n" if first_name else ""
 
-        elements = []
-
-        if not purchased.get("sex"):
-            elements.append({
-                "title": "ГРЯЗНЫЕ СЕКРЕТЫ",
-                "description": "СЕКС - 100 РУБ",
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
-                }]
-            })
-
-        if not purchased.get("money"):
-            elements.append({
-                "title": "МАГНИТ ДЛЯ КРИПТЫ",
-                "description": "ДЕНЬГИ - 90 РУБ",
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
-                }]
-            })
-
-        if not purchased.get("shadow"):
-            elements.append({
-                "title": "ТЕМНЫЕ ДЕМОНЫ",
-                "description": "ТЕНЬ - 70 РУБ",
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
-                }]
-            })
-
-        if not purchased.get("final"):
-            elements.append({
-                "title": "ПОЛНЫЙ РАСКЛАД",
-                "description": "ФИНАЛ - 120 РУБ",
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
-                }]
-            })
-
-        purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
-        if purchased_count < 2:
-            elements.append({
-                "title": "ВЕСЬ ПАКЕТ СУДЬБЫ",
-                "description": "БАНДЛ - 300 РУБ",
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
-                }]
-            })
-
-        status_text = ""
-        template_json = None
-
-        if elements:
-            template = {
-                "type": "carousel",
-                "elements": elements
-            }
-            template_json = json.dumps(template, ensure_ascii=False)
-        else:
-            status_text = "\n\nВСЕ РАЗДЕЛЫ ОТКРЫТЫ."
+        template_json = await get_carousel_template(purchased)
+        status_text = "" if template_json else "\n\nВСЕ РАЗДЕЛЫ ОТКРЫТЫ."
 
         profile_text = (
             f"✦ ПРОФИЛЬ АСКЕТА ✦\n\n"
@@ -567,10 +579,12 @@ async def main():
             f"{status_text}"
         )
 
+        kb_json = await get_sections_keyboard(vk_id, user)
+
         if template_json:
-            await message.answer(profile_text, template=template_json)
+            await message.answer(profile_text, template=template_json, keyboard=kb_json)
         else:
-            await message.answer(profile_text)
+            await message.answer(profile_text, keyboard=kb_json)
 
 
     @bot.on.raw_event(GroupEventType.VKPAY_TRANSACTION, dataclass=dict)
@@ -608,6 +622,8 @@ async def main():
                 section = "final"
             elif amount_val == 300:
                 section = "all"
+            elif amount_val == 50:
+                section = "oracle"
 
             if section == "unknown":
                 print(f"НЕИЗВЕСТНЫЙ ПЛАТЕЖ: vk_id={vk_id}, amount={amount_val}")
@@ -635,6 +651,10 @@ async def main():
                 purchased["final"] = True
                 await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
                 await bot.api.messages.send(peer_id=vk_id, message="ОПЛАТА УСПЕШНА.\n\nВсе Врата открыты.", random_id=0)
+            elif section == "oracle":
+                purchased["oracle_access"] = True
+                await update_user(vk_id, {"purchased_sections": purchased})
+                await bot.api.messages.send(peer_id=vk_id, message="ОПЛАТА УСПЕШНА.\n\nНАПИШИ СВОЙ ВОПРОС СУДЬБЕ ПРЯМО СЕЙЧАС.", random_id=0)
             elif section in ["sex", "money", "shadow", "final"]:
                 purchased[section] = True
                 updates = {"purchased_sections": purchased}
@@ -648,12 +668,14 @@ async def main():
 
             user = await get_user(vk_id)
             kb_json = await get_sections_keyboard(vk_id, user)
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message="Используйте меню для вызова нужного раздела:",
-                keyboard=kb_json,
-                random_id=0
-            )
+
+            if section != "oracle":
+                await bot.api.messages.send(
+                    peer_id=vk_id,
+                    message="Используйте меню для вызова нужного раздела:",
+                    keyboard=kb_json,
+                    random_id=0
+                )
 
         finally:
             active_tasks.discard(vk_id)
@@ -732,7 +754,9 @@ async def main():
 
             from ai_service import generate_section
             core_profile = user.get("core_profile", "")
-            result_text = await generate_section(target_section, date, time, city, core_profile)
+            sex_val = purchased.get("sex_val", 0)
+
+            result_text = await generate_section(target_section, date, time, city, core_profile, first_name, sex_val)
 
             if not result_text:
                 kb_json = await get_sections_keyboard(vk_id, user)
@@ -744,29 +768,27 @@ async def main():
 
             if target_section in ["sex", "money", "shadow", "final"]:
                 import re
+                import random
                 match = re.search(r"ID_?ТАРО:\s*(\d+)", result_text)
-                card_id = "0"
                 if match:
                     num = int(match.group(1))
                     if 0 <= num <= 77:
                         card_id = str(num)
+                    else:
+                        card_id = str(random.randint(0, 77))
+                else:
+                    card_id = str(random.randint(0, 77))
 
                 print(f"[DEBUG] Parsed Card ID: {card_id}")
 
-                # Fetch image from github
-                ext = "jpeg" if int(card_id) <= 21 else "png"
-                image_url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{card_id}.{ext}"
-                image_bytes = None
+                photo_attachment = None
                 try:
-                    import aiohttp
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(image_url) as resp:
-                            if resp.status == 200:
-                                image_bytes = await resp.read()
-                            else:
-                                print(f"[DEBUG] Failed to fetch image, status: {resp.status}, url: {image_url}")
+                    import json
+                    with open('tarot_ids.json', 'r') as f:
+                        tarot_mapping = json.load(f)
+                    photo_attachment = tarot_mapping.get(card_id)
                 except Exception as e:
-                    print(f"Failed to fetch tarot card {card_id}: {e}")
+                    print(f"Failed to load tarot card ID {card_id} from tarot_ids.json: {e}")
 
                 # Убираем техническую строку с ID_ТАРО из финального текста
                 display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
@@ -787,15 +809,6 @@ async def main():
                 if len(parts) > 1:
                     intro = parts[0].strip()
                     main_part = f"{section_header}\n" + parts[1].strip()
-
-                photo_attachment = None
-                if image_bytes:
-                    try:
-                        from vkbottle import PhotoMessageUploader
-                        uploader = PhotoMessageUploader(bot.api)
-                        photo_attachment = await uploader.upload(image_bytes, peer_id=vk_id)
-                    except Exception as e:
-                        print(f"Error uploading image: {e}")
 
                 kb_json = await get_sections_keyboard(vk_id, user)
 
@@ -843,6 +856,127 @@ async def main():
                 except Exception as e:
                     print(f"Error sending text with keyboard: {e}")
                     await message.answer(result_text)
+
+        finally:
+            active_tasks.discard(vk_id)
+
+    @bot.on.message()
+    async def oracle_handler(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            return
+
+        # Игнорируем команды и системные сообщения
+        text = message.text.strip()
+        if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or text.startswith("✦"):
+            return
+
+        # Проверяем, не в FSM ли мы
+        state_dict = await get_fsm_step(vk_id)
+        if state_dict is not None and "step" in state_dict:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            import datetime
+            import json
+
+            purchased = user.get("purchased_sections", {})
+            last_oracle_time_str = purchased.get("last_oracle_time")
+            has_paid_access = purchased.get("oracle_access", False)
+
+            allow_access = False
+            if has_paid_access:
+                allow_access = True
+            else:
+                if not last_oracle_time_str:
+                    allow_access = True
+                else:
+                    try:
+                        last_time = datetime.datetime.fromisoformat(last_oracle_time_str)
+                        if (datetime.datetime.now() - last_time).total_seconds() >= 24 * 3600:
+                            allow_access = True
+                    except ValueError:
+                        allow_access = True
+
+            if not allow_access:
+                last_time = datetime.datetime.fromisoformat(last_oracle_time_str)
+                remaining = datetime.timedelta(hours=24) - (datetime.datetime.now() - last_time)
+                hours, remainder = divmod(remaining.seconds, 3600)
+                minutes, _ = divmod(remainder, 60)
+
+                # Payment template for Oracle
+                elements = [{
+                    "title": "ВОПРОС СУДЬБЕ",
+                    "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
+                    "photo_id": "photo-219181948_457239057",
+                    "action": {"type": "open_photo"},
+                    "buttons": [{
+                        "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
+                    }]
+                }]
+                template = {
+                    "type": "carousel",
+                    "elements": elements
+                }
+                template_json = json.dumps(template, ensure_ascii=False)
+
+                await message.answer(
+                    f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}",
+                    template=template_json
+                )
+                return
+
+            # Логика самого оракула
+            await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+
+            import random
+            card_ids = random.sample(range(78), 3)
+
+            from ai_service import generate_text
+            prompt = (
+                f"Пользователь задает вопрос: {text}. "
+                f"Выпали карты: {card_ids[0]}, {card_ids[1]}, {card_ids[2]}. "
+                "Сделай дерзкий, интересный ответ-синтез по этим картам. Сами карты в тексте не называй, просто дай суть основанную по гаданиям таро."
+            )
+
+            # Fetch images from local mapping
+            attachments = []
+            try:
+                import json
+                with open('tarot_ids.json', 'r') as f:
+                    tarot_mapping = json.load(f)
+                for cid in card_ids:
+                    photo_id = tarot_mapping.get(str(cid))
+                    if photo_id:
+                        attachments.append(photo_id)
+            except Exception as e:
+                print(f"Failed to load oracle tarot cards from tarot_ids.json: {e}")
+
+            await asyncio.sleep(3) # simulate thought
+            result_text = await generate_text(prompt)
+            if not result_text:
+                result_text = "Оракул молчит. Попробуй позже."
+
+            # Update database
+            purchased["last_oracle_time"] = datetime.datetime.now().isoformat()
+            if has_paid_access:
+                purchased["oracle_access"] = False # consume the pass
+
+            await update_user(vk_id, {"purchased_sections": purchased})
+
+            kb_json = await get_sections_keyboard(vk_id, user)
+
+            att_str = ",".join(attachments) if attachments else None
+
+            if att_str:
+                await message.answer(result_text, attachment=att_str, keyboard=kb_json)
+            else:
+                await message.answer(result_text, keyboard=kb_json)
 
         finally:
             active_tasks.discard(vk_id)
