@@ -73,12 +73,12 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
         return None
 
     # Используем модели Gemma 3
-    models = ["gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it", "gemma-3-1b-it"]
+    models = ["models/gemma-3-27b-it", "models/gemma-3-12b-it", "models/gemma-3-4b-it", "models/gemma-3-1b-it"]
     last_exception = None
 
     for model in models:
         for api_key in api_keys:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={api_key}"
 
             # Строгий системный промпт для аскетичного стиля, если не JSON
             system_instruction = ""
@@ -90,22 +90,19 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
                     "2. Использовать только короткие тире (-). СТРОГО ЗАПРЕЩЕНО использовать длинные тире —.\n"
                     "3. Акценты выделять КАПСОМ.\n"
                     "4. Текст должен быть строгим, проницательным, с долей холодного интеллекта.\n"
-                    "5. Использовать пустые строки для воздуха и строгие символы (✦, ▱, ☾) для списков, если нужно."
+                    "5. Использовать пустые строки для воздуха и строгие символы (✦, ▱, ☾) для списков, если нужно.\n\n"
                 )
 
-            payload = {
-                "contents": [{"parts": [{"text": prompt}]}]
-            }
-
+            final_prompt = prompt
             if system_instruction:
-                payload["systemInstruction"] = {
-                    "parts": [{"text": system_instruction}]
-                }
+                final_prompt = system_instruction + final_prompt
 
             if json_mode:
-                payload["generationConfig"] = {
-                    "responseMimeType": "application/json"
-                }
+                final_prompt += "\nОтветь строго в формате JSON."
+
+            payload = {
+                "contents": [{"parts": [{"text": final_prompt}]}]
+            }
 
             async with aiohttp.ClientSession() as session:
                 try:
@@ -145,8 +142,8 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
                                         break
                             continue
                         else:
-                            print(f"Text API Error status {resp.status} on {model}. Trying next key.")
                             error_text = await resp.text()
+                            print(f"Text API Error status {resp.status} on {model}. Trying next key.")
                             print(f"Error details: {error_text}")
                             continue
                 except Exception as e:
