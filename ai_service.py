@@ -14,9 +14,56 @@ import json
 import re
 
 async def generate_audio_prediction(text: str) -> bytes | None:
-    # Имитация генерации голоса (ElevenLabs/Edge-TTS).
-    # Для реального проекта здесь будет aiohttp запрос к API генерации речи.
-    # Сейчас мы возвращаем заглушку, чтобы не усложнять зависимости
+    api_keys = await get_gemini_api_keys()
+    if not api_keys:
+        print("No API keys provided")
+        return None
+
+    last_exception = None
+    for api_key in api_keys:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key={api_key}"
+        payload = {
+            "contents": [{"parts": [{"text": text}]}],
+            "generationConfig": {
+                "responseModalities": ["AUDIO"]
+            }
+        }
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(url, json=payload) as resp:
+                    if resp.status == 200:
+                        res_data = await resp.json()
+                        try:
+                            parts = res_data['candidates'][0]['content']['parts']
+                            for part in parts:
+                                if 'inlineData' in part and part['inlineData']['mimeType'].startswith('audio'):
+                                    audio_b64 = part['inlineData']['data']
+                                    return base64.b64decode(audio_b64)
+                        except (KeyError, IndexError):
+                            pass
+                    elif resp.status == 429:
+                        print("Rate limit hit for audio generation. Retrying...")
+                        await asyncio.sleep(2)
+                        async with session.post(url, json=payload) as retry_resp:
+                            if retry_resp.status == 200:
+                                res_data = await retry_resp.json()
+                                try:
+                                    parts = res_data['candidates'][0]['content']['parts']
+                                    for part in parts:
+                                        if 'inlineData' in part and part['inlineData']['mimeType'].startswith('audio'):
+                                            audio_b64 = part['inlineData']['data']
+                                            return base64.b64decode(audio_b64)
+                                except (KeyError, IndexError):
+                                    pass
+                    else:
+                        print(f"Audio API Error status {resp.status}. Trying next key.")
+                        continue
+            except Exception as e:
+                last_exception = e
+                print(f"Audio API Error: {e}. Trying next key if available.")
+                continue
+
+    print(f"All keys exhausted or failed for audio generation. Last error: {last_exception}")
     return b"dummy_audio_data"
 
 async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
@@ -29,7 +76,7 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
     # Так как мы используем REST API Google, мы будем менять URL на разные версии Gemini,
     # если 2.5-flash недоступна. (Gemma через REST API Google не всегда стабильна, но
     # можно добавить fallback на gemini-1.5-pro или gemini-1.5-flash).
-    models = ["gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.5-flash"]
+    models = ["gemini-3-flash-preview", "gemma-4-26b-a4b-it", "gemma-4-31b-it"]
     last_exception = None
 
     for model in models:
@@ -40,11 +87,16 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
             system_instruction = ""
             if not json_mode:
                 system_instruction = (
-                    "Ты оракул-аскет. Твой тон: отстраненный, уважительный, с холодным достоинством. "
-                    "ВК не поддерживает Markdown (никаких звездочек *, решеток #, жирного шрифта, курсива). "
-                    "Категорически запрещено использовать *, #, _ в ответе! "
-                    "Используй чистую типографику: КАПС для заголовков/акцентов, пустые строки для воздуха, "
-                    "строгие символы (✦, ▱, ☾) для списков."
+                    "Ты — «Холодный Оракул», цифровая сущность с характером ехидной и харизматичной ведущей. Твой стиль — это смесь глубокой натальной аналитики и остроумной «прожарки».\n"
+                    "Тон: Харизматичный, ироничный, современный. Используй актуальный сленг, но без перебора.\n"
+                    "Структура ответа (обязательно раздели на блоки, используя КАПС для заголовков):\n"
+                    "ВСТУПЛЕНИЕ: Короткий панч по знаку зодиака или ситуации. Сарказм обязателен (например: «О, Водолей... Ну что, опять спасаем мир, пока в раковине гора посуды? Понимаю, это база»).\n"
+                    "БАЗА: Глубокий, почти психологический разбор, почему это так работает (Солнце, Луна, аспекты).\n"
+                    "ТЕНЕВАЯ СТОРОНА: То, о чем обычно молчат. Жесткая правда, без позитива.\n"
+                    "ВЕРДИКТ: Финальный совет в стиле «Живи с этим».\n"
+                    "Динамика: Подкалывай пользователя за типичные «грехи». Никакой скучной ванильной эзотерики. Никаких «звезды сулят вам удачу». Только жесткие факты, упакованные в топовый юмор.\n"
+                    "Завершай разбор фразой, которая ставит точку, и называй номер Аркана Таро, который выпадает пользователю сегодня.\n"
+                    "ВК не поддерживает Markdown (никаких звездочек *, решеток #, жирного шрифта, курсива). Категорически запрещено использовать *, #, _ в ответе! Используй чистую типографику: КАПС для заголовков/акцентов, пустые строки для воздуха, строгие символы (✦, ▱, ☾) для списков."
                 )
 
             payload = {
@@ -133,58 +185,8 @@ async def extract_birth_data(text: str) -> dict | None:
         return None
 
 async def generate_image(prompt: str) -> bytes | None:
-    api_keys = await get_gemini_api_keys()
-    if not api_keys:
-        print("No API keys provided")
-        return None
-
-    last_exception = None
-    for api_key in api_keys:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={api_key}"
-        payload = {
-            "instances": [{"prompt": prompt}],
-            "parameters": {"sampleCount": 1}
-        }
-
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(url, json=payload) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
-                        try:
-                            output_b64 = res_data['predictions'][0]['bytesBase64Encoded']
-                            return base64.b64decode(output_b64)
-                        except (KeyError, IndexError):
-                            return None
-                    elif resp.status == 429:
-                        print(f"Rate limit hit for image generation. Retrying with backoff...")
-                        retry_count = 0
-                        success = False
-                        while retry_count < 3 and not success:
-                            retry_count += 1
-                            await asyncio.sleep(2 ** retry_count)
-                            async with session.post(url, json=payload) as retry_resp:
-                                if retry_resp.status == 200:
-                                    res_data = await retry_resp.json()
-                                    try:
-                                        output_b64 = res_data['predictions'][0]['bytesBase64Encoded']
-                                        return base64.b64decode(output_b64)
-                                    except (KeyError, IndexError):
-                                        pass
-                                elif retry_resp.status != 429:
-                                    break
-                        continue
-                    else:
-                        print(f"Image API Error status {resp.status}. Trying next key.")
-                        error_text = await resp.text()
-                        print(f"Error details: {error_text}")
-                        continue
-            except Exception as e:
-                last_exception = e
-                print(f"API Error: {e}. Trying next key if available.")
-                continue
-
-    print(f"All keys exhausted or failed for image generation. Last error: {last_exception}")
+    # ИИ генерация картинок убрана по требованию. Используем только заглушки.
+    print("AI image generation disabled. Using placeholders.")
 
     # Fallback placeholder image
     try:
