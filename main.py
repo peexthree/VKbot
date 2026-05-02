@@ -247,7 +247,7 @@ async def main():
         await message.answer(profile_text, keyboard=get_inline_profile_keyboard())
 
 
-    @bot.on.raw_event(GroupEventType.MONEY_TRANSFER, dataclass=dict)
+    @bot.on.raw_event(GroupEventType.VKPAY_TRANSACTION, dataclass=dict)
     async def money_transfer_handler(event: dict):
         try:
             group_id = event.get("group_id")
