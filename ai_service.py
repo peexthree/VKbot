@@ -181,9 +181,11 @@ async def extract_birth_data(text: str) -> dict | None:
         print(f"Failed to decode JSON from extraction: {res}")
         return None
 
-async def generate_section(section: str, date: str, time: str, city: str) -> str | None:
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "") -> str | None:
     """Генерирует определенную порцию анализа в зависимости от section."""
     base_info = f"Данные: {date}, время {time}, город {city}."
+    if core_profile:
+        base_info += f" Прошлый анализ (учитывай это, чтобы показать, что ты знаешь пользователя): {core_profile}."
 
     style_instruction = (
         " ВАЖНО: Соблюдай жесткий ToV Кибер-Олеси! Без Markdown (никаких ** или __), "
@@ -215,7 +217,7 @@ async def generate_section(section: str, date: str, time: str, city: str) -> str
         prompt = (
             f"{base_info} Сделай ФИНАЛ (Итоговый вердикт и совет в стиле 'Живи с этим'). "
             f"Выдели заголовок ФИНАЛ КАПСОМ. "
-            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро (число от 0 до 77) в формате: ID_ТАРО: [число]{style_instruction}"
+            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро (число от 0 до 77) в формате: ID_ТАРО: [число]. Вплети этот ID прямо в свой прогноз (например: 'Твоя карта — Аркан [число]').{style_instruction}"
         )
     else:
         return None
