@@ -79,7 +79,8 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "birth_city": birth_city,
         "partners": [],
         "has_full_chart": False,
-        "free_card_used": False
+        "free_card_used": False,
+        "purchased_sections": {"sex": False, "money": False, "shadow": False, "final": False}
     }
     try:
         async with aiohttp.ClientSession() as session:
@@ -87,6 +88,7 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
                 if r.status in (200, 201):
                     data = await r.json()
                     if data:
+                        print("Записано в Users")
                         return data[0]
                 else:
                     print(f"Supabase error in create_user: {r.status} {await r.text()}")
@@ -105,6 +107,7 @@ async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str,
                 if r.status in (200, 204):
                     data = await r.json()
                     if data:
+                        print("Записано в Users")
                         return data[0]
                 else:
                     print(f"Supabase error in update_user: {r.status} {await r.text()}")
@@ -145,6 +148,7 @@ async def set_user_state(vk_id: int, state: str) -> bool:
         async with aiohttp.ClientSession() as session:
             async with session.post(f"{URL}/rest/v1/{FSM_TABLE}", headers=upsert_headers, json=payload) as r:
                 if r.status in (200, 201, 204):
+                    print("Записано в FSM")
                     return True
                 else:
                     print(f"Supabase error in set_user_state: {r.status} {await r.text()}")
