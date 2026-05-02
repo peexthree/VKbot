@@ -10,6 +10,8 @@ with warnings.catch_warnings():
 import os
 import asyncio
 
+active_tasks = set()
+
 async def handle_ping(request):
     from aiohttp import web
     return web.Response(text="Bot is alive")
@@ -19,15 +21,13 @@ async def main():
     from aiohttp import web
     from vkbottle import Bot, Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
     from vkbottle.bot import Message
-    from database import get_user, create_user, update_user, init_db
+    from database import get_user, create_user, update_user, init_db, get_user_state, set_user_state
     from ai_service import generate_text, generate_image
 
     vk_token = os.environ.get("VK_TOKEN", "")
     bot = Bot(token=vk_token)
     
     await init_db()
-
-    active_tasks = set()
 
     def get_dynamic_keyboard(user: dict | None) -> str:
         keyboard = Keyboard(inline=False)
@@ -74,24 +74,33 @@ async def main():
     @bot.on.message(text=["Начать", "start", "/start"])
     async def start_handler(message: Message):
         vk_id = message.from_id
-        user = await get_user(vk_id)
-        if user and user.get("free_teaser_used"):
-            await message.answer("СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nС возвращением.", keyboard=get_dynamic_keyboard(user))
-        else:
-            if not user:
-                await create_user(vk_id, "", "", "")
-            await update_user(vk_id, {"current_step": "waiting_data"})
+        if vk_id in active_tasks:
+            return
 
-            kb = Keyboard(inline=True)
-            kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
-            await message.answer(
-                "СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nУкажите дату, время и город вашего прихода в этот мир в любом удобном формате.",
-                keyboard=kb.get_json()
-            )
+        active_tasks.add(vk_id)
+        try:
+            user = await get_user(vk_id)
+            if user and user.get("free_teaser_used"):
+                await message.answer("СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nС возвращением.", keyboard=get_dynamic_keyboard(user))
+            else:
+                if not user:
+                    await create_user(vk_id, "", "", "")
+                await set_user_state(vk_id, "registration")
+
+                kb = Keyboard(inline=True)
+                kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
+                await message.answer(
+                    "СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nУкажите дату, время и город вашего прихода в этот мир в любом удобном формате.",
+                    keyboard=kb.get_json()
+                )
+        finally:
+            active_tasks.discard(vk_id)
 
     async def is_waiting_data(message: Message) -> bool:
-        user = await get_user(message.from_id)
-        return user is not None and user.get("current_step") == "waiting_data"
+        if message.text and message.text.lower() in ["начать", "start", "/start"]:
+            return False
+        state = await get_user_state(message.from_id)
+        return state == "registration"
 
     @bot.on.message(func=is_waiting_data)
     async def process_data(message: Message):
@@ -126,9 +135,9 @@ async def main():
                 "birth_date": date,
                 "birth_time": time,
                 "birth_city": city,
-                "free_teaser_used": True,
-                "current_step": ""
+                "free_teaser_used": True
             })
+            await set_user_state(vk_id, "")
 
             prompt = (
                 f"Ты премиальный психолог-астролог. Составь короткий, интригующий тизер личности (2-3 абзаца) "
@@ -271,7 +280,7 @@ async def main():
             await message.answer("Ваш баланс проверок совместимости равен 0. Пожалуйста, пополните баланс (напишите 'Пополнить').")
             return
 
-        await update_user(vk_id, {"current_step": "waiting_partner_data"})
+        await set_user_state(vk_id, "waiting_partner_data")
         await message.answer(f"Ваш баланс: {balance} проверок. Введите данные партнера (дата, время, город) для глубокого анализа синастрии:")
 
     @bot.on.message(text=["Пополнить баланс", "Пополнить"])
@@ -287,8 +296,10 @@ async def main():
             await message.answer("Пользователь не найден.")
 
     async def is_waiting_partner_data(message: Message) -> bool:
-        user = await get_user(message.from_id)
-        return user is not None and user.get("current_step") == "waiting_partner_data"
+        if message.text and message.text.lower() in ["начать", "start", "/start"]:
+            return False
+        state = await get_user_state(message.from_id)
+        return state == "waiting_partner_data"
 
     @bot.on.message(func=is_waiting_partner_data)
     async def process_partner_data(message: Message):
@@ -307,9 +318,9 @@ async def main():
 
             new_balance = user.get("compatibility_balance", 0) - 1
             await update_user(vk_id, {
-                "compatibility_balance": new_balance,
-                "current_step": ""
+                "compatibility_balance": new_balance
             })
+            await set_user_state(vk_id, "")
 
             await message.answer("Анализирую синастрию... Это займет немного времени.")
             await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
