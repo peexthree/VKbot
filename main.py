@@ -59,14 +59,16 @@ async def main():
         keyboard.add(Text("Пополнить баланс"), color=KeyboardButtonColor.POSITIVE)
         return keyboard.get_json()
 
-    def get_inline_buy_full_chart() -> str:
+    def get_inline_buy_full_chart(user_id: int) -> str:
         from vkbottle import OpenLink
         keyboard = Keyboard(inline=True)
-        # В реальном проекте здесь генерируется уникальная ссылка на оплату (YooKassa / VK Pay)
-        keyboard.add(OpenLink("https://vk.com", "Оплатить разбор (990₽)"))
-        keyboard.row()
-        # Для демонстрации оставляем кнопку "Оплатить (Демо)", которая эмулирует успешный вебхук
-        keyboard.add(Text("Купить полный разбор"), color=KeyboardButtonColor.PRIMARY)
+        port = os.environ.get("PORT", 10000)
+        # Assuming the Render app URL or local, we just provide a dummy localhost link for now
+        # But we need a host. Render provides RENDER_EXTERNAL_URL
+        host = os.environ.get("RENDER_EXTERNAL_URL", f"http://localhost:{port}")
+        payment_url = f"{host}/payment/webhook?user_id={user_id}&amount=990&secret=dummy_secret_123"
+
+        keyboard.add(OpenLink(payment_url, "Оплатить разбор (990₽)"))
         return keyboard.get_json()
 
     @bot.on.message(text=["Начать", "start", "/start"])
@@ -81,7 +83,7 @@ async def main():
             await update_user(vk_id, {"current_step": "waiting_data"})
 
             kb = Keyboard(inline=True)
-            kb.add(Text("Не знаю время"), color=KeyboardButtonColor.SECONDARY)
+            kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
             await message.answer(
                 "СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nУкажите дату, время и город вашего прихода в этот мир в любом удобном формате.",
                 keyboard=kb.get_json()
@@ -102,9 +104,9 @@ async def main():
             await message.answer("Анализирую координаты...")
             await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
 
-            # Support "Не знаю время" button fallback
+            # Support "Не знаю время (12:00)" button fallback
             user_text = message.text
-            if user_text.lower() == "не знаю время":
+            if user_text.lower() == "не знаю время" or user_text.lower() == "не знаю время (12:00)":
                 user_text = "Я не знаю время своего рождения, но вот мои дата и город (попробуй найти их в предыдущих сообщениях или попроси пользователя ввести)."
                 await message.answer("Хорошо, время установлено на 12:00. Напишите дату и город.")
                 return
@@ -142,7 +144,7 @@ async def main():
             # Отправляем тизер с инлайн кнопкой покупки
             await message.answer(
                 f"✦ ПЕРВИЧНЫЙ СРЕЗ\n\n{teaser}",
-                keyboard=get_inline_buy_full_chart()
+                keyboard=get_inline_buy_full_chart(vk_id)
             )
             # Отправляем навигатор отдельно
             await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
@@ -173,23 +175,17 @@ async def main():
         )
         await message.answer(profile_text, keyboard=get_inline_profile_keyboard())
 
-    @bot.on.message(text=["Купить полный разбор", "Раскрыть полную карту"])
-    async def buy_full_chart(message: Message):
-        vk_id = message.from_id
-
+    async def process_payment_and_generate(vk_id: int):
         if vk_id in active_tasks:
             return
-
         user = await get_user(vk_id)
         if not user:
-            await message.answer("Сначала введите свои данные. Напишите 'Начать'.")
             return
 
         active_tasks.add(vk_id)
         try:
-            # Имитация получения вебхука от платежной системы
-            await message.answer("Входящий платеж подтвержден.\n\nВрата открыты. Генерирую полный разбор и сакральную визуальную карту... Это займет около минуты.")
-            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+            await bot.api.messages.send(peer_id=vk_id, message="Входящий платеж подтвержден.\n\nВрата открыты. Генерирую полный разбор и сакральную визуальную карту... Это займет около минуты.", random_id=0)
+            await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
 
             # Mark as purchased in database
             await update_user(vk_id, {"has_full_chart": True})
@@ -231,15 +227,16 @@ async def main():
             if full_text:
                 if image_bytes:
                     try:
+                        from vkbottle import PhotoMessageUploader
                         uploader = PhotoMessageUploader(bot.api)
-                        photo_attachment = await uploader.upload(image_bytes, peer_id=message.peer_id)
-                        await message.answer(full_text, attachment=photo_attachment, keyboard=get_dynamic_keyboard(user))
+                        photo_attachment = await uploader.upload(image_bytes, peer_id=vk_id)
+                        await bot.api.messages.send(peer_id=vk_id, message=full_text, attachment=photo_attachment, keyboard=get_dynamic_keyboard(user), random_id=0)
                     except Exception as e:
-                        await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{full_text}", keyboard=get_dynamic_keyboard(user))
+                        await bot.api.messages.send(peer_id=vk_id, message=f"Текст сгенерирован, но ошибка с фото: {e}\n\n{full_text}", keyboard=get_dynamic_keyboard(user), random_id=0)
                 else:
-                    await message.answer(f"Не удалось сгенерировать изображение.\n\n{full_text}", keyboard=get_dynamic_keyboard(user))
+                    await bot.api.messages.send(peer_id=vk_id, message=f"Не удалось сгенерировать изображение.\n\n{full_text}", keyboard=get_dynamic_keyboard(user), random_id=0)
             else:
-                await message.answer("Произошла ошибка при генерации разбора.")
+                await bot.api.messages.send(peer_id=vk_id, message="Произошла ошибка при генерации разбора.", random_id=0)
 
         finally:
             active_tasks.discard(vk_id)
@@ -471,7 +468,7 @@ async def main():
                     vk_id = user.get("vk_id")
                     if vk_id and user.get("free_teaser_used"):
                         try:
-                            kb = get_inline_buy_full_chart()
+                            kb = get_inline_buy_full_chart(vk_id)
                             await bot.api.messages.send(
                                 peer_id=vk_id,
                                 message="Теневой аспект активен. Вы игнорируете свою суть. Ваш профиль меркнет.\n\nПродолжите работу с Оракулом, чтобы получить ответы.",
@@ -490,8 +487,31 @@ async def main():
     asyncio.create_task(bot.run_polling())
     asyncio.create_task(daily_forecast_cron())
     
+    async def payment_webhook(request):
+        try:
+            # We simulate a webhook via POST to simulate real YooKassa
+            data = await request.post() if request.method == "POST" else request.query
+            user_id_str = data.get('user_id')
+            secret = data.get('secret')
+
+            # Simple security check for our dummy webhook
+            if secret != "dummy_secret_123":
+                return web.Response(text="Unauthorized", status=401)
+
+            if not user_id_str:
+                return web.Response(text="Missing user_id", status=400)
+            user_id = int(user_id_str)
+
+            # Fire and forget the processing
+            asyncio.create_task(process_payment_and_generate(user_id))
+
+            return web.Response(text="Payment processed successfully! You can close this window and return to the bot.")
+        except Exception as e:
+            return web.Response(text=str(e), status=500)
+
     app = web.Application()
     app.router.add_get('/', handle_ping)
+    app.router.add_route('*', '/payment/webhook', payment_webhook)
     
     runner = web.AppRunner(app)
     await runner.setup()

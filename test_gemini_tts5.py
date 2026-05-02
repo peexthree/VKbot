@@ -1,9 +1,11 @@
+import pytest
 import asyncio
 import aiohttp
 import os
 import base64
 import json
 
+@pytest.mark.asyncio
 async def test_gemini_tts():
     api_key = os.environ.get("GEMINI_API_KEY", "")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key={api_key}"
