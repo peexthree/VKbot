@@ -1,3 +1,4 @@
+import asyncio
 import os
 import aiohttp
 import base64
@@ -76,7 +77,26 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
                             except (KeyError, IndexError):
                                 continue
                         elif resp.status == 429:
-                            print(f"Rate limit hit for text generation ({model}). Rotating key...")
+                            print(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
+                            await asyncio.sleep(2)  # Simple static backoff to avoid blocking too long, but let's do a short loop
+                            # Actually, a better approach is to retry the request directly here a few times
+                            retry_count = 0
+                            success = False
+                            while retry_count < 3 and not success:
+                                retry_count += 1
+                                await asyncio.sleep(2 ** retry_count)
+                                async with session.post(url, json=payload) as retry_resp:
+                                    if retry_resp.status == 200:
+                                        res_data = await retry_resp.json()
+                                        try:
+                                            text = res_data['candidates'][0]['content']['parts'][0]['text']
+                                            if not json_mode:
+                                                text = text.replace('*', '').replace('#', '').replace('_', '')
+                                            return text
+                                        except (KeyError, IndexError):
+                                            pass
+                                    elif retry_resp.status != 429:
+                                        break
                             continue
                         else:
                             print(f"Text API Error status {resp.status} on {model}. Trying next key.")
@@ -137,7 +157,22 @@ async def generate_image(prompt: str) -> bytes | None:
                         except (KeyError, IndexError):
                             return None
                     elif resp.status == 429:
-                        print(f"Rate limit hit for image generation. Rotating...")
+                        print(f"Rate limit hit for image generation. Retrying with backoff...")
+                        retry_count = 0
+                        success = False
+                        while retry_count < 3 and not success:
+                            retry_count += 1
+                            await asyncio.sleep(2 ** retry_count)
+                            async with session.post(url, json=payload) as retry_resp:
+                                if retry_resp.status == 200:
+                                    res_data = await retry_resp.json()
+                                    try:
+                                        output_b64 = res_data['predictions'][0]['bytesBase64Encoded']
+                                        return base64.b64decode(output_b64)
+                                    except (KeyError, IndexError):
+                                        pass
+                                elif retry_resp.status != 429:
+                                    break
                         continue
                     else:
                         print(f"Image API Error status {resp.status}. Trying next key.")
@@ -151,8 +186,19 @@ async def generate_image(prompt: str) -> bytes | None:
 
     print(f"All keys exhausted or failed for image generation. Last error: {last_exception}")
 
-    # Fallback placeholder image (a simple generated solid dark gold/grey image to prevent UI breaks)
+    # Fallback placeholder image
     try:
+        import os
+        import random
+        fallback_dir = 'assets/fallback_images'
+        if os.path.exists(fallback_dir):
+            images = [os.path.join(fallback_dir, f) for f in os.listdir(fallback_dir) if f.endswith(('.jpg', '.jpeg', '.png'))]
+            if images:
+                chosen = random.choice(images)
+                with open(chosen, 'rb') as f:
+                    return f.read()
+
+        # Ultimate fallback
         from PIL import Image
         import io
         img = Image.new('RGB', (1024, 1024), color = '#2A2A2A')

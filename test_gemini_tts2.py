@@ -1,8 +1,10 @@
+import pytest
 import asyncio
 import aiohttp
 import os
 import base64
 
+@pytest.mark.asyncio
 async def test_gemini_tts():
     api_key = os.environ.get("GEMINI_API_KEY", "")
     # Use the gemini-2.5-flash model since gemini-2.5-flash-preview-tts doesn't seem to be valid,
