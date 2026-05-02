@@ -96,16 +96,72 @@ async def main():
         active_tasks.add(vk_id)
         try:
             user = await get_user(vk_id)
-            if user and user.get("birth_city"):
-                await message.answer("СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nС возвращением.", keyboard=get_dynamic_keyboard(user))
-            else:
-                if not user:
-                    await create_user(vk_id, "", "", "")
-                import json
-                await set_user_state(vk_id, json.dumps({"step": "date"}))
 
+            # 1. Если данные уже есть (дата, время, город) - прыгаем сразу в главное меню
+            if user and user.get("birth_date") and user.get("birth_time") and user.get("birth_city"):
+                purchased = user.get("purchased_sections", {})
+                first_name = purchased.get("first_name", "")
+                greeting = f"С возвращением, {first_name}." if first_name else "С возвращением."
+                await message.answer(f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\n{greeting}", keyboard=get_dynamic_keyboard(user))
+                return
+
+            # 2. Получаем данные из VK
+            first_name = ""
+            sex = 0
+            bdate = ""
+            city = ""
+            try:
+                users_info = await bot.api.users.get(user_ids=[vk_id], fields=["sex", "bdate", "city"])
+                if users_info:
+                    info = users_info[0]
+                    first_name = info.first_name
+                    sex = info.sex
+                    bdate = info.bdate if info.bdate else ""
+                    if info.city:
+                        city = info.city.title
+            except Exception as e:
+                print(f"Error fetching user info: {e}")
+
+            if not user:
+                user = await create_user(vk_id, "", "", "")
+
+            if user:
+                # Store first_name and sex in purchased_sections jsonb field
+                purchased = user.get("purchased_sections", {})
+                purchased["first_name"] = first_name
+                purchased["sex"] = sex
+                await update_user(vk_id, {"purchased_sections": purchased})
+
+            import json
+            # Если вк вернул bdate (в формате D.M.YYYY) и город
+            if bdate and city:
+                await set_user_state(vk_id, json.dumps({"step": "time", "date": bdate, "city": city}))
+                kb = Keyboard(inline=True)
+                kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
                 await message.answer(
-                    "СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nУкажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):"
+                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}. Твой город ({city}) и дата рождения ({bdate}) загружены.\n"
+                    "Укажите ВРЕМЯ рождения (например, 14:30):", keyboard=kb.get_json()
+                )
+            elif bdate:
+                await set_user_state(vk_id, json.dumps({"step": "time", "date": bdate}))
+                kb = Keyboard(inline=True)
+                kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
+                await message.answer(
+                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}. Твоя дата рождения ({bdate}) загружена.\n"
+                    "Укажите ВРЕМЯ рождения (например, 14:30):", keyboard=kb.get_json()
+                )
+            elif city:
+                await set_user_state(vk_id, json.dumps({"step": "date", "city": city}))
+                await message.answer(
+                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}. Твой город ({city}) загружен.\n"
+                    "Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):"
+                )
+            else:
+                await set_user_state(vk_id, json.dumps({"step": "date"}))
+                greeting = f"Привет, {first_name}." if first_name else "Привет."
+                await message.answer(
+                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\n{greeting}\n"
+                    "Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):"
                 )
         finally:
             active_tasks.discard(vk_id)
@@ -168,11 +224,44 @@ async def main():
 
             state_dict = await get_fsm_step(vk_id)
             date_str = state_dict.get("date", "")
+            city_str_existing = state_dict.get("city", "")
 
             import json
-            await set_user_state(vk_id, json.dumps({"step": "city", "date": date_str, "time": time_str}))
 
-            await message.answer("Укажите ГОРОД рождения:")
+            # If we already got the city from VK, we can skip process_city
+            if city_str_existing:
+                await message.answer("Анализирую координаты...")
+                await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+
+                user = await update_user(vk_id, {
+                    "birth_date": date_str,
+                    "birth_time": time_str,
+                    "birth_city": city_str_existing
+                })
+                await set_user_state(vk_id, "")
+
+                if not user:
+                    user = await get_user(vk_id)
+
+                purchased = user.get("purchased_sections", {}) if user else {}
+                first_name = purchased.get("first_name", "")
+
+                from ai_service import generate_section
+                base_text = await generate_section("base", date_str, time_str, city_str_existing)
+
+                if base_text:
+                    if first_name:
+                        base_text = f"{first_name},\n\n" + base_text
+                    kb_json = await get_sections_keyboard(vk_id, user)
+                    await message.answer(
+                        base_text,
+                        keyboard=kb_json
+                    )
+                else:
+                    await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
+            else:
+                await set_user_state(vk_id, json.dumps({"step": "city", "date": date_str, "time": time_str}))
+                await message.answer("Укажите ГОРОД рождения:")
         finally:
             active_tasks.discard(vk_id)
 
@@ -213,13 +302,20 @@ async def main():
             # Очистка состояния
             await set_user_state(vk_id, "")
 
+            user = await get_user(vk_id)
+            purchased = user.get("purchased_sections", {}) if user else {}
+            first_name = purchased.get("first_name", "")
+
             from ai_service import generate_section
             core_profile = user.get("core_profile", "")
             base_text = await generate_section("base", date, time, city, core_profile)
-            if not base_text:
+
+            if base_text:
+                if first_name:
+                    base_text = f"{first_name},\n\n" + base_text
+            else:
                 base_text = "ДАННЫЕ СОХРАНЕНЫ. СИСТЕМА В ОЖИДАНИИ."
 
-            user = await get_user(vk_id)
             # Отправляем базу с кнопками покупки остальных разделов
             kb_json = await get_sections_keyboard(vk_id, user)
             await message.answer(
@@ -243,10 +339,13 @@ async def main():
         date = user.get("birth_date", "Неизвестно")
         time = user.get("birth_time", "Неизвестно")
         city = user.get("birth_city", "Неизвестно")
+        purchased = user.get("purchased_sections", {})
+        first_name = purchased.get("first_name", "")
 
+        name_line = f"Имя: {first_name}\n" if first_name else ""
         profile_text = (
             f"✦ ПРОФИЛЬ АСКЕТА ✦\n\n"
-            f"Точка входа: {date} {time}\n"
+            f"{name_line}Точка входа: {date} {time}\n"
             f"Локация: {city}"
         )
         await message.answer(profile_text, keyboard=get_inline_profile_keyboard())
@@ -308,14 +407,20 @@ async def main():
             # Mark as purchased in database
             purchased = user.get("purchased_sections", {})
             if section == "all":
-                purchased = {"sex": True, "money": True, "shadow": True, "final": True}
+                purchased["sex"] = True
+                purchased["money"] = True
+                purchased["shadow"] = True
+                purchased["final"] = True
                 await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
                 await bot.api.messages.send(peer_id=vk_id, message="ОПЛАТА УСПЕШНА.\n\nВсе Врата открыты.", random_id=0)
-            elif section in purchased:
+            elif section in ["sex", "money", "shadow", "final"]:
                 purchased[section] = True
                 updates = {"purchased_sections": purchased}
-                if all(purchased.values()):
+
+                # Check if all four main sections are purchased
+                if purchased.get("sex") and purchased.get("money") and purchased.get("shadow") and purchased.get("final"):
                     updates["has_full_chart"] = True
+
                 await update_user(vk_id, updates)
                 await bot.api.messages.send(peer_id=vk_id, message="ОПЛАТА УСПЕШНА.\n\nРаздел открыт.", random_id=0)
 
@@ -367,6 +472,7 @@ async def main():
             date = user.get("birth_date", "неизвестно")
             time = user.get("birth_time", "неизвестно")
             city = user.get("birth_city", "неизвестно")
+            first_name = purchased.get("first_name", "")
 
             from ai_service import generate_section
             core_profile = user.get("core_profile", "")
@@ -377,7 +483,10 @@ async def main():
                 await message.answer("Ошибка генерации.", keyboard=kb_json)
                 return
 
-            if target_section == "final":
+            if first_name:
+                result_text = f"{first_name},\n\n" + result_text
+
+            if target_section in ["sex", "money", "shadow", "final"]:
                 import re
                 match = re.search(r"ID_ТАРО:\s*(\d+)", result_text)
                 card_id = "0"
@@ -387,8 +496,7 @@ async def main():
                         card_id = str(num)
 
                 # Fetch image from github
-                extension = "jpeg" if 0 <= int(card_id) <= 21 else "png"
-                image_url = f"https://raw.githubusercontent.com/peexthree/vkbot_5/main/cards/{card_id}.{extension}"
+                image_url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{card_id}.jpeg"
                 image_bytes = None
                 try:
                     import aiohttp
@@ -399,29 +507,33 @@ async def main():
                 except Exception as e:
                     print(f"Failed to fetch tarot card {card_id}: {e}")
 
+                # Убираем техническую строку с ID_ТАРО из финального текста
+                display_text = re.sub(r"ID_ТАРО:\s*\d+", "", result_text).strip()
+
                 if image_bytes:
                     try:
                         from vkbottle import PhotoMessageUploader
                         uploader = PhotoMessageUploader(bot.api)
                         photo_attachment = await uploader.upload(image_bytes, peer_id=vk_id)
                         kb_json = await get_sections_keyboard(vk_id, user)
-                        await message.answer(result_text, attachment=photo_attachment, keyboard=kb_json)
+                        await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
                     except Exception as e:
                         kb_json = await get_sections_keyboard(vk_id, user)
-                        await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{result_text}", keyboard=kb_json)
+                        await message.answer(f"Текст сгенерирован, но ошибка с фото: {e}\n\n{display_text}", keyboard=kb_json)
                 else:
                     kb_json = await get_sections_keyboard(vk_id, user)
-                    await message.answer(f"{result_text}", keyboard=kb_json)
+                    await message.answer(f"{display_text}", keyboard=kb_json)
 
-                # Generate summary for memory
-                from ai_service import generate_text
-                summary_prompt = (
-                    f"Сделай очень короткую выжимку (психологический профиль, 2-3 предложения) "
-                    f"из этого текста: {result_text[:1000]}. Это нужно для системной памяти бота."
-                )
-                core_profile = await generate_text(summary_prompt)
-                if core_profile:
-                    await update_user(vk_id, {"core_profile": core_profile})
+                if target_section == "final":
+                    # Generate summary for memory
+                    from ai_service import generate_text
+                    summary_prompt = (
+                        f"Сделай очень короткую выжимку (психологический профиль, 2-3 предложения) "
+                        f"из этого текста: {result_text[:1000]}. Это нужно для системной памяти бота."
+                    )
+                    core_profile = await generate_text(summary_prompt)
+                    if core_profile:
+                        await update_user(vk_id, {"core_profile": core_profile})
             else:
                 kb_json = await get_sections_keyboard(vk_id, user)
                 await message.answer(result_text, keyboard=kb_json)
