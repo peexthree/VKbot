@@ -48,28 +48,28 @@ async def main():
 
         # Секс
         if not purchased.get("sex"):
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=100"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
             buttons.append([{"action": action_obj}])
 
         # Деньги
         if not purchased.get("money"):
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=90"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
             buttons.append([{"action": action_obj}])
 
         # Тень
         if not purchased.get("shadow"):
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=70"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
             buttons.append([{"action": action_obj}])
 
         # Финал
         if not purchased.get("final"):
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=120"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
             buttons.append([{"action": action_obj}])
 
         # Бандл: если куплено меньше двух разделов
         purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
         if purchased_count < 2:
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=300"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
             buttons.append([{"action": action_obj}])
 
         # Кнопка возврата в меню
@@ -93,33 +93,33 @@ async def main():
         if purchased.get("sex"):
             buttons.append([{"action": {"type": "text", "label": "✦ СЕКС (Открыто)"}, "color": "positive"}])
         else:
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=100"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
             buttons.append([{"action": action_obj}])
 
         # Деньги
         if purchased.get("money"):
             buttons.append([{"action": {"type": "text", "label": "✦ ДЕНЬГИ (Открыто)"}, "color": "positive"}])
         else:
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=90"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
             buttons.append([{"action": action_obj}])
 
         # Тень
         if purchased.get("shadow"):
             buttons.append([{"action": {"type": "text", "label": "✦ ТЕНЬ (Открыто)"}, "color": "positive"}])
         else:
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=70"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
             buttons.append([{"action": action_obj}])
 
         # Финал
         if purchased.get("final"):
             buttons.append([{"action": {"type": "text", "label": "✦ ФИНАЛ (Открыто)"}, "color": "positive"}])
         else:
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=120"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
             buttons.append([{"action": action_obj}])
 
         # Кнопка бандла, если не все куплено
         if not all([purchased.get("sex"), purchased.get("money"), purchased.get("shadow"), purchased.get("final")]):
-            action_obj = {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=300"}
+            action_obj = {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
             buttons.append([{"action": action_obj}])
 
         keyboard_obj = {
