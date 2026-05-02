@@ -36,6 +36,10 @@ async def main():
 
         # Базовая клавиатура - навигатор
         keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.SECONDARY)
+        keyboard.add(Text("✦ Главное меню"), color=KeyboardButtonColor.PRIMARY)
+        keyboard.row()
+        keyboard.add(Text("✦ Баланс"), color=KeyboardButtonColor.SECONDARY)
+        keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
 
         return keyboard.get_json()
 
@@ -422,6 +426,63 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
+
+    @bot.on.message(text=["✦ Главное меню", "Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
+    async def back_to_main_menu(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            kb_json = await get_sections_keyboard(vk_id, user)
+            await message.answer(
+                "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
+                keyboard=kb_json
+            )
+        except Exception as e:
+            print(f"Error sending main menu: {e}")
+        finally:
+            active_tasks.discard(vk_id)
+
+    @bot.on.message(text=["✦ Баланс", "Баланс"])
+    async def show_balance(message: Message):
+        vk_id = message.from_id
+        user = await get_user(vk_id)
+        if not user:
+            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            return
+
+        purchased = user.get("purchased_sections", {})
+
+        # Calculate purchased value roughly
+        value = 0
+        if purchased.get("sex"): value += 100
+        if purchased.get("money"): value += 90
+        if purchased.get("shadow"): value += 70
+        if purchased.get("final"): value += 120
+
+        await message.answer(f"ТВОЙ БАЛАНС.\nПриобретено услуг на сумму: {value} RUB.")
+
+    @bot.on.message(text=["✦ Услуги", "Услуги"])
+    async def show_services(message: Message):
+        vk_id = message.from_id
+        user = await get_user(vk_id)
+        if not user:
+            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            return
+
+        kb_json = await get_sections_keyboard(vk_id, user)
+        await message.answer(
+            "ДОСТУПНЫЕ УСЛУГИ И РАЗДЕЛЫ:",
+            keyboard=kb_json
+        )
+
     @bot.on.message(text=["✦ Мой профиль", "Мой профиль"])
     async def show_profile(message: Message):
         import json
@@ -627,29 +688,6 @@ async def main():
                 "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ ИГОРЬ.",
                 keyboard=kb_json
             )
-        finally:
-            active_tasks.discard(vk_id)
-
-    @bot.on.message(text=["В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
-    async def back_to_main_menu(message: Message):
-        vk_id = message.from_id
-        if vk_id in active_tasks:
-            return
-
-        user = await get_user(vk_id)
-        if not user:
-            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
-            return
-
-        active_tasks.add(vk_id)
-        try:
-            kb_json = await get_sections_keyboard(vk_id, user)
-            await message.answer(
-                "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
-                keyboard=kb_json
-            )
-        except Exception as e:
-            print(f"Error sending main menu: {e}")
         finally:
             active_tasks.discard(vk_id)
 
