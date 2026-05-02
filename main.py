@@ -327,6 +327,169 @@ async def main():
         state_dict = await get_fsm_step(message.from_id)
         return state_dict is not None and state_dict.get("step") == "city"
 
+    async def is_waiting_oracle_cut(message: Message) -> bool:
+        if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
+            return False
+        state_dict = await get_fsm_step(message.from_id)
+        return state_dict is not None and state_dict.get("step") == "oracle_cut"
+
+    @bot.on.message(func=is_waiting_oracle_cut)
+    async def process_oracle_cut(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            state_dict = await get_fsm_step(vk_id)
+            question = state_dict.get("question", "")
+
+            await set_user_state(vk_id, json.dumps({"step": "oracle_half", "question": question}))
+
+            kb = Keyboard(inline=True)
+            kb.add(Text("ВЕРХНЯЯ ЧАСТЬ"), color=KeyboardButtonColor.SECONDARY)
+            kb.add(Text("НИЖНЯЯ ЧАСТЬ"), color=KeyboardButtonColor.SECONDARY)
+
+            await message.answer(
+                "Колода разделена надвое. Откуда будем тянуть карты?",
+                keyboard=kb.get_json()
+            )
+        finally:
+            active_tasks.discard(vk_id)
+
+    async def is_waiting_oracle_half(message: Message) -> bool:
+        if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
+            return False
+        state_dict = await get_fsm_step(message.from_id)
+        return state_dict is not None and state_dict.get("step") == "oracle_half"
+
+    @bot.on.message(func=is_waiting_oracle_half)
+    async def process_oracle_half(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            text = message.text.strip().upper()
+            state_dict = await get_fsm_step(vk_id)
+            question = state_dict.get("question", "")
+
+            import random
+            if "ВЕРХНЯЯ" in text:
+                pool = list(range(0, 39))
+            else:
+                pool = list(range(39, 78))
+
+            random.shuffle(pool)
+
+            await set_user_state(vk_id, json.dumps({
+                "step": "oracle_draw",
+                "question": question,
+                "drawn_cards": [],
+                "pool": pool
+            }))
+
+            from vkbottle import Callback
+            kb = Keyboard(inline=True)
+            for i, card_id in enumerate(pool):
+                if i > 0 and i % 5 == 0:
+                    kb.row()
+                kb.add(Callback("🎴", payload={"oracle_card": card_id}))
+
+            await message.answer(
+                "Выбери ровно 3 карты из своей стопки:",
+                keyboard=kb.get_json()
+            )
+        finally:
+            active_tasks.discard(vk_id)
+
+    async def process_oracle_final(vk_id: int, text: str, card_ids: list):
+        user = await get_user(vk_id)
+        if not user:
+            return
+
+        import datetime
+        import asyncio
+        from ai_service import generate_text
+
+        try:
+            # Fetch images from local mapping
+            attachments = []
+            import json
+            try:
+                with open('tarot_ids.json', 'r') as f:
+                    tarot_mapping = json.load(f)
+                for cid in card_ids:
+                    photo_id = tarot_mapping.get(str(cid))
+                    if photo_id:
+                        attachments.append(photo_id)
+            except Exception as e:
+                print(f"Failed to load oracle tarot cards from tarot_ids.json: {e}")
+
+            # Send cards with delays
+            messages = ["ПЕРВАЯ КАРТА...", "ВТОРАЯ КАРТА...", "ТРЕТЬЯ КАРТА..."]
+            delays = [1, 1, 2]
+
+            for i in range(3):
+                if i < len(attachments):
+                    await bot.api.messages.send(
+                        peer_id=vk_id,
+                        message=messages[i],
+                        attachment=attachments[i],
+                        random_id=0
+                    )
+                else:
+                    await bot.api.messages.send(
+                        peer_id=vk_id,
+                        message=messages[i],
+                        random_id=0
+                    )
+                await asyncio.sleep(delays[i])
+
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message="АНАЛИЗИРУЮ СИНХРОНИЗАЦИЮ...",
+                random_id=0
+            )
+            await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+            await asyncio.sleep(4)
+
+            # Build prompt with user context
+            purchased = user.get("purchased_sections", {})
+            sex_val = purchased.get("sex_val", 0)
+            gender_str = "ЖЕНЩИНА" if sex_val == 1 else "МУЖЧИНА"
+
+            prompt = (
+                f"КОНТЕКСТ: {gender_str}. "
+                f"Пользователь задает вопрос: {text}. "
+                f"Выпали карты: {card_ids[0]}, {card_ids[1]}, {card_ids[2]}. "
+                "Сделай дерзкий, интересный ответ-синтез по этим картам. Сами карты в тексте не называй, просто дай суть основанную по гаданиям таро."
+            )
+
+            result_text = await generate_text(prompt)
+            if not result_text:
+                result_text = "Оракул молчит. Попробуй позже."
+
+            # Update database
+            purchased["last_oracle_time"] = datetime.datetime.now().isoformat()
+            if purchased.get("oracle_access", False):
+                purchased["oracle_access"] = False # consume the pass
+
+            await update_user(vk_id, {"purchased_sections": purchased})
+
+            kb_json = await get_sections_keyboard(vk_id, user)
+
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message=result_text,
+                keyboard=kb_json,
+                random_id=0
+            )
+
+        except Exception as e:
+            print(f"Error in process_oracle_final: {e}")
+
     @bot.on.message(func=is_waiting_city)
     async def process_city(message: Message):
         vk_id = message.from_id
@@ -586,6 +749,81 @@ async def main():
         else:
             await message.answer(profile_text, keyboard=kb_json)
 
+
+    @bot.on.raw_event(GroupEventType.MESSAGE_EVENT, dataclass=dict)
+    async def message_event_handler(event: dict):
+        obj = event.get("object", {})
+        vk_id = obj.get("user_id")
+        peer_id = obj.get("peer_id")
+        event_id = obj.get("event_id")
+        payload = obj.get("payload", {})
+
+        if not vk_id or not payload or "oracle_card" not in payload:
+            return
+
+        card_id = payload["oracle_card"]
+
+        try:
+            import json
+            # Stop loading animation
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id,
+                user_id=vk_id,
+                peer_id=peer_id
+            )
+
+            state_dict = await get_fsm_step(vk_id)
+            if not state_dict or state_dict.get("step") != "oracle_draw":
+                return
+
+            drawn_cards = state_dict.get("drawn_cards", [])
+            pool = state_dict.get("pool", [])
+
+            if card_id not in drawn_cards:
+                drawn_cards.append(card_id)
+
+            if len(drawn_cards) < 3:
+                state_dict["drawn_cards"] = drawn_cards
+                await set_user_state(vk_id, json.dumps(state_dict))
+
+                from vkbottle import Callback
+                kb = Keyboard(inline=True)
+
+                # Render only available cards
+                btn_count = 0
+                for c_id in pool:
+                    if c_id not in drawn_cards:
+                        if btn_count > 0 and btn_count % 5 == 0:
+                            kb.row()
+                        kb.add(Callback("🎴", payload={"oracle_card": c_id}))
+                        btn_count += 1
+
+                await bot.api.messages.edit(
+                    peer_id=peer_id,
+                    message=f"Выбрано: {len(drawn_cards)}/3...",
+                    conversation_message_id=obj.get("conversation_message_id"),
+                    keyboard=kb.get_json()
+                )
+            else:
+                # 3 cards selected
+                await set_user_state(vk_id, "") # Clear FSM state
+
+                # To completely remove the keyboard, we need to pass an empty keyboard payload
+                empty_kb = Keyboard(inline=True)
+
+                await bot.api.messages.edit(
+                    peer_id=peer_id,
+                    message="Выбрано: 3/3. Карты собраны.",
+                    conversation_message_id=obj.get("conversation_message_id"),
+                    keyboard=empty_kb.get_json()
+                )
+
+                # Trigger process_oracle_final asynchronously to avoid blocking callback
+                import asyncio
+                asyncio.create_task(process_oracle_final(vk_id, state_dict["question"], drawn_cards))
+
+        except Exception as e:
+            print(f"Error in message_event_handler: {e}")
 
     @bot.on.raw_event(GroupEventType.VKPAY_TRANSACTION, dataclass=dict)
     async def money_transfer_handler(event: dict):
@@ -931,52 +1169,16 @@ async def main():
                 )
                 return
 
-            # Логика самого оракула
-            await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+            # Start Oracle FSM
+            await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": text}))
 
-            import random
-            card_ids = random.sample(range(78), 3)
+            kb = Keyboard(inline=True)
+            kb.add(Text("СДВИНУТЬ КОЛОДУ"), color=KeyboardButtonColor.PRIMARY)
 
-            from ai_service import generate_text
-            prompt = (
-                f"Пользователь задает вопрос: {text}. "
-                f"Выпали карты: {card_ids[0]}, {card_ids[1]}, {card_ids[2]}. "
-                "Сделай дерзкий, интересный ответ-синтез по этим картам. Сами карты в тексте не называй, просто дай суть основанную по гаданиям таро."
+            await message.answer(
+                "Вопрос принят. Энергия сформирована. Сдвинь колоду, чтобы задать вектор.",
+                keyboard=kb.get_json()
             )
-
-            # Fetch images from local mapping
-            attachments = []
-            try:
-                import json
-                with open('tarot_ids.json', 'r') as f:
-                    tarot_mapping = json.load(f)
-                for cid in card_ids:
-                    photo_id = tarot_mapping.get(str(cid))
-                    if photo_id:
-                        attachments.append(photo_id)
-            except Exception as e:
-                print(f"Failed to load oracle tarot cards from tarot_ids.json: {e}")
-
-            await asyncio.sleep(3) # simulate thought
-            result_text = await generate_text(prompt)
-            if not result_text:
-                result_text = "Оракул молчит. Попробуй позже."
-
-            # Update database
-            purchased["last_oracle_time"] = datetime.datetime.now().isoformat()
-            if has_paid_access:
-                purchased["oracle_access"] = False # consume the pass
-
-            await update_user(vk_id, {"purchased_sections": purchased})
-
-            kb_json = await get_sections_keyboard(vk_id, user)
-
-            att_str = ",".join(attachments) if attachments else None
-
-            if att_str:
-                await message.answer(result_text, attachment=att_str, keyboard=kb_json)
-            else:
-                await message.answer(result_text, keyboard=kb_json)
 
         finally:
             active_tasks.discard(vk_id)
