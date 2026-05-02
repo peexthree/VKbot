@@ -1,7 +1,6 @@
 import asyncio
-from database import get_user
 
-async def main():
+async def test():
     pass
 
-asyncio.run(main())
+asyncio.run(test())
