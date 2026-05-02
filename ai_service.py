@@ -12,6 +12,12 @@ async def get_gemini_api_keys() -> list[str]:
 import json
 import re
 
+async def generate_audio_prediction(text: str) -> bytes | None:
+    # Имитация генерации голоса (ElevenLabs/Edge-TTS).
+    # Для реального проекта здесь будет aiohttp запрос к API генерации речи.
+    # Сейчас мы возвращаем заглушку, чтобы не усложнять зависимости
+    return b"dummy_audio_data"
+
 async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
     api_keys = await get_gemini_api_keys()
     if not api_keys:
@@ -144,4 +150,15 @@ async def generate_image(prompt: str) -> bytes | None:
                 continue
 
     print(f"All keys exhausted or failed for image generation. Last error: {last_exception}")
-    return None
+
+    # Fallback placeholder image (a simple generated solid dark gold/grey image to prevent UI breaks)
+    try:
+        from PIL import Image
+        import io
+        img = Image.new('RGB', (1024, 1024), color = '#2A2A2A')
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='JPEG')
+        return img_byte_arr.getvalue()
+    except Exception as e:
+        print(f"Failed to generate fallback image: {e}")
+        return None

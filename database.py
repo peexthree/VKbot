@@ -34,6 +34,18 @@ async def get_all_subscribed_users() -> list[Dict[str, Any]]:
                 return data
             return []
 
+async def get_inactive_free_users() -> list[Dict[str, Any]]:
+    """Получает пользователей, которые не купили разбор, для кармических пушей"""
+    if not URL or not KEY:
+        return []
+    async with aiohttp.ClientSession() as session:
+        # Для демо берем всех, кто не купил. В реальности нужно фильтровать по created_at < now - 3 days
+        async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?has_full_chart=eq.false", headers=HEADERS) as r:
+            if r.status == 200:
+                data = await r.json()
+                return data
+            return []
+
 async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: str) -> Optional[Dict[str, Any]]:
     if not URL or not KEY:
         return None
@@ -42,7 +54,10 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "birth_date": birth_date,
         "birth_time": birth_time,
         "birth_city": birth_city,
-        "partners": []
+        "partners": [],
+        "current_step": "",
+        "has_full_chart": False,
+        "free_card_used": False
     }
     async with aiohttp.ClientSession() as session:
         async with session.post(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS, json=payload) as r:
