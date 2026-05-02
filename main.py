@@ -267,7 +267,7 @@ async def main():
         await message.answer(profile_text, keyboard=get_inline_profile_keyboard())
 
 
-    @bot.on.raw_event("money_transfer", dataclass=dict)
+    @bot.on.raw_event("vkpay_transaction", dataclass=dict)
     async def money_transfer_handler(event: dict):
         try:
             # VK API typically sends event within an object depending on the exact callback format
