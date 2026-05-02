@@ -45,43 +45,47 @@ async def main():
         return keyboard.get_json()
 
     async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
-        from vkbottle import VKPay
-        keyboard = Keyboard(inline=True)
+        import json
+
         purchased = user.get("purchased_sections", {}) if user else {}
+
+        buttons = []
 
         # Секс
         if purchased.get("sex"):
-            keyboard.add(Text("✦ СЕКС (Открыто)"), color=KeyboardButtonColor.POSITIVE)
+            buttons.append([{"action": {"type": "text", "label": "✦ СЕКС (Открыто)"}, "color": "positive"}])
         else:
-            keyboard.add(VKPay(payload={"section": "sex"}, hash="action=transfer-to-group&group_id=219181948&amount=99"))
-        keyboard.row()
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=100"}}])
 
         # Деньги
         if purchased.get("money"):
-            keyboard.add(Text("✦ ДЕНЬГИ (Открыто)"), color=KeyboardButtonColor.POSITIVE)
+            buttons.append([{"action": {"type": "text", "label": "✦ ДЕНЬГИ (Открыто)"}, "color": "positive"}])
         else:
-            keyboard.add(VKPay(payload={"section": "money"}, hash="action=transfer-to-group&group_id=219181948&amount=99"))
-        keyboard.row()
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=90"}}])
 
         # Тень
         if purchased.get("shadow"):
-            keyboard.add(Text("✦ ТЕНЬ (Открыто)"), color=KeyboardButtonColor.POSITIVE)
+            buttons.append([{"action": {"type": "text", "label": "✦ ТЕНЬ (Открыто)"}, "color": "positive"}])
         else:
-            keyboard.add(VKPay(payload={"section": "shadow"}, hash="action=transfer-to-group&group_id=219181948&amount=99"))
-        keyboard.row()
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=70"}}])
 
         # Финал
         if purchased.get("final"):
-            keyboard.add(Text("✦ ФИНАЛ (Открыто)"), color=KeyboardButtonColor.POSITIVE)
+            buttons.append([{"action": {"type": "text", "label": "✦ ФИНАЛ (Открыто)"}, "color": "positive"}])
         else:
-            keyboard.add(VKPay(payload={"section": "final"}, hash="action=transfer-to-group&group_id=219181948&amount=99"))
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=120"}}])
 
         # Кнопка бандла, если не все куплено
         if not all([purchased.get("sex"), purchased.get("money"), purchased.get("shadow"), purchased.get("final")]):
-            keyboard.row()
-            keyboard.add(VKPay(payload={"section": "all"}, hash="action=transfer-to-group&group_id=219181948&amount=399"))
+            buttons.append([{"action": {"type": "vkpay", "hash": "action=transfer-to-group&group_id=219181948&amount=300"}}])
 
-        return keyboard.get_json()
+        keyboard_obj = {
+            "one_time": False,
+            "inline": True,
+            "buttons": buttons
+        }
+
+        return json.dumps(keyboard_obj, ensure_ascii=False)
 
     @bot.on.message(text=["Начать", "start", "/start"])
     async def start_handler(message: Message):
@@ -210,7 +214,8 @@ async def main():
             await set_user_state(vk_id, "")
 
             from ai_service import generate_section
-            base_text = await generate_section("base", date, time, city)
+            core_profile = user.get("core_profile", "")
+            base_text = await generate_section("base", date, time, city, core_profile)
             if not base_text:
                 base_text = "ДАННЫЕ СОХРАНЕНЫ. СИСТЕМА В ОЖИДАНИИ."
 
@@ -271,37 +276,23 @@ async def main():
             if amount_val > 1000: # if it's in kopecks like 9900
                 amount_val = amount_val // 100
 
-            if amount_val not in (99, 399):
+            section = "unknown"
+            if amount_val == 100:
+                section = "sex"
+            elif amount_val == 90:
+                section = "money"
+            elif amount_val == 70:
+                section = "shadow"
+            elif amount_val == 120:
+                section = "final"
+            elif amount_val == 300:
+                section = "all"
+
+            if section == "unknown":
+                print(f"НЕИЗВЕСТНЫЙ ПЛАТЕЖ: vk_id={vk_id}, amount={amount_val}")
                 return
 
-            # If we don't know the exact section from payload (money_transfer might not have payload),
-            # we open sections incrementally or all if 399.
-            # But wait, VKPay button has payload! Let's check if there's a payload.
-            payload_str = obj.get("payload")
-            section = "unknown"
-            if payload_str:
-                import json
-                try:
-                    payload = json.loads(payload_str)
-                    section = payload.get("section", "unknown")
-                except:
-                    pass
-
-            if amount_val == 399:
-                section = "all"
-            elif section == "unknown":
-                # Fallback incrementally if no payload
-                user = await get_user(vk_id)
-                if user:
-                    purchased = user.get("purchased_sections", {})
-                    if not purchased.get("sex"): section = "sex"
-                    elif not purchased.get("money"): section = "money"
-                    elif not purchased.get("shadow"): section = "shadow"
-                    elif not purchased.get("final"): section = "final"
-                    else: section = "all"
-
-            if section != "unknown":
-                await process_payment_and_generate(vk_id, section)
+            await process_payment_and_generate(vk_id, section)
         except Exception as e:
             print(f"Error handling money_transfer: {e}")
 
@@ -378,7 +369,8 @@ async def main():
             city = user.get("birth_city", "неизвестно")
 
             from ai_service import generate_section
-            result_text = await generate_section(target_section, date, time, city)
+            core_profile = user.get("core_profile", "")
+            result_text = await generate_section(target_section, date, time, city, core_profile)
 
             if not result_text:
                 kb_json = await get_sections_keyboard(vk_id, user)
@@ -395,7 +387,8 @@ async def main():
                         card_id = str(num)
 
                 # Fetch image from github
-                image_url = f"https://raw.githubusercontent.com/peexthree/vkbot_5/main/cards/{card_id}.png"
+                extension = "jpeg" if 0 <= int(card_id) <= 21 else "png"
+                image_url = f"https://raw.githubusercontent.com/peexthree/vkbot_5/main/cards/{card_id}.{extension}"
                 image_bytes = None
                 try:
                     import aiohttp
