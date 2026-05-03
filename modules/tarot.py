@@ -85,23 +85,21 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
         delays = [1, 1, 2]
 
         for i in range(3):
-            if i < len(attachments):
-                await bot.api.messages.send(
-                    peer_id=vk_id,
-                    message=messages[i],
-                    attachment=attachments[i],
-                    random_id=0
-                )
-            else:
-                await bot.api.messages.send(
-                    peer_id=vk_id,
-                    message=messages[i],
-                    random_id=0
-                )
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message=messages[i],
+                random_id=0
+            )
             await asyncio.sleep(delays[i])
 
         await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
         await asyncio.sleep(4)
+
+        from modules.utils import SKIN_ASSETS
+        active_skin = user.get("active_skin", "olesya") if user else "olesya"
+        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+        if skin_att:
+            await bot.api.messages.send(peer_id=vk_id, message="", attachment=skin_att, random_id=0)
 
         # Build prompt with user context
         purchased = user.get("purchased_sections", {})
@@ -141,8 +139,20 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
         user = await get_user(vk_id)
         if user:
+            unlocked_cards = user.get("unlocked_cards", {})
+            if isinstance(unlocked_cards, list):
+                unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+
+            for cid_int in card_ids:
+                cid = str(cid_int)
+                if cid not in unlocked_cards:
+                    from ai_service import generate_text
+                    grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
+                    signature = await generate_text(grimoire_prompt, skin=active_skin)
+                    unlocked_cards[cid] = signature if signature else "Первое касание"
+
             current_total = user.get("total_cards_received", 0)
-            await update_user(vk_id, {"purchased_sections": purchased, "total_cards_received": current_total + 3})
+            await update_user(vk_id, {"purchased_sections": purchased, "total_cards_received": current_total + 3, "unlocked_cards": unlocked_cards})
         else:
             await update_user(vk_id, {"purchased_sections": purchased})
 
@@ -154,6 +164,10 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             keyboard=kb_json,
             random_id=0
         )
+
+        for att in attachments:
+            await bot.api.messages.send(peer_id=vk_id, message="", attachment=att, random_id=0)
+            await asyncio.sleep(0.5)
 
     except Exception as e:
         print(f"Error in process_oracle_final: {e}")
@@ -268,8 +282,15 @@ async def card_of_day_handler(message: Message):
         else:
             card_id = str(random.randint(0, 77))
 
+        if isinstance(unlocked_cards, list):
+            unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+
         if card_id not in unlocked_cards:
-            unlocked_cards.append(card_id)
+            from ai_service import generate_text
+            grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
+            signature = await generate_text(grimoire_prompt, skin=active_skin)
+            unlocked_cards[card_id] = signature if signature else "Первое касание"
+
         weekly_log.append(card_id)
 
         # Increment total_cards_received and save updates
@@ -301,11 +322,14 @@ async def card_of_day_handler(message: Message):
             intro = parts[0].strip()
             main_part = f"КАРТА ДНЯ\n" + parts[1].strip()
 
+        from modules.utils import SKIN_ASSETS
+        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+        if skin_att:
+            await message.answer(attachment=skin_att)
+            await asyncio.sleep(0.5)
+
         if intro:
-            if photo_attachment:
-                await message.answer(intro, attachment=photo_attachment)
-            else:
-                await message.answer(intro)
+            await message.answer(intro)
             await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
             await asyncio.sleep(4)
             try:
@@ -314,15 +338,12 @@ async def card_of_day_handler(message: Message):
                 await message.answer(main_part)
         else:
             try:
-                if photo_attachment:
-                    await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
-                else:
-                    await message.answer(display_text, keyboard=kb_json)
+                await message.answer(display_text, keyboard=kb_json)
             except:
-                if photo_attachment:
-                    await message.answer(display_text, attachment=photo_attachment)
-                else:
-                    await message.answer(display_text)
+                await message.answer(display_text)
+
+        if photo_attachment:
+            await message.answer("", attachment=photo_attachment)
 
         if visit_streak >= 7:
             await asyncio.sleep(2)

@@ -8,6 +8,19 @@ from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
 active_tasks = set()
 cover_cache = {}
 
+SKIN_ASSETS = {
+    "Олеся Ивонченко": "o.png",
+    "olesya": "o.png",
+    "Серьезный Аскет": "as.jpeg",
+    "asket": "as.jpeg",
+    "Олег Шэпс": "ol.jpeg",
+    "Влад Череватов": "2.jpeg",
+    "Виктория Райдес": "v.jpeg",
+    "Александр Шеппс": "a.jpeg",
+    "Баба Ванга": "ba.jpeg",
+    "Григорий Распутин": "r.jpeg"
+}
+
 async def upload_local_photo(bot_api, filename: str) -> str:
     """Загружает фото локально из папки cards/"""
     if filename in cover_cache:

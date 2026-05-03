@@ -49,6 +49,12 @@ async def settings_handler(message: Message):
         # Отправляем бесплатные скины
         for skin in free_skins:
             await asyncio.sleep(0.5)
+            from modules.utils import SKIN_ASSETS
+            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(skin, "o.png"))
+            if skin_att:
+                await message.answer(attachment=skin_att)
+                await asyncio.sleep(0.5)
+
             btn_color = "positive" if skin == active_skin or (skin == "Олеся Ивонченко" and active_skin == "olesya") else "secondary"
             label = f"[{skin}] - Активен" if btn_color == "positive" else skin
             payload = f"SKIN_{skin}"
@@ -63,6 +69,12 @@ async def settings_handler(message: Message):
         # Отправляем платные скины
         for skin in paid_skins:
             await asyncio.sleep(0.5)
+            from modules.utils import SKIN_ASSETS
+            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(skin, "o.png"))
+            if skin_att:
+                await message.answer(attachment=skin_att)
+                await asyncio.sleep(0.5)
+
             if skin in purchased_skins:
                 btn_color = "positive" if skin == active_skin else "secondary"
                 label = f"[{skin}] - Активен" if btn_color == "positive" else skin
@@ -277,7 +289,7 @@ async def show_grimoire(message: Message):
         card_id_str = str(i)
         if card_id_str in unlocked_cards:
             name = tarot_names.get(card_id_str, f"Карта {i}")
-            lines.append(f"[{i}] {name}")
+            lines.append(f"[{i}] {name} (Открыта - напиши \"Гримуар {i}\")")
         else:
             lines.append(f"[{i}] Заблокировано")
 
@@ -290,6 +302,40 @@ async def show_grimoire(message: Message):
             await message.answer(chunk, keyboard=kb)
         else:
             await message.answer(chunk)
+
+@labeler.message(func=lambda m: m.text and re.match(r"(?i)^гримуар\s+\d+$", m.text.strip()))
+async def view_grimoire_card(message: Message):
+    vk_id = message.from_id
+    user = await get_user(vk_id)
+    if not user:
+        return
+
+    text = message.text.strip()
+    match = re.match(r"(?i)^гримуар\s+(\d+)$", text)
+    if not match:
+        return
+
+    card_id = match.group(1)
+    unlocked_cards = user.get("unlocked_cards", {})
+    if isinstance(unlocked_cards, list):
+        unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+
+    if card_id not in unlocked_cards:
+        await message.answer("Эта карта еще не открыта.")
+        return
+
+    from modules.utils import SKIN_ASSETS
+    active_skin = user.get("active_skin", "olesya")
+    skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+    if skin_att:
+        await message.answer(attachment=skin_att)
+
+    signature = unlocked_cards[card_id]
+    await message.answer(f"Твое первое касание с этой картой: {signature}")
+
+    photo_att = await upload_local_photo(bot.api, f"{card_id}.jpeg")
+    if photo_att:
+        await message.answer("", attachment=photo_att)
 
 @labeler.message(text=["ЛАЙН ГОЛОС"])
 async def god_mode_handler(message: Message):
