@@ -433,7 +433,7 @@ async def process_tariff_purchase(message: Message):
             new_balance = balance - price
             updates = {"balance": new_balance}
 
-            now = datetime.datetime.now()
+            now = datetime.datetime.now(datetime.timezone.utc)
             current_expires = user.get("transit_sub_expires_at")
             if current_expires:
                 try:

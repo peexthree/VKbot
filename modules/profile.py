@@ -252,7 +252,7 @@ async def show_profile(message: Message):
         import datetime
         try:
             exp_date = datetime.datetime.fromisoformat(transit_expires)
-            if exp_date > datetime.datetime.now():
+            if exp_date > datetime.datetime.now(datetime.timezone.utc):
                 transit_status = "Активен"
                 transit_timer = exp_date.strftime("%d.%m.%Y")
         except ValueError:
