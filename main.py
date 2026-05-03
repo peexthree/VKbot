@@ -35,13 +35,22 @@ async def main():
         try:
             uploader = PhotoMessageUploader(bot.api)
             url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{cover_name}"
+            import aiohttp
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as resp:
                     if resp.status == 200:
                         data = await resp.read()
-                        photo_id = await uploader.upload(data)
-                        cover_cache[cover_name] = photo_id
-                        return photo_id
+                        raw_photo_id = await uploader.upload(data)
+
+                        # Отрезаем хвост access_key для карусели
+                        parts = raw_photo_id.split("_")
+                        if len(parts) >= 2:
+                            clean_photo_id = f"{parts[0]}_{parts[1]}"
+                        else:
+                            clean_photo_id = raw_photo_id
+
+                        cover_cache[cover_name] = clean_photo_id
+                        return clean_photo_id
                     else:
                         print(f"Failed to fetch cover {cover_name}: {resp.status}")
         except Exception as e:
