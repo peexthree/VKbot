@@ -627,7 +627,7 @@ async def main():
             elements.append({
                 "title": "ГРЯЗНЫЕ СЕКРЕТЫ",
                 "description": "СЕКС - 100 РУБ",
-                "photo_id": "photo-219181948_457239052",
+                "photo_id": "photo-219181948_457239358",
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
@@ -638,7 +638,7 @@ async def main():
             elements.append({
                 "title": "МАГНИТ ДЛЯ КРИПТЫ",
                 "description": "ДЕНЬГИ - 90 РУБ",
-                "photo_id": "photo-219181948_457239053",
+                "photo_id": "photo-219181948_457239361",
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
@@ -649,7 +649,7 @@ async def main():
             elements.append({
                 "title": "ТЕМНЫЕ ДЕМОНЫ",
                 "description": "ТЕНЬ - 70 РУБ",
-                "photo_id": "photo-219181948_457239054",
+                "photo_id": "photo-219181948_457239357",
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
@@ -660,7 +660,7 @@ async def main():
             elements.append({
                 "title": "ПОЛНЫЙ РАСКЛАД",
                 "description": "ФИНАЛ - 120 РУБ",
-                "photo_id": "photo-219181948_457239055",
+                "photo_id": "photo-219181948_457239359",
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
@@ -672,7 +672,7 @@ async def main():
             elements.append({
                 "title": "ВЕСЬ ПАКЕТ СУДЬБЫ",
                 "description": "БАНДЛ - 300 РУБ",
-                "photo_id": "photo-219181948_457239056",
+                "photo_id": "photo-219181948_457239360",
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
@@ -683,7 +683,7 @@ async def main():
         elements.append({
             "title": "ВОПРОС СУДЬБЕ",
             "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-            "photo_id": "photo-219181948_457239057",
+            "photo_id": "photo-219181948_457239356",
             "action": {"type": "open_photo"},
             "buttons": [{
                 "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
@@ -712,7 +712,8 @@ async def main():
 
         if template_json:
             await message.answer("ДОСТУПНЫЕ УСЛУГИ И РАЗДЕЛЫ:", template=template_json)
-            await message.answer("ДЛЯ НАВИГАЦИИ ИСПОЛЬЗУЙ МЕНЮ НИЖЕ:", keyboard=kb_json)
+            if kb_json:
+                await message.answer("ВЫБЕРИТЕ РАЗДЕЛ:", keyboard=kb_json)
         else:
             await message.answer("ВСЕ РАЗДЕЛЫ ОТКРЫТЫ. НОВЫХ УСЛУГ ПОКА НЕТ.", keyboard=kb_json)
 
@@ -747,7 +748,8 @@ async def main():
 
         if template_json:
             await message.answer(profile_text, template=template_json)
-            await message.answer("ДЛЯ НАВИГАЦИИ ИСПОЛЬЗУЙ МЕНЮ НИЖЕ:", keyboard=kb_json)
+            if kb_json:
+                await message.answer("ВЫБЕРИТЕ РАЗДЕЛ:", keyboard=kb_json)
         else:
             await message.answer(profile_text, keyboard=kb_json)
 
@@ -1153,7 +1155,7 @@ async def main():
                 elements = [{
                     "title": "ВОПРОС СУДЬБЕ",
                     "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-                    "photo_id": "photo-219181948_457239057",
+                    "photo_id": "photo-219181948_457239356",
                     "action": {"type": "open_photo"},
                     "buttons": [{
                         "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
