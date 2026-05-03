@@ -668,7 +668,7 @@ async def main():
             elements.append({
                 "title": "ГРЯЗНЫЕ СЕКРЕТЫ",
                 "description": "СЕКС - 100 РУБ",
-                "photo_id": await get_cover_photo_id("sex.jpeg"),
+                "photo_id": await get_cover_photo_id("sex.jpg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
@@ -679,7 +679,7 @@ async def main():
             elements.append({
                 "title": "МАГНИТ ДЛЯ КРИПТЫ",
                 "description": "ДЕНЬГИ - 90 РУБ",
-                "photo_id": await get_cover_photo_id("money.jpeg"),
+                "photo_id": await get_cover_photo_id("money.jpg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
@@ -690,7 +690,7 @@ async def main():
             elements.append({
                 "title": "ТЕМНЫЕ ДЕМОНЫ",
                 "description": "ТЕНЬ - 70 РУБ",
-                "photo_id": await get_cover_photo_id("demon.jpeg"),
+                "photo_id": await get_cover_photo_id("demon.jpg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
@@ -701,7 +701,7 @@ async def main():
             elements.append({
                 "title": "ПОЛНЫЙ РАСКЛАД",
                 "description": "ФИНАЛ - 120 РУБ",
-                "photo_id": await get_cover_photo_id("way.jpeg"),
+                "photo_id": await get_cover_photo_id("way.jpg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
@@ -713,7 +713,7 @@ async def main():
             elements.append({
                 "title": "ВЕСЬ ПАКЕТ СУДЬБЫ",
                 "description": "БАНДЛ - 300 РУБ",
-                "photo_id": await get_cover_photo_id("full.jpeg"),
+                "photo_id": await get_cover_photo_id("full.jpg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
@@ -724,7 +724,7 @@ async def main():
         elements.append({
             "title": "ВОПРОС СУДЬБЕ",
             "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-            "photo_id": await get_cover_photo_id("ora.jpeg"),
+            "photo_id": await get_cover_photo_id("ora.jpg"),
             "action": {"type": "open_photo"},
             "buttons": [{
                 "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
