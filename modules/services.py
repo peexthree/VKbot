@@ -52,7 +52,25 @@ async def show_services(message: Message):
         msg_text = f"✦ {btn_label} ✦\nЦена: {svc['price_text']}\n\n{svc['desc']}{rub_notice}"
 
         try:
-            await message.answer(msg_text, keyboard=kb_json)
+            image_map = {
+                "👄 СЕКС (РАЗОВАЯ)": "sex1.jpg",
+                "💰 ДЕНЬГИ (РАЗОВАЯ)": "money1.jpg",
+                "🌘 ТЕНЬ (РАЗОВАЯ)": "demon1.jpg",
+                "🏁 ФИНАЛ (РАЗОВАЯ)": "way1.jpg",
+                "👨‍❤️‍👨 СИНАСТРИЯ (СОВМЕСТИМОСТЬ)": "sin.jpeg",
+                "🔮 ВОПРОС СУДЬБЕ": "ora1.jpg",
+                "📦 БАНДЛ": "full1.jpg",
+                "👺 АНТИТАРО": "ora.jpeg"
+            }
+            image_name = image_map.get(btn_label)
+            from modules.utils import upload_local_photo
+            from modules.bot_init import bot
+            att = await upload_local_photo(bot.api, image_name) if image_name else None
+
+            if att:
+                await message.answer(msg_text, attachment=att, keyboard=kb_json)
+            else:
+                await message.answer(msg_text, keyboard=kb_json)
         except Exception as e:
             print(f"Error sending service block {svc['key']}: {e}")
             await message.answer(msg_text)
@@ -124,7 +142,7 @@ async def handle_section_request(message: Message):
                 try:
                     from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  VoiceMessageUploader
                     uploader = VoiceMessageUploader(bot.api)
-                    audio_att = await uploader.upload(audio_bytes, peer_id=vk_id)
+                    audio_att = await uploader.upload(file_source=audio_bytes, peer_id=vk_id)
                     await bot.api.messages.send(peer_id=vk_id, message="", attachment=audio_att, random_id=0)
                 except Exception as e:
                     print(f"Error uploading/sending audio intro: {e}")
@@ -302,7 +320,7 @@ async def synastry_handler(message: Message):
                 import aiofiles
                 async with aiofiles.open(filepath, "rb") as f:
                     data = await f.read()
-                    photo_attachment = await uploader.upload(data)
+                    photo_attachment = await uploader.upload(file_source=data, peer_id=vk_id)
             except Exception as e:
                 print(f"[ERROR] Failed to load image sin.jpeg from local storage: {e}")
 
@@ -397,7 +415,7 @@ async def process_synastry_date(message: Message):
                 try:
                     from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  VoiceMessageUploader
                     uploader = VoiceMessageUploader(bot.api)
-                    audio_att = await uploader.upload(audio_bytes, peer_id=vk_id)
+                    audio_att = await uploader.upload(file_source=audio_bytes, peer_id=vk_id)
                     await bot.api.messages.send(peer_id=vk_id, message="", attachment=audio_att, random_id=0)
                 except Exception as e:
                     print(f"Error uploading/sending audio intro: {e}")

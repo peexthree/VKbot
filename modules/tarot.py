@@ -118,7 +118,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
                 try:
                     from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  VoiceMessageUploader
                     uploader_voice = VoiceMessageUploader(bot.api)
-                    audio_att = await uploader_voice.upload(audio_bytes, peer_id=vk_id)
+                    audio_att = await uploader_voice.upload(file_source=audio_bytes, peer_id=vk_id)
                     await bot.api.messages.send(peer_id=vk_id, message="", attachment=audio_att, random_id=0)
                 except Exception as e:
                     print(f"Error uploading/sending oracle audio intro: {e}")

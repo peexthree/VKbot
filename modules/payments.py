@@ -401,7 +401,7 @@ async def handle_storefront_purchase(message: Message):
                 import aiofiles
                 async with aiofiles.open(filepath, "rb") as f:
                     data = await f.read()
-                    photo_attachment = await uploader.upload(data)
+                    photo_attachment = await uploader.upload(file_source=data, peer_id=vk_id)
             except Exception as e:
                 print(f"[ERROR] Failed to load image {image_name} from local storage: {e}")
 
@@ -486,6 +486,9 @@ async def process_tariff_purchase(message: Message):
 
             # Fetch fresh user to update keyboard if bundle bought
             updated_user = await get_user(vk_id)
+            if "purchased_sections" in updates:
+                if updated_user:
+                    updated_user["purchased_sections"] = updates["purchased_sections"]
             kb_json = await get_sections_keyboard(vk_id, updated_user)
 
             await message.answer(msg, keyboard=kb_json)
