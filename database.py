@@ -108,7 +108,7 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "transit_sub_expires_at": None,
         "bonuses": 0,
         "last_active_date": None,
-        "unlocked_cards": [],
+        "unlocked_cards": {},
         "weekly_log": [],
         "visit_streak": 0
     }

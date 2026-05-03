@@ -161,8 +161,18 @@ async def handle_section_request(message: Message):
             # Increment total_cards_received
             user = await get_user(vk_id)
             if user:
+                unlocked_cards = user.get("unlocked_cards", {})
+                if isinstance(unlocked_cards, list):
+                    unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+
+                if card_id not in unlocked_cards:
+                    from ai_service import generate_text
+                    grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
+                    signature = await generate_text(grimoire_prompt, skin=active_skin)
+                    unlocked_cards[card_id] = signature if signature else "Первое касание"
+
                 current_total = user.get("total_cards_received", 0)
-                await update_user(vk_id, {"total_cards_received": current_total + 1})
+                await update_user(vk_id, {"total_cards_received": current_total + 1, "unlocked_cards": unlocked_cards})
 
             photo_attachment = None
             try:
@@ -205,11 +215,14 @@ async def handle_section_request(message: Message):
 
             kb_json = await get_sections_keyboard(vk_id, user)
 
+            from modules.utils import SKIN_ASSETS
+            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+            if skin_att:
+                await message.answer(attachment=skin_att)
+                await asyncio.sleep(0.5)
+
             if intro:
-                if photo_attachment:
-                    await message.answer(intro, attachment=photo_attachment)
-                else:
-                    await message.answer(intro)
+                await message.answer(intro)
 
                 await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
                 await asyncio.sleep(4)
@@ -221,16 +234,13 @@ async def handle_section_request(message: Message):
                     await message.answer(main_part)
             else:
                 try:
-                    if photo_attachment:
-                        await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
-                    else:
-                        await message.answer(display_text, keyboard=kb_json)
+                    await message.answer(display_text, keyboard=kb_json)
                 except Exception as inner_e:
                     print(f"Error sending message with attachment and keyboard: {inner_e}")
-                    if photo_attachment:
-                        await message.answer(display_text, attachment=photo_attachment)
-                    else:
-                        await message.answer(display_text)
+                    await message.answer(display_text)
+
+            if photo_attachment:
+                await message.answer("", attachment=photo_attachment)
 
             if target_section == "final":
                 # Generate summary for memory
@@ -429,8 +439,18 @@ async def process_synastry_date(message: Message):
         # Increment total_cards_received
         user = await get_user(vk_id)
         if user:
+            unlocked_cards = user.get("unlocked_cards", {})
+            if isinstance(unlocked_cards, list):
+                unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+
+            if card_id not in unlocked_cards:
+                from ai_service import generate_text
+                grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
+                signature = await generate_text(grimoire_prompt, skin=active_skin)
+                unlocked_cards[card_id] = signature if signature else "Первое касание"
+
             current_total = user.get("total_cards_received", 0)
-            await update_user(vk_id, {"total_cards_received": current_total + 1})
+            await update_user(vk_id, {"total_cards_received": current_total + 1, "unlocked_cards": unlocked_cards})
 
         photo_attachment = None
         try:
@@ -462,11 +482,14 @@ async def process_synastry_date(message: Message):
             intro = parts[0].strip()
             main_part = f"СИНАСТРИЯ\n" + parts[1].strip()
 
+        from modules.utils import SKIN_ASSETS
+        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+        if skin_att:
+            await message.answer(attachment=skin_att)
+            await asyncio.sleep(0.5)
+
         if intro:
-            if photo_attachment:
-                await message.answer(intro, attachment=photo_attachment)
-            else:
-                await message.answer(intro)
+            await message.answer(intro)
             await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
             await asyncio.sleep(4)
             try:
@@ -475,15 +498,12 @@ async def process_synastry_date(message: Message):
                 await message.answer(main_part)
         else:
             try:
-                if photo_attachment:
-                    await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
-                else:
-                    await message.answer(display_text, keyboard=kb_json)
+                await message.answer(display_text, keyboard=kb_json)
             except:
-                if photo_attachment:
-                    await message.answer(display_text, attachment=photo_attachment)
-                else:
-                    await message.answer(display_text)
+                await message.answer(display_text)
+
+        if photo_attachment:
+            await message.answer("", attachment=photo_attachment)
 
     finally:
         active_tasks.discard(vk_id)
