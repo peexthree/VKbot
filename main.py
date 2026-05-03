@@ -679,8 +679,7 @@ async def main():
             elements.append({
                 "title": "ГРЯЗНЫЕ СЕКРЕТЫ",
                 "description": "СЕКС - 100 РУБ",
-                "photo_id": await get_cover_photo_id("sex1.jpg"),
-                "action": {"type": "open_photo"},
+                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
                 }]
@@ -690,8 +689,7 @@ async def main():
             elements.append({
                 "title": "МАГНИТ ДЛЯ КРИПТЫ",
                 "description": "ДЕНЬГИ - 90 РУБ",
-                "photo_id": await get_cover_photo_id("money1.jpg"),
-                "action": {"type": "open_photo"},
+                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
                 }]
@@ -701,8 +699,7 @@ async def main():
             elements.append({
                 "title": "ТЕМНЫЕ ДЕМОНЫ",
                 "description": "ТЕНЬ - 70 РУБ",
-                "photo_id": await get_cover_photo_id("demon1.jpg"),
-                "action": {"type": "open_photo"},
+                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
                 }]
@@ -712,8 +709,7 @@ async def main():
             elements.append({
                 "title": "ПОЛНЫЙ РАСКЛАД",
                 "description": "ФИНАЛ - 120 РУБ",
-                "photo_id": await get_cover_photo_id("way1.jpg"),
-                "action": {"type": "open_photo"},
+                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
                 }]
@@ -724,8 +720,7 @@ async def main():
             elements.append({
                 "title": "ВЕСЬ ПАКЕТ СУДЬБЫ",
                 "description": "БАНДЛ - 300 РУБ",
-                "photo_id": await get_cover_photo_id("full1.jpg"),
-                "action": {"type": "open_photo"},
+                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
                 }]
@@ -735,15 +730,11 @@ async def main():
         elements.append({
             "title": "ВОПРОС СУДЬБЕ",
             "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-            "photo_id": await get_cover_photo_id("ora1.jpg"),
-            "action": {"type": "open_photo"},
+            "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
             "buttons": [{
                 "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
             }]
         })
-
-        # Remove elements where photo_id failed to upload (empty string)
-        elements = [e for e in elements if e["photo_id"]]
 
         if elements:
             template = {
@@ -1213,31 +1204,24 @@ async def main():
                 minutes, _ = divmod(remainder, 60)
 
                 # Payment template for Oracle
-                ora_photo_id = await get_cover_photo_id("ora.jpeg")
-                if ora_photo_id:
-                    elements = [{
-                        "title": "ВОПРОС СУДЬБЕ",
-                        "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-                        "photo_id": ora_photo_id,
-                        "action": {"type": "open_photo"},
-                        "buttons": [{
-                            "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
-                        }]
+                elements = [{
+                    "title": "ВОПРОС СУДЬБЕ",
+                    "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
+                    "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
+                    "buttons": [{
+                        "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
                     }]
-                    template = {
-                        "type": "carousel",
-                        "elements": elements
-                    }
-                    template_json = json.dumps(template, ensure_ascii=False)
+                }]
+                template = {
+                    "type": "carousel",
+                    "elements": elements
+                }
+                template_json = json.dumps(template, ensure_ascii=False)
 
-                    await message.answer(
-                        f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}",
-                        template=template_json
-                    )
-                else:
-                    await message.answer(
-                        f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}"
-                    )
+                await message.answer(
+                    f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}",
+                    template=template_json
+                )
                 return
 
             # Start Oracle FSM
