@@ -16,7 +16,51 @@ async def handle_ping(request):
     from aiohttp import web
     return web.Response(text="Bot is alive")
 
+
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.colors import HexColor
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import textwrap
+import os
+
+def generate_pdf(text: str, filename: str):
+    pdfmetrics.registerFont(TTFont('Roboto', 'Roboto.ttf'))
+    c = canvas.Canvas(filename, pagesize=A4)
+    width, height = A4
+    c.setFillColor(HexColor('#0F0F1A'))
+    c.rect(0, 0, width, height, fill=1, stroke=0)
+    c.setFillColor(HexColor('#D4AF37'))
+    c.setFont("Roboto", 24)
+    c.drawCentredString(width / 2, height - 80, "ТВОЙ ПЕРСОНАЛЬНЫЙ АРХИВ")
+    c.setFillColor(HexColor('#E53935'))
+    c.setLineWidth(2)
+    c.line(50, height - 100, width - 50, height - 100)
+    c.setFillColor(HexColor('#FFFFFF'))
+    c.setFont("Roboto", 12)
+
+    y = height - 140
+    margin = 50
+    lines = text.split('\n')
+
+    for line in lines:
+        wrapped_lines = textwrap.wrap(line, width=70)
+        for w_line in wrapped_lines:
+            if y < 50:
+                c.showPage()
+                c.setFillColor(HexColor('#0F0F1A'))
+                c.rect(0, 0, width, height, fill=1, stroke=0)
+                c.setFillColor(HexColor('#FFFFFF'))
+                c.setFont("Roboto", 12)
+                y = height - 50
+            c.drawString(margin, y, w_line)
+            y -= 18
+        y -= 10
+    c.save()
+
 async def main():
+
     import aiohttp
     from aiohttp import web
     from vkbottle import Bot, Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader, GroupEventType
@@ -874,6 +918,53 @@ async def main():
                 purchased["final"] = True
                 await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
                 await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.\n\nВсе Врата открыты.", random_id=0)
+                try:
+                    await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+                    messages = [
+                        "Соединяюсь с космосом...",
+                        "Раскладываю карты. Надеюсь, ты сегодня не грешил...",
+                        "Анализирую твою карму (и сообщения бывшим)...",
+                        "Формирую полный БАНДЛ..."
+                    ]
+                    import asyncio
+                    for msg in messages:
+                        await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
+                        await asyncio.sleep(2)
+
+                    date = user.get("birth_date", "неизвестно")
+                    time = user.get("birth_time", "неизвестно")
+                    city = user.get("birth_city", "неизвестно")
+                    first_name = purchased.get("first_name", "")
+                    sex_val = purchased.get("sex_val", 0)
+                    core_profile = user.get("core_profile", "")
+
+                    from ai_service import generate_section
+                    bundle_text = ""
+                    for sect, name in [("sex", "СЕКС"), ("money", "ДЕНЬГИ"), ("shadow", "ТЕНЬ"), ("final", "ФИНАЛ")]:
+                        part_text = await generate_section(sect, date, time, city, core_profile, first_name, sex_val)
+                        if part_text:
+                            import re
+                            part_text = re.sub(r"ID_?ТАРО:\s*\d+", "", part_text).strip()
+                            bundle_text += f"\n\n--- РАЗДЕЛ {name} ---\n\n" + part_text
+
+                    if bundle_text:
+                        pdf_filename = f"archive_{vk_id}_bundle.pdf"
+                        generate_pdf(bundle_text, pdf_filename)
+                        from vkbottle import DocMessagesUploader
+                        doc_uploader = DocMessagesUploader(bot.api)
+                        doc_attachment = await doc_uploader.upload(title="Твой_архив_БАНДЛ.pdf", file_source=pdf_filename, peer_id=vk_id)
+                        await bot.api.messages.send(peer_id=vk_id, message="Твой персональный архив (БАНДЛ). Скачай, чтобы не потерять.", attachment=doc_attachment, random_id=0)
+                        import os
+                        if os.path.exists(pdf_filename):
+                            os.remove(pdf_filename)
+
+                        purchased["sex"] = False
+                        purchased["money"] = False
+                        purchased["shadow"] = False
+                        purchased["final"] = False
+                        await update_user(vk_id, {"purchased_sections": purchased})
+                except Exception as e:
+                    print(f"Error generating bundle pdf: {e}")
             elif section == "oracle":
                 purchased["oracle_access"] = True
                 await update_user(vk_id, {"purchased_sections": purchased})
@@ -1074,8 +1165,18 @@ async def main():
 
         active_tasks.add(vk_id)
         try:
+
             await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-            await asyncio.sleep(5)
+            messages = [
+                "Соединяюсь с космосом...",
+                "Раскладываю карты. Надеюсь, ты сегодня не грешил...",
+                "Анализирую твою карму (и сообщения бывшим)..."
+            ]
+            for msg in messages:
+                await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
+                import asyncio
+                await asyncio.sleep(2)
+
 
             date = user.get("birth_date", "неизвестно")
             time = user.get("birth_time", "неизвестно")
@@ -1151,6 +1252,19 @@ async def main():
 
                 # Убираем техническую строку с ID_ТАРО из финального текста
                 display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
+
+                try:
+                    pdf_filename = f"archive_{vk_id}_{target_section}.pdf"
+                    generate_pdf(display_text, pdf_filename)
+                    from vkbottle import DocMessagesUploader
+                    doc_uploader = DocMessagesUploader(bot.api)
+                    doc_attachment = await doc_uploader.upload(title="Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)
+                    await bot.api.messages.send(peer_id=vk_id, message="Твой персональный архив. Скачай, чтобы не потерять.", attachment=doc_attachment, random_id=0)
+                    import os
+                    if os.path.exists(pdf_filename):
+                        os.remove(pdf_filename)
+                except Exception as e:
+                    print(f"Failed to process pdf for {target_section}: {e}")
 
                 # Split display_text if the section header exists (e.g. "СЕКС", "ДЕНЬГИ", "ТЕНЬ", "ФИНАЛ")
                 section_header = target_section_ru = {
@@ -1330,10 +1444,18 @@ async def main():
             # Clear state
             await set_user_state(vk_id, "")
 
+
             await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-            await message.answer("СИНХРОНИЗИРУЮ ДАННЫЕ... АНАЛИЗ СОВМЕСТИМОСТИ ЗАПУЩЕН.")
-            import asyncio
-            await asyncio.sleep(3)
+            messages = [
+                "Соединяюсь с космосом...",
+                "Раскладываю карты. Надеюсь, ты сегодня не грешил...",
+                "Анализирую твою карму (и сообщения бывшим)..."
+            ]
+            for msg in messages:
+                await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
+                import asyncio
+                await asyncio.sleep(2)
+
 
             date = user.get("birth_date", "неизвестно")
             time = user.get("birth_time", "неизвестно")
@@ -1403,6 +1525,19 @@ async def main():
                 print(f"Failed to upload tarot card {card_id}: {e}")
 
             display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
+
+            try:
+                pdf_filename = f"archive_{vk_id}_synastry.pdf"
+                generate_pdf(display_text, pdf_filename)
+                from vkbottle import DocMessagesUploader
+                doc_uploader = DocMessagesUploader(bot.api)
+                doc_attachment = await doc_uploader.upload(title="Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)
+                await bot.api.messages.send(peer_id=vk_id, message="Твой персональный архив. Скачай, чтобы не потерять.", attachment=doc_attachment, random_id=0)
+                import os
+                if os.path.exists(pdf_filename):
+                    os.remove(pdf_filename)
+            except Exception as e:
+                print(f"Failed to process pdf for synastry: {e}")
 
             parts = re.split(rf"(?i)\bСИНАСТРИЯ\b", display_text, maxsplit=1)
             intro = ""
