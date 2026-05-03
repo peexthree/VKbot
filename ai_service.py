@@ -68,7 +68,7 @@ async def generate_audio_prediction(text: str) -> bytes | None:
     print(f"All keys exhausted or failed for audio generation. Last error: {last_exception}")
     return b"dummy_audio_data"
 
-async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
+async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya") -> str | None:
     api_keys = await get_gemini_api_keys()
     if not api_keys:
         print("No API keys provided")
@@ -78,6 +78,20 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
     models = ["models/gemma-3-27b-it", "models/gemma-3-12b-it", "models/gemma-3-4b-it", "models/gemma-3-1b-it"]
     last_exception = None
 
+    skin_map = {
+        "olesya": "Ты - Кибер-Олеся (Олеся Иванченко), цифровая сущность с характером ехидной и харизматичной ведущей. Твой стиль - интеллектуальная прожарка, жесткий сарказм, современный сленг, экспертность.",
+        "Олеся Ивонченко": "Ты - Кибер-Олеся (Олеся Ивонченко), цифровая сущность с характером ехидной и харизматичной ведущей. Твой стиль - интеллектуальная прожарка, жесткий сарказм, современный сленг, экспертность.",
+        "Серьезный Аскет": "Ты - Серьезный Аскет. Твой стиль - максимальная строгость, отсутствие эмоций, глубокий философский смысл, отрешенность от мирского. Ты говоришь короткими, емкими фразами, как древний мудрец.",
+        "Олег Шэпс": "Ты - цифровой Олег Шэпс. Твой стиль - загадочность, работа с энергиями мертвых, темная эстетика, проницательность. Ты видишь то, что скрыто от других.",
+        "Влад Череватов": "Ты - цифровой Влад Череватов. Твой стиль - провокация, связь с темными силами (демонами), дерзость, агрессивная подача. Ты не стесняешься в выражениях и бьешь в самую больную точку.",
+        "Виктория Райдес": "Ты - цифровая Виктория Райдес. Твой стиль - властность, строгость, работа с родом и кармой, непоколебимый авторитет. Ты говоришь как старшая жрица, требующая уважения.",
+        "Александр Шеппс": "Ты - цифровой Александр Шеппс. Твой стиль - эзотерическая глубина, работа с артефактами и ритуалами, театральная таинственность, мудрость.",
+        "Баба Ванга": "Ты - цифровая Баба Ванга. Твой стиль - пророческий, деревенская мудрость, фатализм, использование метафор и аллегорий. Говоришь так, будто видишь сквозь время.",
+        "Григорий Распутин": "Ты - цифровой Григорий Распутин. Твой стиль - безумная харизма, религиозный мистицизм, пророчества о судьбе, грубая, но магнетическая подача."
+    }
+
+    tov_instruction = skin_map.get(skin, skin_map["olesya"])
+
     for model in models:
         for api_key in api_keys:
             url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={api_key}"
@@ -86,15 +100,17 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str | None:
             system_instruction = ""
             if not json_mode:
                 system_instruction = (
-                    "Ты - Кибер-Олеся (Олеся Иванченко), цифровая сущность с характером ехидной и харизматичной ведущей. Твой стиль - интеллектуальная прожарка, жесткий сарказм, современный сленг, экспертность.\n"
+                    f"{tov_instruction}\n"
                     "Стиль ответа (строго соблюдать):\n"
                     "1. Никакого Markdown. СТРОГО ЗАПРЕЩЕНО использовать **, __, *, #, _ в ответе.\n"
                     "2. Использовать только короткие тире (-). СТРОГО ЗАПРЕЩЕНО использовать длинные тире —.\n"
                     "3. Акценты выделять КАПСОМ.\n"
-                    "4. Текст должен быть строгим, проницательным, с долей холодного интеллекта.\n"
+                    "4. Текст должен быть строгим, проницательным.\n"
                     "5. Использовать пустые строки для воздуха и строгие символы (✦, ▱, ☾) для списков, если нужно.\n"
                     "6. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО НАЧИНАТЬ ОТВЕТ С ПЕРЕЧИСЛЕНИЯ ДАТЫ РОЖДЕНИЯ И ГОРОДА ПОЛЬЗОВАТЕЛЯ. Начинай сразу с жесткого, философского инсайта или дерзкого панчлайна. Каждый раз используй новую формулировку для вступления, избегай шаблонов.\n"
-                    "7. КРИТИЧЕСКИ ВАЖНО: Разбивай текст на короткие абзацы строго по 2-3 предложения. Сплошной текст запрещен. АБСОЛЮТНО НИКАКОГО жирного шрифта (**). Используй только короткие тире (-), длинные (—) запрещены.\n8. Только русский язык.\n\n"
+                    "7. КРИТИЧЕСКИ ВАЖНО: Разбивай текст на короткие абзацы строго по 2-3 предложения. Сплошной текст запрещен. АБСОЛЮТНО НИКАКОГО жирного шрифта (**). Используй только короткие тире (-), длинные (—) запрещены.\n"
+                    "8. КРИТИЧЕСКИ ВАЖНО: СТРОЖАЙШИЙ ЗАПРЕТ НА ГЕНЕРАЦИЮ 18+ КОНТЕНТА. Никакой порнографии, эротики, сексуального насилия или откровенных описаний.\n"
+                    "9. Только русский язык.\n\n"
                 )
 
             final_prompt = prompt.strip()
@@ -181,8 +197,8 @@ async def extract_birth_data(text: str) -> dict | None:
         print(f"Failed to decode JSON from extraction: {res}")
         return None
 
-async def generate_voice_intro(section: str, user_name: str, partner_name: str = "") -> str | None:
-    prompt = "Напиши короткое аудио-интро (2-3 предложения) от лица Кибер-Олеси, предваряющее текстовый разбор. "
+async def generate_voice_intro(section: str, user_name: str, partner_name: str = "", skin: str = "olesya") -> str | None:
+    prompt = "Напиши короткое аудио-интро (2-3 предложения), предваряющее текстовый разбор. "
     if user_name:
         prompt += f"Обязательно обратись к пользователю по имени ({user_name}). "
     if section == "synastry" and partner_name:
@@ -192,10 +208,10 @@ async def generate_voice_intro(section: str, user_name: str, partner_name: str =
     elif section in ["sex", "money", "shadow", "final"]:
         section_ru = {"sex": "Секс", "money": "Деньги", "shadow": "Тень", "final": "Финал"}[section]
         prompt += f"Это разбор раздела '{section_ru}'. "
-    prompt += "Сделай это жестко, с легкой ухмылкой, как живой разговор. Без markdown, только обычный текст."
-    return await generate_text(prompt)
+    prompt += "Сделай это в своем уникальном стиле, как живой разговор. Без markdown, только обычный текст."
+    return await generate_text(prompt, skin=skin)
 
-async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "") -> str | None:
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya") -> str | None:
     """Генерирует определенную порцию анализа в зависимости от section."""
     gender_str = "МУЖЧИНА" if sex == 2 else "ЖЕНЩИНА" if sex == 1 else "НЕИЗВЕСТНО"
 
@@ -211,10 +227,10 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     import random
 
     style_instruction = (
-        " ВАЖНО: Соблюдай жесткий ToV Кибер-Олеси! Никакого Markdown (**), "
+        " ВАЖНО: Соблюдай свой жесткий ToV! Никакого Markdown (**), "
         "только короткие тире (-) и КАПС для акцентов и заголовков. "
         "СТРОЖАЙШИЙ ЗАПРЕТ на двойные звездочки ** и длинные тире —. "
-        "Отвечай как ехидная, интеллектуальная ведущая с долей жесткого сарказма."
+        "Текст должен разбиваться на абзацы по 2-3 предложения."
     )
 
     if section == "base":
@@ -268,4 +284,4 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     else:
         return None
 
-    return await generate_text(prompt)
+    return await generate_text(prompt, skin=skin)
