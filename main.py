@@ -711,7 +711,8 @@ async def main():
         kb_json = await get_sections_keyboard(vk_id, user)
 
         if template_json:
-            await message.answer("ДОСТУПНЫЕ УСЛУГИ И РАЗДЕЛЫ:", template=template_json, keyboard=kb_json)
+            await message.answer("ДОСТУПНЫЕ УСЛУГИ И РАЗДЕЛЫ:", template=template_json)
+            await message.answer("ДЛЯ НАВИГАЦИИ ИСПОЛЬЗУЙ МЕНЮ НИЖЕ:", keyboard=kb_json)
         else:
             await message.answer("ВСЕ РАЗДЕЛЫ ОТКРЫТЫ. НОВЫХ УСЛУГ ПОКА НЕТ.", keyboard=kb_json)
 
@@ -745,7 +746,8 @@ async def main():
         kb_json = await get_sections_keyboard(vk_id, user)
 
         if template_json:
-            await message.answer(profile_text, template=template_json, keyboard=kb_json)
+            await message.answer(profile_text, template=template_json)
+            await message.answer("ДЛЯ НАВИГАЦИИ ИСПОЛЬЗУЙ МЕНЮ НИЖЕ:", keyboard=kb_json)
         else:
             await message.answer(profile_text, keyboard=kb_json)
 
