@@ -181,7 +181,21 @@ async def extract_birth_data(text: str) -> dict | None:
         print(f"Failed to decode JSON from extraction: {res}")
         return None
 
-async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0) -> str | None:
+async def generate_voice_intro(section: str, user_name: str, partner_name: str = "") -> str | None:
+    prompt = "Напиши короткое аудио-интро (2-3 предложения) от лица Кибер-Олеси, предваряющее текстовый разбор. "
+    if user_name:
+        prompt += f"Обязательно обратись к пользователю по имени ({user_name}). "
+    if section == "synastry" and partner_name:
+        prompt += f"Это разбор совместимости (Синастрия) с партнером по имени {partner_name}. "
+    elif section == "oracle":
+        prompt += "Это ответ Оракула на вопрос пользователя. "
+    elif section in ["sex", "money", "shadow", "final"]:
+        section_ru = {"sex": "Секс", "money": "Деньги", "shadow": "Тень", "final": "Финал"}[section]
+        prompt += f"Это разбор раздела '{section_ru}'. "
+    prompt += "Сделай это жестко, с легкой ухмылкой, как живой разговор. Без markdown, только обычный текст."
+    return await generate_text(prompt)
+
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "") -> str | None:
     """Генерирует определенную порцию анализа в зависимости от section."""
     gender_str = "МУЖЧИНА" if sex == 2 else "ЖЕНЩИНА" if sex == 1 else "НЕИЗВЕСТНО"
 
@@ -234,6 +248,22 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
             f"{base_info} Сделай Вступление (короткий панч) и ФИНАЛ (Итоговый вердикт и совет в стиле 'Живи с этим'). "
             f"ОБЯЗАТЕЛЬНО используй слово ВСТУПЛЕНИЕ на отдельной строке перед вступительной частью, а слово ФИНАЛ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и ФИНАЛ КАПСОМ. "
             f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро (случайное число от 0 до 21) в формате: ID_ТАРО: [число]. Вплети этот ID прямо в свой прогноз (например: 'Твоя карта - Аркан [число]').{style_instruction}"
+        )
+    elif section == "synastry":
+        card_id = random.randint(0, 21) # Старшие арканы
+        prompt = (
+            f"{base_info} Сделай разбор совместимости (СИНАСТРИЯ). "
+            f"Имя партнера: {partner_name}, дата рождения партнера: {partner_date}. "
+            f"Сделай жесткий разбор мэтча. Опиши сильные стороны и кармические узлы связи. "
+            f"ОБЯЗАТЕЛЬНО используй слово СИНАСТРИЯ на отдельной строке перед основным разбором. Выдели заголовок СИНАСТРИЯ КАПСОМ. "
+            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
+        )
+    elif section == "card_of_day":
+        card_id = random.randint(0, 77)
+        prompt = (
+            f"{base_info} Выдай карту дня (как ежедневный гороскоп, но в стиле Таро). "
+            f"ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ. "
+            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
         )
     else:
         return None

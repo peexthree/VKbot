@@ -63,6 +63,9 @@ async def main():
         keyboard.row()
         keyboard.add(Text("✦ Баланс"), color=KeyboardButtonColor.SECONDARY)
         keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
+        keyboard.row()
+        keyboard.add(Text("✦ Синастрия (Совместимость)"), color=KeyboardButtonColor.POSITIVE)
+        keyboard.add(Text("✦ Карта дня"), color=KeyboardButtonColor.POSITIVE)
 
         return keyboard.get_json()
 
@@ -164,13 +167,14 @@ async def main():
 
             import json
             # Если вк вернул bdate (в формате D.M.YYYY) и город
+            psycho_positioning = "Интеллектуальный анализ подсознания через систему символов. Этот инструмент создан для тех, кто готов заглянуть за грань привычного и получить жесткие, структурированные ответы."
             if bdate and city:
                 await set_user_state(vk_id, json.dumps({"step": "confirm_data", "date": bdate, "city": city}))
                 kb = Keyboard(inline=True)
                 kb.add(Text("ВЕРНО"), color=KeyboardButtonColor.POSITIVE)
                 kb.add(Text("ИЗМЕНИТЬ"), color=KeyboardButtonColor.NEGATIVE)
                 await message.answer(
-                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}.\n"
+                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}.\n{psycho_positioning}\n\n"
                     f"ТВОЙ ГОРОД - {city}, ДАТА РОЖДЕНИЯ - {bdate}. ЭТИ ДАННЫЕ ВЕРНЫ? СИСТЕМА НЕ ПРОЩАЕТ ОШИБОК ПРИ РАСЧЕТЕ СУДЬБЫ.",
                     keyboard=kb.get_json()
                 )
@@ -179,20 +183,20 @@ async def main():
                 kb = Keyboard(inline=True)
                 kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
                 await message.answer(
-                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}. Твоя дата рождения ({bdate}) загружена.\n"
+                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}.\n{psycho_positioning}\n\nТвоя дата рождения ({bdate}) загружена.\n"
                     "Укажите ВРЕМЯ рождения (например, 14:30):", keyboard=kb.get_json()
                 )
             elif city:
                 await set_user_state(vk_id, json.dumps({"step": "date", "city": city}))
                 await message.answer(
-                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}. Твой город ({city}) загружен.\n"
+                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\nПривет, {first_name}.\n{psycho_positioning}\n\nТвой город ({city}) загружен.\n"
                     "Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):"
                 )
             else:
                 await set_user_state(vk_id, json.dumps({"step": "date"}))
                 greeting = f"Привет, {first_name}." if first_name else "Привет."
                 await message.answer(
-                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\n{greeting}\n"
+                    f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\n{greeting}\n{psycho_positioning}\n\n"
                     "Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):"
                 )
         finally:
@@ -472,7 +476,21 @@ async def main():
             # Build prompt with user context
             purchased = user.get("purchased_sections", {})
             sex_val = purchased.get("sex_val", 0)
+            first_name = purchased.get("first_name", "")
             gender_str = "ЖЕНЩИНА" if sex_val == 1 else "МУЖЧИНА"
+
+            from ai_service import generate_voice_intro, generate_audio_prediction
+            intro_text = await generate_voice_intro("oracle", first_name)
+            if intro_text:
+                audio_bytes = await generate_audio_prediction(intro_text)
+                if audio_bytes and audio_bytes != b"dummy_audio_data":
+                    try:
+                        from vkbottle import VoiceMessageUploader
+                        uploader_voice = VoiceMessageUploader(bot.api)
+                        audio_att = await uploader_voice.upload(audio_bytes, peer_id=vk_id)
+                        await bot.api.messages.send(peer_id=vk_id, message="", attachment=audio_att, random_id=0)
+                    except Exception as e:
+                        print(f"Error uploading/sending oracle audio intro: {e}")
 
             prompt = (
                 f"КОНТЕКСТ: {gender_str}. "
@@ -691,13 +709,23 @@ async def main():
 
         name_line = f"ИМЯ: {first_name}\n" if first_name else ""
 
+        unlocked_count = 0
+        if purchased.get("sex"): unlocked_count += 1
+        if purchased.get("money"): unlocked_count += 1
+        if purchased.get("shadow"): unlocked_count += 1
+        if purchased.get("final"): unlocked_count += 1
+
+        percent = unlocked_count * 25
+        progress_bar = f"Взломано: {percent}% ({unlocked_count}/4 файлов расшифровано)\n"
+
         storefront_kb = await get_storefront_keyboard(purchased)
         status_text = "" if storefront_kb else "\n\nВСЕ РАЗДЕЛЫ ОТКРЫТЫ."
 
         profile_text = (
             f"✦ ПРОФИЛЬ АСКЕТА ✦\n\n"
             f"{name_line}ТОЧКА ВХОДА: {date} {time}\n"
-            f"ЛОКАЦИЯ: {city}"
+            f"ЛОКАЦИЯ: {city}\n\n"
+            f"{progress_bar}"
             f"{status_text}"
         )
 
@@ -915,50 +943,50 @@ async def main():
         if not user:
             return
 
-service_map = {
-    "Любовь и Секс": {
-        "name": "Секс",
-        "amount": 100,
-        "section_key": "sex",
-        "image_name": "sex1.jpg",
-        "desc": "РАЗДЕЛ СЕКС   - Цена: 100 РУБ\nТекст: Детальный разбор твоей сексуальности и влечения.\nМеханика: Твоя дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
-    },
-    "Финансы и Ресурсы": {
-        "name": "Деньги",
-        "amount": 90,
-        "section_key": "money",
-        "image_name": "money1.jpg",
-        "desc": "РАЗДЕЛ ДЕНЬГИ   - Цена: 90 РУБ\nТекст: Анализ твоих финансовых блоков и точек роста.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
-    },
-    "Демоны": {
-        "name": "Тень",
-        "amount": 70,
-        "section_key": "shadow",
-        "image_name": "demon1.jpg",
-        "desc": "РАЗДЕЛ ТЕНЬ   - Цена: 70 РУБ\nТекст: Разбор твоих скрытых качеств и подавленных талантов.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
-    },
-    "Общий расклад": {
-        "name": "Финал",
-        "amount": 120,
-        "section_key": "final",
-        "image_name": "way1.jpg",
-        "desc": "РАЗДЕЛ ФИНАЛ   - Цена: 120 РУБ\nТекст: Главный итог и вектор твоего развития.\nМеханика: Полный синтез всех твоих данных и профессиональный разбор Оракулом.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
-    },
-    "Всё включено": {
-        "name": "Бандл",
-        "amount": 300,
-        "section_key": "all",
-        "image_name": "full1.jpg",
-        "desc": "РАЗДЕЛ БАНДЛ - Цена: 300 РУБ\nТекст: Полный доступ ко всем тайнам твоей матрицы.\nМеханика: Вскрытие всех четырех архивов (Секс, Деньги, Тень, Финал) со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
-    },
-    "Задай вопрос Оракулу": {
-        "name": "Оракул",
-        "amount": 50,
-        "section_key": "oracle",
-        "image_name": "ora1.jpg",
-        "desc": "РАЗДЕЛ ОРАКУЛ - Цена: 50 РУБ\nТекст: [Раз в сутки бесплатно] Снятие блокировки и мгновенный ответ на твой вопрос.\nМеханика: Четкий вопрос - ОБРЕЗАТЬ КОЛОДУ - интеллектуальный анализ подсознания через символику.\nВажно: Система перегрета? Оплати принудительную синхронизацию для доступа."
-    }
-}
+        service_map = {
+            "Любовь и Секс": {
+                "name": "Секс",
+                "amount": 100,
+                "section_key": "sex",
+                "image_name": "sex1.jpg",
+                "desc": "РАЗДЕЛ СЕКС   - Цена: 100 РУБ\nТекст: Детальный разбор твоей сексуальности и влечения.\nМеханика: Твоя дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
+            },
+            "Финансы и Ресурсы": {
+                "name": "Деньги",
+                "amount": 90,
+                "section_key": "money",
+                "image_name": "money1.jpg",
+                "desc": "РАЗДЕЛ ДЕНЬГИ   - Цена: 90 РУБ\nТекст: Анализ твоих финансовых блоков и точек роста.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
+            },
+            "Демоны": {
+                "name": "Тень",
+                "amount": 70,
+                "section_key": "shadow",
+                "image_name": "demon1.jpg",
+                "desc": "РАЗДЕЛ ТЕНЬ   - Цена: 70 РУБ\nТекст: Разбор твоих скрытых качеств и подавленных талантов.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
+            },
+            "Общий расклад": {
+                "name": "Финал",
+                "amount": 120,
+                "section_key": "final",
+                "image_name": "way1.jpg",
+                "desc": "РАЗДЕЛ ФИНАЛ   - Цена: 120 РУБ\nТекст: Главный итог и вектор твоего развития.\nМеханика: Полный синтез всех твоих данных и профессиональный разбор Оракулом.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
+            },
+            "Всё включено": {
+                "name": "Бандл",
+                "amount": 300,
+                "section_key": "all",
+                "image_name": "full1.jpg",
+                "desc": "РАЗДЕЛ БАНДЛ - Цена: 300 РУБ\nТекст: Полный доступ ко всем тайнам твоей матрицы.\nМеханика: Вскрытие всех четырех архивов (Секс, Деньги, Тень, Финал) со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
+            },
+            "Задай вопрос Оракулу": {
+                "name": "Оракул",
+                "amount": 50,
+                "section_key": "oracle",
+                "image_name": "ora1.jpg",
+                "desc": "РАЗДЕЛ ОРАКУЛ - Цена: 50 РУБ\nТекст: [Раз в сутки бесплатно] Снятие блокировки и мгновенный ответ на твой вопрос.\nМеханика: Четкий вопрос - ОБРЕЗАТЬ КОЛОДУ - интеллектуальный анализ подсознания через символику.\nВажно: Система перегрета? Оплати принудительную синхронизацию для доступа."
+            }
+        }
 
         service_info = service_map.get(text)
         if not service_info:
@@ -1049,9 +1077,22 @@ service_map = {
             city = user.get("birth_city", "неизвестно")
             first_name = purchased.get("first_name", "")
 
-            from ai_service import generate_section
+            from ai_service import generate_section, generate_voice_intro, generate_audio_prediction
             core_profile = user.get("core_profile", "")
             sex_val = purchased.get("sex_val", 0)
+
+            # Generate and send Voice Intro first
+            intro_text = await generate_voice_intro(target_section, first_name)
+            if intro_text:
+                audio_bytes = await generate_audio_prediction(intro_text)
+                if audio_bytes and audio_bytes != b"dummy_audio_data":
+                    try:
+                        from vkbottle import VoiceMessageUploader
+                        uploader = VoiceMessageUploader(bot.api)
+                        audio_att = await uploader.upload(audio_bytes, peer_id=vk_id)
+                        await bot.api.messages.send(peer_id=vk_id, message="", attachment=audio_att, random_id=0)
+                    except Exception as e:
+                        print(f"Error uploading/sending audio intro: {e}")
 
             result_text = await generate_section(target_section, date, time, city, core_profile, first_name, sex_val)
 
@@ -1167,6 +1208,338 @@ service_map = {
         finally:
             active_tasks.discard(vk_id)
 
+    @bot.on.message(text=["Синастрия (Совместимость)", "✦ Синастрия (Совместимость)"])
+    async def synastry_handler(message: Message):
+        import json
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            return
+
+        text = message.text.strip()
+        if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or (text.startswith("✦") and "Синастрия" not in text):
+            return
+
+        state_dict = await get_fsm_step(vk_id)
+        if state_dict is not None and "step" in state_dict:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            balance = user.get("balance", 0)
+            amount_needed = 150
+            if balance >= amount_needed:
+                new_balance = balance - amount_needed
+                await update_user(vk_id, {"balance": new_balance})
+
+                # Start Synastry FSM
+                await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
+                await message.answer("СИНАСТРИЯ АКТИВИРОВАНА.\n\nВведите ИМЯ вашего партнера:")
+            else:
+                keyboard_obj = {
+                    "inline": True,
+                    "buttons": [[{
+                        "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={amount_needed}"}
+                    }]]
+                }
+                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                await message.answer(
+                    f"РАЗДЕЛ СИНАСТРИЯ - Цена: {amount_needed} РУБ.\nЖесткий разбор мэтча с партнером.\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.",
+                    keyboard=kb_json
+                )
+        finally:
+            active_tasks.discard(vk_id)
+
+    async def is_waiting_synastry_name(message: Message) -> bool:
+        if message.text and (message.text.lower() in ["начать", "start", "/start", "лайн голос"] or message.text.startswith("✦")):
+            return False
+        state_dict = await get_fsm_step(message.from_id)
+        return state_dict is not None and state_dict.get("step") == "waiting_synastry_name"
+
+    @bot.on.message(func=is_waiting_synastry_name)
+    async def process_synastry_name(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            import json
+            partner_name = message.text.strip()
+            await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_date", "partner_name": partner_name}))
+            await message.answer(f"Имя {partner_name} принято. Теперь введите ДАТУ РОЖДЕНИЯ партнера (например, 15.04.1990):")
+        finally:
+            active_tasks.discard(vk_id)
+
+    async def is_waiting_synastry_date(message: Message) -> bool:
+        if message.text and (message.text.lower() in ["начать", "start", "/start", "лайн голос"] or message.text.startswith("✦")):
+            return False
+        state_dict = await get_fsm_step(message.from_id)
+        return state_dict is not None and state_dict.get("step") == "waiting_synastry_date"
+
+    @bot.on.message(func=is_waiting_synastry_date)
+    async def process_synastry_date(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            partner_date = message.text.strip()
+            state_dict = await get_fsm_step(vk_id)
+            partner_name = state_dict.get("partner_name", "Партнер")
+
+            # Clear state
+            await set_user_state(vk_id, "")
+
+            await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+            await message.answer("СИНХРОНИЗИРУЮ ДАННЫЕ... АНАЛИЗ СОВМЕСТИМОСТИ ЗАПУЩЕН.")
+            import asyncio
+            await asyncio.sleep(3)
+
+            date = user.get("birth_date", "неизвестно")
+            time = user.get("birth_time", "неизвестно")
+            city = user.get("birth_city", "неизвестно")
+            purchased = user.get("purchased_sections", {})
+            first_name = purchased.get("first_name", "")
+            sex_val = purchased.get("sex_val", 0)
+            core_profile = user.get("core_profile", "")
+
+            from ai_service import generate_section, generate_voice_intro, generate_audio_prediction
+
+            # 1. Voice intro
+            intro_text = await generate_voice_intro("synastry", first_name, partner_name)
+            if intro_text:
+                audio_bytes = await generate_audio_prediction(intro_text)
+                if audio_bytes and audio_bytes != b"dummy_audio_data":
+                    try:
+                        from vkbottle import VoiceMessageUploader
+                        uploader = VoiceMessageUploader(bot.api)
+                        audio_att = await uploader.upload(audio_bytes, peer_id=vk_id)
+                        await bot.api.messages.send(peer_id=vk_id, message="", attachment=audio_att, random_id=0)
+                    except Exception as e:
+                        print(f"Error uploading/sending audio intro: {e}")
+
+            # 2. Main text
+            result_text = await generate_section("synastry", date, time, city, core_profile, first_name, sex_val, partner_name=partner_name, partner_date=partner_date)
+
+            if not result_text:
+                result_text = "Система не смогла рассчитать совместимость."
+            else:
+                if first_name:
+                    result_text = f"{first_name},\n\n" + result_text
+
+            kb_json = await get_sections_keyboard(vk_id, user)
+
+            # Try to parse tarot id
+            import re
+            import random
+            match = re.search(r"ID_?ТАРО:\s*(\d+)", result_text)
+            if match:
+                num = int(match.group(1))
+                if 0 <= num <= 77:
+                    card_id = str(num)
+                else:
+                    card_id = str(random.randint(0, 77))
+            else:
+                card_id = str(random.randint(0, 77))
+
+            photo_attachment = None
+            try:
+                from vkbottle import PhotoMessageUploader
+                uploader = PhotoMessageUploader(bot.api)
+                import aiohttp
+                url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{card_id}.jpeg"
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as resp:
+                        if resp.status == 200:
+                            data = await resp.read()
+                            photo_attachment = await uploader.upload(data)
+            except Exception as e:
+                print(f"Failed to upload tarot card {card_id}: {e}")
+
+            display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
+
+            parts = re.split(rf"(?i)\bСИНАСТРИЯ\b", display_text, maxsplit=1)
+            intro = ""
+            main_part = display_text
+
+            if len(parts) > 1:
+                intro = parts[0].strip()
+                main_part = f"СИНАСТРИЯ\n" + parts[1].strip()
+
+            if intro:
+                if photo_attachment:
+                    await message.answer(intro, attachment=photo_attachment)
+                else:
+                    await message.answer(intro)
+                await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+                await asyncio.sleep(4)
+                try:
+                    await message.answer(main_part, keyboard=kb_json)
+                except:
+                    await message.answer(main_part)
+            else:
+                try:
+                    if photo_attachment:
+                        await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
+                    else:
+                        await message.answer(display_text, keyboard=kb_json)
+                except:
+                    if photo_attachment:
+                        await message.answer(display_text, attachment=photo_attachment)
+                    else:
+                        await message.answer(display_text)
+
+        finally:
+            active_tasks.discard(vk_id)
+
+    @bot.on.message(text=["Карта дня", "✦ Карта дня"])
+    async def card_of_day_handler(message: Message):
+        import json
+        import datetime
+        import re
+        import random
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            return
+
+        text = message.text.strip()
+        if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or (text.startswith("✦") and "Карта дня" not in text):
+            return
+
+        state_dict = await get_fsm_step(vk_id)
+        if state_dict is not None and "step" in state_dict:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            purchased = user.get("purchased_sections", {})
+            last_used_str = purchased.get("card_of_day_last_used")
+            allow_access = False
+
+            if not last_used_str:
+                allow_access = True
+            else:
+                try:
+                    last_time = datetime.datetime.fromisoformat(last_used_str)
+                    if (datetime.datetime.now() - last_time).total_seconds() >= 24 * 3600:
+                        allow_access = True
+                except ValueError:
+                    allow_access = True
+
+            if not allow_access:
+                keyboard_obj = {
+                    "inline": True,
+                    "buttons": [[{
+                        "action": {"type": "text", "label": "ВОПРОС СУДЬБЕ"}, "color": "primary"
+                    }]]
+                }
+                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                await message.answer(
+                    "Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу.",
+                    keyboard=kb_json
+                )
+                return
+
+            await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+            await message.answer("Тяну карту дня...")
+            import asyncio
+            await asyncio.sleep(2)
+
+            # Mark used
+            purchased["card_of_day_last_used"] = datetime.datetime.now().isoformat()
+            await update_user(vk_id, {"purchased_sections": purchased})
+
+            date = user.get("birth_date", "неизвестно")
+            time = user.get("birth_time", "неизвестно")
+            city = user.get("birth_city", "неизвестно")
+            first_name = purchased.get("first_name", "")
+            sex_val = purchased.get("sex_val", 0)
+            core_profile = user.get("core_profile", "")
+
+            from ai_service import generate_section
+            result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val)
+
+            if not result_text:
+                result_text = "Энергетический сбой. Не удалось вытянуть карту."
+
+            if first_name:
+                result_text = f"{first_name},\n\n" + result_text
+
+            kb_json = await get_sections_keyboard(vk_id, user)
+
+            match = re.search(r"ID_?ТАРО:\s*(\d+)", result_text)
+            if match:
+                num = int(match.group(1))
+                if 0 <= num <= 77:
+                    card_id = str(num)
+                else:
+                    card_id = str(random.randint(0, 77))
+            else:
+                card_id = str(random.randint(0, 77))
+
+            photo_attachment = None
+            try:
+                from vkbottle import PhotoMessageUploader
+                uploader = PhotoMessageUploader(bot.api)
+                import aiohttp
+                url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{card_id}.jpeg"
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as resp:
+                        if resp.status == 200:
+                            data = await resp.read()
+                            photo_attachment = await uploader.upload(data)
+            except Exception as e:
+                print(f"Failed to upload tarot card {card_id}: {e}")
+
+            display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
+
+            parts = re.split(rf"(?i)\bКАРТА ДНЯ\b", display_text, maxsplit=1)
+            intro = ""
+            main_part = display_text
+
+            if len(parts) > 1:
+                intro = parts[0].strip()
+                main_part = f"КАРТА ДНЯ\n" + parts[1].strip()
+
+            if intro:
+                if photo_attachment:
+                    await message.answer(intro, attachment=photo_attachment)
+                else:
+                    await message.answer(intro)
+                await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+                await asyncio.sleep(4)
+                try:
+                    await message.answer(main_part, keyboard=kb_json)
+                except:
+                    await message.answer(main_part)
+            else:
+                try:
+                    if photo_attachment:
+                        await message.answer(display_text, attachment=photo_attachment, keyboard=kb_json)
+                    else:
+                        await message.answer(display_text, keyboard=kb_json)
+                except:
+                    if photo_attachment:
+                        await message.answer(display_text, attachment=photo_attachment)
+                    else:
+                        await message.answer(display_text)
+
+        finally:
+            active_tasks.discard(vk_id)
+
     @bot.on.message(text=["ВОПРОС СУДЬБЕ", "✦ ВОПРОС СУДЬБЕ"])
     async def oracle_handler(message: Message):
         vk_id = message.from_id
@@ -1227,7 +1600,7 @@ service_map = {
                     }
                     kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
                     await message.answer(
-                        f"Энергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ. Пропустить таймер: 50 РУБ.",
+                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ. Пропустить таймер: 50 РУБ.",
                         keyboard=kb_json
                     )
                 else:
@@ -1240,7 +1613,7 @@ service_map = {
                     kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
                     await message.answer(
-                        f"Энергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.",
+                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.",
                         keyboard=kb_json
                     )
                 return
@@ -1248,7 +1621,7 @@ service_map = {
             # Start Oracle FSM
             await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
 
-            await message.answer("ШАГ 1 ИЗ 3: ТВОЙ ВОПРОС. Напиши, что тебя волнует? Оракул не любит размытых фраз")
+            await message.answer("ШАГ 1 ИЗ 3: ТВОЙ ВОПРОС. Напиши, что тебя волнует?\nСформулируй вопрос максимально конкретно. Система не любит размытых мыслей.")
 
         finally:
             active_tasks.discard(vk_id)
@@ -1274,10 +1647,10 @@ service_map = {
             await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": text}))
 
             kb = Keyboard(inline=True)
-            kb.add(Text("СДВИНУТЬ КОЛОДУ"), color=KeyboardButtonColor.PRIMARY)
+            kb.add(Text("✦ ОБРЕЗАТЬ КОЛОДУ"), color=KeyboardButtonColor.PRIMARY)
 
             await message.answer(
-                "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы сдвинуть колоду",
+                "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду",
                 keyboard=kb.get_json()
             )
         finally:
