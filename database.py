@@ -102,7 +102,9 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "active_skin": "olesya",
         "purchased_skins": [],
         "transit_trial_days": 0,
-        "transit_sub_expires_at": None
+        "transit_sub_expires_at": None,
+        "bonuses": 0,
+        "last_active_date": None
     }
     try:
         async with aiohttp.ClientSession() as session:
