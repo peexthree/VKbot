@@ -44,10 +44,10 @@ def get_dynamic_keyboard(user: dict | None) -> str:
     if not user:
         return keyboard.get_json()
 
-    # Базовая клавиатура - навигатор
     keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("✦ Главное меню"), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.PRIMARY)
+    keyboard.row()
+    keyboard.add(Text("✦ Главное меню"), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
 
