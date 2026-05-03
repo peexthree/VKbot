@@ -64,7 +64,10 @@ async def settings_handler(message: Message):
                 "buttons": [[{"action": {"type": "text", "label": label, "payload": payload}, "color": btn_color}]]
             }
             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-            await message.answer(f"Бесплатный скин:\n{skin}", keyboard=kb_json)
+            try:
+                await message.answer(f"Бесплатный скин:\n{skin}", keyboard=kb_json)
+            except Exception:
+                await message.answer(f"Бесплатный скин:\n{skin}")
 
         # Отправляем платные скины
         for skin in paid_skins:
@@ -85,14 +88,20 @@ async def settings_handler(message: Message):
                     "buttons": [[{"action": {"type": "text", "label": label, "payload": payload}, "color": btn_color}]]
                 }
                 kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                await message.answer(f"Купленный скин:\n{skin}", keyboard=kb_json)
+                try:
+                    await message.answer(f"Купленный скин:\n{skin}", keyboard=kb_json)
+                except Exception:
+                    await message.answer(f"Купленный скин:\n{skin}")
             else:
                 keyboard_obj = {
                     "inline": True,
                     "buttons": [[{"action": {"type": "text", "label": f"Купить {skin}", "payload": f"BUY_SKIN_{skin}"}, "color": "primary"}]]
                 }
                 kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                await message.answer(f"Премиум скин:\n{skin}\nЦена: 150 РУБ или 15 бонусов.", keyboard=kb_json)
+                try:
+                    await message.answer(f"Премиум скин:\n{skin}\nЦена: 150 РУБ или 15 бонусов.", keyboard=kb_json)
+                except Exception:
+                    await message.answer(f"Премиум скин:\n{skin}\nЦена: 150 РУБ или 15 бонусов.")
 
         await asyncio.sleep(0.5)
         await message.answer("ВНИМАНИЕ: ИИ-персонажи - это цифровая пародия. Совпадения с реальными личностями - дань уважения их образу для развлекательных целей. Реальные люди не имеют отношения к ответам системы.")
@@ -196,7 +205,10 @@ async def process_skin_action(message: Message):
                     }]]
                 }
                 kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                await message.answer(f"Недостаточно средств для покупки '{target_skin}'. Цена: {price} РУБ или {bonus_price} бонусов.\nВаш баланс: {balance} РУБ / {bonuses} бонусов.\nПополните счет для оплаты.", keyboard=kb_json)
+                try:
+                    await message.answer(f"Недостаточно средств для покупки '{target_skin}'. Цена: {price} РУБ или {bonus_price} бонусов.\nВаш баланс: {balance} РУБ / {bonuses} бонусов.\nПополните счет для оплаты.", keyboard=kb_json)
+                except Exception:
+                    await message.answer(f"Недостаточно средств для покупки '{target_skin}'. Цена: {price} РУБ или {bonus_price} бонусов.\nВаш баланс: {balance} РУБ / {bonuses} бонусов.\nПополните счет для оплаты.")
     finally:
         active_tasks.discard(vk_id)
 
@@ -266,7 +278,10 @@ async def show_profile(message: Message):
     kb_dict["buttons"].insert(0, [{"action": {"type": "text", "label": "🎴 МОЙ ГРИМУАР"}, "color": "secondary"}])
 
     kb_json = json.dumps(kb_dict, ensure_ascii=False)
-    await message.answer(profile_text, keyboard=kb_json)
+    try:
+        await message.answer(profile_text, keyboard=kb_json)
+    except Exception:
+        await message.answer(profile_text)
 
 @labeler.message(text=["🎴 МОЙ ГРИМУАР"])
 async def show_grimoire(message: Message):
@@ -299,7 +314,10 @@ async def show_grimoire(message: Message):
         chunk = "\n".join(lines[i:i+chunk_size])
         if i + chunk_size >= len(lines):
             kb = get_dynamic_keyboard(user)
-            await message.answer(chunk, keyboard=kb)
+            try:
+                await message.answer(chunk, keyboard=kb)
+            except Exception:
+                await message.answer(chunk)
         else:
             await message.answer(chunk)
 
@@ -365,10 +383,15 @@ async def god_mode_handler(message: Message):
         user = await get_user(vk_id)
         kb_json = await get_sections_keyboard(vk_id, user)
 
-        await message.answer(
-            "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ ИГОРЬ.",
-            keyboard=kb_json
-        )
+        try:
+            await message.answer(
+                "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ ИГОРЬ.",
+                keyboard=kb_json
+            )
+        except Exception:
+            await message.answer(
+                "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ ИГОРЬ."
+            )
     finally:
         active_tasks.discard(vk_id)
 
