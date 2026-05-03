@@ -7,40 +7,9 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, active_tasks, cover_cache
+from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, active_tasks, cover_cache
 
 labeler = BotLabeler()
-
-async def get_storefront_keyboard(purchased: dict) -> str | None:
-    import json
-    buttons = []
-
-    if not purchased.get("sex"):
-        buttons.append([{"action": {"type": "text", "label": "СЕКС (РАЗОВАЯ)"}, "color": "secondary"}])
-
-    if not purchased.get("money"):
-        buttons.append([{"action": {"type": "text", "label": "ДЕНЬГИ (РАЗОВАЯ)"}, "color": "secondary"}])
-
-    if not purchased.get("shadow"):
-        buttons.append([{"action": {"type": "text", "label": "ТЕНЬ (РАЗОВАЯ)"}, "color": "secondary"}])
-
-    if not purchased.get("final"):
-        buttons.append([{"action": {"type": "text", "label": "ФИНАЛ (РАЗОВАЯ)"}, "color": "secondary"}])
-
-    purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
-    if purchased_count < 2:
-        buttons.append([{"action": {"type": "text", "label": "БАНДЛ"}, "color": "secondary"}])
-
-    # Oracle freemium skip button (always added as an option to purchase)
-    buttons.append([{"action": {"type": "text", "label": "ВОПРОС СУДЬБЕ"}, "color": "secondary"}])
-
-    if buttons:
-        keyboard_obj = {
-            "inline": True,
-            "buttons": buttons
-        }
-        return json.dumps(keyboard_obj, ensure_ascii=False)
-    return None
 
 @labeler.raw_event(GroupEventType.MESSAGE_EVENT, dataclass=dict)
 async def message_event_handler(event: dict):

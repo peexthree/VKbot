@@ -12,6 +12,8 @@ from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, 
 labeler = BotLabeler()
 
 async def is_waiting_oracle_cut(message: Message) -> bool:
+    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+        return False
     if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
         return False
     state_dict = await get_fsm_step(message.from_id)
@@ -106,20 +108,6 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
         sex_val = purchased.get("sex_val", 0)
         first_name = purchased.get("first_name", "")
         gender_str = "ЖЕНЩИНА" if sex_val == 1 else "МУЖЧИНА"
-
-        from ai_service import generate_voice_intro, generate_audio_prediction
-        active_skin = user.get("active_skin", "olesya") if user else "olesya"
-        intro_text = await generate_voice_intro("oracle", first_name, skin=active_skin)
-        if intro_text:
-            audio_bytes = await generate_audio_prediction(intro_text)
-            if audio_bytes and audio_bytes != b"dummy_audio_data":
-                try:
-                    from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  VoiceMessageUploader
-                    uploader_voice = VoiceMessageUploader(bot.api)
-                    audio_att = await uploader_voice.upload(file_source=audio_bytes, peer_id=vk_id)
-                    await bot.api.messages.send(peer_id=vk_id, message="", attachment=audio_att, random_id=0)
-                except Exception as e:
-                    print(f"Error uploading/sending oracle audio intro: {e}")
 
         prompt = (
             f"КОНТЕКСТ: {gender_str}. "
@@ -464,7 +452,9 @@ async def oracle_handler(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_oracle_question(message: Message) -> bool:
-    if message.text and (message.text.lower() in ["начать", "start", "/start", "лайн голос"] or message.text.startswith("✦")):
+    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+        return False
+    if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
         return False
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "waiting_oracle_question"
