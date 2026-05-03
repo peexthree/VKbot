@@ -915,16 +915,50 @@ async def main():
         if not user:
             return
 
-        service_map = {
-
-            "СЕКС (РАЗОВАЯ)": {"name": "Секс", "amount": 100, "section_key": "sex"},
-            "ДЕНЬГИ (РАЗОВАЯ)": {"name": "Деньги", "amount": 90, "section_key": "money"},
-            "ТЕНЬ (РАЗОВАЯ)": {"name": "Тень", "amount": 70, "section_key": "shadow"},
-            "ФИНАЛ (РАЗОВАЯ)": {"name": "Финал", "amount": 120, "section_key": "final"},
-            "БАНДЛ": {"text": "ВЕСЬ ПАКЕТ СУДЬБЫ\nБАНДЛ - 300 РУБ", "amount": 300, "section_key": "all"},
-            "ВОПРОС СУДЬБЕ": {"text": "ПРОПУСК ТАЙМЕРА\nВОПРОС СУДЬБЕ - 50 РУБ", "amount": 50, "section_key": "oracle"}
-
-        }
+service_map = {
+    "Любовь и Секс": {
+        "name": "Секс",
+        "amount": 100,
+        "section_key": "sex",
+        "image_name": "sex1.jpg",
+        "desc": "РАЗДЕЛ СЕКС   - Цена: 100 РУБ\nТекст: Детальный разбор твоей сексуальности и влечения.\nМеханика: Твоя дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
+    },
+    "Финансы и Ресурсы": {
+        "name": "Деньги",
+        "amount": 90,
+        "section_key": "money",
+        "image_name": "money1.jpg",
+        "desc": "РАЗДЕЛ ДЕНЬГИ   - Цена: 90 РУБ\nТекст: Анализ твоих финансовых блоков и точек роста.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
+    },
+    "Демоны": {
+        "name": "Тень",
+        "amount": 70,
+        "section_key": "shadow",
+        "image_name": "demon1.jpg",
+        "desc": "РАЗДЕЛ ТЕНЬ   - Цена: 70 РУБ\nТекст: Разбор твоих скрытых качеств и подавленных талантов.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
+    },
+    "Общий расклад": {
+        "name": "Финал",
+        "amount": 120,
+        "section_key": "final",
+        "image_name": "way1.jpg",
+        "desc": "РАЗДЕЛ ФИНАЛ   - Цена: 120 РУБ\nТекст: Главный итог и вектор твоего развития.\nМеханика: Полный синтез всех твоих данных и профессиональный разбор Оракулом.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
+    },
+    "Всё включено": {
+        "name": "Бандл",
+        "amount": 300,
+        "section_key": "all",
+        "image_name": "full1.jpg",
+        "desc": "РАЗДЕЛ БАНДЛ - Цена: 300 РУБ\nТекст: Полный доступ ко всем тайнам твоей матрицы.\nМеханика: Вскрытие всех четырех архивов (Секс, Деньги, Тень, Финал) со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
+    },
+    "Задай вопрос Оракулу": {
+        "name": "Оракул",
+        "amount": 50,
+        "section_key": "oracle",
+        "image_name": "ora1.jpg",
+        "desc": "РАЗДЕЛ ОРАКУЛ - Цена: 50 РУБ\nТекст: [Раз в сутки бесплатно] Снятие блокировки и мгновенный ответ на твой вопрос.\nМеханика: Четкий вопрос - ОБРЕЗАТЬ КОЛОДУ - интеллектуальный анализ подсознания через символику.\nВажно: Система перегрета? Оплати принудительную синхронизацию для доступа."
+    }
+}
 
         service_info = service_map.get(text)
         if not service_info:
@@ -946,11 +980,34 @@ async def main():
             }
             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
-            if "name" in service_info:
-                msg_text = f"Выбран раздел {service_info['name']}. Механика: Анализ даты рождения + карта Таро + разбор от Gemini. Это РАЗОВАЯ услуга, доступ закроется после прочтения.\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
-                await message.answer(msg_text, keyboard=kb_json)
+            if "desc" in service_info:
+                msg_text = f"{service_info['desc']}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
+                image_name = service_info['image_name']
+                photo_attachment = None
+
+                try:
+                    from vkbottle import PhotoMessageUploader
+                    uploader = PhotoMessageUploader(bot.api)
+                    filepath = f"cards/{image_name}"
+                    import aiofiles
+                    async with aiofiles.open(filepath, "rb") as f:
+                        data = await f.read()
+                        photo_attachment = await uploader.upload(data)
+                except Exception as e:
+                    print(f"[ERROR] Failed to load image {image_name} from local storage: {e}")
+
+                if photo_attachment:
+                    try:
+                        await message.answer(msg_text, attachment=photo_attachment, keyboard=kb_json)
+                    except Exception:
+                        await message.answer(msg_text, attachment=photo_attachment)
+                else:
+                    try:
+                        await message.answer(msg_text, keyboard=kb_json)
+                    except Exception:
+                        await message.answer(msg_text)
             else:
-                msg_text = f"{service_info['text']}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
+                msg_text = f"{service_info.get('text', '')}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
                 await message.answer(msg_text, keyboard=kb_json)
 
     @bot.on.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)"])
