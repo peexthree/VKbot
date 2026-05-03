@@ -129,23 +129,10 @@ async def handle_section_request(message: Message):
         city = user.get("birth_city", "неизвестно")
         first_name = purchased.get("first_name", "")
 
-        from ai_service import generate_section, generate_voice_intro, generate_audio_prediction
+        from ai_service import generate_section
         core_profile = user.get("core_profile", "")
         sex_val = purchased.get("sex_val", 0)
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
-
-        # Generate and send Voice Intro first
-        intro_text = await generate_voice_intro(target_section, first_name, skin=active_skin)
-        if intro_text:
-            audio_bytes = await generate_audio_prediction(intro_text)
-            if audio_bytes and audio_bytes != b"dummy_audio_data":
-                try:
-                    from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  VoiceMessageUploader
-                    uploader = VoiceMessageUploader(bot.api)
-                    audio_att = await uploader.upload(file_source=audio_bytes, peer_id=vk_id)
-                    await bot.api.messages.send(peer_id=vk_id, message="", attachment=audio_att, random_id=0)
-                except Exception as e:
-                    print(f"Error uploading/sending audio intro: {e}")
 
         result_text = await generate_section(target_section, date, time, city, core_profile, first_name, sex_val, skin=active_skin)
 
@@ -348,7 +335,9 @@ async def synastry_handler(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_synastry_name(message: Message) -> bool:
-    if message.text and (message.text.lower() in ["начать", "start", "/start", "лайн голос"] or message.text.startswith("✦")):
+    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+        return False
+    if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
         return False
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "waiting_synastry_name"
@@ -369,7 +358,9 @@ async def process_synastry_name(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_synastry_date(message: Message) -> bool:
-    if message.text and (message.text.lower() in ["начать", "start", "/start", "лайн голос"] or message.text.startswith("✦")):
+    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+        return False
+    if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
         return False
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "waiting_synastry_date"
@@ -414,21 +405,9 @@ async def process_synastry_date(message: Message):
         sex_val = purchased.get("sex_val", 0)
         core_profile = user.get("core_profile", "")
 
-        from ai_service import generate_section, generate_voice_intro, generate_audio_prediction
+        from ai_service import generate_section
 
-        # 1. Voice intro
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
-        intro_text = await generate_voice_intro("synastry", first_name, partner_name, skin=active_skin)
-        if intro_text:
-            audio_bytes = await generate_audio_prediction(intro_text)
-            if audio_bytes and audio_bytes != b"dummy_audio_data":
-                try:
-                    from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  VoiceMessageUploader
-                    uploader = VoiceMessageUploader(bot.api)
-                    audio_att = await uploader.upload(file_source=audio_bytes, peer_id=vk_id)
-                    await bot.api.messages.send(peer_id=vk_id, message="", attachment=audio_att, random_id=0)
-                except Exception as e:
-                    print(f"Error uploading/sending audio intro: {e}")
 
         # 2. Main text
         result_text = await generate_section("synastry", date, time, city, core_profile, first_name, sex_val, partner_name=partner_name, partner_date=partner_date, skin=active_skin)

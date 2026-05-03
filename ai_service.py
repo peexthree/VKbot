@@ -13,61 +13,6 @@ async def get_gemini_api_keys() -> list[str]:
 import json
 import re
 
-async def generate_audio_prediction(text: str) -> bytes | None:
-    if not text.strip():
-        text = " "
-    api_keys = await get_gemini_api_keys()
-    if not api_keys:
-        print("No API keys provided")
-        return None
-
-    last_exception = None
-    for api_key in api_keys:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key={api_key}"
-        payload = {
-            "contents": [{"parts": [{"text": text}]}],
-            "generationConfig": {
-                "responseModalities": ["AUDIO"]
-            }
-        }
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(url, json=payload) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
-                        try:
-                            parts = res_data['candidates'][0]['content']['parts']
-                            for part in parts:
-                                if 'inlineData' in part and part['inlineData']['mimeType'].startswith('audio'):
-                                    audio_b64 = part['inlineData']['data']
-                                    return base64.b64decode(audio_b64)
-                        except (KeyError, IndexError):
-                            pass
-                    elif resp.status == 429:
-                        print("Rate limit hit for audio generation. Retrying...")
-                        await asyncio.sleep(2)
-                        async with session.post(url, json=payload) as retry_resp:
-                            if retry_resp.status == 200:
-                                res_data = await retry_resp.json()
-                                try:
-                                    parts = res_data['candidates'][0]['content']['parts']
-                                    for part in parts:
-                                        if 'inlineData' in part and part['inlineData']['mimeType'].startswith('audio'):
-                                            audio_b64 = part['inlineData']['data']
-                                            return base64.b64decode(audio_b64)
-                                except (KeyError, IndexError):
-                                    pass
-                    else:
-                        print(f"Audio API Error status {resp.status}. Trying next key.")
-                        continue
-            except Exception as e:
-                last_exception = e
-                print(f"Audio API Error: {e}. Trying next key if available.")
-                continue
-
-    print(f"All keys exhausted or failed for audio generation. Last error: {last_exception}")
-    return b"dummy_audio_data"
-
 async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya") -> str | None:
     api_keys = await get_gemini_api_keys()
     if not api_keys:
@@ -196,20 +141,6 @@ async def extract_birth_data(text: str) -> dict | None:
     except json.JSONDecodeError:
         print(f"Failed to decode JSON from extraction: {res}")
         return None
-
-async def generate_voice_intro(section: str, user_name: str, partner_name: str = "", skin: str = "olesya") -> str | None:
-    prompt = "Напиши короткое аудио-интро (2-3 предложения), предваряющее текстовый разбор. "
-    if user_name:
-        prompt += f"Обязательно обратись к пользователю по имени ({user_name}). "
-    if section == "synastry" and partner_name:
-        prompt += f"Это разбор совместимости (Синастрия) с партнером по имени {partner_name}. "
-    elif section == "oracle":
-        prompt += "Это ответ Оракула на вопрос пользователя. "
-    elif section in ["sex", "money", "shadow", "final"]:
-        section_ru = {"sex": "Секс", "money": "Деньги", "shadow": "Тень", "final": "Финал"}[section]
-        prompt += f"Это разбор раздела '{section_ru}'. "
-    prompt += "Сделай это в своем уникальном стиле, как живой разговор. Без markdown, только обычный текст."
-    return await generate_text(prompt, skin=skin)
 
 async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya") -> str | None:
     """Генерирует определенную порцию анализа в зависимости от section."""

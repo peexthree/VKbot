@@ -22,7 +22,7 @@ async def init_db():
         session = aiohttp.ClientSession()
 
 async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
-    if not URL or not KEY:
+    if not URL or not KEY or session is None:
         return None
     try:
         async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?vk_id=eq.{vk_id}", headers=HEADERS) as r:
@@ -40,7 +40,7 @@ async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
 
 async def get_all_subscribed_users() -> list[Dict[str, Any]]:
     """Получает список всех подписанных пользователей для утренних прогнозов"""
-    if not URL or not KEY:
+    if not URL or not KEY or session is None:
         return []
     try:
         async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?has_full_chart=eq.true", headers=HEADERS) as r:
@@ -57,7 +57,7 @@ async def get_all_subscribed_users() -> list[Dict[str, Any]]:
 
 async def get_all_users() -> list[Dict[str, Any]]:
     """Получает список всех пользователей"""
-    if not URL or not KEY:
+    if not URL or not KEY or session is None:
         return []
     try:
         async with session.get(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS) as r:
@@ -74,7 +74,7 @@ async def get_all_users() -> list[Dict[str, Any]]:
 
 async def get_inactive_free_users() -> list[Dict[str, Any]]:
     """Получает пользователей, которые не купили разбор, для кармических пушей"""
-    if not URL or not KEY:
+    if not URL or not KEY or session is None:
         return []
     try:
         # Для демо берем всех, кто не купил. В реальности нужно фильтровать по created_at < now - 3 days
@@ -91,7 +91,7 @@ async def get_inactive_free_users() -> list[Dict[str, Any]]:
         return []
 
 async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: str) -> Optional[Dict[str, Any]]:
-    if not URL or not KEY:
+    if not URL or not KEY or session is None:
         return None
     payload = {
         "vk_id": vk_id,
@@ -128,7 +128,7 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         return None
 
 async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    if not URL or not KEY:
+    if not URL or not KEY or session is None:
         return None
     try:
         async with session.patch(f"{URL}/rest/v1/{TABLE_NAME}?vk_id=eq.{vk_id}", headers=HEADERS, json=updates) as r:
@@ -146,7 +146,7 @@ async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str,
         return None
 
 async def get_user_state(vk_id: int) -> Optional[str]:
-    if not URL or not KEY:
+    if not URL or not KEY or session is None:
         return None
     try:
         async with session.get(f"{URL}/rest/v1/{FSM_TABLE}?vk_id=eq.{vk_id}", headers=HEADERS) as r:
@@ -163,7 +163,7 @@ async def get_user_state(vk_id: int) -> Optional[str]:
         return None
 
 async def set_user_state(vk_id: int, state: str) -> bool:
-    if not URL or not KEY:
+    if not URL or not KEY or session is None:
         return False
     payload = {
         "vk_id": vk_id,
