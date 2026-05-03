@@ -110,6 +110,8 @@ async def main():
         keyboard.row()
         keyboard.add(Text("✦ Синастрия (Совместимость)"), color=KeyboardButtonColor.POSITIVE)
         keyboard.add(Text("✦ Карта дня"), color=KeyboardButtonColor.POSITIVE)
+        keyboard.row()
+        keyboard.add(Text("✦ Настройки"), color=KeyboardButtonColor.SECONDARY)
 
         return keyboard.get_json()
 
@@ -366,7 +368,8 @@ async def main():
                 first_name = purchased.get("first_name", "")
 
                 from ai_service import generate_section
-                base_text = await generate_section("base", date_str, time_str, city_str_existing)
+                active_skin = user.get("active_skin", "olesya") if user else "olesya"
+                base_text = await generate_section("base", date_str, time_str, city_str_existing, skin=active_skin)
 
                 if base_text:
                     if first_name:
@@ -524,7 +527,8 @@ async def main():
             gender_str = "ЖЕНЩИНА" if sex_val == 1 else "МУЖЧИНА"
 
             from ai_service import generate_voice_intro, generate_audio_prediction
-            intro_text = await generate_voice_intro("oracle", first_name)
+            active_skin = user.get("active_skin", "olesya") if user else "olesya"
+            intro_text = await generate_voice_intro("oracle", first_name, skin=active_skin)
             if intro_text:
                 audio_bytes = await generate_audio_prediction(intro_text)
                 if audio_bytes and audio_bytes != b"dummy_audio_data":
@@ -543,7 +547,7 @@ async def main():
                 "Сначала выведи: Карта [N]: [Название] - [Краткий смысл]. Только потом делай общий синтез."
             )
 
-            result_text = await generate_text(prompt)
+            result_text = await generate_text(prompt, skin=active_skin)
             if not result_text:
                 result_text = "Оракул молчит. Попробуй позже."
 
@@ -609,7 +613,8 @@ async def main():
 
             from ai_service import generate_section
             core_profile = user.get("core_profile", "")
-            base_text = await generate_section("base", date, time, city, core_profile)
+            active_skin = user.get("active_skin", "olesya") if user else "olesya"
+            base_text = await generate_section("base", date, time, city, core_profile, skin=active_skin)
 
             if base_text:
                 if first_name:
@@ -744,42 +749,42 @@ async def main():
                 "amount": 100,
                 "section_key": "sex",
                 "image_name": "sex1.jpg",
-                "desc": "РАЗДЕЛ СЕКС   - Цена: 100 РУБ\nТекст: Детальный разбор твоей сексуальности и влечения.\nМеханика: Твоя дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
+                "desc": "РАЗДЕЛ СЕКС   - Цена: 100 РУБ или 10 бонусов\nТекст: Детальный разбор твоей сексуальности и влечения.\nМеханика: Твоя дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
             },
             "ДЕНЬГИ (РАЗОВАЯ)": {
                 "name": "Деньги",
                 "amount": 90,
                 "section_key": "money",
                 "image_name": "money1.jpg",
-                "desc": "РАЗДЕЛ ДЕНЬГИ   - Цена: 90 РУБ\nТекст: Анализ твоих финансовых блоков и точек роста.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
+                "desc": "РАЗДЕЛ ДЕНЬГИ   - Цена: 90 РУБ или 9 бонусов\nТекст: Анализ твоих финансовых блоков и точек роста.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
             },
             "ТЕНЬ (РАЗОВАЯ)": {
                 "name": "Тень",
                 "amount": 70,
                 "section_key": "shadow",
                 "image_name": "demon1.jpg",
-                "desc": "РАЗДЕЛ ТЕНЬ   - Цена: 70 РУБ\nТекст: Разбор твоих скрытых качеств и подавленных талантов.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
+                "desc": "РАЗДЕЛ ТЕНЬ   - Цена: 70 РУБ или 7 бонусов\nТекст: Разбор твоих скрытых качеств и подавленных талантов.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
             },
             "ФИНАЛ (РАЗОВАЯ)": {
                 "name": "Финал",
                 "amount": 120,
                 "section_key": "final",
                 "image_name": "way1.jpg",
-                "desc": "РАЗДЕЛ ФИНАЛ   - Цена: 120 РУБ\nТекст: Главный итог и вектор твоего развития.\nМеханика: Полный синтез всех твоих данных и профессиональный разбор Оракулом.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
+                "desc": "РАЗДЕЛ ФИНАЛ   - Цена: 120 РУБ или 12 бонусов\nТекст: Главный итог и вектор твоего развития.\nМеханика: Полный синтез всех твоих данных и профессиональный разбор Оракулом.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
             },
             "БАНДЛ": {
                 "name": "Бандл",
                 "amount": 300,
                 "section_key": "all",
                 "image_name": "full1.jpg",
-                "desc": "РАЗДЕЛ БАНДЛ - Цена: 300 РУБ\nТекст: Полный доступ ко всем тайнам твоей матрицы.\nМеханика: Вскрытие всех четырех архивов (Секс, Деньги, Тень, Финал) со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
+                "desc": "РАЗДЕЛ БАНДЛ - Цена: 300 РУБ или 30 бонусов\nТекст: Полный доступ ко всем тайнам твоей матрицы.\nМеханика: Вскрытие всех четырех архивов (Секс, Деньги, Тень, Финал) со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
             },
             "ВОПРОС СУДЬБЕ": {
                 "name": "Оракул",
                 "amount": 50,
                 "section_key": "oracle",
                 "image_name": "ora1.jpg",
-                "desc": "РАЗДЕЛ ОРАКУЛ - Цена: 50 РУБ\nТекст: [Раз в сутки бесплатно] Снятие блокировки и мгновенный ответ на твой вопрос.\nМеханика: Четкий вопрос - ОБРЕЗАТЬ КОЛОДУ - интеллектуальный анализ подсознания через символику.\nВажно: Система перегрета? Оплати принудительную синхронизацию для доступа."
+                "desc": "РАЗДЕЛ ОРАКУЛ - Цена: 50 РУБ или 5 бонусов\nТекст: [Раз в сутки бесплатно] Снятие блокировки и мгновенный ответ на твой вопрос.\nМеханика: Четкий вопрос - ОБРЕЗАТЬ КОЛОДУ - интеллектуальный анализ подсознания через символику.\nВажно: Система перегрета? Оплати принудительную синхронизацию для доступа."
             }
         }
 
@@ -804,6 +809,7 @@ async def main():
         await message.answer("ВЫБЕРИТЕ УСЛУГУ В КАТАЛОГЕ:")
 
         for key in unpurchased_keys:
+            await asyncio.sleep(0.5)
             svc = service_map[key]
 
             keyboard_obj = {
@@ -836,8 +842,175 @@ async def main():
                 except:
                     pass
 
-        sections_kb = await get_sections_keyboard(vk_id, user)
-        await message.answer("ДЛЯ ВОЗВРАТА ВОСПОЛЬЗУЙСЯ МЕНЮ", keyboard=sections_kb)
+        await asyncio.sleep(0.5)
+        # Использовать базовую клавиатуру-навигатор
+        nav_kb = get_dynamic_keyboard(user)
+        await message.answer("ДЛЯ ВОЗВРАТА ВОСПОЛЬЗУЙСЯ МЕНЮ", keyboard=nav_kb)
+
+    @bot.on.message(text=["✦ Настройки", "Настройки"])
+    async def settings_handler(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            import json
+            purchased_skins = user.get("purchased_skins", [])
+            active_skin = user.get("active_skin", "olesya")
+            balance = user.get("balance", 0)
+
+            free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
+            paid_skins = ["Олег Шэпс", "Влад Череватов", "Виктория Райдес", "Александр Шеппс", "Баба Ванга", "Григорий Распутин"]
+
+            await message.answer(f"✦ ВЫБОР СКИНА (ИИ-ПЕРСОНАЖА) ✦\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.\nВыбери своего проводника в мир непознанного.")
+
+            # Отправляем бесплатные скины
+            for skin in free_skins:
+                await asyncio.sleep(0.5)
+                btn_color = "positive" if skin == active_skin or (skin == "Олеся Ивонченко" and active_skin == "olesya") else "secondary"
+                label = f"[{skin}] - Активен" if btn_color == "positive" else skin
+                payload = f"SKIN_{skin}"
+
+                keyboard_obj = {
+                    "inline": True,
+                    "buttons": [[{"action": {"type": "text", "label": label, "payload": payload}, "color": btn_color}]]
+                }
+                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                await message.answer(f"Бесплатный скин:\n{skin}", keyboard=kb_json)
+
+            # Отправляем платные скины
+            for skin in paid_skins:
+                await asyncio.sleep(0.5)
+                if skin in purchased_skins:
+                    btn_color = "positive" if skin == active_skin else "secondary"
+                    label = f"[{skin}] - Активен" if btn_color == "positive" else skin
+                    payload = f"SKIN_{skin}"
+
+                    keyboard_obj = {
+                        "inline": True,
+                        "buttons": [[{"action": {"type": "text", "label": label, "payload": payload}, "color": btn_color}]]
+                    }
+                    kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                    await message.answer(f"Купленный скин:\n{skin}", keyboard=kb_json)
+                else:
+                    keyboard_obj = {
+                        "inline": True,
+                        "buttons": [[{"action": {"type": "text", "label": f"Купить {skin}", "payload": f"BUY_SKIN_{skin}"}, "color": "primary"}]]
+                    }
+                    kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                    await message.answer(f"Премиум скин:\n{skin}\nЦена: 150 РУБ или 15 бонусов.", keyboard=kb_json)
+
+            await asyncio.sleep(0.5)
+            await message.answer("ВНИМАНИЕ: ИИ-персонажи - это цифровая пародия. Совпадения с реальными личностями - дань уважения их образу для развлекательных целей. Реальные люди не имеют отношения к ответам системы.")
+        finally:
+            active_tasks.discard(vk_id)
+
+    @bot.on.message(func=lambda m: m.text and (m.text.startswith("SKIN_") or m.text.startswith("BUY_SKIN_") or m.text in ["Олеся Ивонченко", "Серьезный Аскет"] or any(s in m.text for s in ["Олег Шэпс", "Влад Череватов", "Виктория Райдес", "Александр Шеппс", "Баба Ванга", "Григорий Распутин"])))
+    async def process_skin_action(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            import json
+            text = message.text
+
+            free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
+            paid_skins = ["Олег Шэпс", "Влад Череватов", "Виктория Райдес", "Александр Шеппс", "Баба Ванга", "Григорий Распутин"]
+
+            # Парсим действие
+            action = ""
+            target_skin = ""
+
+            if text.startswith("SKIN_"):
+                action = "set"
+                target_skin = text.replace("SKIN_", "")
+            elif text.startswith("BUY_SKIN_"):
+                action = "buy"
+                target_skin = text.replace("BUY_SKIN_", "")
+            else:
+                # Обработка если кнопка вернула просто текст без payload (хотя мы отправляли payload, но для надежности)
+                for s in free_skins:
+                    if s in text:
+                        action = "set"
+                        target_skin = s
+                        break
+                if not action:
+                    for s in paid_skins:
+                        if f"Купить {s}" in text:
+                            action = "buy"
+                            target_skin = s
+                            break
+                        elif s in text:
+                            action = "set"
+                            target_skin = s
+                            break
+
+            if not action or not target_skin:
+                return
+
+            purchased_skins = user.get("purchased_skins", [])
+            balance = user.get("balance", 0)
+
+            if action == "set":
+                if target_skin in free_skins or target_skin in purchased_skins:
+                    await update_user(vk_id, {"active_skin": target_skin})
+                    await message.answer(f"Скин '{target_skin}' успешно активирован. Система теперь говорит его голосом.")
+                else:
+                    await message.answer("Этот скин недоступен. Сначала купите его.")
+
+            elif action == "buy":
+                if target_skin in purchased_skins:
+                    await message.answer("Этот скин уже куплен.")
+                    return
+
+                if target_skin not in paid_skins:
+                    return
+
+                price = 150
+                bonus_price = 15
+                bonuses = user.get("bonuses", 0)
+
+                if bonuses >= bonus_price:
+                    new_bonuses = bonuses - bonus_price
+                    purchased_skins.append(target_skin)
+                    await update_user(vk_id, {
+                        "bonuses": new_bonuses,
+                        "purchased_skins": purchased_skins,
+                        "active_skin": target_skin
+                    })
+                    await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: {balance} РУБ / {new_bonuses} бонусов.")
+                elif balance >= price:
+                    new_balance = balance - price
+                    purchased_skins.append(target_skin)
+                    await update_user(vk_id, {
+                        "balance": new_balance,
+                        "purchased_skins": purchased_skins,
+                        "active_skin": target_skin
+                    })
+                    await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: {new_balance} РУБ.")
+                else:
+                    keyboard_obj = {
+                        "inline": True,
+                        "buttons": [[{
+                            "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={price}"}
+                        }]]
+                    }
+                    kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                    await message.answer(f"Недостаточно средств для покупки '{target_skin}'. Цена: {price} РУБ или {bonus_price} бонусов.\nВаш баланс: {balance} РУБ / {bonuses} бонусов.\nПополните счет для оплаты.", keyboard=kb_json)
+        finally:
+            active_tasks.discard(vk_id)
 
     @bot.on.message(text=["✦ Мой профиль", "Мой профиль"])
     async def show_profile(message: Message):
@@ -1038,8 +1211,9 @@ async def main():
 
                     from ai_service import generate_section
                     bundle_text = ""
+                    active_skin = user.get("active_skin", "olesya") if user else "olesya"
                     for sect, name in [("sex", "СЕКС"), ("money", "ДЕНЬГИ"), ("shadow", "ТЕНЬ"), ("final", "ФИНАЛ")]:
-                        part_text = await generate_section(sect, date, time, city, core_profile, first_name, sex_val)
+                        part_text = await generate_section(sect, date, time, city, core_profile, first_name, sex_val, skin=active_skin)
                         if part_text:
                             import re
                             part_text = re.sub(r"ID_?ТАРО:\s*\d+", "", part_text).strip()
@@ -1285,9 +1459,10 @@ async def main():
             from ai_service import generate_section, generate_voice_intro, generate_audio_prediction
             core_profile = user.get("core_profile", "")
             sex_val = purchased.get("sex_val", 0)
+            active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
             # Generate and send Voice Intro first
-            intro_text = await generate_voice_intro(target_section, first_name)
+            intro_text = await generate_voice_intro(target_section, first_name, skin=active_skin)
             if intro_text:
                 audio_bytes = await generate_audio_prediction(intro_text)
                 if audio_bytes and audio_bytes != b"dummy_audio_data":
@@ -1299,7 +1474,7 @@ async def main():
                     except Exception as e:
                         print(f"Error uploading/sending audio intro: {e}")
 
-            result_text = await generate_section(target_section, date, time, city, core_profile, first_name, sex_val)
+            result_text = await generate_section(target_section, date, time, city, core_profile, first_name, sex_val, skin=active_skin)
 
             if not result_text:
                 kb_json = await get_sections_keyboard(vk_id, user)
@@ -1418,7 +1593,8 @@ async def main():
                         f"Сделай очень короткую выжимку (психологический профиль, 2-3 предложения) "
                         f"из этого текста: {result_text[:1000]}. Это нужно для системной памяти бота."
                     )
-                    core_profile = await generate_text(summary_prompt)
+                    active_skin = user.get("active_skin", "olesya") if user else "olesya"
+                    core_profile = await generate_text(summary_prompt, skin=active_skin)
                     if core_profile:
                         await update_user(vk_id, {"core_profile": core_profile})
             else:
@@ -1567,7 +1743,8 @@ async def main():
             from ai_service import generate_section, generate_voice_intro, generate_audio_prediction
 
             # 1. Voice intro
-            intro_text = await generate_voice_intro("synastry", first_name, partner_name)
+            active_skin = user.get("active_skin", "olesya") if user else "olesya"
+            intro_text = await generate_voice_intro("synastry", first_name, partner_name, skin=active_skin)
             if intro_text:
                 audio_bytes = await generate_audio_prediction(intro_text)
                 if audio_bytes and audio_bytes != b"dummy_audio_data":
@@ -1580,7 +1757,7 @@ async def main():
                         print(f"Error uploading/sending audio intro: {e}")
 
             # 2. Main text
-            result_text = await generate_section("synastry", date, time, city, core_profile, first_name, sex_val, partner_name=partner_name, partner_date=partner_date)
+            result_text = await generate_section("synastry", date, time, city, core_profile, first_name, sex_val, partner_name=partner_name, partner_date=partner_date, skin=active_skin)
 
             if not result_text:
                 result_text = "Система не смогла рассчитать совместимость."
@@ -1741,7 +1918,8 @@ async def main():
             core_profile = user.get("core_profile", "")
 
             from ai_service import generate_section
-            result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val)
+            active_skin = user.get("active_skin", "olesya") if user else "olesya"
+            result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin)
 
             if not result_text:
                 result_text = "Энергетический сбой. Не удалось вытянуть карту."
@@ -1933,60 +2111,166 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
+    @bot.on.message(text=["ТАРИФ 1 (99 РУБ)", "ТАРИФ 2 (290 РУБ)", "VIP БАНДЛ (590 РУБ)"])
+    async def process_tariff_purchase(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        user = await get_user(vk_id)
+        if not user:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            text = message.text.upper()
+            balance = user.get("balance", 0)
+
+            tariff_map = {
+                "ТАРИФ 1 (99 РУБ)": {"price": 99, "days": 7, "bundle": False},
+                "ТАРИФ 2 (290 РУБ)": {"price": 290, "days": 30, "bundle": False},
+                "VIP БАНДЛ (590 РУБ)": {"price": 590, "days": 30, "bundle": True}
+            }
+
+            t_info = tariff_map.get(text)
+            if not t_info:
+                return
+
+            price = t_info["price"]
+
+            if balance >= price:
+                import datetime
+                new_balance = balance - price
+                updates = {"balance": new_balance}
+
+                now = datetime.datetime.now()
+                current_expires = user.get("transit_sub_expires_at")
+                if current_expires:
+                    try:
+                        exp_date = datetime.datetime.fromisoformat(current_expires)
+                        if exp_date > now:
+                            now = exp_date
+                    except ValueError:
+                        pass
+
+                new_expires = now + datetime.timedelta(days=t_info["days"])
+                updates["transit_sub_expires_at"] = new_expires.isoformat()
+
+                if t_info["bundle"]:
+                    purchased = user.get("purchased_sections", {})
+                    purchased["sex"] = True
+                    purchased["money"] = True
+                    purchased["shadow"] = True
+                    purchased["final"] = True
+                    updates["purchased_sections"] = purchased
+                    updates["has_full_chart"] = True
+
+                await update_user(vk_id, updates)
+
+                msg = f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}."
+                if t_info["bundle"]:
+                    msg += "\nVIP БАНДЛ АКТИВИРОВАН. Все Врата открыты (Секс, Деньги, Тень, Финал)."
+
+                msg += f"\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} РУБ."
+
+                # Fetch fresh user to update keyboard if bundle bought
+                updated_user = await get_user(vk_id)
+                kb_json = await get_sections_keyboard(vk_id, updated_user)
+
+                await message.answer(msg, keyboard=kb_json)
+            else:
+                import json
+                keyboard_obj = {
+                    "inline": True,
+                    "buttons": [[{
+                        "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={price}"}
+                    }]]
+                }
+                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.\nОплата возможна только реальным балансом.", keyboard=kb_json)
+
+        finally:
+            active_tasks.discard(vk_id)
+
     async def daily_forecast_cron():
-        from database import get_all_subscribed_users, get_inactive_free_users
+        from database import get_all_users
         import datetime
+        import json
         while True:
             now = datetime.datetime.now()
-            # Проверяем каждое утро в 9:00
-            if now.hour == 9 and now.minute == 0:
-                # 1. Отправляем прогнозы подписчикам
-                users = await get_all_subscribed_users()
+            # Проверяем каждое утро в 12:00 МСК
+            if now.hour == 12 and now.minute == 0:
+                users = await get_all_users()
 
-                async def send_forecast(user):
+                async def process_user_transit(user):
                     vk_id = user.get("vk_id")
-                    if not vk_id: return
-                    core_profile = user.get("core_profile", "")
-                    prompt = (
-                        f"Сгенерируй геймифицированный прогноз на день. "
-                        f"В начале добавь шкалу энергии: 'Энергия [Случайное число 1-10]/10'. "
-                        f"Укажи 'Фокус:' и 'Уязвимость:'. Опирайся на этот профиль: {core_profile}. "
-                        f"Коротко, жестко."
-                    )
-                    forecast = await generate_text(prompt)
-                    if forecast:
+                    if not vk_id or not user.get("birth_city"): return
+
+                    expires_str = user.get("transit_sub_expires_at")
+                    has_sub = False
+
+                    if expires_str:
                         try:
+                            exp_date = datetime.datetime.fromisoformat(expires_str)
+                            if exp_date > now:
+                                has_sub = True
+                        except ValueError:
+                            pass
+
+                    trial_days = user.get("transit_trial_days", 0)
+
+                    if has_sub or trial_days < 3:
+                        core_profile = user.get("core_profile", "")
+                        active_skin = user.get("active_skin", "olesya")
+                        prompt = (
+                            f"Сгенерируй геймифицированный прогноз на день. "
+                            f"В начале добавь шкалу энергии: 'Энергия [Случайное число 1-10]/10'. "
+                            f"Укажи 'Фокус:' и 'Уязвимость:'. Опирайся на этот профиль: {core_profile}. "
+                            f"Коротко, жестко."
+                        )
+                        forecast = await generate_text(prompt, skin=active_skin)
+                        if forecast:
+                            try:
+                                await bot.api.messages.send(
+                                    peer_id=vk_id,
+                                    message=f"✦ ЕЖЕДНЕВНЫЙ ТРАНЗИТ ✦\n\n{forecast}",
+                                    random_id=0
+                                )
+                                if not has_sub:
+                                    await update_user(vk_id, {"transit_trial_days": trial_days + 1})
+                            except Exception as e:
+                                print(f"Не удалось отправить транзит {vk_id}: {e}")
+                    elif trial_days == 3:
+                        try:
+                            keyboard_obj = {
+                                "inline": True,
+                                "buttons": [
+                                    [{"action": {"type": "text", "label": "ТАРИФ 1 (99 РУБ)"}, "color": "secondary"}],
+                                    [{"action": {"type": "text", "label": "ТАРИФ 2 (290 РУБ)"}, "color": "primary"}],
+                                    [{"action": {"type": "text", "label": "VIP БАНДЛ (590 РУБ)"}, "color": "positive"}]
+                                ]
+                            }
+                            kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                            msg = "Твои карты на сегодня разложены. Виден сильный энергетический сдвиг, но... ТРИАЛ ОКОНЧЕН. Канал связи с Оракулом закрыт. Матрица требует энергообмена."
+
                             await bot.api.messages.send(
                                 peer_id=vk_id,
-                                message=f"✦ ЕЖЕДНЕВНЫЙ ТРАНЗИТ ✦\n\n{forecast}",
+                                message=msg,
+                                keyboard=kb_json,
                                 random_id=0
                             )
+                            # Increment to 4 so we don't spam the upsell every day
+                            await update_user(vk_id, {"transit_trial_days": 4})
                         except Exception as e:
-                            print(f"Не удалось отправить транзит {vk_id}: {e}")
+                            print(f"Не удалось отправить upsell {vk_id}: {e}")
 
                 # Запускаем батчами (gather) с ограничением на 5 одновременных запросов
                 sem = asyncio.Semaphore(5)
-                async def sem_send_forecast(u):
+                async def sem_process_user(u):
                     async with sem:
-                        await send_forecast(u)
+                        await process_user_transit(u)
 
-                await asyncio.gather(*(sem_send_forecast(u) for u in users))
-
-                # 2. Кармические пуши: Напоминаем бесплатникам
-                inactive_users = await get_inactive_free_users()
-                for user in inactive_users:
-                    vk_id = user.get("vk_id")
-                    if vk_id and user.get("birth_city"):
-                        try:
-                            # Для кармических пушей мы можем отправить ссылку на оплату
-                            # или просто текст, так как get_inline_buy_full_chart больше нет
-                            await bot.api.messages.send(
-                                peer_id=vk_id,
-                                message="Теневой аспект активен. Вы игнорируете свою суть. Ваш профиль меркнет.\n\nПродолжите работу с Оракулом, чтобы получить ответы.",
-                                random_id=0
-                            )
-                        except Exception as e:
-                            pass
+                await asyncio.gather(*(sem_process_user(u) for u in users))
 
                 # Спим 61 минуту, чтобы не сработать дважды
                 await asyncio.sleep(3660)

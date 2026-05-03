@@ -50,6 +50,24 @@ async def get_all_subscribed_users() -> list[Dict[str, Any]]:
         traceback.print_exc()
         return []
 
+async def get_all_users() -> list[Dict[str, Any]]:
+    """Получает список всех пользователей"""
+    if not URL or not KEY:
+        return []
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    return data
+                else:
+                    print(f"Supabase error in get_all_users: {r.status} {await r.text()}")
+                return []
+    except Exception as e:
+        print(f"Exception in get_all_users: {e}")
+        traceback.print_exc()
+        return []
+
 async def get_inactive_free_users() -> list[Dict[str, Any]]:
     """Получает пользователей, которые не купили разбор, для кармических пушей"""
     if not URL or not KEY:
@@ -80,7 +98,11 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "partners": [],
         "has_full_chart": False,
         "purchased_sections": {"sex": False, "money": False, "shadow": False, "final": False},
-        "balance": 0
+        "balance": 0,
+        "active_skin": "olesya",
+        "purchased_skins": [],
+        "transit_trial_days": 0,
+        "transit_sub_expires_at": None
     }
     try:
         async with aiohttp.ClientSession() as session:
