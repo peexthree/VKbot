@@ -32,7 +32,7 @@ async def upload_local_photo(bot_api, filename: str) -> str:
 
         async with aiofiles.open(filepath, 'rb') as f:
             data = await f.read()
-            raw_photo_id = await uploader.upload(data)
+            raw_photo_id = await uploader.upload(file_source=data, peer_id=0)
             cover_cache[filename] = raw_photo_id
             return raw_photo_id
     except Exception as e:
@@ -45,16 +45,9 @@ def get_dynamic_keyboard(user: dict | None) -> str:
         return keyboard.get_json()
 
     # Базовая клавиатура - навигатор
-    keyboard.add(Text("✦ МОЙ ПРОФИЛЬ 👤"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("✦ ГЛАВНОЕ МЕНЮ 🏠"), color=KeyboardButtonColor.PRIMARY)
-    keyboard.row()
-    keyboard.add(Text("💳 БАЛАНС"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("✦ УСЛУГИ 🛒"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.row()
-    keyboard.add(Text("👨‍❤️‍👨 СИНАСТРИЯ"), color=KeyboardButtonColor.POSITIVE)
-    keyboard.add(Text("🃏 КАРТА ДНЯ"), color=KeyboardButtonColor.POSITIVE)
-    keyboard.row()
-    keyboard.add(Text("⚙ НАСТРОЙКИ"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("✦ Главное меню"), color=KeyboardButtonColor.PRIMARY)
 
     return keyboard.get_json()
 
