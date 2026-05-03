@@ -905,7 +905,7 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
-    @bot.on.message(text=["СЕКС (РАЗОВАЯ)", "ДЕНЬГИ (РАЗОВАЯ)", "ТЕНЬ (РАЗОВАЯ)", "ФИНАЛ (РАЗОВАЯ)", "БАНДЛ", "ВОПРОС СУДЬБЕ"])
+    @bot.on.message(text=["СЕКС (РАЗОВАЯ)", "ДЕНЬГИ (РАЗОВАЯ)", "ТЕНЬ (РАЗОВАЯ)", "ФИНАЛ (РАЗОВАЯ)", "БАНДЛ"])
     async def handle_storefront_purchase(message: Message):
         import json
         vk_id = message.from_id
@@ -916,12 +916,14 @@ async def main():
             return
 
         service_map = {
+
             "СЕКС (РАЗОВАЯ)": {"name": "Секс", "amount": 100, "section_key": "sex"},
             "ДЕНЬГИ (РАЗОВАЯ)": {"name": "Деньги", "amount": 90, "section_key": "money"},
             "ТЕНЬ (РАЗОВАЯ)": {"name": "Тень", "amount": 70, "section_key": "shadow"},
             "ФИНАЛ (РАЗОВАЯ)": {"name": "Финал", "amount": 120, "section_key": "final"},
             "БАНДЛ": {"text": "ВЕСЬ ПАКЕТ СУДЬБЫ\nБАНДЛ - 300 РУБ", "amount": 300, "section_key": "all"},
             "ВОПРОС СУДЬБЕ": {"text": "ПРОПУСК ТАЙМЕРА\nВОПРОС СУДЬБЕ - 50 РУБ", "amount": 50, "section_key": "oracle"}
+
         }
 
         service_info = service_map.get(text)
@@ -1108,7 +1110,7 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
-    @bot.on.message()
+    @bot.on.message(text=["ВОПРОС СУДЬБЕ", "✦ ВОПРОС СУДЬБЕ"])
     async def oracle_handler(message: Message):
         vk_id = message.from_id
         if vk_id in active_tasks:
@@ -1187,22 +1189,23 @@ async def main():
                 return
 
             # Start Oracle FSM
-            await set_user_state(vk_id, json.dumps({"step": "oracle_ask"}))
+            await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
 
             await message.answer("ШАГ 1 ИЗ 3: ТВОЙ ВОПРОС. Напиши, что тебя волнует? Оракул не любит размытых фраз")
 
         finally:
             active_tasks.discard(vk_id)
 
-    async def is_waiting_oracle_ask(message: Message) -> bool:
-        if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
+    async def is_waiting_oracle_question(message: Message) -> bool:
+        if message.text and (message.text.lower() in ["начать", "start", "/start", "лайн голос"] or message.text.startswith("✦")):
             return False
         state_dict = await get_fsm_step(message.from_id)
-        return state_dict is not None and state_dict.get("step") == "oracle_ask"
+        return state_dict is not None and state_dict.get("step") == "waiting_oracle_question"
 
-    @bot.on.message(func=is_waiting_oracle_ask)
-    async def process_oracle_ask(message: Message):
+    @bot.on.message(func=is_waiting_oracle_question)
+    async def process_oracle_question(message: Message):
         vk_id = message.from_id
+
         if vk_id in active_tasks:
             return
 
