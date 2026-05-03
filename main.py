@@ -53,7 +53,7 @@ async def main():
 
     async def daily_forecast_cron():
         while True:
-            now = datetime.datetime.now()
+            now = datetime.datetime.now(datetime.timezone.utc)
             if now.hour == 12 and now.minute == 0:
                 users = await get_all_users()
 

@@ -121,7 +121,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             result_text = "Оракул молчит. Попробуй позже."
 
         # Update database
-        purchased["oracle_last_used"] = datetime.datetime.now().isoformat()
+        purchased["oracle_last_used"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         if purchased.get("oracle_access", False):
             purchased["oracle_access"] = False # consume the pass
 
@@ -200,7 +200,7 @@ async def card_of_day_handler(message: Message):
         else:
             try:
                 last_time = datetime.datetime.fromisoformat(last_used_str)
-                if (datetime.datetime.now() - last_time).total_seconds() >= 24 * 3600:
+                if (datetime.datetime.now(datetime.timezone.utc) - last_time).total_seconds() >= 24 * 3600:
                     allow_access = True
             except ValueError:
                 allow_access = True
@@ -238,7 +238,7 @@ async def card_of_day_handler(message: Message):
         if last_used_str:
             try:
                 last_time = datetime.datetime.fromisoformat(last_used_str)
-                if (datetime.datetime.now() - last_time).total_seconds() > 48 * 3600:
+                if (datetime.datetime.now(datetime.timezone.utc) - last_time).total_seconds() > 48 * 3600:
                     visit_streak = 1
                     weekly_log = []
                 else:
@@ -251,7 +251,7 @@ async def card_of_day_handler(message: Message):
             weekly_log = []
 
         # Mark used
-        purchased["card_of_day_last_used"] = datetime.datetime.now().isoformat()
+        purchased["card_of_day_last_used"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         date = user.get("birth_date", "неизвестно")
         time = user.get("birth_time", "неизвестно")
@@ -415,14 +415,14 @@ async def oracle_handler(message: Message):
             else:
                 try:
                     last_time = datetime.datetime.fromisoformat(oracle_last_used_str)
-                    if (datetime.datetime.now() - last_time).total_seconds() >= 24 * 3600:
+                    if (datetime.datetime.now(datetime.timezone.utc) - last_time).total_seconds() >= 24 * 3600:
                         allow_access = True
                 except ValueError:
                     allow_access = True
 
         if not allow_access:
             last_time = datetime.datetime.fromisoformat(oracle_last_used_str)
-            remaining = datetime.timedelta(hours=24) - (datetime.datetime.now() - last_time)
+            remaining = datetime.timedelta(hours=24) - (datetime.datetime.now(datetime.timezone.utc) - last_time)
             hours, remainder = divmod(remaining.seconds, 3600)
             minutes, _ = divmod(remainder, 60)
 
