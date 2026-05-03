@@ -42,15 +42,8 @@ async def main():
                         data = await resp.read()
                         raw_photo_id = await uploader.upload(data)
 
-                        # Отрезаем хвост access_key для карусели
-                        parts = raw_photo_id.split("_")
-                        if len(parts) >= 2:
-                            clean_photo_id = f"{parts[0]}_{parts[1]}"
-                        else:
-                            clean_photo_id = raw_photo_id
-
-                        cover_cache[cover_name] = clean_photo_id
-                        return clean_photo_id
+                        cover_cache[cover_name] = raw_photo_id
+                        return raw_photo_id
                     else:
                         print(f"Failed to fetch cover {cover_name}: {resp.status}")
         except Exception as e:
@@ -671,77 +664,35 @@ async def main():
 
         await message.answer(f"ТВОЙ БАЛАНС.\nПриобретено услуг на сумму: {value} RUB.")
 
-    async def get_carousel_template(purchased: dict) -> str | None:
+    async def get_storefront_keyboard(purchased: dict) -> str | None:
         import json
-        elements = []
+        buttons = []
 
         if not purchased.get("sex"):
-            elements.append({
-                "title": "ГРЯЗНЫЕ СЕКРЕТЫ",
-                "description": "СЕКС - 100 РУБ",
-                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
-                }]
-            })
+            buttons.append([{"action": {"type": "text", "label": "СЕКС"}, "color": "secondary"}])
 
         if not purchased.get("money"):
-            elements.append({
-                "title": "МАГНИТ ДЛЯ КРИПТЫ",
-                "description": "ДЕНЬГИ - 90 РУБ",
-                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
-                }]
-            })
+            buttons.append([{"action": {"type": "text", "label": "ДЕНЬГИ"}, "color": "secondary"}])
 
         if not purchased.get("shadow"):
-            elements.append({
-                "title": "ТЕМНЫЕ ДЕМОНЫ",
-                "description": "ТЕНЬ - 70 РУБ",
-                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
-                }]
-            })
+            buttons.append([{"action": {"type": "text", "label": "ТЕНЬ"}, "color": "secondary"}])
 
         if not purchased.get("final"):
-            elements.append({
-                "title": "ПОЛНЫЙ РАСКЛАД",
-                "description": "ФИНАЛ - 120 РУБ",
-                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
-                }]
-            })
+            buttons.append([{"action": {"type": "text", "label": "ФИНАЛ"}, "color": "secondary"}])
 
         purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
         if purchased_count < 2:
-            elements.append({
-                "title": "ВЕСЬ ПАКЕТ СУДЬБЫ",
-                "description": "БАНДЛ - 300 РУБ",
-                "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
-                "buttons": [{
-                    "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
-                }]
-            })
+            buttons.append([{"action": {"type": "text", "label": "БАНДЛ"}, "color": "secondary"}])
 
-        # Oracle freemium skip button
-        elements.append({
-            "title": "ВОПРОС СУДЬБЕ",
-            "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-            "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
-            "buttons": [{
-                "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
-            }]
-        })
+        # Oracle freemium skip button (always added as an option to purchase)
+        buttons.append([{"action": {"type": "text", "label": "ВОПРОС СУДЬБЕ"}, "color": "secondary"}])
 
-        if elements:
-            template = {
-                "type": "carousel",
-                "elements": elements
+        if buttons:
+            keyboard_obj = {
+                "inline": True,
+                "buttons": buttons
             }
-            return json.dumps(template, ensure_ascii=False)
+            return json.dumps(keyboard_obj, ensure_ascii=False)
         return None
 
     @bot.on.message(text=["✦ Услуги", "Услуги"])
@@ -753,14 +704,12 @@ async def main():
             return
 
         purchased = user.get("purchased_sections", {})
-        template_json = await get_carousel_template(purchased)
-        kb_json = await get_sections_keyboard(vk_id, user)
+        storefront_kb = await get_storefront_keyboard(purchased)
 
-        if template_json:
-            await message.answer("ДОСТУПНЫЕ УСЛУГИ И РАЗДЕЛЫ:", template=template_json)
-            if kb_json:
-                await message.answer("ВЫБЕРИТЕ РАЗДЕЛ:", keyboard=kb_json)
+        if storefront_kb:
+            await message.answer("ВЫБЕРИТЕ УСЛУГУ:", keyboard=storefront_kb)
         else:
+            kb_json = await get_sections_keyboard(vk_id, user)
             await message.answer("ВСЕ РАЗДЕЛЫ ОТКРЫТЫ. НОВЫХ УСЛУГ ПОКА НЕТ.", keyboard=kb_json)
 
     @bot.on.message(text=["✦ Мой профиль", "Мой профиль"])
@@ -780,8 +729,8 @@ async def main():
 
         name_line = f"ИМЯ: {first_name}\n" if first_name else ""
 
-        template_json = await get_carousel_template(purchased)
-        status_text = "" if template_json else "\n\nВСЕ РАЗДЕЛЫ ОТКРЫТЫ."
+        storefront_kb = await get_storefront_keyboard(purchased)
+        status_text = "" if storefront_kb else "\n\nВСЕ РАЗДЕЛЫ ОТКРЫТЫ."
 
         profile_text = (
             f"✦ ПРОФИЛЬ АСКЕТА ✦\n\n"
@@ -791,13 +740,7 @@ async def main():
         )
 
         kb_json = await get_sections_keyboard(vk_id, user)
-
-        if template_json:
-            await message.answer(profile_text, template=template_json)
-            if kb_json:
-                await message.answer("ВЫБЕРИТЕ РАЗДЕЛ:", keyboard=kb_json)
-        else:
-            await message.answer(profile_text, keyboard=kb_json)
+        await message.answer(profile_text, keyboard=kb_json)
 
 
     @bot.on.raw_event(GroupEventType.MESSAGE_EVENT, dataclass=dict)
@@ -1001,6 +944,39 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
+    @bot.on.message(text=["СЕКС", "ДЕНЬГИ", "ТЕНЬ", "ФИНАЛ", "БАНДЛ", "ВОПРОС СУДЬБЕ"])
+    async def handle_storefront_purchase(message: Message):
+        import json
+        text = message.text.upper()
+
+        service_map = {
+            "СЕКС": {"text": "ГРЯЗНЫЕ СЕКРЕТЫ\nСЕКС - 100 РУБ", "photo": "sex.jpeg", "amount": 100},
+            "ДЕНЬГИ": {"text": "МАГНИТ ДЛЯ КРИПТЫ\nДЕНЬГИ - 90 РУБ", "photo": "money.jpeg", "amount": 90},
+            "ТЕНЬ": {"text": "ТЕМНЫЕ ДЕМОНЫ\nТЕНЬ - 70 РУБ", "photo": "demon1.jpg", "amount": 70},
+            "ФИНАЛ": {"text": "ПОЛНЫЙ РАСКЛАД\nФИНАЛ - 120 РУБ", "photo": "full.jpeg", "amount": 120},
+            "БАНДЛ": {"text": "ВЕСЬ ПАКЕТ СУДЬБЫ\nБАНДЛ - 300 РУБ", "photo": "full1.jpg", "amount": 300},
+            "ВОПРОС СУДЬБЕ": {"text": "ПРОПУСК ТАЙМЕРА\nВОПРОС СУДЬБЕ - 50 РУБ", "photo": "ora.jpeg", "amount": 50}
+        }
+
+        service_info = service_map.get(text)
+        if not service_info:
+            return
+
+        photo_id = await get_cover_photo_id(service_info["photo"])
+
+        keyboard_obj = {
+            "inline": True,
+            "buttons": [[{
+                "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={service_info['amount']}"}
+            }]]
+        }
+        kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+
+        if photo_id:
+            await message.answer(service_info["text"], attachment=photo_id, keyboard=kb_json)
+        else:
+            await message.answer(service_info["text"], keyboard=kb_json)
+
     @bot.on.message(text=["✦ СЕКС (Открыто)", "✦ ДЕНЬГИ (Открыто)", "✦ ТЕНЬ (Открыто)", "✦ ФИНАЛ (Открыто)"])
     async def handle_section_request(message: Message):
         vk_id = message.from_id
@@ -1203,24 +1179,18 @@ async def main():
                 hours, remainder = divmod(remaining.seconds, 3600)
                 minutes, _ = divmod(remainder, 60)
 
-                # Payment template for Oracle
-                elements = [{
-                    "title": "ВОПРОС СУДЬБЕ",
-                    "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-                    "action": {"type": "open_link", "link": "https://vk.com/club219181948"},
-                    "buttons": [{
+                # Payment keyboard for Oracle
+                keyboard_obj = {
+                    "inline": True,
+                    "buttons": [[{
                         "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
-                    }]
-                }]
-                template = {
-                    "type": "carousel",
-                    "elements": elements
+                    }]]
                 }
-                template_json = json.dumps(template, ensure_ascii=False)
+                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
                 await message.answer(
-                    f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}",
-                    template=template_json
+                    f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}\nВОПРОС СУДЬБЕ - 50 РУБ",
+                    keyboard=kb_json
                 )
                 return
 
