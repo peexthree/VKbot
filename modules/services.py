@@ -14,115 +14,48 @@ labeler = BotLabeler()
 @labeler.message(text=["✦ Услуги", "Услуги"])
 async def show_services(message: Message):
     import json
-    import aiofiles
-    from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  PhotoMessageUploader
-
     vk_id = message.from_id
     user = await get_user(vk_id)
     if not user:
         await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
         return
 
-    purchased = user.get("purchased_sections", {})
-
-    service_map = {
-        "СЕКС (РАЗОВАЯ)": {
-            "name": "Секс",
-            "amount": 100,
-            "section_key": "sex",
-            "image_name": "sex1.jpg",
-            "desc": "РАЗДЕЛ СЕКС   - Цена: 100 РУБ или 10 бонусов\nТекст: Детальный разбор твоей сексуальности и влечения.\nМеханика: Твоя дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
-        },
-        "ДЕНЬГИ (РАЗОВАЯ)": {
-            "name": "Деньги",
-            "amount": 90,
-            "section_key": "money",
-            "image_name": "money1.jpg",
-            "desc": "РАЗДЕЛ ДЕНЬГИ   - Цена: 90 РУБ или 9 бонусов\nТекст: Анализ твоих финансовых блоков и точек роста.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
-        },
-        "ТЕНЬ (РАЗОВАЯ)": {
-            "name": "Тень",
-            "amount": 70,
-            "section_key": "shadow",
-            "image_name": "demon1.jpg",
-            "desc": "РАЗДЕЛ ТЕНЬ   - Цена: 70 РУБ или 7 бонусов\nТекст: Разбор твоих скрытых качеств и подавленных талантов.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
-        },
-        "ФИНАЛ (РАЗОВАЯ)": {
-            "name": "Финал",
-            "amount": 120,
-            "section_key": "final",
-            "image_name": "way1.jpg",
-            "desc": "РАЗДЕЛ ФИНАЛ   - Цена: 120 РУБ или 12 бонусов\nТекст: Главный итог и вектор твоего развития.\nМеханика: Полный синтез всех твоих данных и профессиональный разбор Оракулом.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
-        },
-        "БАНДЛ": {
-            "name": "Бандл",
-            "amount": 300,
-            "section_key": "all",
-            "image_name": "full1.jpg",
-            "desc": "РАЗДЕЛ БАНДЛ - Цена: 300 РУБ или 30 бонусов\nТекст: Полный доступ ко всем тайнам твоей матрицы.\nМеханика: Вскрытие всех четырех архивов (Секс, Деньги, Тень, Финал) со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
-        },
-        "ВОПРОС СУДЬБЕ": {
-            "name": "Оракул",
-            "amount": 50,
-            "section_key": "oracle",
-            "image_name": "ora1.jpg",
-            "desc": "РАЗДЕЛ ОРАКУЛ - Цена: 50 РУБ или 5 бонусов\nТекст: [Раз в сутки бесплатно] Снятие блокировки и мгновенный ответ на твой вопрос.\nМеханика: Четкий вопрос - ОБРЕЗАТЬ КОЛОДУ - интеллектуальный анализ подсознания через символику.\nВажно: Система перегрета? Оплати принудительную синхронизацию для доступа."
-        }
-    }
-
-    unpurchased_keys = []
-    for key in ["СЕКС (РАЗОВАЯ)", "ДЕНЬГИ (РАЗОВАЯ)", "ТЕНЬ (РАЗОВАЯ)", "ФИНАЛ (РАЗОВАЯ)"]:
-        if not purchased.get(service_map[key]["section_key"]):
-            unpurchased_keys.append(key)
-
-    purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
-    if purchased_count < 2:
-        unpurchased_keys.append("БАНДЛ")
-
-    unpurchased_keys.append("ВОПРОС СУДЬБЕ")
-
-    if not unpurchased_keys:
-        kb_json = await get_sections_keyboard(vk_id, user)
-        await message.answer("ВСЕ РАЗДЕЛЫ ОТКРЫТЫ. НОВЫХ УСЛУГ ПОКА НЕТ.", keyboard=kb_json)
-        return
-
-    uploader = PhotoMessageUploader(bot.api)
+    services = [
+        {"key": "Карта дня", "price_text": "Бесплатно", "desc": "Ежедневный прогноз для корректировки реальности."},
+        {"key": "ВОПРОС СУДЬБЕ", "price_text": "50 РУБ или 5 бонусов", "desc": "Снятие блокировки и мгновенный ответ на твой вопрос."},
+        {"key": "АНТИТАРО", "price_text": "50 РУБ или 5 бонусов", "desc": "Жесткий разбор иллюзий и самообмана."},
+        {"key": "ТЕНЬ (РАЗОВАЯ)", "price_text": "70 РУБ или 7 бонусов", "desc": "Разбор твоих скрытых качеств и подавленных талантов."},
+        {"key": "ДЕНЬГИ (РАЗОВАЯ)", "price_text": "90 РУБ или 9 бонусов", "desc": "Анализ твоих финансовых блоков и точек роста."},
+        {"key": "СЕКС (РАЗОВАЯ)", "price_text": "100 РУБ или 10 бонусов", "desc": "Детальный разбор твоей сексуальности и влечения."},
+        {"key": "ФИНАЛ (РАЗОВАЯ)", "price_text": "120 РУБ или 12 бонусов", "desc": "Главный итог и вектор твоего развития."},
+        {"key": "Синастрия (Совместимость)", "price_text": "150 РУБ или 15 бонусов", "desc": "Жесткий разбор мэтча с партнером."},
+        {"key": "БАНДЛ", "price_text": "300 РУБ или 30 бонусов", "desc": "Полный доступ ко всем тайнам твоей матрицы (Секс, Деньги, Тень, Финал)."},
+        {"key": "ТАРИФ 1 (99 РУБ)", "price_text": "99 РУБ", "desc": "ТАРИФ 1: Неделя. Ежедневные транзиты на 7 дней.", "rubles_only": True},
+        {"key": "ТАРИФ 2 (290 РУБ)", "price_text": "290 РУБ", "desc": "ТАРИФ 2: Месяц. Ежедневные транзиты на 30 дней.", "rubles_only": True},
+        {"key": "VIP БАНДЛ (590 РУБ)", "price_text": "590 РУБ", "desc": "VIP БАНДЛ. Полный доступ ко всем тайнам + месяц транзитов.", "rubles_only": True}
+    ]
 
     await message.answer("ВЫБЕРИТЕ УСЛУГУ В КАТАЛОГЕ:")
 
-    for key in unpurchased_keys:
+    for svc in services:
         await asyncio.sleep(0.5)
-        svc = service_map[key]
+
+        btn_label = svc["key"]
 
         keyboard_obj = {
             "inline": True,
-            "buttons": [[{"action": {"type": "text", "label": key}, "color": "secondary"}]]
+            "buttons": [[{"action": {"type": "text", "label": btn_label}, "color": "secondary"}]]
         }
         kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
-        msg_text = svc["desc"]
-        image_name = svc["image_name"]
-        filepath = f"cards/{image_name}"
-        photo_attachment = None
+        rub_notice = "\n*Оплата возможна только реальными рублями." if svc.get("rubles_only") else ""
+        msg_text = f"✦ {btn_label} ✦\nЦена: {svc['price_text']}\n\n{svc['desc']}{rub_notice}"
 
         try:
-            async with aiofiles.open(filepath, "rb") as f:
-                data = await f.read()
-                photo_attachment = await uploader.upload(data)
+            await message.answer(msg_text, keyboard=kb_json)
         except Exception as e:
-            print(f"[ERROR] Failed to load image {image_name} for storefront: {e}")
-
-        try:
-            if photo_attachment:
-                await message.answer(msg_text, attachment=photo_attachment, keyboard=kb_json)
-            else:
-                await message.answer(msg_text, keyboard=kb_json)
-        except Exception as e:
-            print(f"[ERROR] Failed to send storefront message for {key}: {e}")
-            try:
-                await message.answer(msg_text)
-            except:
-                pass
+            print(f"Error sending service block {svc['key']}: {e}")
+            await message.answer(msg_text)
 
     await asyncio.sleep(0.5)
     # Использовать базовую клавиатуру-навигатор
