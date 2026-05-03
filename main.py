@@ -508,7 +508,12 @@ async def main():
             if purchased.get("oracle_access", False):
                 purchased["oracle_access"] = False # consume the pass
 
-            await update_user(vk_id, {"purchased_sections": purchased})
+            user = await get_user(vk_id)
+            if user:
+                current_total = user.get("total_cards_received", 0)
+                await update_user(vk_id, {"purchased_sections": purchased, "total_cards_received": current_total + 3})
+            else:
+                await update_user(vk_id, {"purchased_sections": purchased})
 
             kb_json = await get_sections_keyboard(vk_id, user)
 
@@ -1123,6 +1128,12 @@ async def main():
 
                 print(f"[DEBUG] Parsed Card ID: {card_id}")
 
+                # Increment total_cards_received
+                user = await get_user(vk_id)
+                if user:
+                    current_total = user.get("total_cards_received", 0)
+                    await update_user(vk_id, {"total_cards_received": current_total + 1})
+
                 photo_attachment = None
                 try:
                     uploader = PhotoMessageUploader(bot.api)
@@ -1371,6 +1382,12 @@ async def main():
             else:
                 card_id = str(random.randint(0, 77))
 
+            # Increment total_cards_received
+            user = await get_user(vk_id)
+            if user:
+                current_total = user.get("total_cards_received", 0)
+                await update_user(vk_id, {"total_cards_received": current_total + 1})
+
             photo_attachment = None
             try:
                 from vkbottle import PhotoMessageUploader
@@ -1509,6 +1526,12 @@ async def main():
                     card_id = str(random.randint(0, 77))
             else:
                 card_id = str(random.randint(0, 77))
+
+            # Increment total_cards_received
+            user = await get_user(vk_id)
+            if user:
+                current_total = user.get("total_cards_received", 0)
+                await update_user(vk_id, {"total_cards_received": current_total + 1})
 
             photo_attachment = None
             try:
