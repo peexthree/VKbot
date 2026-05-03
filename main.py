@@ -425,7 +425,7 @@ async def main():
             random.shuffle(pool)
 
             # THE FIX: Slice the pool to 30 cards to respect VK's 6-row inline keyboard limit
-            pool = pool[:30]
+            pool = pool[:10]
 
             await set_user_state(vk_id, json.dumps({
                 "step": "oracle_draw",
