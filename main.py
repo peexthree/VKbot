@@ -77,19 +77,19 @@ async def main():
 
         # Секс
         if purchased.get("sex"):
-            buttons.append([{"action": {"type": "text", "label": "✦ СЕКС (Открыто)"}, "color": "positive"}])
+            buttons.append([{"action": {"type": "text", "label": "✦ СЕКС (РАЗОВАЯ)"}, "color": "positive"}])
 
         # Деньги
         if purchased.get("money"):
-            buttons.append([{"action": {"type": "text", "label": "✦ ДЕНЬГИ (Открыто)"}, "color": "positive"}])
+            buttons.append([{"action": {"type": "text", "label": "✦ ДЕНЬГИ (РАЗОВАЯ)"}, "color": "positive"}])
 
         # Тень
         if purchased.get("shadow"):
-            buttons.append([{"action": {"type": "text", "label": "✦ ТЕНЬ (Открыто)"}, "color": "positive"}])
+            buttons.append([{"action": {"type": "text", "label": "✦ ТЕНЬ (РАЗОВАЯ)"}, "color": "positive"}])
 
         # Финал
         if purchased.get("final"):
-            buttons.append([{"action": {"type": "text", "label": "✦ ФИНАЛ (Открыто)"}, "color": "positive"}])
+            buttons.append([{"action": {"type": "text", "label": "✦ ФИНАЛ (РАЗОВАЯ)"}, "color": "positive"}])
 
         if not buttons:
             buttons.append([{"action": {"type": "text", "label": "✦ Услуги"}, "color": "secondary"}])
@@ -381,50 +381,12 @@ async def main():
         active_tasks.add(vk_id)
         try:
             import json
-            state_dict = await get_fsm_step(vk_id)
-            question = state_dict.get("question", "")
-
-            await set_user_state(vk_id, json.dumps({"step": "oracle_half", "question": question}))
-
-            kb = Keyboard(inline=True)
-            kb.add(Text("ВЕРХНЯЯ ЧАСТЬ"), color=KeyboardButtonColor.SECONDARY)
-            kb.add(Text("НИЖНЯЯ ЧАСТЬ"), color=KeyboardButtonColor.SECONDARY)
-
-            await message.answer(
-                "Колода разделена надвое. Откуда будем тянуть карты?",
-                keyboard=kb.get_json()
-            )
-        finally:
-            active_tasks.discard(vk_id)
-
-    async def is_waiting_oracle_half(message: Message) -> bool:
-        if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
-            return False
-        state_dict = await get_fsm_step(message.from_id)
-        return state_dict is not None and state_dict.get("step") == "oracle_half"
-
-    @bot.on.message(func=is_waiting_oracle_half)
-    async def process_oracle_half(message: Message):
-        vk_id = message.from_id
-        if vk_id in active_tasks:
-            return
-
-        active_tasks.add(vk_id)
-        try:
-            import json
-            text = message.text.strip().upper()
-            state_dict = await get_fsm_step(vk_id)
-            question = state_dict.get("question", "")
-
             import random
-            if "ВЕРХНЯЯ" in text:
-                pool = list(range(0, 39))
-            else:
-                pool = list(range(39, 78))
+            state_dict = await get_fsm_step(vk_id)
+            question = state_dict.get("question", "")
 
+            pool = list(range(0, 78))
             random.shuffle(pool)
-
-            # THE FIX: Slice the pool to 30 cards to respect VK's 6-row inline keyboard limit
             pool = pool[:10]
 
             await set_user_state(vk_id, json.dumps({
@@ -442,7 +404,7 @@ async def main():
                 kb.add(Callback("🎴", payload={"oracle_card": card_id}))
 
             await message.answer(
-                "Выбери ровно 3 карты из своей стопки:",
+                "ШАГ 3 ИЗ 3: ВЫБОР КАРТ. Выбери из своей стопки ровно 3 карты",
                 keyboard=kb.get_json()
             )
         finally:
@@ -475,8 +437,17 @@ async def main():
                     except Exception as e:
                         print(f"Failed to upload oracle tarot card {cid}: {e}")
 
+            import json
+            try:
+                with open("tarot_ids.json", "r", encoding="utf-8") as f:
+                    tarot_names = json.load(f)
+            except Exception:
+                tarot_names = {}
+
+            c_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in card_ids]
+
             # Send cards with delays
-            messages = ["ПЕРВАЯ КАРТА...", "ВТОРАЯ КАРТА...", "ТРЕТЬЯ КАРТА..."]
+            messages = ["СЧИТЫВАЮ ПОТОК...", "ПЕРЕВОЖУ ЯЗЫК ТАРО...", "ФОРМИРУЮ ПРИГОВОР..."]
             delays = [1, 1, 2]
 
             for i in range(3):
@@ -495,11 +466,6 @@ async def main():
                     )
                 await asyncio.sleep(delays[i])
 
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message="АНАЛИЗИРУЮ СИНХРОНИЗАЦИЮ...",
-                random_id=0
-            )
             await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
             await asyncio.sleep(4)
 
@@ -511,8 +477,8 @@ async def main():
             prompt = (
                 f"КОНТЕКСТ: {gender_str}. "
                 f"Пользователь задает вопрос: {text}. "
-                f"Выпали карты: {card_ids[0]}, {card_ids[1]}, {card_ids[2]}. "
-                "Сделай дерзкий, интересный ответ-синтез по этим картам. Сами карты в тексте не называй, просто дай суть основанную по гаданиям таро."
+                f"Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. "
+                "Сначала выведи: Карта [N]: [Название] - [Краткий смысл]. Только потом делай общий синтез."
             )
 
             result_text = await generate_text(prompt)
@@ -520,7 +486,7 @@ async def main():
                 result_text = "Оракул молчит. Попробуй позже."
 
             # Update database
-            purchased["last_oracle_time"] = datetime.datetime.now().isoformat()
+            purchased["oracle_last_used"] = datetime.datetime.now().isoformat()
             if purchased.get("oracle_access", False):
                 purchased["oracle_access"] = False # consume the pass
 
@@ -672,16 +638,16 @@ async def main():
         buttons = []
 
         if not purchased.get("sex"):
-            buttons.append([{"action": {"type": "text", "label": "СЕКС"}, "color": "secondary"}])
+            buttons.append([{"action": {"type": "text", "label": "СЕКС (РАЗОВАЯ)"}, "color": "secondary"}])
 
         if not purchased.get("money"):
-            buttons.append([{"action": {"type": "text", "label": "ДЕНЬГИ"}, "color": "secondary"}])
+            buttons.append([{"action": {"type": "text", "label": "ДЕНЬГИ (РАЗОВАЯ)"}, "color": "secondary"}])
 
         if not purchased.get("shadow"):
-            buttons.append([{"action": {"type": "text", "label": "ТЕНЬ"}, "color": "secondary"}])
+            buttons.append([{"action": {"type": "text", "label": "ТЕНЬ (РАЗОВАЯ)"}, "color": "secondary"}])
 
         if not purchased.get("final"):
-            buttons.append([{"action": {"type": "text", "label": "ФИНАЛ"}, "color": "secondary"}])
+            buttons.append([{"action": {"type": "text", "label": "ФИНАЛ (РАЗОВАЯ)"}, "color": "secondary"}])
 
         purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
         if purchased_count < 2:
@@ -933,6 +899,8 @@ async def main():
             purchased["money"] = True
             purchased["shadow"] = True
             purchased["final"] = True
+            if "oracle_last_used" in purchased:
+                del purchased["oracle_last_used"]
 
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
 
@@ -947,25 +915,23 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
-    @bot.on.message(text=["СЕКС", "ДЕНЬГИ", "ТЕНЬ", "ФИНАЛ", "БАНДЛ", "ВОПРОС СУДЬБЕ"])
+    @bot.on.message(text=["СЕКС (РАЗОВАЯ)", "ДЕНЬГИ (РАЗОВАЯ)", "ТЕНЬ (РАЗОВАЯ)", "ФИНАЛ (РАЗОВАЯ)", "БАНДЛ", "ВОПРОС СУДЬБЕ"])
     async def handle_storefront_purchase(message: Message):
         import json
         text = message.text.upper()
 
         service_map = {
-            "СЕКС": {"text": "ГРЯЗНЫЕ СЕКРЕТЫ\nСЕКС - 100 РУБ", "photo": "sex.jpeg", "amount": 100},
-            "ДЕНЬГИ": {"text": "МАГНИТ ДЛЯ КРИПТЫ\nДЕНЬГИ - 90 РУБ", "photo": "money.jpeg", "amount": 90},
-            "ТЕНЬ": {"text": "ТЕМНЫЕ ДЕМОНЫ\nТЕНЬ - 70 РУБ", "photo": "demon1.jpg", "amount": 70},
-            "ФИНАЛ": {"text": "ПОЛНЫЙ РАСКЛАД\nФИНАЛ - 120 РУБ", "photo": "full.jpeg", "amount": 120},
-            "БАНДЛ": {"text": "ВЕСЬ ПАКЕТ СУДЬБЫ\nБАНДЛ - 300 РУБ", "photo": "full1.jpg", "amount": 300},
-            "ВОПРОС СУДЬБЕ": {"text": "ПРОПУСК ТАЙМЕРА\nВОПРОС СУДЬБЕ - 50 РУБ", "photo": "ora.jpeg", "amount": 50}
+            "СЕКС (РАЗОВАЯ)": {"name": "Секс", "amount": 100},
+            "ДЕНЬГИ (РАЗОВАЯ)": {"name": "Деньги", "amount": 90},
+            "ТЕНЬ (РАЗОВАЯ)": {"name": "Тень", "amount": 70},
+            "ФИНАЛ (РАЗОВАЯ)": {"name": "Финал", "amount": 120},
+            "БАНДЛ": {"text": "ВЕСЬ ПАКЕТ СУДЬБЫ\nБАНДЛ - 300 РУБ", "amount": 300},
+            "ВОПРОС СУДЬБЕ": {"text": "ПРОПУСК ТАЙМЕРА\nВОПРОС СУДЬБЕ - 50 РУБ", "amount": 50}
         }
 
         service_info = service_map.get(text)
         if not service_info:
             return
-
-        photo_id = await get_cover_photo_id(service_info["photo"])
 
         keyboard_obj = {
             "inline": True,
@@ -975,12 +941,13 @@ async def main():
         }
         kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
-        if photo_id:
-            await message.answer(service_info["text"], attachment=photo_id, keyboard=kb_json)
+        if "name" in service_info:
+            msg_text = f"Выбран раздел {service_info['name']}. Механика: Анализ даты рождения + карта Таро + разбор от Gemini. Это РАЗОВАЯ услуга, доступ закроется после прочтения"
+            await message.answer(msg_text, keyboard=kb_json)
         else:
             await message.answer(service_info["text"], keyboard=kb_json)
 
-    @bot.on.message(text=["✦ СЕКС (Открыто)", "✦ ДЕНЬГИ (Открыто)", "✦ ТЕНЬ (Открыто)", "✦ ФИНАЛ (Открыто)"])
+    @bot.on.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)"])
     async def handle_section_request(message: Message):
         vk_id = message.from_id
         if vk_id in active_tasks:
@@ -1032,6 +999,10 @@ async def main():
 
             if first_name:
                 result_text = f"{first_name},\n\n" + result_text
+
+            # Consume the section
+            purchased[target_section] = False
+            await update_user(vk_id, {"purchased_sections": purchased})
 
             if target_section in ["sex", "money", "shadow", "final"]:
                 import re
@@ -1159,30 +1130,30 @@ async def main():
             import json
 
             purchased = user.get("purchased_sections", {})
-            last_oracle_time_str = purchased.get("last_oracle_time")
+            oracle_last_used_str = purchased.get("oracle_last_used")
             has_paid_access = purchased.get("oracle_access", False)
 
             allow_access = False
             if has_paid_access:
                 allow_access = True
             else:
-                if not last_oracle_time_str:
+                if not oracle_last_used_str:
                     allow_access = True
                 else:
                     try:
-                        last_time = datetime.datetime.fromisoformat(last_oracle_time_str)
+                        last_time = datetime.datetime.fromisoformat(oracle_last_used_str)
                         if (datetime.datetime.now() - last_time).total_seconds() >= 24 * 3600:
                             allow_access = True
                     except ValueError:
                         allow_access = True
 
             if not allow_access:
-                last_time = datetime.datetime.fromisoformat(last_oracle_time_str)
+                last_time = datetime.datetime.fromisoformat(oracle_last_used_str)
                 remaining = datetime.timedelta(hours=24) - (datetime.datetime.now() - last_time)
                 hours, remainder = divmod(remaining.seconds, 3600)
                 minutes, _ = divmod(remainder, 60)
 
-                # Payment keyboard for Oracle
+                # Payment keyboard for Oracle skip
                 keyboard_obj = {
                     "inline": True,
                     "buttons": [[{
@@ -1192,22 +1163,45 @@ async def main():
                 kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
                 await message.answer(
-                    f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}\nВОПРОС СУДЬБЕ - 50 РУБ",
+                    f"Энергия восстанавливается. Осталось {hours} ч. {minutes} мин.",
                     keyboard=kb_json
                 )
                 return
 
             # Start Oracle FSM
+            await set_user_state(vk_id, json.dumps({"step": "oracle_ask"}))
+
+            await message.answer("ШАГ 1 ИЗ 3: ТВОЙ ВОПРОС. Напиши, что тебя волнует? Оракул не любит размытых фраз")
+
+        finally:
+            active_tasks.discard(vk_id)
+
+    async def is_waiting_oracle_ask(message: Message) -> bool:
+        if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
+            return False
+        state_dict = await get_fsm_step(message.from_id)
+        return state_dict is not None and state_dict.get("step") == "oracle_ask"
+
+    @bot.on.message(func=is_waiting_oracle_ask)
+    async def process_oracle_ask(message: Message):
+        vk_id = message.from_id
+        if vk_id in active_tasks:
+            return
+
+        active_tasks.add(vk_id)
+        try:
+            import json
+            text = message.text.strip()
+
             await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": text}))
 
             kb = Keyboard(inline=True)
             kb.add(Text("СДВИНУТЬ КОЛОДУ"), color=KeyboardButtonColor.PRIMARY)
 
             await message.answer(
-                "Вопрос принят. Энергия сформирована. Сдвинь колоду, чтобы задать вектор.",
+                "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы сдвинуть колоду",
                 keyboard=kb.get_json()
             )
-
         finally:
             active_tasks.discard(vk_id)
 
