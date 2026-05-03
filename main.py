@@ -27,6 +27,27 @@ async def main():
     vk_token = os.environ.get("VK_TOKEN", "")
     bot = Bot(token=vk_token)
     
+    cover_cache = {}
+
+    async def get_cover_photo_id(cover_name: str) -> str:
+        if cover_name in cover_cache:
+            return cover_cache[cover_name]
+        try:
+            uploader = PhotoMessageUploader(bot.api)
+            url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{cover_name}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        data = await resp.read()
+                        photo_id = await uploader.upload(data)
+                        cover_cache[cover_name] = photo_id
+                        return photo_id
+                    else:
+                        print(f"Failed to fetch cover {cover_name}: {resp.status}")
+        except Exception as e:
+            print(f"Failed to upload cover {cover_name}: {e}")
+        return ""
+
     await init_db()
 
     def get_dynamic_keyboard(user: dict | None) -> str:
@@ -414,18 +435,22 @@ async def main():
         from ai_service import generate_text
 
         try:
-            # Fetch images from local mapping
             attachments = []
-            import json
-            try:
-                with open('tarot_ids.json', 'r') as f:
-                    tarot_mapping = json.load(f)
+            uploader = PhotoMessageUploader(bot.api)
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
                 for cid in card_ids:
-                    photo_id = tarot_mapping.get(str(cid))
-                    if photo_id:
-                        attachments.append(photo_id)
-            except Exception as e:
-                print(f"Failed to load oracle tarot cards from tarot_ids.json: {e}")
+                    url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{cid}.jpeg"
+                    try:
+                        async with session.get(url) as resp:
+                            if resp.status == 200:
+                                data = await resp.read()
+                                photo = await uploader.upload(data)
+                                attachments.append(photo)
+                            else:
+                                print(f"Failed to fetch {url}: {resp.status}")
+                    except Exception as e:
+                        print(f"Failed to upload oracle tarot card {cid}: {e}")
 
             # Send cards with delays
             messages = ["ПЕРВАЯ КАРТА...", "ВТОРАЯ КАРТА...", "ТРЕТЬЯ КАРТА..."]
@@ -627,7 +652,7 @@ async def main():
             elements.append({
                 "title": "ГРЯЗНЫЕ СЕКРЕТЫ",
                 "description": "СЕКС - 100 РУБ",
-                "photo_id": "photo-219181948_457239358",
+                "photo_id": await get_cover_photo_id("sex.jpeg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
@@ -638,7 +663,7 @@ async def main():
             elements.append({
                 "title": "МАГНИТ ДЛЯ КРИПТЫ",
                 "description": "ДЕНЬГИ - 90 РУБ",
-                "photo_id": "photo-219181948_457239361",
+                "photo_id": await get_cover_photo_id("money.jpeg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
@@ -649,7 +674,7 @@ async def main():
             elements.append({
                 "title": "ТЕМНЫЕ ДЕМОНЫ",
                 "description": "ТЕНЬ - 70 РУБ",
-                "photo_id": "photo-219181948_457239357",
+                "photo_id": await get_cover_photo_id("demon.jpeg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
@@ -660,7 +685,7 @@ async def main():
             elements.append({
                 "title": "ПОЛНЫЙ РАСКЛАД",
                 "description": "ФИНАЛ - 120 РУБ",
-                "photo_id": "photo-219181948_457239359",
+                "photo_id": await get_cover_photo_id("way.jpeg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=120"}
@@ -672,7 +697,7 @@ async def main():
             elements.append({
                 "title": "ВЕСЬ ПАКЕТ СУДЬБЫ",
                 "description": "БАНДЛ - 300 РУБ",
-                "photo_id": "photo-219181948_457239360",
+                "photo_id": await get_cover_photo_id("full.jpeg"),
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
@@ -683,12 +708,15 @@ async def main():
         elements.append({
             "title": "ВОПРОС СУДЬБЕ",
             "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-            "photo_id": "photo-219181948_457239356",
+            "photo_id": await get_cover_photo_id("ora.jpeg"),
             "action": {"type": "open_photo"},
             "buttons": [{
                 "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
             }]
         })
+
+        # Remove elements where photo_id failed to upload (empty string)
+        elements = [e for e in elements if e["photo_id"]]
 
         if elements:
             template = {
@@ -1025,12 +1053,18 @@ async def main():
 
                 photo_attachment = None
                 try:
-                    import json
-                    with open('tarot_ids.json', 'r') as f:
-                        tarot_mapping = json.load(f)
-                    photo_attachment = tarot_mapping.get(card_id)
+                    uploader = PhotoMessageUploader(bot.api)
+                    import aiohttp
+                    url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{card_id}.jpeg"
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(url) as resp:
+                            if resp.status == 200:
+                                data = await resp.read()
+                                photo_attachment = await uploader.upload(data)
+                            else:
+                                print(f"Failed to fetch {url}: {resp.status}")
                 except Exception as e:
-                    print(f"Failed to load tarot card ID {card_id} from tarot_ids.json: {e}")
+                    print(f"Failed to upload tarot card {card_id}: {e}")
 
                 # Убираем техническую строку с ID_ТАРО из финального текста
                 display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
@@ -1152,25 +1186,31 @@ async def main():
                 minutes, _ = divmod(remainder, 60)
 
                 # Payment template for Oracle
-                elements = [{
-                    "title": "ВОПРОС СУДЬБЕ",
-                    "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-                    "photo_id": "photo-219181948_457239356",
-                    "action": {"type": "open_photo"},
-                    "buttons": [{
-                        "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
+                ora_photo_id = await get_cover_photo_id("ora.jpeg")
+                if ora_photo_id:
+                    elements = [{
+                        "title": "ВОПРОС СУДЬБЕ",
+                        "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
+                        "photo_id": ora_photo_id,
+                        "action": {"type": "open_photo"},
+                        "buttons": [{
+                            "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
+                        }]
                     }]
-                }]
-                template = {
-                    "type": "carousel",
-                    "elements": elements
-                }
-                template_json = json.dumps(template, ensure_ascii=False)
+                    template = {
+                        "type": "carousel",
+                        "elements": elements
+                    }
+                    template_json = json.dumps(template, ensure_ascii=False)
 
-                await message.answer(
-                    f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}",
-                    template=template_json
-                )
+                    await message.answer(
+                        f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}",
+                        template=template_json
+                    )
+                else:
+                    await message.answer(
+                        f"СЕАНС НЕДОСТУПЕН. ВРЕМЯ ДО ВОССТАНОВЛЕНИЯ: {hours:02d}:{minutes:02d}"
+                    )
                 return
 
             # Start Oracle FSM
