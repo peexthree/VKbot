@@ -32,16 +32,16 @@ def get_dynamic_keyboard(user: dict | None) -> str:
         return keyboard.get_json()
 
     # Базовая клавиатура - навигатор
-    keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("✦ Главное меню"), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text("✦ МОЙ ПРОФИЛЬ 👤"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("✦ ГЛАВНОЕ МЕНЮ 🏠"), color=KeyboardButtonColor.PRIMARY)
     keyboard.row()
-    keyboard.add(Text("✦ Баланс"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("💳 БАЛАНС"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("✦ УСЛУГИ 🛒"), color=KeyboardButtonColor.SECONDARY)
     keyboard.row()
-    keyboard.add(Text("✦ Синастрия (Совместимость)"), color=KeyboardButtonColor.POSITIVE)
-    keyboard.add(Text("✦ Карта дня"), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Text("👨‍❤️‍👨 СИНАСТРИЯ"), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Text("🃏 КАРТА ДНЯ"), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
-    keyboard.add(Text("✦ Настройки"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("⚙ НАСТРОЙКИ"), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
 
@@ -51,22 +51,22 @@ async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
 
     # Секс
     if purchased.get("sex"):
-        buttons.append([{"action": {"type": "text", "label": "✦ СЕКС (РАЗОВАЯ)"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "text", "label": "👄 СЕКС"}, "color": "positive"}])
 
     # Деньги
     if purchased.get("money"):
-        buttons.append([{"action": {"type": "text", "label": "✦ ДЕНЬГИ (РАЗОВАЯ)"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "text", "label": "💰 ДЕНЬГИ"}, "color": "positive"}])
 
     # Тень
     if purchased.get("shadow"):
-        buttons.append([{"action": {"type": "text", "label": "✦ ТЕНЬ (РАЗОВАЯ)"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "text", "label": "🌘 ТЕНЬ"}, "color": "positive"}])
 
     # Финал
     if purchased.get("final"):
-        buttons.append([{"action": {"type": "text", "label": "✦ ФИНАЛ (РАЗОВАЯ)"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "text", "label": "🏁 ФИНАЛ"}, "color": "positive"}])
 
     if not buttons:
-        buttons.append([{"action": {"type": "text", "label": "✦ Услуги"}, "color": "secondary"}])
+        buttons.append([{"action": {"type": "text", "label": "✦ УСЛУГИ 🛒"}, "color": "secondary"}])
 
     keyboard_obj = {
         "inline": True,
