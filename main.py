@@ -387,6 +387,7 @@ async def main():
 
         active_tasks.add(vk_id)
         try:
+            import json
             state_dict = await get_fsm_step(vk_id)
             question = state_dict.get("question", "")
 
@@ -417,6 +418,7 @@ async def main():
 
         active_tasks.add(vk_id)
         try:
+            import json
             text = message.text.strip().upper()
             state_dict = await get_fsm_step(vk_id)
             question = state_dict.get("question", "")
