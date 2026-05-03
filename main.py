@@ -622,16 +622,9 @@ async def main():
             await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
             return
 
-        purchased = user.get("purchased_sections", {})
+        balance = user.get("balance", 0)
 
-        # Calculate purchased value roughly
-        value = 0
-        if purchased.get("sex"): value += 100
-        if purchased.get("money"): value += 90
-        if purchased.get("shadow"): value += 70
-        if purchased.get("final"): value += 120
-
-        await message.answer(f"ТВОЙ БАЛАНС.\nПриобретено услуг на сумму: {value} RUB.")
+        await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ")
 
     async def get_storefront_keyboard(purchased: dict) -> str | None:
         import json
@@ -811,25 +804,22 @@ async def main():
             if amount_val > 1000: # if it's in kopecks like 9900
                 amount_val = amount_val // 100
 
-            section = "unknown"
-            if amount_val == 100:
-                section = "sex"
-            elif amount_val == 90:
-                section = "money"
-            elif amount_val == 70:
-                section = "shadow"
-            elif amount_val == 120:
-                section = "final"
-            elif amount_val == 300:
-                section = "all"
-            elif amount_val == 50:
-                section = "oracle"
-
-            if section == "unknown":
-                print(f"НЕИЗВЕСТНЫЙ ПЛАТЕЖ: vk_id={vk_id}, amount={amount_val}")
+            user = await get_user(vk_id)
+            if not user:
+                print(f"ПЛАТЕЖ ОТ НЕИЗВЕСТНОГО ПОЛЬЗОВАТЕЛЯ: vk_id={vk_id}, amount={amount_val}")
                 return
 
-            await process_payment_and_generate(vk_id, section)
+            current_balance = user.get("balance", 0)
+            new_balance = current_balance + amount_val
+
+            await update_user(vk_id, {"balance": new_balance})
+
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message=f"БАЛАНС ПОПОЛНЕН! НА ТВОЕМ СЧЕТУ: {new_balance} РУБ. ТЕПЕРЬ ТЫ МОЖЕШЬ АКТИВИРОВАТЬ ВЫБРАННУЮ УСЛУГУ",
+                random_id=0
+            )
+
         except Exception as e:
             print(f"Error handling money_transfer: {e}")
 
@@ -850,11 +840,11 @@ async def main():
                 purchased["shadow"] = True
                 purchased["final"] = True
                 await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-                await bot.api.messages.send(peer_id=vk_id, message="ОПЛАТА УСПЕШНА.\n\nВсе Врата открыты.", random_id=0)
+                await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.\n\nВсе Врата открыты.", random_id=0)
             elif section == "oracle":
                 purchased["oracle_access"] = True
                 await update_user(vk_id, {"purchased_sections": purchased})
-                await bot.api.messages.send(peer_id=vk_id, message="ОПЛАТА УСПЕШНА.\n\nНАПИШИ СВОЙ ВОПРОС СУДЬБЕ ПРЯМО СЕЙЧАС.", random_id=0)
+                await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.\n\nНАПИШИ СВОЙ ВОПРОС СУДЬБЕ ПРЯМО СЕЙЧАС.", random_id=0)
             elif section in ["sex", "money", "shadow", "final"]:
                 purchased[section] = True
                 updates = {"purchased_sections": purchased}
@@ -864,7 +854,7 @@ async def main():
                     updates["has_full_chart"] = True
 
                 await update_user(vk_id, updates)
-                await bot.api.messages.send(peer_id=vk_id, message="ОПЛАТА УСПЕШНА.\n\nРаздел открыт.", random_id=0)
+                await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.\n\nРаздел открыт.", random_id=0)
 
             user = await get_user(vk_id)
             kb_json = await get_sections_keyboard(vk_id, user)
@@ -918,33 +908,50 @@ async def main():
     @bot.on.message(text=["СЕКС (РАЗОВАЯ)", "ДЕНЬГИ (РАЗОВАЯ)", "ТЕНЬ (РАЗОВАЯ)", "ФИНАЛ (РАЗОВАЯ)", "БАНДЛ"])
     async def handle_storefront_purchase(message: Message):
         import json
+        vk_id = message.from_id
         text = message.text.upper()
 
+        user = await get_user(vk_id)
+        if not user:
+            return
+
         service_map = {
-            "СЕКС (РАЗОВАЯ)": {"name": "Секс", "amount": 100},
-            "ДЕНЬГИ (РАЗОВАЯ)": {"name": "Деньги", "amount": 90},
-            "ТЕНЬ (РАЗОВАЯ)": {"name": "Тень", "amount": 70},
-            "ФИНАЛ (РАЗОВАЯ)": {"name": "Финал", "amount": 120},
-            "БАНДЛ": {"text": "ВЕСЬ ПАКЕТ СУДЬБЫ\nБАНДЛ - 300 РУБ", "amount": 300}
+
+            "СЕКС (РАЗОВАЯ)": {"name": "Секс", "amount": 100, "section_key": "sex"},
+            "ДЕНЬГИ (РАЗОВАЯ)": {"name": "Деньги", "amount": 90, "section_key": "money"},
+            "ТЕНЬ (РАЗОВАЯ)": {"name": "Тень", "amount": 70, "section_key": "shadow"},
+            "ФИНАЛ (РАЗОВАЯ)": {"name": "Финал", "amount": 120, "section_key": "final"},
+            "БАНДЛ": {"text": "ВЕСЬ ПАКЕТ СУДЬБЫ\nБАНДЛ - 300 РУБ", "amount": 300, "section_key": "all"},
+            "ВОПРОС СУДЬБЕ": {"text": "ПРОПУСК ТАЙМЕРА\nВОПРОС СУДЬБЕ - 50 РУБ", "amount": 50, "section_key": "oracle"}
+
         }
 
         service_info = service_map.get(text)
         if not service_info:
             return
 
-        keyboard_obj = {
-            "inline": True,
-            "buttons": [[{
-                "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={service_info['amount']}"}
-            }]]
-        }
-        kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+        balance = user.get("balance", 0)
+        amount_needed = service_info["amount"]
 
-        if "name" in service_info:
-            msg_text = f"Выбран раздел {service_info['name']}. Механика: Анализ даты рождения + карта Таро + разбор от Gemini. Это РАЗОВАЯ услуга, доступ закроется после прочтения"
-            await message.answer(msg_text, keyboard=kb_json)
+        if balance >= amount_needed:
+            new_balance = balance - amount_needed
+            await update_user(vk_id, {"balance": new_balance})
+            await process_payment_and_generate(vk_id, service_info["section_key"])
         else:
-            await message.answer(service_info["text"], keyboard=kb_json)
+            keyboard_obj = {
+                "inline": True,
+                "buttons": [[{
+                    "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={amount_needed}"}
+                }]]
+            }
+            kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+
+            if "name" in service_info:
+                msg_text = f"Выбран раздел {service_info['name']}. Механика: Анализ даты рождения + карта Таро + разбор от Gemini. Это РАЗОВАЯ услуга, доступ закроется после прочтения.\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
+                await message.answer(msg_text, keyboard=kb_json)
+            else:
+                msg_text = f"{service_info['text']}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
+                await message.answer(msg_text, keyboard=kb_json)
 
     @bot.on.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)"])
     async def handle_section_request(message: Message):
@@ -1152,19 +1159,33 @@ async def main():
                 hours, remainder = divmod(remaining.seconds, 3600)
                 minutes, _ = divmod(remainder, 60)
 
-                # Payment keyboard for Oracle skip
-                keyboard_obj = {
-                    "inline": True,
-                    "buttons": [[{
-                        "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
-                    }]]
-                }
-                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                balance = user.get("balance", 0)
 
-                await message.answer(
-                    f"Энергия восстанавливается. Осталось {hours} ч. {minutes} мин.",
-                    keyboard=kb_json
-                )
+                if balance >= 50:
+                    keyboard_obj = {
+                        "inline": True,
+                        "buttons": [[{
+                            "action": {"type": "text", "label": "ВОПРОС СУДЬБЕ"}, "color": "secondary"
+                        }]]
+                    }
+                    kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+                    await message.answer(
+                        f"Энергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ. Пропустить таймер: 50 РУБ.",
+                        keyboard=kb_json
+                    )
+                else:
+                    keyboard_obj = {
+                        "inline": True,
+                        "buttons": [[{
+                            "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
+                        }]]
+                    }
+                    kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+
+                    await message.answer(
+                        f"Энергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.",
+                        keyboard=kb_json
+                    )
                 return
 
             # Start Oracle FSM

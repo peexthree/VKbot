@@ -79,7 +79,8 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "birth_city": birth_city,
         "partners": [],
         "has_full_chart": False,
-        "purchased_sections": {"sex": False, "money": False, "shadow": False, "final": False}
+        "purchased_sections": {"sex": False, "money": False, "shadow": False, "final": False},
+        "balance": 0
     }
     try:
         async with aiohttp.ClientSession() as session:
