@@ -101,20 +101,20 @@ async def main():
     @bot.on.message(text=["СБРОС"])
     async def reset_user_handler(message: Message):
         vk_id = message.from_id
-    
-    # 1. Полностью обнуляем поля регистрации в БД
-    await update_user(vk_id, {
-        "birth_date": "",
-        "birth_time": "",
-        "birth_city": "",
-        "purchased_sections": {},
-        "core_profile": ""
-    })
-    
-    # 2. Очищаем состояние FSM (сбрасываем шаги регистрации)
-    await set_user_state(vk_id, "")
-    
-    await message.answer("СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для теста с нуля.")
+        
+        # 1. Полностью обнуляем поля регистрации в БД
+        await update_user(vk_id, {
+            "birth_date": "",
+            "birth_time": "",
+            "birth_city": "",
+            "purchased_sections": {},
+            "core_profile": ""
+        })
+        
+        # 2. Очищаем состояние FSM
+        await set_user_state(vk_id, "")
+        
+        await message.answer("СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для теста с нуля.")
     @bot.on.message(text=["Начать", "start", "/start"])
     async def start_handler(message: Message):
         vk_id = message.from_id
