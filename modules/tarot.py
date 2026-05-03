@@ -494,7 +494,7 @@ async def process_oracle_question(message: Message):
         active_tasks.discard(vk_id)
 
 
-@labeler.message(text=["АНТИТАРО", "✦ АНТИТАРО"])
+@labeler.message(text=["АНТИТАРО", "✦ АНТИТАРО", "👺 АНТИТАРО"])
 async def antitarot_handler(message: Message):
     vk_id = message.from_id
     if vk_id in active_tasks:

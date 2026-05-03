@@ -200,7 +200,7 @@ async def process_skin_action(message: Message):
     finally:
         active_tasks.discard(vk_id)
 
-@labeler.message(text=["✦ Мой профиль", "Мой профиль", "✦ МОЙ ПРОФИЛЬ 👤"])
+@labeler.message(text=["✦ Мой профиль", "Мой профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ"])
 async def show_profile(message: Message):
     import json
     vk_id = message.from_id
