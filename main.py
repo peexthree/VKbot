@@ -1246,10 +1246,30 @@ async def main():
                     }]]
                 }
                 kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                await message.answer(
-                    f"РАЗДЕЛ СИНАСТРИЯ - Цена: {amount_needed} РУБ.\nЖесткий разбор мэтча с партнером.\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.",
-                    keyboard=kb_json
-                )
+                msg_text = f"РАЗДЕЛ СИНАСТРИЯ - Цена: {amount_needed} РУБ.\nЖесткий разбор мэтча с партнером.\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
+
+                photo_attachment = None
+                try:
+                    from vkbottle import PhotoMessageUploader
+                    import aiofiles
+                    uploader = PhotoMessageUploader(bot.api)
+                    filepath = "cards/sin.jpeg"
+                    async with aiofiles.open(filepath, "rb") as f:
+                        data = await f.read()
+                        photo_attachment = await uploader.upload(data)
+                except Exception as e:
+                    print(f"[ERROR] Failed to load image sin.jpeg from local storage: {e}")
+
+                if photo_attachment:
+                    try:
+                        await message.answer(msg_text, attachment=photo_attachment, keyboard=kb_json)
+                    except:
+                        await message.answer(msg_text, attachment=photo_attachment)
+                else:
+                    try:
+                        await message.answer(msg_text, keyboard=kb_json)
+                    except:
+                        await message.answer(msg_text)
         finally:
             active_tasks.discard(vk_id)
 
