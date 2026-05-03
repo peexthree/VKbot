@@ -905,7 +905,7 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
-    @bot.on.message(text=["СЕКС (РАЗОВАЯ)", "ДЕНЬГИ (РАЗОВАЯ)", "ТЕНЬ (РАЗОВАЯ)", "ФИНАЛ (РАЗОВАЯ)", "БАНДЛ", "ВОПРОС СУДЬБЕ"])
+    @bot.on.message(text=["СЕКС (РАЗОВАЯ)", "ДЕНЬГИ (РАЗОВАЯ)", "ТЕНЬ (РАЗОВАЯ)", "ФИНАЛ (РАЗОВАЯ)", "БАНДЛ"])
     async def handle_storefront_purchase(message: Message):
         import json
         vk_id = message.from_id
@@ -915,38 +915,50 @@ async def main():
         if not user:
             return
 
-        service_map = {
-            "СЕКС (РАЗОВАЯ)": {
-                "name": "Секс",
-                "amount": 100,
-                "section_key": "sex",
-                "image_name": "sex1.jpg",
-                "desc": "РАЗДЕЛ СЕКС (РАЗОВАЯ) - Цена: 100 РУБ\nТекст: Детальный разбор твоей сексуальности и влечения.\nМеханика: Твоя дата рождения - карта Таро - профессиональный разбор таролога.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
-            },
-            "ДЕНЬГИ (РАЗОВАЯ)": {
-                "name": "Деньги",
-                "amount": 90,
-                "section_key": "money",
-                "image_name": "money1.jpg",
-                "desc": "РАЗДЕЛ ДЕНЬГИ (РАЗОВАЯ) - Цена: 90 РУБ\nТекст: Анализ твоих финансовых блоков и точек роста.\nМеханика: Дата рождения - карта Таро - профессиональный разбор таролога.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
-            },
-            "ТЕНЬ (РАЗОВАЯ)": {
-                "name": "Тень",
-                "amount": 70,
-                "section_key": "shadow",
-                "image_name": "demon1.jpg",
-                "desc": "РАЗДЕЛ ТЕНЬ (РАЗОВАЯ) - Цена: 70 РУБ\nТекст: Разбор твоих скрытых качеств и подавленных талантов.\nМеханика: Дата рождения - карта Таро - профессиональный разбор таролога.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
-            },
-            "ФИНАЛ (РАЗОВАЯ)": {
-                "name": "Финал",
-                "amount": 120,
-                "section_key": "final",
-                "image_name": "full1.jpg",
-                "desc": "РАЗДЕЛ ФИНАЛ (РАЗОВАЯ) - Цена: 120 РУБ\nТекст: Главный итог и вектор твоего развития.\nМеханика: Полный синтез всех твоих данных и профессиональный разбор таролога.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
-            },
-            "БАНДЛ": {"text": "ВЕСЬ ПАКЕТ СУДЬБЫ\nБАНДЛ - 300 РУБ", "amount": 300, "section_key": "all"},
-            "ВОПРОС СУДЬБЕ": {"text": "ПРОПУСК ТАЙМЕРА\nВОПРОС СУДЬБЕ - 50 РУБ", "amount": 50, "section_key": "oracle"}
-        }
+service_map = {
+    "Любовь и Секс": {
+        "name": "Секс",
+        "amount": 100,
+        "section_key": "sex",
+        "image_name": "sex1.jpg",
+        "desc": "РАЗДЕЛ СЕКС   - Цена: 100 РУБ\nТекст: Детальный разбор твоей сексуальности и влечения.\nМеханика: Твоя дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
+    },
+    "Финансы и Ресурсы": {
+        "name": "Деньги",
+        "amount": 90,
+        "section_key": "money",
+        "image_name": "money1.jpg",
+        "desc": "РАЗДЕЛ ДЕНЬГИ   - Цена: 90 РУБ\nТекст: Анализ твоих финансовых блоков и точек роста.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
+    },
+    "Демоны": {
+        "name": "Тень",
+        "amount": 70,
+        "section_key": "shadow",
+        "image_name": "demon1.jpg",
+        "desc": "РАЗДЕЛ ТЕНЬ   - Цена: 70 РУБ\nТекст: Разбор твоих скрытых качеств и подавленных талантов.\nМеханика: Дата рождения - карта Таро - профессиональный разбор Оракулом.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
+    },
+    "Общий расклад": {
+        "name": "Финал",
+        "amount": 120,
+        "section_key": "final",
+        "image_name": "way1.jpg",
+        "desc": "РАЗДЕЛ ФИНАЛ   - Цена: 120 РУБ\nТекст: Главный итог и вектор твоего развития.\nМеханика: Полный синтез всех твоих данных и профессиональный разбор Оракулом.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
+    },
+    "Всё включено": {
+        "name": "Бандл",
+        "amount": 300,
+        "section_key": "all",
+        "image_name": "full1.jpg",
+        "desc": "РАЗДЕЛ БАНДЛ - Цена: 300 РУБ\nТекст: Полный доступ ко всем тайнам твоей матрицы.\nМеханика: Вскрытие всех четырех архивов (Секс, Деньги, Тень, Финал) со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
+    },
+    "Задай вопрос Оракулу": {
+        "name": "Оракул",
+        "amount": 50,
+        "section_key": "oracle",
+        "image_name": "ora1.jpg",
+        "desc": "РАЗДЕЛ ОРАКУЛ - Цена: 50 РУБ\nТекст: [Раз в сутки бесплатно] Снятие блокировки и мгновенный ответ на твой вопрос.\nМеханика: Четкий вопрос - ОБРЕЗАТЬ КОЛОДУ - интеллектуальный анализ подсознания через символику.\nВажно: Система перегрета? Оплати принудительную синхронизацию для доступа."
+    }
+}
 
         service_info = service_map.get(text)
         if not service_info:
@@ -1155,7 +1167,7 @@ async def main():
         finally:
             active_tasks.discard(vk_id)
 
-    @bot.on.message()
+    @bot.on.message(text=["ВОПРОС СУДЬБЕ", "✦ ВОПРОС СУДЬБЕ"])
     async def oracle_handler(message: Message):
         vk_id = message.from_id
         if vk_id in active_tasks:
@@ -1234,22 +1246,23 @@ async def main():
                 return
 
             # Start Oracle FSM
-            await set_user_state(vk_id, json.dumps({"step": "oracle_ask"}))
+            await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
 
             await message.answer("ШАГ 1 ИЗ 3: ТВОЙ ВОПРОС. Напиши, что тебя волнует? Оракул не любит размытых фраз")
 
         finally:
             active_tasks.discard(vk_id)
 
-    async def is_waiting_oracle_ask(message: Message) -> bool:
-        if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
+    async def is_waiting_oracle_question(message: Message) -> bool:
+        if message.text and (message.text.lower() in ["начать", "start", "/start", "лайн голос"] or message.text.startswith("✦")):
             return False
         state_dict = await get_fsm_step(message.from_id)
-        return state_dict is not None and state_dict.get("step") == "oracle_ask"
+        return state_dict is not None and state_dict.get("step") == "waiting_oracle_question"
 
-    @bot.on.message(func=is_waiting_oracle_ask)
-    async def process_oracle_ask(message: Message):
+    @bot.on.message(func=is_waiting_oracle_question)
+    async def process_oracle_question(message: Message):
         vk_id = message.from_id
+
         if vk_id in active_tasks:
             return
 
