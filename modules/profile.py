@@ -11,7 +11,7 @@ from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, 
 
 labeler = BotLabeler()
 
-@labeler.message(text=["✦ Баланс", "Баланс"])
+@labeler.message(text=["✦ Баланс", "Баланс", "💳 БАЛАНС"])
 async def show_balance(message: Message):
     vk_id = message.from_id
     user = await get_user(vk_id)
@@ -23,7 +23,7 @@ async def show_balance(message: Message):
 
     await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ")
 
-@labeler.message(text=["✦ Настройки", "Настройки"])
+@labeler.message(text=["✦ Настройки", "Настройки", "⚙ НАСТРОЙКИ"])
 async def settings_handler(message: Message):
     vk_id = message.from_id
     if vk_id in active_tasks:
@@ -166,7 +166,7 @@ async def process_skin_action(message: Message):
                     "purchased_skins": purchased_skins,
                     "active_skin": target_skin
                 })
-                await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: {balance} РУБ / {new_bonuses} бонусов.")
+                await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: {balance} РУБ / 💎 {new_bonuses} бонусов.")
             elif balance >= price:
                 new_balance = balance - price
                 purchased_skins.append(target_skin)
@@ -175,7 +175,7 @@ async def process_skin_action(message: Message):
                     "purchased_skins": purchased_skins,
                     "active_skin": target_skin
                 })
-                await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: {new_balance} РУБ.")
+                await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: 💳 {new_balance} РУБ.")
             else:
                 keyboard_obj = {
                     "inline": True,
@@ -188,7 +188,7 @@ async def process_skin_action(message: Message):
     finally:
         active_tasks.discard(vk_id)
 
-@labeler.message(text=["✦ Мой профиль", "Мой профиль"])
+@labeler.message(text=["✦ Мой профиль", "Мой профиль", "👤 МОЙ ПРОФИЛЬ", "✦ МОЙ ПРОФИЛЬ 👤"])
 async def show_profile(message: Message):
     import json
     vk_id = message.from_id
@@ -203,7 +203,7 @@ async def show_profile(message: Message):
     purchased = user.get("purchased_sections", {})
     first_name = purchased.get("first_name", "")
 
-    name_line = f"ИМЯ: {first_name}\n" if first_name else ""
+    name_line = f"👤 ИМЯ: {first_name}\n" if first_name else ""
 
     unlocked_count = 0
     if purchased.get("sex"): unlocked_count += 1
@@ -212,21 +212,84 @@ async def show_profile(message: Message):
     if purchased.get("final"): unlocked_count += 1
 
     percent = unlocked_count * 25
-    progress_bar = f"Взломано: {percent}% ({unlocked_count}/4 файлов расшифровано)\n"
+    progress_bar = f"📊 СИНХРОНИЗАЦИЯ: {percent}%\n"
 
     storefront_kb = await get_storefront_keyboard(purchased)
     status_text = "" if storefront_kb else "\n\nВСЕ РАЗДЕЛЫ ОТКРЫТЫ."
 
+    visit_streak = user.get("visit_streak", 0)
+    unlocked_cards = user.get("unlocked_cards", [])
+    cards_count = len(unlocked_cards)
+
+    transit_expires = user.get("transit_sub_expires_at")
+    transit_status = "Базовый"
+    transit_timer = "Отсутствует"
+    if transit_expires:
+        import datetime
+        try:
+            exp_date = datetime.datetime.fromisoformat(transit_expires)
+            if exp_date > datetime.datetime.now():
+                transit_status = "Активен"
+                transit_timer = exp_date.strftime("%d.%m.%Y")
+        except ValueError:
+            pass
+
+    is_awake = "Пробужденный" if unlocked_count == 4 else "Спящий"
+
     profile_text = (
-        f"✦ ПРОФИЛЬ АСКЕТА ✦\n\n"
-        f"{name_line}ТОЧКА ВХОДА: {date} {time}\n"
-        f"ЛОКАЦИЯ: {city}\n\n"
+        f"✦ ЛИЧНЫЙ ТЕРМИНАЛ АСКЕТА ✦\n\n"
+        f"{name_line}📍 ТОЧКА ВХОДА: {date} {time} {city}\n\n"
+        f"⏳ ДНЕЙ В МАТРИЦЕ: {visit_streak}\n"
+        f"🎴 СОБРАНО КАРТ: {cards_count}/78\n"
         f"{progress_bar}"
+        f"🛡 СТАТУС: {is_awake}\n"
+        f"📡 ТРАНЗИТ: {transit_status}\n"
+        f"🕙 ДОСТУП ДО: {transit_timer}\n"
         f"{status_text}"
     )
 
-    kb_json = await get_sections_keyboard(vk_id, user)
+    kb_dict = json.loads(await get_sections_keyboard(vk_id, user))
+
+    # Add grimoire button
+    kb_dict["buttons"].insert(0, [{"action": {"type": "text", "label": "🎴 МОЙ ГРИМУАР"}, "color": "secondary"}])
+
+    kb_json = json.dumps(kb_dict, ensure_ascii=False)
     await message.answer(profile_text, keyboard=kb_json)
+
+@labeler.message(text=["🎴 МОЙ ГРИМУАР"])
+async def show_grimoire(message: Message):
+    import json
+    vk_id = message.from_id
+    user = await get_user(vk_id)
+    if not user:
+        return
+
+    unlocked_cards = user.get("unlocked_cards", [])
+
+    try:
+        with open("tarot_ids.json", "r", encoding="utf-8") as f:
+            tarot_names = json.load(f)
+    except Exception:
+        tarot_names = {}
+
+    lines = ["✦ МОЙ ГРИМУАР ✦\n"]
+    for i in range(78):
+        card_id_str = str(i)
+        if card_id_str in unlocked_cards:
+            name = tarot_names.get(card_id_str, f"Карта {i}")
+            lines.append(f"[{i}] {name}")
+        else:
+            lines.append(f"[{i}] Заблокировано")
+
+    # Send in chunks to avoid VK max message length limits
+    chunk_size = 30
+    for i in range(0, len(lines), chunk_size):
+        chunk = "\n".join(lines[i:i+chunk_size])
+        if i + chunk_size >= len(lines):
+            kb = get_dynamic_keyboard(user)
+            await message.answer(chunk, keyboard=kb)
+        else:
+            await message.answer(chunk)
 
 @labeler.message(text=["ЛАЙН ГОЛОС"])
 async def god_mode_handler(message: Message):

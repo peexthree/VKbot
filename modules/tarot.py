@@ -158,7 +158,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
     except Exception as e:
         print(f"Error in process_oracle_final: {e}")
 
-@labeler.message(text=["Карта дня", "✦ Карта дня"])
+@labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 КАРТА ДНЯ"])
 async def card_of_day_handler(message: Message):
     import json
     import datetime
@@ -215,9 +215,29 @@ async def card_of_day_handler(message: Message):
         import asyncio
         await asyncio.sleep(2)
 
+        # Update streak
+        visit_streak = user.get("visit_streak", 0)
+        weekly_log = user.get("weekly_log", [])
+        unlocked_cards = user.get("unlocked_cards", [])
+
+        last_used_str = purchased.get("card_of_day_last_used")
+        if last_used_str:
+            try:
+                last_time = datetime.datetime.fromisoformat(last_used_str)
+                if (datetime.datetime.now() - last_time).total_seconds() > 48 * 3600:
+                    visit_streak = 1
+                    weekly_log = []
+                else:
+                    visit_streak += 1
+            except ValueError:
+                visit_streak = 1
+                weekly_log = []
+        else:
+            visit_streak = 1
+            weekly_log = []
+
         # Mark used
         purchased["card_of_day_last_used"] = datetime.datetime.now().isoformat()
-        await update_user(vk_id, {"purchased_sections": purchased})
 
         date = user.get("birth_date", "неизвестно")
         time = user.get("birth_time", "неизвестно")
@@ -248,11 +268,21 @@ async def card_of_day_handler(message: Message):
         else:
             card_id = str(random.randint(0, 77))
 
-        # Increment total_cards_received
+        if card_id not in unlocked_cards:
+            unlocked_cards.append(card_id)
+        weekly_log.append(card_id)
+
+        # Increment total_cards_received and save updates
         user = await get_user(vk_id)
         if user:
             current_total = user.get("total_cards_received", 0)
-            await update_user(vk_id, {"total_cards_received": current_total + 1})
+            await update_user(vk_id, {
+                "total_cards_received": current_total + 1,
+                "purchased_sections": purchased,
+                "unlocked_cards": unlocked_cards,
+                "weekly_log": weekly_log,
+                "visit_streak": visit_streak
+            })
 
         photo_attachment = None
         try:
@@ -293,6 +323,35 @@ async def card_of_day_handler(message: Message):
                     await message.answer(display_text, attachment=photo_attachment)
                 else:
                     await message.answer(display_text)
+
+        if visit_streak >= 7:
+            await asyncio.sleep(2)
+            await message.answer("Твоя недельная матрица синхронизирована. Твой бесплатный отчет готов.")
+            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+            await asyncio.sleep(3)
+
+            try:
+                with open("tarot_ids.json", "r", encoding="utf-8") as f:
+                    tarot_names = json.load(f)
+            except Exception:
+                tarot_names = {}
+
+            w_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in weekly_log[-7:]]
+
+            synthesis_prompt = (
+                f"Это еженедельный отчет. За неделю выпали карты: {', '.join(w_names)}. "
+                "Проанализируй этот список в динамике, сделай профессиональный разбор. "
+                "Что преобладало, какие тенденции, и куда это ведет."
+            )
+
+            synthesis_result = await generate_text(synthesis_prompt, skin=active_skin)
+            if synthesis_result:
+                await message.answer(f"✦ ЕЖЕНЕДЕЛЬНЫЙ СИНТЕЗ ✦\n\n{synthesis_result}")
+
+            await update_user(vk_id, {
+                "visit_streak": 0,
+                "weekly_log": []
+            })
 
     finally:
         active_tasks.discard(vk_id)

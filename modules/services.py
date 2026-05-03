@@ -11,7 +11,7 @@ from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, 
 
 labeler = BotLabeler()
 
-@labeler.message(text=["✦ Услуги", "Услуги"])
+@labeler.message(text=["✦ Услуги", "Услуги", "✦ УСЛУГИ 🛒"])
 async def show_services(message: Message):
     import json
     vk_id = message.from_id
@@ -21,18 +21,18 @@ async def show_services(message: Message):
         return
 
     services = [
-        {"key": "Карта дня", "price_text": "Бесплатно", "desc": "Ежедневный прогноз для корректировки реальности."},
-        {"key": "ВОПРОС СУДЬБЕ", "price_text": "50 РУБ или 5 бонусов", "desc": "Снятие блокировки и мгновенный ответ на твой вопрос."},
-        {"key": "АНТИТАРО", "price_text": "50 РУБ или 5 бонусов", "desc": "Жесткий разбор иллюзий и самообмана."},
-        {"key": "ТЕНЬ (РАЗОВАЯ)", "price_text": "70 РУБ или 7 бонусов", "desc": "Разбор твоих скрытых качеств и подавленных талантов."},
-        {"key": "ДЕНЬГИ (РАЗОВАЯ)", "price_text": "90 РУБ или 9 бонусов", "desc": "Анализ твоих финансовых блоков и точек роста."},
-        {"key": "СЕКС (РАЗОВАЯ)", "price_text": "100 РУБ или 10 бонусов", "desc": "Детальный разбор твоей сексуальности и влечения."},
-        {"key": "ФИНАЛ (РАЗОВАЯ)", "price_text": "120 РУБ или 12 бонусов", "desc": "Главный итог и вектор твоего развития."},
-        {"key": "Синастрия (Совместимость)", "price_text": "150 РУБ или 15 бонусов", "desc": "Жесткий разбор мэтча с партнером."},
-        {"key": "БАНДЛ", "price_text": "300 РУБ или 30 бонусов", "desc": "Полный доступ ко всем тайнам твоей матрицы (Секс, Деньги, Тень, Финал)."},
-        {"key": "ТАРИФ 1 (99 РУБ)", "price_text": "99 РУБ", "desc": "ТАРИФ 1: Неделя. Ежедневные транзиты на 7 дней.", "rubles_only": True},
-        {"key": "ТАРИФ 2 (290 РУБ)", "price_text": "290 РУБ", "desc": "ТАРИФ 2: Месяц. Ежедневные транзиты на 30 дней.", "rubles_only": True},
-        {"key": "VIP БАНДЛ (590 РУБ)", "price_text": "590 РУБ", "desc": "VIP БАНДЛ. Полный доступ ко всем тайнам + месяц транзитов.", "rubles_only": True}
+        {"key": "🃏 КАРТА ДНЯ", "price_text": "Бесплатно", "desc": "Ежедневный прогноз для корректировки реальности."},
+        {"key": "🔮 ВОПРОС СУДЬБЕ", "price_text": "50 РУБ или 5 бонусов", "desc": "Снятие блокировки и мгновенный ответ на твой вопрос."},
+        {"key": "👺 АНТИТАРО", "price_text": "50 РУБ или 5 бонусов", "desc": "Жесткий разбор иллюзий и самообмана."},
+        {"key": "🌘 ТЕНЬ (РАЗОВАЯ)", "price_text": "70 РУБ или 7 бонусов", "desc": "Разбор твоих скрытых качеств и подавленных талантов."},
+        {"key": "💰 ДЕНЬГИ (РАЗОВАЯ)", "price_text": "90 РУБ или 9 бонусов", "desc": "Анализ твоих финансовых блоков и точек роста."},
+        {"key": "👄 СЕКС (РАЗОВАЯ)", "price_text": "100 РУБ или 10 бонусов", "desc": "Детальный разбор твоей сексуальности и влечения."},
+        {"key": "🏁 ФИНАЛ (РАЗОВАЯ)", "price_text": "120 РУБ или 12 бонусов", "desc": "Главный итог и вектор твоего развития."},
+        {"key": "👨‍❤️‍👨 СИНАСТРИЯ (СОВМЕСТИМОСТЬ)", "price_text": "150 РУБ или 15 бонусов", "desc": "Жесткий разбор мэтча с партнером."},
+        {"key": "📦 БАНДЛ", "price_text": "300 РУБ или 30 бонусов", "desc": "Полный доступ ко всем тайнам твоей матрицы (Секс, Деньги, Тень, Финал)."},
+        {"key": "🛰 ТАРИФ 1 (99 РУБ)", "price_text": "99 РУБ", "desc": "ТАРИФ 1: Неделя. Ежедневные транзиты на 7 дней.", "rubles_only": True},
+        {"key": "🛰 ТАРИФ 2 (290 РУБ)", "price_text": "290 РУБ", "desc": "ТАРИФ 2: Месяц. Ежедневные транзиты на 30 дней.", "rubles_only": True},
+        {"key": "🛰 VIP БАНДЛ (590 РУБ)", "price_text": "590 РУБ", "desc": "VIP БАНДЛ. Полный доступ ко всем тайнам + месяц транзитов.", "rubles_only": True}
     ]
 
     await message.answer("ВЫБЕРИТЕ УСЛУГУ В КАТАЛОГЕ:")
@@ -62,7 +62,7 @@ async def show_services(message: Message):
     nav_kb = get_dynamic_keyboard(user)
     await message.answer("ДЛЯ ВОЗВРАТА ВОСПОЛЬЗУЙСЯ МЕНЮ", keyboard=nav_kb)
 
-@labeler.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)"])
+@labeler.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)", "👄 СЕКС", "💰 ДЕНЬГИ", "🌘 ТЕНЬ", "🏁 ФИНАЛ"])
 async def handle_section_request(message: Message):
     vk_id = message.from_id
     if vk_id in active_tasks:
@@ -254,7 +254,7 @@ async def handle_section_request(message: Message):
     finally:
         active_tasks.discard(vk_id)
 
-@labeler.message(text=["Синастрия (Совместимость)", "✦ Синастрия (Совместимость)"])
+@labeler.message(text=["Синастрия (Совместимость)", "✦ Синастрия (Совместимость)", "👨‍❤️‍👨 СИНАСТРИЯ (СОВМЕСТИМОСТЬ)", "👨‍❤️‍👨 СИНАСТРИЯ"])
 async def synastry_handler(message: Message):
     import json
     vk_id = message.from_id
@@ -266,7 +266,7 @@ async def synastry_handler(message: Message):
         return
 
     text = message.text.strip()
-    if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or (text.startswith("✦") and "Синастрия" not in text):
+    if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or (text.startswith("✦") and "Синастрия" not in text) and "СИНАСТРИЯ" not in text:
         return
 
     state_dict = await get_fsm_step(vk_id)

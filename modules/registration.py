@@ -355,7 +355,7 @@ async def process_city(message: Message):
     finally:
         active_tasks.discard(vk_id)
 
-@labeler.message(text=["✦ Главное меню", "Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
+@labeler.message(text=["✦ Главное меню", "Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД", "✦ ГЛАВНОЕ МЕНЮ 🏠"])
 async def back_to_main_menu(message: Message):
     vk_id = message.from_id
     if vk_id in active_tasks:
