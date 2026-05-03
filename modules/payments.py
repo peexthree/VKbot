@@ -231,12 +231,19 @@ async def process_payment_and_generate(vk_id: int, section: str):
         kb_json = await get_sections_keyboard(vk_id, user)
 
         if section != "oracle":
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message="Используйте меню для вызова нужного раздела:",
-                keyboard=kb_json,
-                random_id=0
-            )
+            try:
+                await bot.api.messages.send(
+                    peer_id=vk_id,
+                    message="Используйте меню для вызова нужного раздела:",
+                    keyboard=kb_json,
+                    random_id=0
+                )
+            except Exception:
+                await bot.api.messages.send(
+                    peer_id=vk_id,
+                    message="Используйте меню для вызова нужного раздела:",
+                    random_id=0
+                )
     finally:
         active_tasks.discard(vk_id)
 
@@ -386,7 +393,10 @@ async def handle_storefront_purchase(message: Message):
                     await message.answer(msg_text)
         else:
             msg_text = f"{service_info.get('text', '')}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
-            await message.answer(msg_text, keyboard=kb_json)
+            try:
+                await message.answer(msg_text, keyboard=kb_json)
+            except Exception:
+                await message.answer(msg_text)
 
 @labeler.message(text=["ТАРИФ 1 (99 РУБ)", "ТАРИФ 2 (290 РУБ)", "VIP БАНДЛ (590 РУБ)", "🛰 ТАРИФ 1 (99 РУБ)", "🛰 ТАРИФ 2 (290 РУБ)", "🛰 VIP БАНДЛ (590 РУБ)"])
 async def process_tariff_purchase(message: Message):
@@ -460,7 +470,10 @@ async def process_tariff_purchase(message: Message):
                     updated_user["purchased_sections"] = updates["purchased_sections"]
             kb_json = await get_sections_keyboard(vk_id, updated_user)
 
-            await message.answer(msg, keyboard=kb_json)
+            try:
+                await message.answer(msg, keyboard=kb_json)
+            except Exception:
+                await message.answer(msg)
         else:
             import json
             keyboard_obj = {
@@ -470,7 +483,10 @@ async def process_tariff_purchase(message: Message):
                 }]]
             }
             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-            await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.\nОплата возможна только реальным балансом.", keyboard=kb_json)
+            try:
+                await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.\nОплата возможна только реальным балансом.", keyboard=kb_json)
+            except Exception:
+                await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.\nОплата возможна только реальным балансом.")
 
     finally:
         active_tasks.discard(vk_id)

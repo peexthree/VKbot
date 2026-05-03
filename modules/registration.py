@@ -112,7 +112,7 @@ async def start_handler(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_confirm_data(message: Message) -> bool:
-    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+    if message.text and message.text.startswith("✦"):
         return False
     if message.text and message.text.lower() in ["начать", "start", "/start"]:
         return False
@@ -152,7 +152,7 @@ async def process_confirm_data(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_date(message: Message) -> bool:
-    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+    if message.text and message.text.startswith("✦"):
         return False
     if message.text and message.text.lower() in ["начать", "start", "/start"]:
         return False
@@ -180,7 +180,7 @@ async def process_date(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_time(message: Message) -> bool:
-    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+    if message.text and message.text.startswith("✦"):
         return False
     if message.text and message.text.lower() in ["начать", "start", "/start"]:
         return False
@@ -269,7 +269,7 @@ async def process_time(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_city(message: Message) -> bool:
-    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+    if message.text and message.text.startswith("✦"):
         return False
     if message.text and message.text.lower() in ["начать", "start", "/start"]:
         return False
@@ -377,10 +377,15 @@ async def back_to_main_menu(message: Message):
     active_tasks.add(vk_id)
     try:
         kb_json = await get_sections_keyboard(vk_id, user)
-        await message.answer(
-            "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
-            keyboard=kb_json
-        )
+        try:
+            await message.answer(
+                "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
+                keyboard=kb_json
+            )
+        except Exception:
+            await message.answer(
+                "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?"
+            )
     except Exception as e:
         print(f"Error sending main menu: {e}")
     finally:
@@ -393,7 +398,7 @@ async def get_fsm_step(vk_id: int) -> dict | None:
     try:
         import json
         return json.loads(state)
-    except:
+    except Exception:
         if state == "registration":
             return {"step": "date"}
         return None

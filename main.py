@@ -108,12 +108,19 @@ async def main():
                             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
                             msg = "Твои карты на сегодня разложены. Виден сильный энергетический сдвиг, но... ТРИАЛ ОКОНЧЕН. Канал связи с Оракулом закрыт. Матрица требует энергообмена."
 
-                            await bot.api.messages.send(
-                                peer_id=vk_id,
-                                message=msg,
-                                keyboard=kb_json,
-                                random_id=0
-                            )
+                            try:
+                                await bot.api.messages.send(
+                                    peer_id=vk_id,
+                                    message=msg,
+                                    keyboard=kb_json,
+                                    random_id=0
+                                )
+                            except Exception:
+                                await bot.api.messages.send(
+                                    peer_id=vk_id,
+                                    message=msg,
+                                    random_id=0
+                                )
                             await update_user(vk_id, {"transit_trial_days": 4})
                         except Exception as e:
                             print(f"Не удалось отправить upsell {vk_id}: {e}")

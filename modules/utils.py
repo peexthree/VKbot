@@ -41,14 +41,10 @@ async def upload_local_photo(bot_api, filename: str) -> str:
 
 def get_dynamic_keyboard(user: dict | None) -> str:
     keyboard = Keyboard(inline=False)
-    if not user:
-        return keyboard.get_json()
-
     keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
     keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.PRIMARY)
     keyboard.row()
     keyboard.add(Text("✦ Главное меню"), color=KeyboardButtonColor.SECONDARY)
-
     return keyboard.get_json()
 
 async def get_sections_keyboard(user_id: int, user: dict | None) -> str:

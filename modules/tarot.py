@@ -12,7 +12,7 @@ from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, 
 labeler = BotLabeler()
 
 async def is_waiting_oracle_cut(message: Message) -> bool:
-    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+    if message.text and message.text.startswith("✦"):
         return False
     if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
         return False
@@ -146,12 +146,19 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
         kb_json = await get_sections_keyboard(vk_id, user)
 
-        await bot.api.messages.send(
-            peer_id=vk_id,
-            message=result_text,
-            keyboard=kb_json,
-            random_id=0
-        )
+        try:
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message=result_text,
+                keyboard=kb_json,
+                random_id=0
+            )
+        except Exception:
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message=result_text,
+                random_id=0
+            )
 
         for att in attachments:
             await bot.api.messages.send(peer_id=vk_id, message="", attachment=att, random_id=0)
@@ -206,10 +213,15 @@ async def card_of_day_handler(message: Message):
                 }]]
             }
             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-            await message.answer(
-                "Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу.",
-                keyboard=kb_json
-            )
+            try:
+                await message.answer(
+                    "Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу.",
+                    keyboard=kb_json
+                )
+            except Exception:
+                await message.answer(
+                    "Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу."
+                )
             return
 
         await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
@@ -322,12 +334,12 @@ async def card_of_day_handler(message: Message):
             await asyncio.sleep(4)
             try:
                 await message.answer(main_part, keyboard=kb_json)
-            except:
+            except Exception:
                 await message.answer(main_part)
         else:
             try:
                 await message.answer(display_text, keyboard=kb_json)
-            except:
+            except Exception:
                 await message.answer(display_text)
 
         if photo_attachment:
@@ -424,10 +436,15 @@ async def oracle_handler(message: Message):
                     }]]
                 }
                 kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                await message.answer(
-                    f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ. Пропустить таймер: 50 РУБ.",
-                    keyboard=kb_json
-                )
+                try:
+                    await message.answer(
+                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ. Пропустить таймер: 50 РУБ.",
+                        keyboard=kb_json
+                    )
+                except Exception:
+                    await message.answer(
+                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ. Пропустить таймер: 50 РУБ."
+                    )
             else:
                 keyboard_obj = {
                     "inline": True,
@@ -437,10 +454,15 @@ async def oracle_handler(message: Message):
                 }
                 kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
-                await message.answer(
-                    f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.",
-                    keyboard=kb_json
-                )
+                try:
+                    await message.answer(
+                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.",
+                        keyboard=kb_json
+                    )
+                except Exception:
+                    await message.answer(
+                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
+                    )
             return
 
         # Start Oracle FSM
@@ -452,7 +474,7 @@ async def oracle_handler(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_oracle_question(message: Message) -> bool:
-    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+    if message.text and message.text.startswith("✦"):
         return False
     if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
         return False

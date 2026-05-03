@@ -68,9 +68,15 @@ async def show_services(message: Message):
             att = await upload_local_photo(bot.api, image_name) if image_name else None
 
             if att:
-                await message.answer(msg_text, attachment=att, keyboard=kb_json)
+                try:
+                    await message.answer(msg_text, attachment=att, keyboard=kb_json)
+                except Exception:
+                    await message.answer(msg_text, attachment=att)
             else:
-                await message.answer(msg_text, keyboard=kb_json)
+                try:
+                    await message.answer(msg_text, keyboard=kb_json)
+                except Exception:
+                    await message.answer(msg_text)
         except Exception as e:
             print(f"Error sending service block {svc['key']}: {e}")
             await message.answer(msg_text)
@@ -78,7 +84,10 @@ async def show_services(message: Message):
     await asyncio.sleep(0.5)
     # Использовать базовую клавиатуру-навигатор
     nav_kb = get_dynamic_keyboard(user)
-    await message.answer("ДЛЯ ВОЗВРАТА ВОСПОЛЬЗУЙСЯ МЕНЮ", keyboard=nav_kb)
+    try:
+        await message.answer("ДЛЯ ВОЗВРАТА ВОСПОЛЬЗУЙСЯ МЕНЮ", keyboard=nav_kb)
+    except Exception:
+        await message.answer("ДЛЯ ВОЗВРАТА ВОСПОЛЬЗУЙСЯ МЕНЮ")
 
 @labeler.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)", "👄 СЕКС", "💰 ДЕНЬГИ", "🌘 ТЕНЬ", "🏁 ФИНАЛ"])
 async def handle_section_request(message: Message):
@@ -138,7 +147,10 @@ async def handle_section_request(message: Message):
 
         if not result_text:
             kb_json = await get_sections_keyboard(vk_id, user)
-            await message.answer("Ошибка генерации.", keyboard=kb_json)
+            try:
+                await message.answer("Ошибка генерации.", keyboard=kb_json)
+            except Exception:
+                await message.answer("Ошибка генерации.")
             return
 
         if first_name:
@@ -335,7 +347,7 @@ async def synastry_handler(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_synastry_name(message: Message) -> bool:
-    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+    if message.text and message.text.startswith("✦"):
         return False
     if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
         return False
@@ -358,7 +370,7 @@ async def process_synastry_name(message: Message):
         active_tasks.discard(vk_id)
 
 async def is_waiting_synastry_date(message: Message) -> bool:
-    if message.text and (message.text.startswith("✦") or message.text.startswith("🎴") or message.text.startswith("🔮")):
+    if message.text and message.text.startswith("✦"):
         return False
     if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
         return False
@@ -491,12 +503,12 @@ async def process_synastry_date(message: Message):
             await asyncio.sleep(4)
             try:
                 await message.answer(main_part, keyboard=kb_json)
-            except:
+            except Exception:
                 await message.answer(main_part)
         else:
             try:
                 await message.answer(display_text, keyboard=kb_json)
-            except:
+            except Exception:
                 await message.answer(display_text)
 
         if photo_attachment:
