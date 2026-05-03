@@ -8,6 +8,7 @@ with warnings.catch_warnings():
             setattr(ast, attr, type(attr, (ast.Constant,), {}))
 
 import os
+import aiohttp
 import asyncio
 
 active_tasks = set()
@@ -17,7 +18,6 @@ async def handle_ping(request):
     return web.Response(text="Bot is alive")
 
 async def main():
-    import aiohttp
     from aiohttp import web
     from vkbottle import Bot, Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader, GroupEventType
     from vkbottle.bot import Message
@@ -28,6 +28,27 @@ async def main():
     bot = Bot(token=vk_token)
     
     await init_db()
+
+
+    service_covers_cache = {}
+
+    async def get_service_cover(filename: str) -> str:
+        if filename in service_covers_cache:
+            return service_covers_cache[filename]
+
+            url = f"https://raw.githubusercontent.com/peexthree/VKbot/main/cards/{filename}"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        data = await resp.read()
+                        uploader = PhotoMessageUploader(bot.api)
+                        photo_attachment = await uploader.upload(data)
+                        service_covers_cache[filename] = photo_attachment
+                        return photo_attachment
+        except Exception as e:
+            print(f"Error uploading cover {filename}: {e}")
+        return ""
 
     def get_dynamic_keyboard(user: dict | None) -> str:
         keyboard = Keyboard(inline=False)
@@ -624,10 +645,11 @@ async def main():
         elements = []
 
         if not purchased.get("sex"):
+            cover_id = await get_service_cover("sex.jpeg")
             elements.append({
                 "title": "ГРЯЗНЫЕ СЕКРЕТЫ",
                 "description": "СЕКС - 100 РУБ",
-                "photo_id": "photo-219181948_457239358",
+                "photo_id": cover_id or "photo-219181948_457239358",
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=100"}
@@ -635,10 +657,11 @@ async def main():
             })
 
         if not purchased.get("money"):
+            cover_id = await get_service_cover("money.jpeg")
             elements.append({
                 "title": "МАГНИТ ДЛЯ КРИПТЫ",
                 "description": "ДЕНЬГИ - 90 РУБ",
-                "photo_id": "photo-219181948_457239361",
+                "photo_id": cover_id or "photo-219181948_457239361",
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=90"}
@@ -646,10 +669,11 @@ async def main():
             })
 
         if not purchased.get("shadow"):
+            cover_id = await get_service_cover("demon.jpeg")
             elements.append({
                 "title": "ТЕМНЫЕ ДЕМОНЫ",
                 "description": "ТЕНЬ - 70 РУБ",
-                "photo_id": "photo-219181948_457239357",
+                "photo_id": cover_id or "photo-219181948_457239357",
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=70"}
@@ -669,10 +693,11 @@ async def main():
 
         purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
         if purchased_count < 2:
+            cover_id = await get_service_cover("full.jpeg")
             elements.append({
                 "title": "ВЕСЬ ПАКЕТ СУДЬБЫ",
                 "description": "БАНДЛ - 300 РУБ",
-                "photo_id": "photo-219181948_457239360",
+                "photo_id": cover_id or "photo-219181948_457239360",
                 "action": {"type": "open_photo"},
                 "buttons": [{
                     "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=300"}
@@ -680,10 +705,11 @@ async def main():
             })
 
         # Oracle freemium skip button
+        cover_id = await get_service_cover("ora.jpeg")
         elements.append({
             "title": "ВОПРОС СУДЬБЕ",
             "description": "ПРОПУСК ТАЙМЕРА - 50 РУБ",
-            "photo_id": "photo-219181948_457239356",
+            "photo_id": cover_id or "photo-219181948_457239356",
             "action": {"type": "open_photo"},
             "buttons": [{
                 "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
