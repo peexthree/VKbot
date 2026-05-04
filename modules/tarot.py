@@ -12,9 +12,9 @@ from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, 
 labeler = BotLabeler()
 
 async def is_waiting_oracle_cut(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"):
-        return False
     if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
+        return False
+    if message.text and message.text.startswith("✦") and "ОБРЕЗАТЬ КОЛОДУ" not in message.text:
         return False
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "oracle_cut"
@@ -343,7 +343,17 @@ async def card_of_day_handler(message: Message):
                 await message.answer(display_text)
 
         if photo_attachment:
-            await message.answer("", attachment=photo_attachment)
+            # Пытаемся достать значение карты из Гримуара, чтобы сделать подпись
+            caption = ""
+            if user:
+                unlocked_cards = user.get("unlocked_cards", {})
+                if isinstance(unlocked_cards, dict):
+                    caption = unlocked_cards.get(card_id, "Новая карта добавлена в твой Гримуар.")
+
+            try:
+                await message.answer(f"🎴 Значение карты:\n{caption}", attachment=photo_attachment)
+            except Exception:
+                await message.answer("", attachment=photo_attachment)
 
         if visit_streak >= 7:
             await asyncio.sleep(2)
