@@ -141,6 +141,8 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
             local_path = os.path.abspath(f"cards/{card_id}.jpeg")
             if os.path.exists(local_path):
                 card_image_uri = f"file://{local_path}"
+            else:
+                card_image_uri = ""
 
         html_out = template.render(
             user_name=user_name,
