@@ -1,12 +1,19 @@
+import ast
+import warnings
 import os
 import asyncio
 import json
 import datetime
 from aiohttp import web
 
-# Настройка логирования или игнорирования варнингов (опционально)
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+# КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+ 
+# Возвращаем удаленные атрибуты в модуль ast, чтобы vkbottle не падал
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    for attr in ("Num", "Str", "Bytes", "NameConstant", "Ellipsis"):
+        if not hasattr(ast, attr):
+            # Создаем заглушки, наследуя от ast.Constant
+            setattr(ast, attr, type(attr, (ast.Constant,), {}))
 
 async def handle_ping(request):
     return web.Response(text="Bot is alive")
@@ -36,7 +43,6 @@ async def main():
     async def daily_forecast_cron():
         while True:
             now = datetime.datetime.now(datetime.timezone.utc)
-            # Проверка времени (12:00 по UTC)
             if now.hour == 12 and now.minute == 0:
                 users = await get_all_users()
 
@@ -103,18 +109,17 @@ async def main():
                         except Exception as e:
                             print(f"Не удалось отправить upsell {vk_id}: {e}")
 
-                # Ограничение частоты запросов к API (Semaphore)
                 sem = asyncio.Semaphore(5)
                 async def sem_process_user(u):
                     async with sem:
                         await process_user_transit(u)
 
                 await asyncio.gather(*(sem_process_user(u) for u in users))
-                await asyncio.sleep(3660) # Спим час после выполнения, чтобы не сработало повторно
+                await asyncio.sleep(3660)
             else:
-                await asyncio.sleep(60) # Проверка каждую минуту
+                await asyncio.sleep(60)
 
-    # Запуск бота и веб-сервера
+    # Запуск
     bot.loop_wrapper._running = True
     asyncio.create_task(bot.run_polling())
     asyncio.create_task(daily_forecast_cron())
@@ -131,7 +136,6 @@ async def main():
     
     print(f"Сервер запущен на порту {port}. Бот слушает сообщения...")
     
-    # Бесконечный цикл для поддержания работы основного процесса
     while True:
         await asyncio.sleep(3600)
 
