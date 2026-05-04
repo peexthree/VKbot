@@ -257,7 +257,17 @@ async def handle_section_request(message: Message):
                     await message.answer(display_text)
 
             if photo_attachment:
-                await message.answer("", attachment=photo_attachment)
+                # Пытаемся достать значение карты из Гримуара, чтобы сделать подпись
+                caption = ""
+                if user:
+                    unlocked_cards = user.get("unlocked_cards", {})
+                    if isinstance(unlocked_cards, dict):
+                        caption = unlocked_cards.get(card_id, "Новая карта добавлена в твой Гримуар.")
+
+                try:
+                    await message.answer(f"🎴 Значение карты:\n{caption}", attachment=photo_attachment)
+                except Exception:
+                    await message.answer("", attachment=photo_attachment)
 
             if target_section == "final":
                 # Generate summary for memory
@@ -512,7 +522,17 @@ async def process_synastry_date(message: Message):
                 await message.answer(display_text)
 
         if photo_attachment:
-            await message.answer("", attachment=photo_attachment)
+            # Пытаемся достать значение карты из Гримуара, чтобы сделать подпись
+            caption = ""
+            if user:
+                unlocked_cards = user.get("unlocked_cards", {})
+                if isinstance(unlocked_cards, dict):
+                    caption = unlocked_cards.get(card_id, "Новая карта добавлена в твой Гримуар.")
+
+            try:
+                await message.answer(f"🎴 Значение карты:\n{caption}", attachment=photo_attachment)
+            except Exception:
+                await message.answer("", attachment=photo_attachment)
 
     finally:
         active_tasks.discard(vk_id)
