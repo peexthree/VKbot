@@ -5,7 +5,6 @@ import aiohttp
 import aiofiles
 from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
 
-active_tasks = set()
 cover_cache = {}
 
 SKIN_ASSETS = {
@@ -114,13 +113,14 @@ import json
 from database import get_user_state
 
 async def get_fsm_step(vk_id: int) -> dict | None:
-    state_str = await get_user_state(vk_id)
-    if not state_str:
-        return None
-    try:
-        return json.loads(state_str)
-    except Exception:
-        return None
+    data = await get_user_state(vk_id)
+    if data:
+        try:
+            return json.loads(data)
+        except Exception:
+            return None
+    return None
+
 
 import os
 from jinja2 import Environment, FileSystemLoader

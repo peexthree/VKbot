@@ -4,3 +4,4 @@ aiohttp
 Pillow
 Jinja2
 WeasyPrint
+upstash-redis
