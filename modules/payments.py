@@ -7,7 +7,7 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, active_tasks, cover_cache
+from modules.utils import bot, generate_premium_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, active_tasks, cover_cache
 
 labeler = BotLabeler()
 
@@ -257,6 +257,56 @@ async def process_payment_and_generate(vk_id: int, section: str):
             purchased["final"] = True
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
             await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.\n\nВсе Врата открыты.", random_id=0)
+            try:
+                await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+                messages = [
+                    "Соединяюсь с космосом...",
+                    "Раскладываю карты. Надеюсь, ты сегодня не грешил...",
+                    "Анализирую твою карму (и сообщения бывшим)...",
+                    "Формирую полный БАНДЛ..."
+                ]
+                import asyncio
+                for msg in messages:
+                    await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
+                    await asyncio.sleep(2)
+
+                date = user.get("birth_date", "неизвестно")
+                time = user.get("birth_time", "неизвестно")
+                city = user.get("birth_city", "неизвестно")
+                first_name = purchased.get("first_name", "")
+                sex_val = purchased.get("sex_val", 0)
+                core_profile = user.get("core_profile", "")
+
+                from ai_service import generate_section
+                bundle_text = ""
+                active_skin = user.get("active_skin", "olesya") if user else "olesya"
+                for sect, name in [("sex", "СЕКС"), ("money", "ДЕНЬГИ"), ("shadow", "ТЕНЬ"), ("final", "ФИНАЛ")]:
+                    part_text = await generate_section(sect, date, time, city, core_profile, first_name, sex_val, skin=active_skin)
+                    if part_text:
+                        import re
+                        part_text = re.sub(r"ID_?ТАРО:\s*\d+", "", part_text).strip()
+                        bundle_text += f"\n\n--- РАЗДЕЛ {name} ---\n\n" + part_text
+
+                if bundle_text:
+                    pdf_filename = f"archive_{vk_id}_bundle.pdf"
+                    birth_info = f"{date} {time} {city}"
+                    generate_premium_pdf(first_name, birth_info, "РАЗДЕЛ: БАНДЛ", bundle_text, pdf_filename, None)
+                    from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  DocMessagesUploader
+                    doc_uploader = DocMessagesUploader(bot.api)
+                    doc_attachment = await doc_uploader.upload(title="Твой_архив_БАНДЛ.pdf", file_source=pdf_filename, peer_id=vk_id)
+                    await bot.api.messages.send(peer_id=vk_id, message="Твой персональный архив (БАНДЛ). Скачай, чтобы не потерять.", attachment=doc_attachment, random_id=0)
+                    import os
+                    if os.path.exists(pdf_filename):
+                        os.remove(pdf_filename)
+
+                    purchased["sex"] = False
+                    purchased["money"] = False
+                    purchased["shadow"] = False
+                    purchased["final"] = False
+                    await update_user(vk_id, {"purchased_sections": purchased})
+            except Exception as e:
+                print(f"Error generating bundle pdf: {e}")
+
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})

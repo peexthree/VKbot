@@ -1,44 +1,32 @@
 import ast
 import warnings
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", DeprecationWarning)
-    for attr in ("Num", "Str", "Bytes", "NameConstant", "Ellipsis"):
-        if not hasattr(ast, attr):
-            setattr(ast, attr, type(attr, (ast.Constant,), {}))
-
 import os
 import asyncio
 import json
 import datetime
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.lib.colors import HexColor
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import textwrap
+from aiohttp import web
+
+# КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+ 
+# Возвращаем удаленные атрибуты в модуль ast, чтобы vkbottle не падал
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    for attr in ("Num", "Str", "Bytes", "NameConstant", "Ellipsis"):
+        if not hasattr(ast, attr):
+            # Создаем заглушки, наследуя от ast.Constant
+            setattr(ast, attr, type(attr, (ast.Constant,), {}))
 
 async def handle_ping(request):
-    from aiohttp import web
     return web.Response(text="Bot is alive")
 
 async def main():
-    from aiohttp import web
     from modules.bot_init import bot
     from database import get_all_users, update_user, init_db
     from ai_service import generate_text
-    from modules import utils
-
     
-
-
-    # Init database
+    # Инициализация базы данных
     await init_db()
 
-    # Share bot with utils
-
-
-    # Import and load modules
+    # Импорт и регистрация обработчиков модулей
     import modules.registration as registration
     import modules.profile as profile
     import modules.services as services
@@ -51,6 +39,7 @@ async def main():
     bot.labeler.load(tarot.labeler)
     bot.labeler.load(payments.labeler)
 
+    # Фоновая задача для ежедневных прогнозов
     async def daily_forecast_cron():
         while True:
             now = datetime.datetime.now(datetime.timezone.utc)
@@ -59,7 +48,8 @@ async def main():
 
                 async def process_user_transit(user):
                     vk_id = user.get("vk_id")
-                    if not vk_id or not user.get("birth_city"): return
+                    if not vk_id or not user.get("birth_city"): 
+                        return
 
                     expires_str = user.get("transit_sub_expires_at")
                     has_sub = False
@@ -95,6 +85,7 @@ async def main():
                                     await update_user(vk_id, {"transit_trial_days": trial_days + 1})
                             except Exception as e:
                                 print(f"Не удалось отправить транзит {vk_id}: {e}")
+                    
                     elif trial_days == 3:
                         try:
                             keyboard_obj = {
@@ -108,19 +99,12 @@ async def main():
                             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
                             msg = "Твои карты на сегодня разложены. Виден сильный энергетический сдвиг, но... ТРИАЛ ОКОНЧЕН. Канал связи с Оракулом закрыт. Матрица требует энергообмена."
 
-                            try:
-                                await bot.api.messages.send(
-                                    peer_id=vk_id,
-                                    message=msg,
-                                    keyboard=kb_json,
-                                    random_id=0
-                                )
-                            except Exception:
-                                await bot.api.messages.send(
-                                    peer_id=vk_id,
-                                    message=msg,
-                                    random_id=0
-                                )
+                            await bot.api.messages.send(
+                                peer_id=vk_id,
+                                message=msg,
+                                keyboard=kb_json,
+                                random_id=0
+                            )
                             await update_user(vk_id, {"transit_trial_days": 4})
                         except Exception as e:
                             print(f"Не удалось отправить upsell {vk_id}: {e}")
@@ -135,6 +119,7 @@ async def main():
             else:
                 await asyncio.sleep(60)
 
+    # Запуск
     bot.loop_wrapper._running = True
     asyncio.create_task(bot.run_polling())
     asyncio.create_task(daily_forecast_cron())
@@ -155,4 +140,7 @@ async def main():
         await asyncio.sleep(3600)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
