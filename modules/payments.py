@@ -215,6 +215,8 @@ async def process_payment_and_generate(vk_id: int, section: str):
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
+            import json
+            await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
             await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.\n\nНАПИШИ СВОЙ ВОПРОС СУДЬБЕ ПРЯМО СЕЙЧАС.", random_id=0)
         elif section in ["sex", "money", "shadow", "final"]:
             purchased[section] = True
