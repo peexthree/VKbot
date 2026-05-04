@@ -7,7 +7,8 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, active_tasks, cover_cache
+from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from cache import acquire_lock, release_lock
 
 labeler = BotLabeler()
 
@@ -32,10 +33,9 @@ async def reset_user_handler(message: Message):
 @labeler.message(text=["Начать", "start", "/start"])
 async def start_handler(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
-    active_tasks.add(vk_id)
     try:
         user = await get_user(vk_id)
 
@@ -109,7 +109,7 @@ async def start_handler(message: Message):
                 "Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):"
             )
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def is_waiting_confirm_data(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
@@ -122,10 +122,9 @@ async def is_waiting_confirm_data(message: Message) -> bool:
 @labeler.message(func=is_waiting_confirm_data)
 async def process_confirm_data(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
-    active_tasks.add(vk_id)
     try:
         text = message.text.strip().lower()
         state_dict = await get_fsm_step(vk_id)
@@ -149,7 +148,7 @@ async def process_confirm_data(message: Message):
             kb.add(Text("ИЗМЕНИТЬ"), color=KeyboardButtonColor.NEGATIVE)
             await message.answer("Используйте кнопки 'ВЕРНО' или 'ИЗМЕНИТЬ'.", keyboard=kb.get_json())
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def is_waiting_date(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
@@ -162,10 +161,9 @@ async def is_waiting_date(message: Message) -> bool:
 @labeler.message(func=is_waiting_date)
 async def process_date(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
-    active_tasks.add(vk_id)
     try:
         date_str = message.text.strip()
 
@@ -177,7 +175,7 @@ async def process_date(message: Message):
         kb.add(Text("Не знаю время (12:00)"), color=KeyboardButtonColor.SECONDARY)
         await message.answer("Укажите ВРЕМЯ рождения (например, 14:30):", keyboard=kb.get_json())
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def is_waiting_time(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
@@ -190,10 +188,9 @@ async def is_waiting_time(message: Message) -> bool:
 @labeler.message(func=is_waiting_time)
 async def process_time(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
-    active_tasks.add(vk_id)
     try:
         time_str = message.text.strip()
         if time_str.lower() == "не знаю время" or time_str.lower() == "не знаю время (12:00)":
@@ -266,7 +263,7 @@ async def process_time(message: Message):
             await set_user_state(vk_id, json.dumps({"step": "city", "date": date_str, "time": time_str}))
             await message.answer("Укажите ГОРОД рождения:")
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def is_waiting_city(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
@@ -279,10 +276,9 @@ async def is_waiting_city(message: Message) -> bool:
 @labeler.message(func=is_waiting_city)
 async def process_city(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
-    active_tasks.add(vk_id)
     try:
         city_str = message.text.strip()
         state_dict = await get_fsm_step(vk_id)
@@ -361,20 +357,20 @@ async def process_city(message: Message):
             print(f"Error sending navigation menu in process_city: {e}")
 
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text=["✦ Главное меню", "Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД", "✦ ГЛАВНОЕ МЕНЮ 🏠"])
 async def back_to_main_menu(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
     user = await get_user(vk_id)
     if not user:
         await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+        await release_lock(vk_id)
         return
 
-    active_tasks.add(vk_id)
     try:
         kb_json = await get_sections_keyboard(vk_id, user)
         try:
@@ -389,7 +385,7 @@ async def back_to_main_menu(message: Message):
     except Exception as e:
         print(f"Error sending main menu: {e}")
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def get_fsm_step(vk_id: int) -> dict | None:
     state = await get_user_state(vk_id)

@@ -7,7 +7,8 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, active_tasks, cover_cache
+from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from cache import acquire_lock, release_lock
 
 labeler = BotLabeler()
 
@@ -92,11 +93,12 @@ async def show_services(message: Message):
 @labeler.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)", "👄 СЕКС", "💰 ДЕНЬГИ", "🌘 ТЕНЬ", "🏁 ФИНАЛ"])
 async def handle_section_request(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
     user = await get_user(vk_id)
     if not user:
+        await release_lock(vk_id)
         return
 
     purchased = user.get("purchased_sections", {})
@@ -116,9 +118,9 @@ async def handle_section_request(message: Message):
             break
 
     if not target_section or not purchased.get(target_section):
+        await release_lock(vk_id)
         return
 
-    active_tasks.add(vk_id)
     try:
 
         await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
@@ -289,28 +291,30 @@ async def handle_section_request(message: Message):
                 await message.answer(result_text)
 
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text=["Синастрия (Совместимость)", "✦ Синастрия (Совместимость)", "👨‍❤️‍👨 СИНАСТРИЯ (СОВМЕСТИМОСТЬ)", "👨‍❤️‍👨 СИНАСТРИЯ"])
 async def synastry_handler(message: Message):
     import json
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
     user = await get_user(vk_id)
     if not user:
+        await release_lock(vk_id)
         return
 
     text = message.text.strip()
     if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or (text.startswith("✦") and "Синастрия" not in text) and "СИНАСТРИЯ" not in text:
+        await release_lock(vk_id)
         return
 
     state_dict = await get_fsm_step(vk_id)
     if state_dict is not None and "step" in state_dict:
+        await release_lock(vk_id)
         return
 
-    active_tasks.add(vk_id)
     try:
         balance = user.get("balance", 0)
         amount_needed = 150
@@ -354,7 +358,7 @@ async def synastry_handler(message: Message):
                 except Exception:
                     await message.answer(msg_text)
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def is_waiting_synastry_name(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
@@ -367,17 +371,16 @@ async def is_waiting_synastry_name(message: Message) -> bool:
 @labeler.message(func=is_waiting_synastry_name)
 async def process_synastry_name(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
-    active_tasks.add(vk_id)
     try:
         import json
         partner_name = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_date", "partner_name": partner_name}))
         await message.answer(f"Имя {partner_name} принято. Теперь введите ДАТУ РОЖДЕНИЯ партнера (например, 15.04.1990):")
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def is_waiting_synastry_date(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
@@ -390,14 +393,14 @@ async def is_waiting_synastry_date(message: Message) -> bool:
 @labeler.message(func=is_waiting_synastry_date)
 async def process_synastry_date(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
     user = await get_user(vk_id)
     if not user:
+        await release_lock(vk_id)
         return
 
-    active_tasks.add(vk_id)
     try:
         partner_date = message.text.strip()
         state_dict = await get_fsm_step(vk_id)
@@ -535,4 +538,4 @@ async def process_synastry_date(message: Message):
                 await message.answer("", attachment=photo_attachment)
 
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)

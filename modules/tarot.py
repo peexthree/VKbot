@@ -7,7 +7,8 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, active_tasks, cover_cache
+from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from cache import acquire_lock, release_lock
 
 labeler = BotLabeler()
 
@@ -22,10 +23,9 @@ async def is_waiting_oracle_cut(message: Message) -> bool:
 @labeler.message(func=is_waiting_oracle_cut)
 async def process_oracle_cut(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
-    active_tasks.add(vk_id)
     try:
         import json
         import random
@@ -55,7 +55,7 @@ async def process_oracle_cut(message: Message):
             keyboard=kb.get_json()
         )
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def process_oracle_final(vk_id: int, text: str, card_ids: list):
     user = await get_user(vk_id)
@@ -174,22 +174,24 @@ async def card_of_day_handler(message: Message):
     import re
     import random
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
     user = await get_user(vk_id)
     if not user:
+        await release_lock(vk_id)
         return
 
     text = message.text.strip()
     if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or (text.startswith("✦") and "Карта дня" not in text):
+        await release_lock(vk_id)
         return
 
     state_dict = await get_fsm_step(vk_id)
     if state_dict is not None and "step" in state_dict:
+        await release_lock(vk_id)
         return
 
-    active_tasks.add(vk_id)
     try:
         purchased = user.get("purchased_sections", {})
         last_used_str = purchased.get("card_of_day_last_used")
@@ -385,29 +387,31 @@ async def card_of_day_handler(message: Message):
             })
 
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text=["ВОПРОС СУДЬБЕ", "✦ ВОПРОС СУДЬБЕ"])
 async def oracle_handler(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
     user = await get_user(vk_id)
     if not user:
+        await release_lock(vk_id)
         return
 
     # Игнорируем команды и системные сообщения
     text = message.text.strip()
     if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or text.startswith("✦"):
+        await release_lock(vk_id)
         return
 
     # Проверяем, не в FSM ли мы
     state_dict = await get_fsm_step(vk_id)
     if state_dict is not None and "step" in state_dict:
+        await release_lock(vk_id)
         return
 
-    active_tasks.add(vk_id)
     try:
         import datetime
         import json
@@ -481,7 +485,7 @@ async def oracle_handler(message: Message):
         await message.answer("ШАГ 1 ИЗ 3: ТВОЙ ВОПРОС. Напиши, что тебя волнует?\nСформулируй вопрос максимально конкретно. Система не любит размытых мыслей.")
 
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def is_waiting_oracle_question(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
@@ -494,9 +498,8 @@ async def is_waiting_oracle_question(message: Message) -> bool:
 @labeler.message(func=is_waiting_oracle_question)
 async def process_oracle_question(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
-    active_tasks.add(vk_id)
     try:
         import json
         text = message.text.strip()
@@ -512,25 +515,26 @@ async def process_oracle_question(message: Message):
         except Exception:
             await message.answer("ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду")
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 
 @labeler.message(text=["АНТИТАРО", "✦ АНТИТАРО", "👺 АНТИТАРО"])
 async def antitarot_handler(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
         return
 
     user = await get_user(vk_id)
     if not user:
+        await release_lock(vk_id)
         return
 
     balance = user.get("balance", 0)
     if balance < 50:
         await message.answer("ДЛЯ АКТИВАЦИИ АНТИТАРО НУЖНО 50 РУБ. ТВОЙ БАЛАНС НЕДОСТАТОЧЕН.", keyboard=get_dynamic_keyboard(user))
+        await release_lock(vk_id)
         return
 
-    active_tasks.add(vk_id)
     try:
         await message.answer("Активирую темный канал...", keyboard=Keyboard(inline=True).get_json())
         await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
@@ -547,4 +551,4 @@ async def antitarot_handler(message: Message):
 
         await message.answer(f"✦ АНТИТАРО ✦\n\n{result}", attachment=att, keyboard=get_dynamic_keyboard(user))
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)

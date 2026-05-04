@@ -5,7 +5,6 @@ import aiohttp
 import aiofiles
 from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
 
-active_tasks = set()
 cover_cache = {}
 
 SKIN_ASSETS = {
@@ -112,15 +111,16 @@ from modules.bot_init import bot
 
 import json
 from database import get_user_state
+from cache import get_fsm_state
 
 async def get_fsm_step(vk_id: int) -> dict | None:
-    state_str = await get_user_state(vk_id)
-    if not state_str:
-        return None
-    try:
-        return json.loads(state_str)
-    except Exception:
-        return None
+    data = await get_fsm_state(vk_id)
+    if data:
+        try:
+            return json.loads(data)
+        except Exception:
+            return None
+    return None
 
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas

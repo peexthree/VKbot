@@ -2,6 +2,8 @@ import os
 import aiohttp
 from typing import Optional, Dict, Any
 import traceback
+import json
+from cache import set_fsm_state, get_fsm_state
 
 URL = os.environ.get("SUPABASE_URL", "")
 KEY = os.environ.get("SUPABASE_KEY", "")
@@ -146,41 +148,14 @@ async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str,
         return None
 
 async def get_user_state(vk_id: int) -> Optional[str]:
-    if not URL or not KEY or session is None:
-        return None
-    try:
-        async with session.get(f"{URL}/rest/v1/{FSM_TABLE}?vk_id=eq.{vk_id}", headers=HEADERS) as r:
-            if r.status == 200:
-                data = await r.json()
-                if data:
-                    return data[0].get("state", "")
-            else:
-                print(f"Supabase error in get_user_state: {r.status} {await r.text()}")
-            return None
-    except Exception as e:
-        print(f"Exception in get_user_state: {e}")
-        traceback.print_exc()
-        return None
+    data = await get_fsm_state(vk_id)
+    if data:
+        if isinstance(data, dict):
+            return json.dumps(data)
+        return data
+    return None
 
 async def set_user_state(vk_id: int, state: str) -> bool:
-    if not URL or not KEY or session is None:
-        return False
-    payload = {
-        "vk_id": vk_id,
-        "state": state
-    }
-    upsert_headers = HEADERS.copy()
-    upsert_headers["Prefer"] = "resolution=merge-duplicates"
-    try:
-        async with session.post(f"{URL}/rest/v1/{FSM_TABLE}", headers=upsert_headers, json=payload) as r:
-            if r.status in (200, 201, 204):
-                print("Записано в FSM")
-                return True
-            else:
-                print(f"Supabase error in set_user_state: {r.status} {await r.text()}")
-                return False
-    except Exception as e:
-        print(f"Exception in set_user_state: {e}")
-        traceback.print_exc()
-        return False
+    await set_fsm_state(vk_id, state)
+    return True
 
