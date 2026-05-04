@@ -1,44 +1,25 @@
-import ast
-import warnings
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", DeprecationWarning)
-    for attr in ("Num", "Str", "Bytes", "NameConstant", "Ellipsis"):
-        if not hasattr(ast, attr):
-            setattr(ast, attr, type(attr, (ast.Constant,), {}))
-
 import os
 import asyncio
 import json
 import datetime
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.lib.colors import HexColor
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import textwrap
+from aiohttp import web
+
+# Настройка логирования или игнорирования варнингов (опционально)
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 async def handle_ping(request):
-    from aiohttp import web
     return web.Response(text="Bot is alive")
 
 async def main():
-    from aiohttp import web
     from modules.bot_init import bot
     from database import get_all_users, update_user, init_db
     from ai_service import generate_text
-    from modules import utils
-
     
-
-
-    # Init database
+    # Инициализация базы данных
     await init_db()
 
-    # Share bot with utils
-
-
-    # Import and load modules
+    # Импорт и регистрация обработчиков модулей
     import modules.registration as registration
     import modules.profile as profile
     import modules.services as services
@@ -51,15 +32,18 @@ async def main():
     bot.labeler.load(tarot.labeler)
     bot.labeler.load(payments.labeler)
 
+    # Фоновая задача для ежедневных прогнозов
     async def daily_forecast_cron():
         while True:
             now = datetime.datetime.now(datetime.timezone.utc)
+            # Проверка времени (12:00 по UTC)
             if now.hour == 12 and now.minute == 0:
                 users = await get_all_users()
 
                 async def process_user_transit(user):
                     vk_id = user.get("vk_id")
-                    if not vk_id or not user.get("birth_city"): return
+                    if not vk_id or not user.get("birth_city"): 
+                        return
 
                     expires_str = user.get("transit_sub_expires_at")
                     has_sub = False
@@ -95,6 +79,7 @@ async def main():
                                     await update_user(vk_id, {"transit_trial_days": trial_days + 1})
                             except Exception as e:
                                 print(f"Не удалось отправить транзит {vk_id}: {e}")
+                    
                     elif trial_days == 3:
                         try:
                             keyboard_obj = {
@@ -108,33 +93,28 @@ async def main():
                             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
                             msg = "Твои карты на сегодня разложены. Виден сильный энергетический сдвиг, но... ТРИАЛ ОКОНЧЕН. Канал связи с Оракулом закрыт. Матрица требует энергообмена."
 
-                            try:
-                                await bot.api.messages.send(
-                                    peer_id=vk_id,
-                                    message=msg,
-                                    keyboard=kb_json,
-                                    random_id=0
-                                )
-                            except Exception:
-                                await bot.api.messages.send(
-                                    peer_id=vk_id,
-                                    message=msg,
-                                    random_id=0
-                                )
+                            await bot.api.messages.send(
+                                peer_id=vk_id,
+                                message=msg,
+                                keyboard=kb_json,
+                                random_id=0
+                            )
                             await update_user(vk_id, {"transit_trial_days": 4})
                         except Exception as e:
                             print(f"Не удалось отправить upsell {vk_id}: {e}")
 
+                # Ограничение частоты запросов к API (Semaphore)
                 sem = asyncio.Semaphore(5)
                 async def sem_process_user(u):
                     async with sem:
                         await process_user_transit(u)
 
                 await asyncio.gather(*(sem_process_user(u) for u in users))
-                await asyncio.sleep(3660)
+                await asyncio.sleep(3660) # Спим час после выполнения, чтобы не сработало повторно
             else:
-                await asyncio.sleep(60)
+                await asyncio.sleep(60) # Проверка каждую минуту
 
+    # Запуск бота и веб-сервера
     bot.loop_wrapper._running = True
     asyncio.create_task(bot.run_polling())
     asyncio.create_task(daily_forecast_cron())
@@ -151,8 +131,12 @@ async def main():
     
     print(f"Сервер запущен на порту {port}. Бот слушает сообщения...")
     
+    # Бесконечный цикл для поддержания работы основного процесса
     while True:
         await asyncio.sleep(3600)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
