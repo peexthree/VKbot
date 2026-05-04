@@ -20,226 +20,232 @@ async def message_event_handler(event: dict):
     event_id = obj.get("event_id")
     payload = obj.get("payload", {})
 
-    if not vk_id or not payload:
-        return
-
-    import json
-
-    cmd = payload.get("cmd")
-
+    if not await acquire_lock(vk_id, ttl=2): return
     try:
-        await bot.api.messages.send_message_event_answer(
-            event_id=event_id,
-            user_id=vk_id,
-            peer_id=peer_id
-        )
-    except Exception as e:
-        print(f"Error answering event: {e}")
-    if cmd == "welcome_bonus":
-        try:
 
-            user = await get_user(vk_id)
-            if not user:
-                return
-
-            if user.get("welcome_bonus_received", False):
-                await bot.api.messages.send(peer_id=peer_id, message="Бонус уже получен", random_id=0)
-                return
-
-            new_bonuses = user.get("bonuses", 0) + 70
-            await update_user(vk_id, {"bonuses": new_bonuses, "welcome_bonus_received": True})
-
-            from database import set_user_state
-            await set_user_state(vk_id, json.dumps({
-                "step": "global_cut",
-                "target_section": "welcome"
-            }))
-
-            kb = {
-                "inline": True,
-                "buttons": [[{
-                    "action": {
-                        "type": "callback",
-                        "payload": json.dumps({"cmd": "global_cut"}),
-                        "label": "✦ СДВИНУТЬ КОЛОДУ"
-                    },
-                    "color": "primary"
-                }]]
-            }
-
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ",
-                keyboard=json.dumps(kb, ensure_ascii=False),
-                random_id=0
-            )
-        except Exception as e:
-            print(f"Error in welcome_bonus handler: {e}")
-        return
-
-    if cmd == "grimoire_page":
-        try:
-            page = payload.get("page", 0)
-            from modules.profile import show_grimoire_page
-            await show_grimoire_page(vk_id, peer_id, page)
-        except Exception as e:
-            print(f"Error in grimoire_page handler: {e}")
-        return
-
-    if cmd == "view_card":
-        try:
-            card_id = str(payload.get("id"))
-            from modules.profile import view_card_direct
-            await view_card_direct(vk_id, peer_id, card_id)
-        except Exception as e:
-            print(f"Error in view_card handler: {e}")
-        return
-    if cmd in ["pay_rub", "pay_bonuses"]:
-        try:
-
-            user = await get_user(vk_id)
-            if not user:
-                return
-
-            section = payload.get("section")
-            if cmd == "pay_rub":
-                # Find price from mapping
-                # We can deduce from section, but wait, the prompt says amount_needed // 10, so amount_needed is known in handle_storefront_purchase
-                # For pay_rub, we can just look up the price
-                prices = {"sex": 100, "money": 90, "shadow": 70, "final": 120, "all": 300, "oracle": 50}
-                amount_needed = prices.get(section, 9999)
-                balance = user.get("balance", 0)
-                if balance >= amount_needed:
-                    await update_user(vk_id, {"balance": balance - amount_needed})
-                    await process_payment_and_generate(vk_id, section)
-                else:
-                    await bot.api.messages.send(peer_id=peer_id, message="Недостаточно рублей.", random_id=0)
-            elif cmd == "pay_bonuses":
-                price = payload.get("price", 9999)
-                bonuses = user.get("bonuses", 0)
-                if bonuses >= price:
-                    await update_user(vk_id, {"bonuses": bonuses - price})
-                    await process_payment_and_generate(vk_id, section)
-                else:
-                    await bot.api.messages.send(peer_id=peer_id, message="Недостаточно бонусов.", random_id=0)
-        except Exception as e:
-            print(f"Error in pay handlers: {e}")
-        return
-
-    if cmd == "global_cut":
-        try:
-
-            # Edit the message to remove the button
-            await bot.api.messages.edit(
-                peer_id=peer_id,
-                message="СИНХРОНИЗАЦИЯ...",
-                conversation_message_id=obj.get("conversation_message_id")
-            )
-
-            from vkbottle import Keyboard, Callback
-            kb = Keyboard(inline=True)
-            for i in range(10):
-                if i > 0 and i % 5 == 0:
-                    kb.row()
-                kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color="secondary")
-
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message="Выбери карту из разложенных:",
-                keyboard=kb.get_json(),
-                random_id=0
-            )
-        except Exception as e:
-            print(f"Error in global_cut: {e}")
-        return
-
-    if cmd == "global_draw":
-        try:
-            from database import set_user_state
-            state_dict = await get_fsm_step(vk_id)
-            if not state_dict or state_dict.get("step") != "global_cut":
-                return
-
-            target_section = state_dict.get("target_section", "")
-            partner_name = state_dict.get("partner_name", "")
-            partner_date = state_dict.get("partner_date", "")
-
-            await set_user_state(vk_id, "")
-
-            await bot.api.messages.send(peer_id=peer_id, message="Считываю поток...", random_id=0)
-
-            if target_section:
-                await execute_generation(vk_id, peer_id, target_section, partner_name, partner_date)
-        except Exception as e:
-            print(f"Error in global_draw: {e}")
-        return
-
-    if "oracle_card" not in payload:
-        return
-
-    card_id = payload["oracle_card"]
-
-    try:
-        # Stop loading animation
-        await bot.api.messages.send_message_event_answer(
-            event_id=event_id,
-            user_id=vk_id,
-            peer_id=peer_id
-        )
-
-        state_dict = await get_fsm_step(vk_id)
-        if not state_dict or state_dict.get("step") != "oracle_draw":
+        if not vk_id or not payload:
             return
 
-        drawn_cards = state_dict.get("drawn_cards", [])
-        pool = state_dict.get("pool", [])
+        import json
 
-        if card_id not in drawn_cards:
-            drawn_cards.append(card_id)
+        cmd = payload.get("cmd")
 
-        if len(drawn_cards) < 3:
-            state_dict["drawn_cards"] = drawn_cards
-            await set_user_state(vk_id, json.dumps(state_dict))
+        try:
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id,
+                user_id=vk_id,
+                peer_id=peer_id
+            )
+        except Exception as e:
+            print(f"Error answering event: {e}")
+        if cmd == "welcome_bonus":
+            try:
 
-            from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Callback
-            kb = Keyboard(inline=True)
+                user = await get_user(vk_id)
+                if not user:
+                    return
 
-            # Render only available cards
-            btn_count = 0
-            for c_id in pool:
-                if c_id not in drawn_cards:
-                    if btn_count > 0 and btn_count % 5 == 0:
+                if user.get("welcome_bonus_received", False):
+                    await bot.api.messages.send(peer_id=peer_id, message="Бонус уже получен", random_id=0)
+                    return
+
+                new_bonuses = user.get("bonuses", 0) + 70
+                await update_user(vk_id, {"bonuses": new_bonuses, "welcome_bonus_received": True})
+
+                from database import set_user_state
+                await set_user_state(vk_id, json.dumps({
+                    "step": "global_cut",
+                    "target_section": "welcome"
+                }))
+
+                kb = {
+                    "inline": True,
+                    "buttons": [[{
+                        "action": {
+                            "type": "callback",
+                            "payload": json.dumps({"cmd": "global_cut"}),
+                            "label": "✦ СДВИНУТЬ КОЛОДУ"
+                        },
+                    "color": "secondary"
+                    }]]
+                }
+
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ",
+                    keyboard=json.dumps(kb, ensure_ascii=False),
+                    random_id=0
+                )
+            except Exception as e:
+                print(f"Error in welcome_bonus handler: {e}")
+            return
+
+        if cmd == "grimoire_page":
+            try:
+                page = payload.get("page", 0)
+                from modules.profile import show_grimoire_page
+                await show_grimoire_page(vk_id, peer_id, page)
+            except Exception as e:
+                print(f"Error in grimoire_page handler: {e}")
+            return
+
+        if cmd == "view_card":
+            try:
+                card_id = str(payload.get("id"))
+                from modules.profile import view_card_direct
+                await view_card_direct(vk_id, peer_id, card_id)
+            except Exception as e:
+                print(f"Error in view_card handler: {e}")
+            return
+        if cmd in ["pay_rub", "pay_bonuses"]:
+            try:
+
+                user = await get_user(vk_id)
+                if not user:
+                    return
+
+                section = payload.get("section")
+                if cmd == "pay_rub":
+                    # Find price from mapping
+                    # We can deduce from section, but wait, the prompt says amount_needed // 10, so amount_needed is known in handle_storefront_purchase
+                    # For pay_rub, we can just look up the price
+                    prices = {"sex": 100, "money": 90, "shadow": 70, "final": 120, "all": 300, "oracle": 50}
+                    amount_needed = prices.get(section, 9999)
+                    balance = user.get("balance", 0)
+                    if balance >= amount_needed:
+                        await update_user(vk_id, {"balance": balance - amount_needed})
+                        await process_payment_and_generate(vk_id, section)
+                    else:
+                        await bot.api.messages.send(peer_id=peer_id, message="Недостаточно рублей.", random_id=0)
+                elif cmd == "pay_bonuses":
+                    price = payload.get("price", 9999)
+                    bonuses = user.get("bonuses", 0)
+                    if bonuses >= price:
+                        await update_user(vk_id, {"bonuses": bonuses - price})
+                        await process_payment_and_generate(vk_id, section)
+                    else:
+                        await bot.api.messages.send(peer_id=peer_id, message="Недостаточно бонусов.", random_id=0)
+            except Exception as e:
+                print(f"Error in pay handlers: {e}")
+            return
+
+        if cmd == "global_cut":
+            try:
+
+                # Edit the message to remove the button
+                await bot.api.messages.edit(
+                    peer_id=peer_id,
+                    message="СИНХРОНИЗАЦИЯ...",
+                    conversation_message_id=obj.get("conversation_message_id")
+                )
+
+                from vkbottle import Keyboard, Callback
+                kb = Keyboard(inline=True)
+                for i in range(10):
+                    if i > 0 and i % 5 == 0:
                         kb.row()
-                    kb.add(Callback("🎴", payload={"oracle_card": c_id}))
-                    btn_count += 1
+                    kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color="secondary")
 
-            await bot.api.messages.edit(
-                peer_id=peer_id,
-                message=f"Выбрано: {len(drawn_cards)}/3...",
-                conversation_message_id=obj.get("conversation_message_id"),
-                keyboard=kb.get_json()
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="Выбери карту из разложенных:",
+                    keyboard=kb.get_json(),
+                    random_id=0
+                )
+            except Exception as e:
+                print(f"Error in global_cut: {e}")
+            return
+
+        if cmd == "global_draw":
+            try:
+                from database import set_user_state
+                state_dict = await get_fsm_step(vk_id)
+                if not state_dict or state_dict.get("step") != "global_cut":
+                    return
+
+                target_section = state_dict.get("target_section", "")
+                partner_name = state_dict.get("partner_name", "")
+                partner_date = state_dict.get("partner_date", "")
+
+                await set_user_state(vk_id, "")
+
+                await bot.api.messages.send(peer_id=peer_id, message="Считываю поток...", random_id=0)
+
+                if target_section:
+                    await execute_generation(vk_id, peer_id, target_section, partner_name, partner_date)
+            except Exception as e:
+                print(f"Error in global_draw: {e}")
+            return
+
+        if "oracle_card" not in payload:
+            return
+
+        card_id = payload["oracle_card"]
+
+        try:
+            # Stop loading animation
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id,
+                user_id=vk_id,
+                peer_id=peer_id
             )
-        else:
-            # 3 cards selected
-            await set_user_state(vk_id, "") # Clear FSM state
 
-            # To completely remove the keyboard, we need to pass an empty keyboard payload
-            empty_kb = Keyboard(inline=True)
+            state_dict = await get_fsm_step(vk_id)
+            if not state_dict or state_dict.get("step") != "oracle_draw":
+                return
 
-            await bot.api.messages.edit(
-                peer_id=peer_id,
-                message="Выбрано: 3/3. Карты собраны.",
-                conversation_message_id=obj.get("conversation_message_id"),
-                keyboard=empty_kb.get_json()
-            )
+            drawn_cards = state_dict.get("drawn_cards", [])
+            pool = state_dict.get("pool", [])
 
-            # Trigger process_oracle_final asynchronously to avoid blocking callback
-            import asyncio
-            from modules.tarot import process_oracle_final
-            asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn_cards))
+            if card_id not in drawn_cards:
+                drawn_cards.append(card_id)
 
-    except Exception as e:
-        print(f"Error in message_event_handler: {e}")
+            if len(drawn_cards) < 3:
+                state_dict["drawn_cards"] = drawn_cards
+                await set_user_state(vk_id, json.dumps(state_dict))
+
+                from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Callback
+                kb = Keyboard(inline=True)
+
+                # Render only available cards
+                btn_count = 0
+                for c_id in pool:
+                    if c_id not in drawn_cards:
+                        if btn_count > 0 and btn_count % 5 == 0:
+                            kb.row()
+                        kb.add(Callback("🎴", payload={"oracle_card": c_id}))
+                        btn_count += 1
+
+                await bot.api.messages.edit(
+                    peer_id=peer_id,
+                    message=f"Выбрано: {len(drawn_cards)}/3...",
+                    conversation_message_id=obj.get("conversation_message_id"),
+                    keyboard=kb.get_json()
+                )
+            else:
+                # 3 cards selected
+                await set_user_state(vk_id, "") # Clear FSM state
+
+                # To completely remove the keyboard, we need to pass an empty keyboard payload
+                empty_kb = Keyboard(inline=True)
+
+                await bot.api.messages.edit(
+                    peer_id=peer_id,
+                    message="Выбрано: 3/3. Карты собраны.",
+                    conversation_message_id=obj.get("conversation_message_id"),
+                    keyboard=empty_kb.get_json()
+                )
+
+                # Trigger process_oracle_final asynchronously to avoid blocking callback
+                import asyncio
+                from modules.tarot import process_oracle_final
+                asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn_cards))
+
+        except Exception as e:
+            print(f"Error in message_event_handler: {e}")
+
+    finally:
+        await release_lock(vk_id)
 
 @labeler.raw_event(GroupEventType.VKPAY_TRANSACTION, dataclass=dict)
 async def money_transfer_handler(event: dict):
@@ -396,7 +402,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
 
         kb = Keyboard(inline=True)
         from vkbottle import Callback
-        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
 
         try:
             await bot.api.messages.send(
@@ -428,144 +434,144 @@ async def handle_storefront_purchase(message: Message):
 
     service_map = {
         "СЕКС (РАЗОВАЯ)": {
-            "name": "Твоя сексуальная энергия",
+            "name": "Твоя сексуальная энергия (Матрица страсти)",
             "amount": 100,
             "section_key": "sex",
             "image_name": "sex1.jpg",
-            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - как секретная карта твоего тела и чувств. Он расскажет, что на самом деле зажигает в тебе огонь и как найти идеальную гармонию с партнером.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
+            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - твой личный ключ к пониманию твоей сексуальной энергии. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "👄 СЕКС (РАЗОВАЯ)": {
-            "name": "Твоя сексуальная энергия",
+            "name": "Твоя сексуальная энергия (Матрица страсти)",
             "amount": 100,
             "section_key": "sex",
             "image_name": "sex1.jpg",
-            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - как секретная карта твоего тела и чувств. Он расскажет, что на самом деле зажигает в тебе огонь и как найти идеальную гармонию с партнером.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
+            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - твой личный ключ к пониманию твоей сексуальной энергии. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ": {
-            "name": "Твоя сексуальная энергия",
+            "name": "Твоя сексуальная энергия (Матрица страсти)",
             "amount": 100,
             "section_key": "sex",
             "image_name": "sex1.jpg",
-            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - как секретная карта твоего тела и чувств. Он расскажет, что на самом деле зажигает в тебе огонь и как найти идеальную гармонию с партнером.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
+            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - твой личный ключ к пониманию твоей сексуальной энергии. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ": {
-            "name": "Твоя сексуальная энергия",
+            "name": "Твоя сексуальная энергия (Матрица страсти)",
             "amount": 100,
             "section_key": "sex",
             "image_name": "sex1.jpg",
-            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - как секретная карта твоего тела и чувств. Он расскажет, что на самом деле зажигает в тебе огонь и как найти идеальную гармонию с партнером.\nВажно: Это разовая консультация. После выдачи текста доступ закроется."
+            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - твой личный ключ к пониманию твоей сексуальной энергии. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "ДЕНЬГИ (РАЗОВАЯ)": {
-            "name": "Код твоего богатства",
+            "name": "Код твоего богатства (Финансовый поток)",
             "amount": 90,
             "section_key": "money",
             "image_name": "money1.jpg",
-            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nПредставь, что у тебя есть невидимый магнит для денег, но он завален старыми вещами. Я помогу тебе убрать этот мусор, чтобы деньги находили дорогу к тебе легче и быстрее.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
+            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nЭтот раздел - твой личный ключ к пониманию твоего финансового потока. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "💰 ДЕНЬГИ (РАЗОВАЯ)": {
-            "name": "Код твоего богатства",
+            "name": "Код твоего богатства (Финансовый поток)",
             "amount": 90,
             "section_key": "money",
             "image_name": "money1.jpg",
-            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nПредставь, что у тебя есть невидимый магнит для денег, но он завален старыми вещами. Я помогу тебе убрать этот мусор, чтобы деньги находили дорогу к тебе легче и быстрее.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
+            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nЭтот раздел - твой личный ключ к пониманию твоего финансового потока. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "КОД ТВОЕГО БОГАТСТВА": {
-            "name": "Код твоего богатства",
+            "name": "Код твоего богатства (Финансовый поток)",
             "amount": 90,
             "section_key": "money",
             "image_name": "money1.jpg",
-            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nПредставь, что у тебя есть невидимый магнит для денег, но он завален старыми вещами. Я помогу тебе убрать этот мусор, чтобы деньги находили дорогу к тебе легче и быстрее.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
+            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nЭтот раздел - твой личный ключ к пониманию твоего финансового потока. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "💰 КОД ТВОЕГО БОГАТСТВА": {
-            "name": "Код твоего богатства",
+            "name": "Код твоего богатства (Финансовый поток)",
             "amount": 90,
             "section_key": "money",
             "image_name": "money1.jpg",
-            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nПредставь, что у тебя есть невидимый магнит для денег, но он завален старыми вещами. Я помогу тебе убрать этот мусор, чтобы деньги находили дорогу к тебе легче и быстрее.\nВажно: Доступ на один сеанс. Для повторного анализа нужна новая оплата."
+            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nЭтот раздел - твой личный ключ к пониманию твоего финансового потока. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "ТЕНЬ (РАЗОВАЯ)": {
-            "name": "Твои скрытые грани",
+            "name": "Твои скрытые грани (Источник силы)",
             "amount": 70,
             "section_key": "shadow",
             "image_name": "demon1.jpg",
-            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nОткрой источник своей внутренней силы. Я покажу тебе таланты и качества, которые ты прячешь от самого себя, чтобы использовать их как свое преимущество.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
+            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nЭтот раздел - твой личный ключ к пониманию твоих скрытых граней. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "🌘 ТЕНЬ (РАЗОВАЯ)": {
-            "name": "Твои скрытые грани",
+            "name": "Твои скрытые грани (Источник силы)",
             "amount": 70,
             "section_key": "shadow",
             "image_name": "demon1.jpg",
-            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nОткрой источник своей внутренней силы. Я покажу тебе таланты и качества, которые ты прячешь от самого себя, чтобы использовать их как свое преимущество.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
+            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nЭтот раздел - твой личный ключ к пониманию твоих скрытых граней. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "ТВОИ СКРЫТЫЕ ГРАНИ": {
-            "name": "Твои скрытые грани",
+            "name": "Твои скрытые грани (Источник силы)",
             "amount": 70,
             "section_key": "shadow",
             "image_name": "demon1.jpg",
-            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nОткрой источник своей внутренней силы. Я покажу тебе таланты и качества, которые ты прячешь от самого себя, чтобы использовать их как свое преимущество.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
+            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nЭтот раздел - твой личный ключ к пониманию твоих скрытых граней. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "🌘 ТВОИ СКРЫТЫЕ ГРАНИ": {
-            "name": "Твои скрытые грани",
+            "name": "Твои скрытые грани (Источник силы)",
             "amount": 70,
             "section_key": "shadow",
             "image_name": "demon1.jpg",
-            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nОткрой источник своей внутренней силы. Я покажу тебе таланты и качества, которые ты прячешь от самого себя, чтобы использовать их как свое преимущество.\nВажно: Услуга разовая. Доступ сгорает после получения ответа."
+            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nЭтот раздел - твой личный ключ к пониманию твоих скрытых граней. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "ФИНАЛ (РАЗОВАЯ)": {
-            "name": "Твой истинный путь",
+            "name": "Твой истинный путь (Предназначение)",
             "amount": 120,
             "section_key": "final",
             "image_name": "way1.jpg",
-            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nГлавный секретный ключ к твоему предназначению. Я помогу тебе понять, куда ведет твоя жизнь и в чем твой главный дар.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
+            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nЭтот раздел - твой личный ключ к пониманию твоего истинного пути. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "🏁 ФИНАЛ (РАЗОВАЯ)": {
-            "name": "Твой истинный путь",
+            "name": "Твой истинный путь (Предназначение)",
             "amount": 120,
             "section_key": "final",
             "image_name": "way1.jpg",
-            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nГлавный секретный ключ к твоему предназначению. Я помогу тебе понять, куда ведет твоя жизнь и в чем твой главный дар.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
+            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nЭтот раздел - твой личный ключ к пониманию твоего истинного пути. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "ТВОЙ ИСТИННЫЙ ПУТЬ": {
-            "name": "Твой истинный путь",
+            "name": "Твой истинный путь (Предназначение)",
             "amount": 120,
             "section_key": "final",
             "image_name": "way1.jpg",
-            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nГлавный секретный ключ к твоему предназначению. Я помогу тебе понять, куда ведет твоя жизнь и в чем твой главный дар.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
+            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nЭтот раздел - твой личный ключ к пониманию твоего истинного пути. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ": {
-            "name": "Твой истинный путь",
+            "name": "Твой истинный путь (Предназначение)",
             "amount": 120,
             "section_key": "final",
             "image_name": "way1.jpg",
-            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nГлавный секретный ключ к твоему предназначению. Я помогу тебе понять, куда ведет твоя жизнь и в чем твой главный дар.\nВажно: Разовый доступ. Повторный разбор оплачивается отдельно."
+            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nЭтот раздел - твой личный ключ к пониманию твоего истинного пути. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "БАНДЛ": {
-            "name": "Золотой архив",
+            "name": "Золотой архив всех откровений",
             "amount": 300,
             "section_key": "all",
             "image_name": "full1.jpg",
-            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nПолная карта твоей души и скрытого потенциала. Вскрытие всех четырех архивов со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
+            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nЭтот раздел - твой личный ключ к пониманию всех твоих откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "📦 БАНДЛ": {
-            "name": "Золотой архив",
+            "name": "Золотой архив всех откровений",
             "amount": 300,
             "section_key": "all",
             "image_name": "full1.jpg",
-            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nПолная карта твоей души и скрытого потенциала. Вскрытие всех четырех архивов со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
+            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nЭтот раздел - твой личный ключ к пониманию всех твоих откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "ЗОЛОТОЙ АРХИВ": {
-            "name": "Золотой архив",
+            "name": "Золотой архив всех откровений",
             "amount": 300,
             "section_key": "all",
             "image_name": "full1.jpg",
-            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nПолная карта твоей души и скрытого потенциала. Вскрытие всех четырех архивов со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
+            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nЭтот раздел - твой личный ключ к пониманию всех твоих откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "📦 ЗОЛОТОЙ АРХИВ": {
-            "name": "Золотой архив",
+            "name": "Золотой архив всех откровений",
             "amount": 300,
             "section_key": "all",
             "image_name": "full1.jpg",
-            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nПолная карта твоей души и скрытого потенциала. Вскрытие всех четырех архивов со скидкой.\nВажно: Самое выгодное предложение для тех, кто хочет взломать систему целиком."
+            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nЭтот раздел - твой личный ключ к пониманию всех твоих откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Никакой сложной терминологии - только четкие советы, что делать именно тебе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "ВОПРОС СУДЬБЕ": {
             "name": "Оракул",
