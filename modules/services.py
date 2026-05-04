@@ -13,84 +13,116 @@ from modules.utils import bot, generate_premium_pdf, get_fsm_step,  upload_local
 labeler = BotLabeler()
 
 @labeler.message(text=["✦ Услуги", "Услуги", "✦ УСЛУГИ 🛒"])
-async def show_services(message: Message):
+async def show_services_handler(message: Message):
+    await show_services(message.from_id, message.peer_id, 0)
+
+async def show_services(vk_id: int, peer_id: int, idx: int = 0):
     import json
-    vk_id = message.from_id
     from database import set_user_state
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
-        await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+        try:
+            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
+        except Exception:
+            pass
         return
 
     services = [
-        {"key": "🃏 КАРТА ДНЯ", "price_text": "Бесплатно", "desc": "Ежедневный прогноз для корректировки реальности."},
-        {"key": "🔮 ВОПРОС СУДЬБЕ", "price_text": "50 РУБ или 5 бонусов", "desc": "Снятие блокировки и мгновенный ответ на твой вопрос."},
-        {"key": "👺 АНТИТАРО", "price_text": "50 РУБ или 5 бонусов", "desc": "Жесткий разбор иллюзий и самообмана."},
-        {"key": "🌘 ТЕНЬ (РАЗОВАЯ)", "price_text": "70 РУБ или 7 бонусов", "desc": "Разбор твоих скрытых качеств и подавленных талантов."},
-        {"key": "💰 ДЕНЬГИ (РАЗОВАЯ)", "price_text": "90 РУБ или 9 бонусов", "desc": "Анализ твоих финансовых блоков и точек роста."},
-        {"key": "👄 СЕКС (РАЗОВАЯ)", "price_text": "100 РУБ или 10 бонусов", "desc": "Детальный разбор твоей сексуальности и влечения."},
-        {"key": "🏁 ФИНАЛ (РАЗОВАЯ)", "price_text": "120 РУБ или 12 бонусов", "desc": "Главный итог и вектор твоего развития."},
-        {"key": "👨‍❤️‍👨 СИНАСТРИЯ (СОВМЕСТИМОСТЬ)", "price_text": "150 РУБ или 15 бонусов", "desc": "Жесткий разбор мэтча с партнером."},
-        {"key": "📦 БАНДЛ", "price_text": "300 РУБ или 30 бонусов", "desc": "Полный доступ ко всем тайнам твоей матрицы (Секс, Деньги, Тень, Финал)."},
-        {"key": "🛰 ТАРИФ 1 (99 РУБ)", "price_text": "99 РУБ", "desc": "ТАРИФ 1: Неделя. Ежедневные транзиты на 7 дней.", "rubles_only": True},
-        {"key": "🛰 ТАРИФ 2 (290 РУБ)", "price_text": "290 РУБ", "desc": "ТАРИФ 2: Месяц. Ежедневные транзиты на 30 дней.", "rubles_only": True},
-        {"key": "🛰 VIP БАНДЛ (590 РУБ)", "price_text": "590 РУБ", "desc": "VIP БАНДЛ. Полный доступ ко всем тайнам + месяц транзитов.", "rubles_only": True}
+        {
+            "key": "sex",
+            "title": "Твоя сексуальная энергия",
+            "desc": "Что это даст: Глубокое понимание своих истинных желаний и блоков в интимной сфере.\nКак это работает: Расклад на картах с анализом твоей матрицы страсти.\nВремя подготовки: 1 минута.\n\nИнструкция: Нажми кнопку Купить. После этого ты выберешь карту для настройки системы. Я подготовлю твой личный архив в формате PDF в течение минуты.",
+            "price_text": "100 РУБ",
+            "image_name": "sex1.jpg"
+        },
+        {
+            "key": "money",
+            "title": "Код твоего богатства",
+            "desc": "Что это даст: Понимание, как пробить финансовый потолок и привлечь деньги в свою жизнь.\nКак это работает: Анализ финансового потока и твоих скрытых возможностей.\nВремя подготовки: 1 минута.\n\nИнструкция: Нажми кнопку Купить. После этого ты выберешь карту для настройки системы. Я подготовлю твой личный архив в формате PDF в течение минуты.",
+            "price_text": "90 РУБ",
+            "image_name": "money1.jpg"
+        },
+        {
+            "key": "shadow",
+            "title": "Твои скрытые грани",
+            "desc": "Что это даст: Раскрытие подавленных эмоций и теневых сторон личности, мешающих росту.\nКак это работает: Работа с подсознанием через темные арканы.\nВремя подготовки: 1 минута.\n\nИнструкция: Нажми кнопку Купить. После этого ты выберешь карту для настройки системы. Я подготовлю твой личный архив в формате PDF в течение минуты.",
+            "price_text": "70 РУБ",
+            "image_name": "demon1.jpg"
+        },
+        {
+            "key": "final",
+            "title": "Твой истинный путь",
+            "desc": "Что это даст: Осознание своего предназначения и глобального вектора развития.\nКак это работает: Полный расклад на жизненный путь и кармические задачи.\nВремя подготовки: 1 минута.\n\nИнструкция: Нажми кнопку Купить. После этого ты выберешь карту для настройки системы. Я подготовлю твой личный архив в формате PDF в течение минуты.",
+            "price_text": "120 РУБ",
+            "image_name": "way1.jpg"
+        },
+        {
+            "key": "synastry",
+            "title": "Тайна ваших отношений",
+            "desc": "Что это даст: Полный разбор совместимости с партнером, сильные и слабые стороны союза.\nКак это работает: Жесткий разбор мэтча с партнером.\nВремя подготовки: 1 минута.\n\nИнструкция: Нажми кнопку Купить. После этого ты выберешь карту для настройки системы. Я подготовлю твой личный архив в формате PDF в течение минуты.",
+            "price_text": "150 РУБ",
+            "image_name": "sin.jpeg"
+        },
+        {
+            "key": "all",
+            "title": "Золотой архив всех откровений",
+            "desc": "Что это даст: Полный доступ ко всем тайнам твоей матрицы (Сексуальная энергия, Деньги, Скрытые грани, Истинный путь).\nКак это работает: Комплексный анализ всех сфер жизни.\nВремя подготовки: 1 минута.\n\nИнструкция: Нажми кнопку Купить. После этого ты выберешь карту для настройки системы. Я подготовлю твой личный архив в формате PDF в течение минуты.",
+            "price_text": "300 РУБ",
+            "image_name": "full1.jpg"
+        }
     ]
 
-    await message.answer("ВЫБЕРИТЕ УСЛУГУ В КАТАЛОГЕ:")
+    if idx < 0 or idx >= len(services):
+        idx = 0
 
-    for svc in services:
-        await asyncio.sleep(0.5)
+    svc = services[idx]
 
-        btn_label = svc["key"]
+    msg_text = f"✦ {svc['title'].upper()} ✦\nЦена: {svc['price_text']}\n\n{svc['desc']}"
 
-        keyboard_obj = {
-            "inline": True,
-            "buttons": [[{"action": {"type": "text", "label": btn_label}, "color": "secondary"}]]
-        }
-        kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+    buttons = []
 
-        rub_notice = "\n*Оплата возможна только реальными рублями." if svc.get("rubles_only") else ""
-        msg_text = f"✦ {btn_label} ✦\nЦена: {svc['price_text']}\n\n{svc['desc']}{rub_notice}"
+    # Navigation row 1
+    nav_buttons = []
+    if idx > 0:
+        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": idx - 1}), "label": "⬅ НАЗАД"}, "color": "secondary"})
 
-        try:
-            image_map = {
-                "👄 СЕКС (РАЗОВАЯ)": "sex1.jpg",
-                "💰 ДЕНЬГИ (РАЗОВАЯ)": "money1.jpg",
-                "🌘 ТЕНЬ (РАЗОВАЯ)": "demon1.jpg",
-                "🏁 ФИНАЛ (РАЗОВАЯ)": "way1.jpg",
-                "👨‍❤️‍👨 СИНАСТРИЯ (СОВМЕСТИМОСТЬ)": "sin.jpeg",
-                "🔮 ВОПРОС СУДЬБЕ": "ora1.jpg",
-                "📦 БАНДЛ": "full1.jpg",
-                "👺 АНТИТАРО": "ora.jpeg"
-            }
-            image_name = image_map.get(btn_label)
-            from modules.utils import upload_local_photo
-            from modules.bot_init import bot
-            att = await upload_local_photo(bot.api, image_name) if image_name else None
+    nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "buy", "type": "service", "key": svc['key']}), "label": "КУПИТЬ"}, "color": "positive"})
 
-            if att:
-                try:
-                    await message.answer(msg_text, attachment=att, keyboard=kb_json)
-                except Exception:
-                    await message.answer(msg_text, attachment=att)
-            else:
-                try:
-                    await message.answer(msg_text, keyboard=kb_json)
-                except Exception:
-                    await message.answer(msg_text)
-        except Exception as e:
-            print(f"Error sending service block {svc['key']}: {e}")
-            await message.answer(msg_text)
+    if idx < len(services) - 1:
+        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": idx + 1}), "label": "ДАЛЕЕ ➡"}, "color": "secondary"})
+    else:
+        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 0}), "label": "🛰 ТАРИФЫ"}, "color": "primary"})
 
-    await asyncio.sleep(0.5)
-    # Использовать базовую клавиатуру-навигатор
-    nav_kb = get_dynamic_keyboard(user)
+    buttons.append(nav_buttons)
+
+    keyboard_obj = {
+        "inline": True,
+        "buttons": buttons
+    }
+    kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+
     try:
-        await message.answer("ДЛЯ ВОЗВРАТА ВОСПОЛЬЗУЙСЯ МЕНЮ", keyboard=nav_kb)
-    except Exception:
-        await message.answer("ДЛЯ ВОЗВРАТА ВОСПОЛЬЗУЙСЯ МЕНЮ")
+        from modules.utils import upload_local_photo
+        from modules.bot_init import bot
+        att = await upload_local_photo(bot.api, svc['image_name']) if svc['image_name'] else None
+
+        if att:
+            try:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, keyboard=kb_json, random_id=0)
+            except Exception:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, random_id=0)
+        else:
+            try:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
+            except Exception:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+    except Exception as e:
+        print(f"Error sending service block {svc['title']}: {e}")
+        try:
+            await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+        except Exception:
+            pass
 
 @labeler.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)", "👄 СЕКС", "💰 ДЕНЬГИ", "🌘 ТЕНЬ", "🏁 ФИНАЛ"])
 async def handle_section_request(message: Message):
@@ -565,3 +597,94 @@ async def process_synastry_date(message: Message):
 
     finally:
         await release_lock(vk_id)
+
+@labeler.message(text=["🛰 ТАРИФЫ"])
+async def show_tariffs_handler(message: Message):
+    await show_tariffs(message.from_id, message.peer_id, 0)
+
+async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0):
+    import json
+    from database import set_user_state
+    await set_user_state(vk_id, "")
+    user = await get_user(vk_id)
+    if not user:
+        try:
+            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
+        except Exception:
+            pass
+        return
+
+    tariffs = [
+        {
+            "key": "tariff_1",
+            "title": "Спутник 7 дней",
+            "desc": "Что это даст: Ежедневные транзиты и прогнозы на 7 дней.\\nКак это работает: Автоматическая рассылка каждое утро.\\nВремя подготовки: Мгновенная активация.\\n\\nИнструкция: Нажми кнопку Купить. После этого ты выберешь карту для настройки системы.",
+            "price_text": "99 РУБ",
+            "image_name": "full1.jpg"
+        },
+        {
+            "key": "tariff_2",
+            "title": "Оракул 30 дней",
+            "desc": "Что это даст: Ежедневные транзиты и прогнозы на 30 дней.\\nКак это работает: Автоматическая рассылка каждое утро.\\nВремя подготовки: Мгновенная активация.\\n\\nИнструкция: Нажми кнопку Купить. После этого ты выберешь карту для настройки системы.",
+            "price_text": "290 РУБ",
+            "image_name": "full1.jpg"
+        },
+        {
+            "key": "tariff_vip",
+            "title": "VIP Архив",
+            "desc": "Что это даст: Полный доступ ко всем тайнам (Золотой архив) + месяц ежедневных транзитов.\\nКак это работает: Полная разблокировка функционала.\\nВремя подготовки: Мгновенная активация.\\n\\nИнструкция: Нажми кнопку Купить. После этого ты выберешь карту для настройки системы.",
+            "price_text": "590 РУБ",
+            "image_name": "full1.jpg"
+        }
+    ]
+
+    if idx < 0 or idx >= len(tariffs):
+        idx = 0
+
+    svc = tariffs[idx]
+
+    msg_text = f"🛰 {svc['title'].upper()} 🛰\\nЦена: {svc['price_text']}\\n\\n{svc['desc']}\\n*Оплата возможна только реальными рублями."
+
+    buttons = []
+
+    # Navigation row 1
+    nav_buttons = []
+    if idx > 0:
+        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": idx - 1}), "label": "⬅ НАЗАД"}, "color": "secondary"})
+
+    nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "buy", "type": "tariff", "key": svc['key']}), "label": "КУПИТЬ"}, "color": "positive"})
+
+    if idx < len(tariffs) - 1:
+        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": idx + 1}), "label": "ДАЛЕЕ ➡"}, "color": "secondary"})
+    else:
+        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": 0}), "label": "ВЕРНУТЬСЯ К УСЛУГАМ"}, "color": "primary"})
+
+    buttons.append(nav_buttons)
+
+    keyboard_obj = {
+        "inline": True,
+        "buttons": buttons
+    }
+    kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+
+    try:
+        from modules.utils import upload_local_photo
+        from modules.bot_init import bot
+        att = await upload_local_photo(bot.api, svc['image_name']) if svc['image_name'] else None
+
+        if att:
+            try:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, keyboard=kb_json, random_id=0)
+            except Exception:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, random_id=0)
+        else:
+            try:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
+            except Exception:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+    except Exception as e:
+        print(f"Error sending tariff block {svc['title']}: {e}")
+        try:
+            await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+        except Exception:
+            pass
