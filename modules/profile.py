@@ -257,12 +257,12 @@ async def show_profile(message: Message):
             pass
 
     profile_text = (
-        f"✦ ЛИЧНЫЙ ТЕРМИНАЛ ✦"
+        f"✦ ЛИЧНАЯ КАРТА ✦"
         f"👤 ИМЯ: {first_name}"
         f"📍 ТОЧКА ВХОДА: {birth_date} - {birth_city}"
-        f"⏳ ДНЕЙ В МАТРИЦЕ: {days_in_matrix}"
+        f"⏳ ДНЕЙ В ОСОЗНАННОСТИ: {days_in_matrix}"
         f"🎴 СОБРАНО КАРТ: {total_cards_received} из 78\n"
-        f"📊 СИНХРОНИЗАЦИЯ: {progress_bar}\n"
+        f"📊 ПРОГРЕСС: {progress_bar}\n"
         f"💳 БАЛАНС: {balance} РУБ"
         f"💎 БОНУСЫ: {bonuses}"
         f"🛡 СТАТУС: {status}\n"
@@ -400,12 +400,12 @@ async def god_mode_handler(message: Message):
 
         try:
             await message.answer(
-                "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ ИГОРЬ.",
+                "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ .",
                 keyboard=kb_json
             )
         except Exception:
             await message.answer(
-                "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ ИГОРЬ."
+                "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ  ."
             )
     finally:
         active_tasks.discard(vk_id)
