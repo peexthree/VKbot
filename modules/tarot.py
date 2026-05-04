@@ -282,8 +282,8 @@ async def card_of_day_handler(message: Message):
         else:
             card_id = str(random.randint(0, 77))
 
-        if isinstance(unlocked_cards, list):
-            unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+        if not unlocked_cards or isinstance(unlocked_cards, list):
+            unlocked_cards = {}
 
         if card_id not in unlocked_cards:
             from ai_service import generate_text
@@ -484,24 +484,23 @@ async def is_waiting_oracle_question(message: Message) -> bool:
 @labeler.message(func=is_waiting_oracle_question)
 async def process_oracle_question(message: Message):
     vk_id = message.from_id
-
     if vk_id in active_tasks:
         return
-
     active_tasks.add(vk_id)
     try:
         import json
         text = message.text.strip()
-
         await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": text}))
-
+        from vkbottle import Keyboard, KeyboardButtonColor, Text
         kb = Keyboard(inline=True)
         kb.add(Text("✦ ОБРЕЗАТЬ КОЛОДУ"), color=KeyboardButtonColor.PRIMARY)
-
-        await message.answer(
-            "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду",
-            keyboard=kb.get_json()
-        )
+        try:
+            await message.answer(
+                "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду",
+                keyboard=kb.get_json()
+            )
+        except Exception:
+            await message.answer("ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду")
     finally:
         active_tasks.discard(vk_id)
 

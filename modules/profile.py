@@ -292,6 +292,8 @@ async def show_grimoire(message: Message):
         return
 
     unlocked_cards = user.get("unlocked_cards", [])
+    if isinstance(unlocked_cards, list):
+         unlocked_cards = {}
 
     try:
         with open("tarot_ids.json", "r", encoding="utf-8") as f:
@@ -336,7 +338,7 @@ async def view_grimoire_card(message: Message):
     card_id = match.group(1)
     unlocked_cards = user.get("unlocked_cards", {})
     if isinstance(unlocked_cards, list):
-        unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+         unlocked_cards = {}
 
     if card_id not in unlocked_cards:
         await message.answer("Эта карта еще не открыта.")
