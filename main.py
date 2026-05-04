@@ -85,7 +85,8 @@ async def main():
                                 if not has_sub:
                                     await update_user(vk_id, {"transit_trial_days": trial_days + 1})
                             except Exception as e:
-                                print(f"Не удалось отправить транзит {vk_id}: {e}")
+                                import hashlib
+                                print(f"Не удалось отправить транзит {hashlib.sha256(str(vk_id).encode()).hexdigest()[:12]}: {e}")
                     
                     elif trial_days == 3:
                         try:
@@ -108,7 +109,8 @@ async def main():
                             )
                             await update_user(vk_id, {"transit_trial_days": 4})
                         except Exception as e:
-                            print(f"Не удалось отправить upsell {vk_id}: {e}")
+                            import hashlib
+                            print(f"Не удалось отправить upsell {hashlib.sha256(str(vk_id).encode()).hexdigest()[:12]}: {e}")
 
                 sem = asyncio.Semaphore(5)
                 async def sem_process_user(u):

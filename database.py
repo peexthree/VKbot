@@ -21,7 +21,7 @@ session: Optional[aiohttp.ClientSession] = None
 async def init_db():
     global session
     if session is None:
-        session = aiohttp.ClientSession()
+        session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=100))
 
 async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
     if not URL or not KEY or session is None:
