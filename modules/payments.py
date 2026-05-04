@@ -26,13 +26,76 @@ async def message_event_handler(event: dict):
     import json
 
     cmd = payload.get("cmd")
+
+    try:
+        await bot.api.messages.send_message_event_answer(
+            event_id=event_id,
+            user_id=vk_id,
+            peer_id=peer_id
+        )
+    except Exception as e:
+        print(f"Error answering event: {e}")
+    if cmd == "welcome_bonus":
+        try:
+
+            user = await get_user(vk_id)
+            if not user:
+                return
+
+            if user.get("welcome_bonus_received", False):
+                await bot.api.messages.send(peer_id=peer_id, message="Бонус уже получен", random_id=0)
+                return
+
+            new_bonuses = user.get("bonuses", 0) + 70
+            await update_user(vk_id, {"bonuses": new_bonuses, "welcome_bonus_received": True})
+
+            from database import set_user_state
+            await set_user_state(vk_id, json.dumps({
+                "step": "global_cut",
+                "target_section": "welcome"
+            }))
+
+            kb = {
+                "inline": True,
+                "buttons": [[{
+                    "action": {
+                        "type": "callback",
+                        "payload": json.dumps({"cmd": "global_cut"}),
+                        "label": "✦ СДВИНУТЬ КОЛОДУ"
+                    },
+                    "color": "primary"
+                }]]
+            }
+
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ",
+                keyboard=json.dumps(kb, ensure_ascii=False),
+                random_id=0
+            )
+        except Exception as e:
+            print(f"Error in welcome_bonus handler: {e}")
+        return
+
+    if cmd == "grimoire_page":
+        try:
+            page = payload.get("page", 0)
+            from modules.profile import show_grimoire_page
+            await show_grimoire_page(vk_id, peer_id, page)
+        except Exception as e:
+            print(f"Error in grimoire_page handler: {e}")
+        return
+
+    if cmd == "view_card":
+        try:
+            card_id = str(payload.get("id"))
+            from modules.profile import view_card_direct
+            await view_card_direct(vk_id, peer_id, card_id)
+        except Exception as e:
+            print(f"Error in view_card handler: {e}")
+        return
     if cmd in ["pay_rub", "pay_bonuses"]:
         try:
-            await bot.api.messages.send_message_event_answer(
-                event_id=event_id,
-                user_id=vk_id,
-                peer_id=peer_id
-            )
 
             user = await get_user(vk_id)
             if not user:
@@ -65,14 +128,12 @@ async def message_event_handler(event: dict):
 
     if cmd == "global_cut":
         try:
-            await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
 
             # Edit the message to remove the button
             await bot.api.messages.edit(
                 peer_id=peer_id,
-                message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ.",
-                conversation_message_id=obj.get("conversation_message_id"),
-                random_id=0
+                message="СИНХРОНИЗАЦИЯ...",
+                conversation_message_id=obj.get("conversation_message_id")
             )
 
             from vkbottle import Keyboard, Callback
@@ -94,7 +155,7 @@ async def message_event_handler(event: dict):
 
     if cmd == "global_draw":
         try:
-            await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+            from database import set_user_state
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "global_cut":
                 return
@@ -465,11 +526,26 @@ async def handle_storefront_purchase(message: Message):
         await update_user(vk_id, {"balance": new_balance})
         await process_payment_and_generate(vk_id, service_info["section_key"])
     else:
+        bonus_price = amount_needed // 10
+        user_bonuses = user.get("bonuses", 0)
+
+        buttons = [[{
+            "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={amount_needed}"}
+        }]]
+
+        if user_bonuses >= bonus_price:
+            buttons.append([{
+                "action": {
+                    "type": "callback",
+                    "payload": json.dumps({"cmd": "pay_bonuses", "section": service_info["section_key"], "price": bonus_price}),
+                    "label": f"КУПИТЬ ЗА {bonus_price} БОНУСОВ"
+                },
+                "color": "primary"
+            }])
+
         keyboard_obj = {
             "inline": True,
-            "buttons": [[{
-                "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={amount_needed}"}
-            }]]
+            "buttons": buttons
         }
         kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
@@ -671,7 +747,16 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
 
             if bundle_text:
                 pdf_filename = f"archive_{vk_id}_bundle.pdf"
-                generate_pdf(bundle_text, pdf_filename)
+                user_info = await get_user(vk_id)
+                first_name = user_info.get("purchased_sections", {}).get("first_name", "Странник") if user_info else "Странник"
+                birth_info = "НЕИЗВЕСТНО"
+                if user_info:
+                    d = user_info.get("birth_date", "")
+                    t = user_info.get("birth_time", "")
+                    c = user_info.get("birth_city", "")
+                    birth_info = f"{d} {t} {c}".strip() or "НЕИЗВЕСТНО"
+                from modules.utils import generate_premium_pdf
+                generate_premium_pdf(first_name, birth_info, "РАЗДЕЛ: БАНДЛ", bundle_text, pdf_filename, None)
                 from vkbottle import DocMessagesUploader
                 doc_uploader = DocMessagesUploader(bot.api)
                 doc_attachment = await doc_uploader.upload(title="Твой_архив_БАНДЛ.pdf", file_source=pdf_filename, peer_id=vk_id)
@@ -755,7 +840,17 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
 
             try:
                 pdf_filename = f"archive_{vk_id}_{target_section}.pdf"
-                generate_pdf(display_text, pdf_filename)
+                user_info = await get_user(vk_id)
+                first_name = user_info.get("purchased_sections", {}).get("first_name", "Странник") if user_info else "Странник"
+                birth_info = "НЕИЗВЕСТНО"
+                if user_info:
+                    d = user_info.get("birth_date", "")
+                    t = user_info.get("birth_time", "")
+                    c = user_info.get("birth_city", "")
+                    birth_info = f"{d} {t} {c}".strip() or "НЕИЗВЕСТНО"
+                section_title = "РАЗДЕЛ: " + {"sex":"СЕКС", "money":"ДЕНЬГИ", "shadow":"ТЕНЬ", "final":"ФИНАЛ", "oracle":"ОРАКУЛ", "welcome":"РАЗБОР"}.get(target_section, target_section.upper())
+                from modules.utils import generate_premium_pdf
+                generate_premium_pdf(first_name, birth_info, section_title, display_text, pdf_filename, str(card_id))
                 from vkbottle import DocMessagesUploader
                 doc_uploader = DocMessagesUploader(bot.api)
                 doc_attachment = await doc_uploader.upload(title=f"Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)

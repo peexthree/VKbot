@@ -317,56 +317,29 @@ async def process_city(message: Message):
         await set_user_state(vk_id, "")
 
         user = await get_user(vk_id)
-        purchased = user.get("purchased_sections", {}) if user else {}
-        first_name = purchased.get("first_name", "")
 
-        from ai_service import generate_section
-        core_profile = user.get("core_profile", "")
-        active_skin = user.get("active_skin", "olesya") if user else "olesya"
-        base_text = await generate_section("base", date, time, city, core_profile, skin=active_skin)
+        import json
 
-        if base_text:
-            if first_name:
-                base_text = f"{first_name},\n\n" + base_text
+        kb = {
+            "inline": True,
+            "buttons": [[{
+                "action": {
+                    "type": "callback",
+                    "payload": json.dumps({"cmd": "welcome_bonus"}),
+                    "label": "Получить анализ и 70 бонусов"
+                },
+                "color": "primary"
+            }]]
+        }
 
-            kb_json = await get_sections_keyboard(vk_id, user)
-
-            import re
-            parts = re.split(r"(?i)\bБАЗА\b", base_text, maxsplit=1)
-
-            if len(parts) > 1:
-                intro = parts[0].strip()
-                main_part = "✦ БАЗА ✦\n\n" + parts[1].strip()
-
-                await message.answer(intro)
-                await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
-                await asyncio.sleep(4)
-
-                try:
-                    await message.answer(main_part, keyboard=kb_json)
-                except Exception as e:
-                    print(f"Error sending message with keyboard in process_city: {e}")
-                    await message.answer(main_part)
-            else:
-                full_text = f"✦ БАЗА ✦\n\n{base_text}"
-                try:
-                    await message.answer(full_text, keyboard=kb_json)
-                except Exception as e:
-                    print(f"Error sending message with keyboard in process_city: {e}")
-                    await message.answer(full_text)
-        else:
-            base_text = "ДАННЫЕ СОХРАНЕНЫ. СИСТЕМА В ОЖИДАНИИ."
-            kb_json = await get_sections_keyboard(vk_id, user)
-            try:
-                await message.answer(f"✦ БАЗА ✦\n\n{base_text}", keyboard=kb_json)
-            except Exception as e:
-                await message.answer(f"✦ БАЗА ✦\n\n{base_text}")
-
-        # Отправляем навигатор отдельно
         try:
-            await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
+            await message.answer(
+                "Синхронизация завершена. Твои данные приняты.",
+                keyboard=json.dumps(kb, ensure_ascii=False)
+            )
         except Exception as e:
-            print(f"Error sending navigation menu in process_city: {e}")
+            print(f"Error sending sync completion message: {e}")
+            await message.answer("Синхронизация завершена. Твои данные приняты.")
 
     finally:
         await release_lock(vk_id)
@@ -402,55 +375,3 @@ async def back_to_main_menu(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.raw_event(GroupEventType.MESSAGE_EVENT, dataclass=dict)
-async def message_event_handler(event: dict):
-    obj = event.get("object", {})
-    vk_id = obj.get("user_id")
-    peer_id = obj.get("peer_id")
-    event_id = obj.get("event_id")
-    payload = obj.get("payload", {})
-
-    if not vk_id or not payload:
-        return
-
-    cmd = payload.get("cmd")
-    if cmd == "welcome_bonus":
-        try:
-            # Stop loading animation
-            await bot.api.messages.send_message_event_answer(
-                event_id=event_id,
-                user_id=vk_id,
-                peer_id=peer_id
-            )
-
-            user = await get_user(vk_id)
-            if not user:
-                return
-
-            if user.get("welcome_bonus_received", False):
-                await bot.api.messages.send(peer_id=peer_id, message="Бонус уже получен", random_id=0)
-                return
-
-            new_bonuses = user.get("bonuses", 0) + 70
-            await update_user(vk_id, {"bonuses": new_bonuses, "welcome_bonus_received": True})
-
-            import json
-            await set_user_state(vk_id, json.dumps({
-                "step": "global_cut",
-                "target_section": "welcome",
-                "partner_name": "",
-                "partner_date": ""
-            }))
-
-            kb = Keyboard(inline=True)
-            from vkbottle import Callback
-            kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.PRIMARY)
-
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже, чтобы обрезать колоду.",
-                keyboard=kb.get_json(),
-                random_id=0
-            )
-        except Exception as e:
-            print(f"Error in welcome_bonus handler: {e}")

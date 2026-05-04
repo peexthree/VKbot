@@ -317,15 +317,18 @@ async def show_profile(message: Message):
 
 @labeler.message(text=["🎴 МОЙ ГРИМУАР"])
 async def show_grimoire(message: Message):
-    import json
     vk_id = message.from_id
     from database import set_user_state
     await set_user_state(vk_id, "")
+    await show_grimoire_page(vk_id, message.peer_id, 0)
+
+async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
+    import json
     user = await get_user(vk_id)
     if not user:
         return
 
-    unlocked_cards = user.get("unlocked_cards", [])
+    unlocked_cards = user.get("unlocked_cards", {})
     if isinstance(unlocked_cards, list):
          unlocked_cards = {}
 
@@ -335,61 +338,114 @@ async def show_grimoire(message: Message):
     except Exception:
         tarot_names = {}
 
-    lines = ["✦ МОЙ ГРИМУАР ✦\n"]
+    # Gather all unlocked cards
+    unlocked_items = []
     for i in range(78):
         card_id_str = str(i)
         if card_id_str in unlocked_cards:
-            name = tarot_names.get(card_id_str, f"Карта {i}")
-            lines.append(f"[{i}] {name} (Открыта - напиши \"Гримуар {i}\")")
-        else:
-            lines.append(f"[{i}] Заблокировано")
+            unlocked_items.append({"id": card_id_str, "name": tarot_names.get(card_id_str, f"Карта {i}")})
 
-    # Send in chunks to avoid VK max message length limits
-    chunk_size = 30
-    for i in range(0, len(lines), chunk_size):
-        chunk = "\n".join(lines[i:i+chunk_size])
-        if i + chunk_size >= len(lines):
-            kb = get_dynamic_keyboard(user)
-            try:
-                await message.answer(chunk, keyboard=kb)
-            except Exception:
-                await message.answer(chunk)
-        else:
-            await message.answer(chunk)
+    if not unlocked_items:
+        await bot.api.messages.send(peer_id=peer_id, message="✦ МОЙ ГРИМУАР ✦\n\nТвой гримуар пока пуст.", random_id=0)
+        return
+
+    ITEMS_PER_PAGE = 5
+    total_pages = (len(unlocked_items) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+    if page < 0:
+        page = 0
+    elif page >= total_pages:
+        page = total_pages - 1
+
+    start_idx = page * ITEMS_PER_PAGE
+    end_idx = start_idx + ITEMS_PER_PAGE
+    current_items = unlocked_items[start_idx:end_idx]
+
+    lines = [f"✦ МОЙ ГРИМУАР ✦ (Страница {page + 1}/{total_pages})\n"]
+    for item in current_items:
+        lines.append(f"[{item['id']}] {item['name']}")
+
+    text = "\n".join(lines)
+
+    buttons = []
+    for item in current_items:
+        buttons.append([{
+            "action": {
+                "type": "callback",
+                "payload": json.dumps({"cmd": "view_card", "id": item['id']}),
+                "label": f"Карта {item['id']}"
+            },
+            "color": "secondary"
+        }])
+
+    nav_row = []
+    if page > 0:
+        nav_row.append({
+            "action": {
+                "type": "callback",
+                "payload": json.dumps({"cmd": "grimoire_page", "page": page - 1}),
+                "label": "Назад"
+            },
+            "color": "primary"
+        })
+    if page < total_pages - 1:
+        nav_row.append({
+            "action": {
+                "type": "callback",
+                "payload": json.dumps({"cmd": "grimoire_page", "page": page + 1}),
+                "label": "Вперед"
+            },
+            "color": "primary"
+        })
+    if nav_row:
+        buttons.append(nav_row)
+
+    kb = {"inline": True, "buttons": buttons}
+
+    try:
+        await bot.api.messages.send(
+            peer_id=peer_id,
+            message=text,
+            keyboard=json.dumps(kb, ensure_ascii=False),
+            random_id=0
+        )
+    except Exception as e:
+        print(f"Error sending grimoire page: {e}")
+        await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
 
 @labeler.message(func=lambda m: m.text and re.match(r"(?i)^гримуар\s+\d+$", m.text.strip()))
 async def view_grimoire_card(message: Message):
     vk_id = message.from_id
-    user = await get_user(vk_id)
-    if not user:
-        return
-
     text = message.text.strip()
     match = re.match(r"(?i)^гримуар\s+(\d+)$", text)
     if not match:
         return
+    await view_card_direct(vk_id, message.peer_id, match.group(1))
 
-    card_id = match.group(1)
+async def view_card_direct(vk_id: int, peer_id: int, card_id: str):
+    user = await get_user(vk_id)
+    if not user:
+        return
+
     unlocked_cards = user.get("unlocked_cards", {})
     if isinstance(unlocked_cards, list):
          unlocked_cards = {}
 
-    if card_id not in unlocked_cards:
-        await message.answer("Эта карта еще не открыта.")
+    if str(card_id) not in unlocked_cards:
+        await bot.api.messages.send(peer_id=peer_id, message="Эта карта еще не открыта.", random_id=0)
         return
 
     from modules.utils import SKIN_ASSETS
     active_skin = user.get("active_skin", "olesya")
     skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
     if skin_att:
-        await message.answer(attachment=skin_att)
+        await bot.api.messages.send(peer_id=peer_id, message="", attachment=skin_att, random_id=0)
 
-    signature = unlocked_cards[card_id]
-    await message.answer(f"Твое первое касание с этой картой: {signature}")
+    signature = unlocked_cards[str(card_id)]
+    await bot.api.messages.send(peer_id=peer_id, message=f"Твое первое касание с этой картой: {signature}", random_id=0)
 
     photo_att = await upload_local_photo(bot.api, f"{card_id}.jpeg")
     if photo_att:
-        await message.answer("", attachment=photo_att)
+        await bot.api.messages.send(peer_id=peer_id, message="", attachment=photo_att, random_id=0)
 
 @labeler.message(text=["ЛАЙН ГОЛОС"])
 async def god_mode_handler(message: Message):
