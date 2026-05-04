@@ -128,8 +128,8 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
         user = await get_user(vk_id)
         if user:
             unlocked_cards = user.get("unlocked_cards", {})
-            if isinstance(unlocked_cards, list):
-                unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+            if not unlocked_cards or isinstance(unlocked_cards, list):
+                unlocked_cards = {}
 
             for cid_int in card_ids:
                 cid = str(cid_int)

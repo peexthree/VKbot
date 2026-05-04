@@ -81,7 +81,8 @@ async def message_event_handler(event: dict):
 
             # Trigger process_oracle_final asynchronously to avoid blocking callback
             import asyncio
-            asyncio.create_task(process_oracle_final(vk_id, state_dict["question"], drawn_cards))
+            from modules.tarot import process_oracle_final
+            asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn_cards))
 
     except Exception as e:
         print(f"Error in message_event_handler: {e}")
