@@ -257,16 +257,16 @@ async def show_profile(message: Message):
             pass
 
     profile_text = (
-        f"✦ ЛИЧНЫЙ ТЕРМИНАЛ ✦\n\n"
-        f"👤 ИМЯ: {first_name}\n\n"
-        f"📍 ТОЧКА ВХОДА: {birth_date} - {birth_city}\n\n"
-        f"⏳ ДНЕЙ В МАТРИЦЕ: {days_in_matrix}\n\n"
-        f"🎴 СОБРАНО КАРТ: {total_cards_received} из 78\n\n"
-        f"📊 СИНХРОНИЗАЦИЯ: {progress_bar}\n\n"
-        f"💳 БАЛАНС: {balance} РУБ\n\n"
-        f"💎 БОНУСЫ: {bonuses}\n\n"
-        f"🛡 СТАТУС: {status}\n\n"
-        f"📡 ТРАНЗИТ: {transit_status}\n\n"
+        f"✦ ЛИЧНЫЙ ТЕРМИНАЛ ✦"
+        f"👤 ИМЯ: {first_name}"
+        f"📍 ТОЧКА ВХОДА: {birth_date} - {birth_city}"
+        f"⏳ ДНЕЙ В МАТРИЦЕ: {days_in_matrix}"
+        f"🎴 СОБРАНО КАРТ: {total_cards_received} из 78\n"
+        f"📊 СИНХРОНИЗАЦИЯ: {progress_bar}\n"
+        f"💳 БАЛАНС: {balance} РУБ"
+        f"💎 БОНУСЫ: {bonuses}"
+        f"🛡 СТАТУС: {status}\n"
+        f"📡 ТРАНЗИТ: {transit_status}\n"
         f"🕙 ДОСТУП ДО: {transit_timer}\n\n"
         f"Оплачивая услуги, вы принимаете условия Публичной оферты: https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
     )
