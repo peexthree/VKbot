@@ -32,6 +32,8 @@ async def reset_user_handler(message: Message):
 @labeler.message(text=["Начать", "start", "/start"])
 async def start_handler(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 
@@ -366,6 +368,8 @@ async def process_city(message: Message):
 @labeler.message(text=["✦ Главное меню", "Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД", "✦ ГЛАВНОЕ МЕНЮ 🏠"])
 async def back_to_main_menu(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 
@@ -402,3 +406,58 @@ async def get_fsm_step(vk_id: int) -> dict | None:
         if state == "registration":
             return {"step": "date"}
         return None
+
+
+
+@labeler.raw_event(GroupEventType.MESSAGE_EVENT, dataclass=dict)
+async def message_event_handler(event: dict):
+    obj = event.get("object", {})
+    vk_id = obj.get("user_id")
+    peer_id = obj.get("peer_id")
+    event_id = obj.get("event_id")
+    payload = obj.get("payload", {})
+
+    if not vk_id or not payload:
+        return
+
+    cmd = payload.get("cmd")
+    if cmd == "welcome_bonus":
+        try:
+            # Stop loading animation
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id,
+                user_id=vk_id,
+                peer_id=peer_id
+            )
+
+            user = await get_user(vk_id)
+            if not user:
+                return
+
+            if user.get("welcome_bonus_received", False):
+                await bot.api.messages.send(peer_id=peer_id, message="Бонус уже получен", random_id=0)
+                return
+
+            new_bonuses = user.get("bonuses", 0) + 70
+            await update_user(vk_id, {"bonuses": new_bonuses, "welcome_bonus_received": True})
+
+            import json
+            await set_user_state(vk_id, json.dumps({
+                "step": "global_cut",
+                "target_section": "welcome",
+                "partner_name": "",
+                "partner_date": ""
+            }))
+
+            kb = Keyboard(inline=True)
+            from vkbottle import Callback
+            kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.PRIMARY)
+
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже, чтобы обрезать колоду.",
+                keyboard=kb.get_json(),
+                random_id=0
+            )
+        except Exception as e:
+            print(f"Error in welcome_bonus handler: {e}")
