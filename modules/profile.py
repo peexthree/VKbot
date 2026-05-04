@@ -139,11 +139,14 @@ async def settings_choose_character(message: Message):
             style_desc = styles.get(skin_name, "мистицизм")
             text = f"✦ ПЕРСОНАЖ: {skin_name}\nСтиль: {style_desc}\nЦена: 150 РУБ или 15 бонусов."
 
+            from vkbottle import Keyboard, KeyboardButtonColor, Text
+            import json
+
             kb = Keyboard(inline=True)
             if skin_name in purchased_skins or skin_name in free_skins:
-                kb.add(Text("ВЫБРАТЬ", payload=f"SKIN_{skin_name}"), color=KeyboardButtonColor.POSITIVE)
+                kb.add(Text("ВЫБРАТЬ", payload=json.dumps({"cmd": "set_skin", "skin": skin_name})), color=KeyboardButtonColor.POSITIVE)
             else:
-                kb.add(Text("КУПИТЬ 150 РУБ", payload=f"BUY_SKIN_{skin_name}"), color=KeyboardButtonColor.PRIMARY)
+                kb.add(Text("КУПИТЬ 150 РУБ", payload=json.dumps({"cmd": "buy_skin", "skin": skin_name})), color=KeyboardButtonColor.PRIMARY)
 
             if photo:
                 try:
@@ -155,7 +158,7 @@ async def settings_choose_character(message: Message):
     finally:
         active_tasks.discard(vk_id)
 
-@labeler.message(func=lambda m: (m.payload and (m.payload.startswith('"SKIN_') or m.payload.startswith('"BUY_SKIN_') or m.payload.startswith('SKIN_') or m.payload.startswith('BUY_SKIN_'))) or (m.text and (m.text.startswith("SKIN_") or m.text.startswith("BUY_SKIN_") or m.text in ["Олеся Ивонченко", "Серьезный Аскет"] or any(s in m.text for s in ["Олег Шэпс", "Влад Череватов", "Виктория Райдес", "Александр Шеппс", "Баба Ванга", "Григорий Распутин"]))))
+@labeler.message(func=lambda m: m.payload and "cmd" in m.payload and "skin" in m.payload)
 async def process_skin_action(message: Message):
     vk_id = message.from_id
     if vk_id in active_tasks:
@@ -168,80 +171,28 @@ async def process_skin_action(message: Message):
     active_tasks.add(vk_id)
     try:
         import json
-
-        # Determine payload or text
-        payload = message.payload
-        if payload:
-             payload = payload.strip('"') # vkbottle payload might have quotes
-
-        text = payload if payload else message.text
-
-        free_skins = ["Олеся Ивонченко", "Серьезный Аскет", "olesya", "asket"]
-        paid_skins = ["Олег Шэпс", "Влад Череватов", "Виктория Райдес", "Александр Шеппс", "Баба Ванга", "Григорий Распутин"]
-
-        # Парсим действие
-        action = ""
-        target_skin = ""
-
-        if text.startswith("SKIN_"):
-            action = "set"
-            target_skin = text.replace("SKIN_", "")
-        elif text.startswith("BUY_SKIN_"):
-            action = "buy"
-            target_skin = text.replace("BUY_SKIN_", "")
-        else:
-            # Обработка если кнопка вернула просто текст без payload (хотя мы отправляли payload, но для надежности)
-            for s in free_skins:
-                if s in text:
-                    action = "set"
-                    target_skin = s
-                    break
-            if not action:
-                for s in paid_skins:
-                    if f"Купить {s}" in text:
-                        action = "buy"
-                        target_skin = s
-                        break
-                    elif s in text:
-                        action = "set"
-                        target_skin = s
-                        break
-
-        if not action or not target_skin:
-            return
+        payload = json.loads(message.payload)
+        action = payload.get("cmd")
+        target_skin = payload.get("skin")
 
         purchased_skins = user.get("purchased_skins", [])
+        free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
         balance = user.get("balance", 0)
 
-        if action == "set":
+        if action == "set_skin":
             if target_skin in free_skins or target_skin in purchased_skins:
                 await update_user(vk_id, {"active_skin": target_skin})
                 await message.answer(f"Скин '{target_skin}' успешно активирован. Система теперь говорит его голосом.")
             else:
                 await message.answer("Этот скин недоступен. Сначала купите его.")
 
-        elif action == "buy":
+        elif action == "buy_skin":
             if target_skin in purchased_skins:
                 await message.answer("Этот скин уже куплен.")
                 return
 
-            if target_skin not in paid_skins:
-                return
-
             price = 150
-            bonus_price = 15
-            bonuses = user.get("bonuses", 0)
-
-            if bonuses >= bonus_price:
-                new_bonuses = bonuses - bonus_price
-                purchased_skins.append(target_skin)
-                await update_user(vk_id, {
-                    "bonuses": new_bonuses,
-                    "purchased_skins": purchased_skins,
-                    "active_skin": target_skin
-                })
-                await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: {balance} РУБ / 💎 {new_bonuses} бонусов.")
-            elif balance >= price:
+            if balance >= price:
                 new_balance = balance - price
                 purchased_skins.append(target_skin)
                 await update_user(vk_id, {
@@ -251,17 +202,7 @@ async def process_skin_action(message: Message):
                 })
                 await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: 💳 {new_balance} РУБ.")
             else:
-                keyboard_obj = {
-                    "inline": True,
-                    "buttons": [[{
-                        "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={price}"}
-                    }]]
-                }
-                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                try:
-                    await message.answer(f"Недостаточно средств для покупки '{target_skin}'. Цена: {price} РУБ или {bonus_price} бонусов.\nВаш баланс: {balance} РУБ / {bonuses} бонусов.\nПополните счет для оплаты.", keyboard=kb_json)
-                except Exception:
-                    await message.answer(f"Недостаточно средств для покупки '{target_skin}'. Цена: {price} РУБ или {bonus_price} бонусов.\nВаш баланс: {balance} РУБ / {bonuses} бонусов.\nПополните счет для оплаты.")
+                await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.")
     finally:
         active_tasks.discard(vk_id)
 
