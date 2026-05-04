@@ -258,13 +258,13 @@ async def show_profile(message: Message):
 
     profile_text = (
         f"✦ ЛИЧНАЯ КАРТА ✦"
-        f"👤 ИМЯ: {first_name}"
-        f"📍 ТОЧКА ВХОДА: {birth_date} - {birth_city}"
-        f"⏳ ДНЕЙ В ОСОЗНАННОСТИ: {days_in_matrix}"
+        f"👤 ИМЯ: {first_name}\n"
+        f"📍 ТОЧКА ВХОДА: {birth_date} - {birth_city}\n"
+        f"⏳ ДНЕЙ В ОСОЗНАННОСТИ: {days_in_matrix}\n"
         f"🎴 СОБРАНО КАРТ: {total_cards_received} из 78\n"
         f"📊 ПРОГРЕСС: {progress_bar}\n"
-        f"💳 БАЛАНС: {balance} РУБ"
-        f"💎 БОНУСЫ: {bonuses}"
+        f"💳 БАЛАНС: {balance} РУБ\n"
+        f"💎 БОНУСЫ: {bonuses}\n"
         f"🛡 СТАТУС: {status}\n"
         f"📡 ТРАНЗИТ: {transit_status}\n"
         f"🕙 ДОСТУП ДО: {transit_timer}\n\n"
