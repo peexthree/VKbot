@@ -76,16 +76,13 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
                 attachments.append(photo)
 
         import json
-        try:
-            with open("tarot_ids.json", "r", encoding="utf-8") as f:
-                tarot_names = json.load(f)
-        except Exception:
-            tarot_names = {}
+        from cache import get_tarot_names
+        tarot_names = await get_tarot_names()
 
         c_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in card_ids]
 
         # Send cards with delays
-        messages = ["СЧИТЫВАЮ ПОТОК...", "ПЕРЕВОЖУ ЯЗЫК ТАРО...", "ФОРМИРУЮ ПРИГОВОР..."]
+        messages = ["Настраиваюсь на вашу энергию...", "Раскладываю карты...", "Формирую ваш ответ..."]
         delays = [1, 1, 2]
 
         for i in range(3):
@@ -366,11 +363,8 @@ async def card_of_day_handler(message: Message):
             await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
             await asyncio.sleep(3)
 
-            try:
-                with open("tarot_ids.json", "r", encoding="utf-8") as f:
-                    tarot_names = json.load(f)
-            except Exception:
-                tarot_names = {}
+            from cache import get_tarot_names
+            tarot_names = await get_tarot_names()
 
             w_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in weekly_log[-7:]]
 

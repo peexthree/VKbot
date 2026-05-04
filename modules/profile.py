@@ -276,7 +276,7 @@ async def show_profile(message: Message):
             pass
 
     profile_text = (
-        f"✦ ЛИЧНАЯ КАРТА ✦"
+        f"✦ ЛИЧНАЯ КАРТА ✦\n"
         f"👤 ИМЯ: {first_name}\n"
         f"📍 ТОЧКА ВХОДА: {birth_date} - {birth_city}\n"
         f"⏳ ДНЕЙ В ОСОЗНАННОСТИ: {days_in_matrix}\n"
@@ -287,8 +287,13 @@ async def show_profile(message: Message):
         f"🛡 СТАТУС: {status}\n"
         f"📡 ТРАНЗИТ: {transit_status}\n"
         f"🕙 ДОСТУП ДО: {transit_timer}\n\n"
-        f"Оплачивая услуги, вы принимаете условия Публичной оферты: https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
     )
+
+    purchased = user.get("purchased_sections", {})
+    if purchased.get("sex") and not purchased.get("money"):
+        profile_text += "✨ Рекомендуем продолжить погружение с разделом 'Код твоего богатства'\n\n"
+
+    profile_text += f"Оплачивая услуги, вы принимаете условия Публичной оферты: https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
 
     kb = Keyboard(inline=True)
     kb.add(Text("✦ Настройки ⚙"), color=KeyboardButtonColor.SECONDARY)
@@ -332,11 +337,8 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
     if isinstance(unlocked_cards, list):
          unlocked_cards = {}
 
-    try:
-        with open("tarot_ids.json", "r", encoding="utf-8") as f:
-            tarot_names = json.load(f)
-    except Exception:
-        tarot_names = {}
+    from cache import get_tarot_names
+    tarot_names = await get_tarot_names()
 
     # Gather all unlocked cards
     unlocked_items = []

@@ -323,6 +323,7 @@ async def message_event_handler(event: dict):
 
 @labeler.raw_event(GroupEventType.VKPAY_TRANSACTION, dataclass=dict)
 async def money_transfer_handler(event: dict):
+    from cache import acquire_lock
     try:
         group_id = event.get("group_id")
         if group_id != 219181948:
@@ -333,6 +334,12 @@ async def money_transfer_handler(event: dict):
         obj = event.get("object", {})
         vk_id = obj.get("from_id")
         amount = obj.get("amount")
+
+        # Idempotency lock using VK ID and amount as a simple transaction identifier
+        tx_key = f"tx_vkpay_{vk_id}_{amount}_{event.get('event_id', 'none')}"
+        if not await acquire_lock(tx_key, ttl=3600):
+            print(f"Duplicate transaction intercepted: {tx_key}")
+            return
 
         if not vk_id or not amount:
             return
@@ -421,6 +428,12 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 core_profile = user.get("core_profile", "")
 
                 from ai_service import generate_section
+
+                try:
+                    await bot.api.messages.send(peer_id=vk_id, message="Собираю данные для Золотого архива всех откровений. Это займет около минуты...", random_id=0)
+                except Exception:
+                    pass
+
                 bundle_text = ""
                 active_skin = user.get("active_skin", "olesya") if user else "olesya"
                 for sect, name in [("sex", "СЕКС"), ("money", "ДЕНЬГИ"), ("shadow", "ТЕНЬ"), ("final", "ФИНАЛ")]:
@@ -830,6 +843,11 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
 
     elif target_section == "all":
         try:
+            try:
+                await bot.api.messages.send(peer_id=vk_id, message="Собираю данные для Золотого архива всех откровений. Это займет около минуты...", random_id=0)
+            except Exception:
+                pass
+
             bundle_text = ""
             for sect, name in [("sex", "СЕКС"), ("money", "ДЕНЬГИ"), ("shadow", "ТЕНЬ"), ("final", "ФИНАЛ")]:
                 part_text = await generate_section(sect, date, time, city, core_profile, first_name, sex_val, skin=active_skin)
