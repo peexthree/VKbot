@@ -52,19 +52,19 @@ async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
 
     # Секс
     if purchased.get("sex"):
-        buttons.append([{"action": {"type": "text", "label": "👄 СЕКС"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "text", "label": "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ"}, "color": "positive"}])
 
     # Деньги
     if purchased.get("money"):
-        buttons.append([{"action": {"type": "text", "label": "💰 ДЕНЬГИ"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "text", "label": "💰 КОД ТВОЕГО БОГАТСТВА"}, "color": "positive"}])
 
     # Тень
     if purchased.get("shadow"):
-        buttons.append([{"action": {"type": "text", "label": "🌘 ТЕНЬ"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "text", "label": "🌘 ТВОИ СКРЫТЫЕ ГРАНИ"}, "color": "positive"}])
 
     # Финал
     if purchased.get("final"):
-        buttons.append([{"action": {"type": "text", "label": "🏁 ФИНАЛ"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "text", "label": "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ"}, "color": "positive"}])
 
     if not buttons:
         buttons.append([{"action": {"type": "text", "label": "✦ УСЛУГИ 🛒"}, "color": "secondary"}])
@@ -81,20 +81,20 @@ async def get_storefront_keyboard(purchased: dict) -> str | None:
     buttons = []
 
     if not purchased.get("sex"):
-        buttons.append([{"action": {"type": "text", "label": "СЕКС (РАЗОВАЯ)"}, "color": "secondary"}])
+        buttons.append([{"action": {"type": "text", "label": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ"}, "color": "secondary"}])
 
     if not purchased.get("money"):
-        buttons.append([{"action": {"type": "text", "label": "ДЕНЬГИ (РАЗОВАЯ)"}, "color": "secondary"}])
+        buttons.append([{"action": {"type": "text", "label": "КОД ТВОЕГО БОГАТСТВА"}, "color": "secondary"}])
 
     if not purchased.get("shadow"):
-        buttons.append([{"action": {"type": "text", "label": "ТЕНЬ (РАЗОВАЯ)"}, "color": "secondary"}])
+        buttons.append([{"action": {"type": "text", "label": "ТВОИ СКРЫТЫЕ ГРАНИ"}, "color": "secondary"}])
 
     if not purchased.get("final"):
-        buttons.append([{"action": {"type": "text", "label": "ФИНАЛ (РАЗОВАЯ)"}, "color": "secondary"}])
+        buttons.append([{"action": {"type": "text", "label": "ТВОЙ ИСТИННЫЙ ПУТЬ"}, "color": "secondary"}])
 
     purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
     if purchased_count < 2:
-        buttons.append([{"action": {"type": "text", "label": "БАНДЛ"}, "color": "secondary"}])
+        buttons.append([{"action": {"type": "text", "label": "ЗОЛОТОЙ АРХИВ"}, "color": "secondary"}])
 
     # Oracle freemium skip button (always added as an option to purchase)
     buttons.append([{"action": {"type": "text", "label": "ВОПРОС СУДЬБЕ"}, "color": "secondary"}])

@@ -360,7 +360,10 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
     end_idx = start_idx + ITEMS_PER_PAGE
     current_items = unlocked_items[start_idx:end_idx]
 
-    lines = [f"✦ МОЙ ГРИМУАР ✦ (Страница {page + 1}/{total_pages})\n"]
+    lines = [
+        f"✦ МОЙ ГРИМУАР ✦ (Страница {page + 1}/{total_pages})\n",
+        "Это твоя личная книга магии. Здесь хранятся все карты, которые ты уже успел открыть. Нажимай на любую, чтобы освежить в памяти ее тайное значение.\n"
+    ]
     for item in current_items:
         lines.append(f"[{item['id']}] {item['name']}")
 

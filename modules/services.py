@@ -110,9 +110,13 @@ async def handle_section_request(message: Message):
 
     section_map = {
         "секс": "sex",
+        "сексуальн": "sex",
         "деньги": "money",
+        "богатств": "money",
         "тень": "shadow",
-        "финал": "final"
+        "грани": "shadow",
+        "финал": "final",
+        "путь": "final"
     }
 
     target_section = None
