@@ -41,6 +41,8 @@ async def upload_local_photo(bot_api, filename: str) -> str:
 def get_dynamic_keyboard(user: dict | None) -> str:
     keyboard = Keyboard(inline=False)
     keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("🛰 ТАРИФЫ"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.row()
     keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.PRIMARY)
     keyboard.row()
     keyboard.add(Text("✦ Главное меню"), color=KeyboardButtonColor.SECONDARY)
