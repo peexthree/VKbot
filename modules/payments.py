@@ -81,22 +81,28 @@ async def message_event_handler(event: dict):
             return
 
 
+        if cmd == "main_menu":
+            try:
+                from database import get_user
+                from modules.utils import get_sections_keyboard
+                user = await get_user(vk_id)
+                kb_json = await get_sections_keyboard(vk_id, user)
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
+                    keyboard=kb_json,
+                    random_id=0
+                )
+            except Exception as e:
+                print(f"Error in main_menu: {e}")
+            return
+
         if cmd == "service_page":
             try:
                 idx = payload.get("idx", 0)
                 from modules.services import show_services
 
-                # Try deleting old message entirely
-                try:
-                    await bot.api.messages.delete(
-                        peer_id=peer_id,
-                        message_ids=[obj.get("conversation_message_id")],
-                        delete_for_all=True
-                    )
-                except Exception:
-                    pass
-
-                await show_services(vk_id, peer_id, idx)
+                await show_services(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
             except Exception as e:
                 print(f"Error in service_page: {e}")
             return
@@ -106,17 +112,7 @@ async def message_event_handler(event: dict):
                 idx = payload.get("idx", 0)
                 from modules.services import show_tariffs
 
-                # Try deleting old message entirely
-                try:
-                    await bot.api.messages.delete(
-                        peer_id=peer_id,
-                        message_ids=[obj.get("conversation_message_id")],
-                        delete_for_all=True
-                    )
-                except Exception:
-                    pass
-
-                await show_tariffs(vk_id, peer_id, idx)
+                await show_tariffs(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
             except Exception as e:
                 print(f"Error in tariff_page: {e}")
             return
