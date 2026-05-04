@@ -179,8 +179,8 @@ async def handle_section_request(message: Message):
             user = await get_user(vk_id)
             if user:
                 unlocked_cards = user.get("unlocked_cards", {})
-                if isinstance(unlocked_cards, list):
-                    unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+                if not unlocked_cards or isinstance(unlocked_cards, list):
+                    unlocked_cards = {}
 
                 if card_id not in unlocked_cards:
                     from ai_service import generate_text
