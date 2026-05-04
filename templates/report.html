@@ -29,19 +29,43 @@
             text-align: center;
             text-transform: uppercase;
             font-weight: 700;
+            text-shadow: 0 0 10px #d4af37;
         }
 
         .cover-page {
             height: 100vh;
             text-align: center;
             padding-top: 30%;
+            border: 4px solid #d4af37;
+            border-radius: 15px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Gothic Tech gold corners */
+        .cover-page::before, .cover-page::after {
+            content: '';
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border: 4px solid #d4af37;
+        }
+        .cover-page::before {
+            top: -4px; left: -4px;
+            border-right: none; border-bottom: none;
+        }
+        .cover-page::after {
+            bottom: -4px; right: -4px;
+            border-left: none; border-top: none;
         }
 
         .title {
+            font-family: 'Cinzel', serif;
             font-size: 42pt;
             letter-spacing: 5px;
             margin-bottom: 10px;
-            text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.8);
+            color: #d4af37;
         }
 
         .subtitle {
@@ -49,6 +73,7 @@
             color: #66fcf1;
             margin-bottom: 50px;
             letter-spacing: 2px;
+            text-shadow: 0 0 10px #66fcf1;
         }
 
         .user-info {
@@ -77,14 +102,15 @@
 
         .card-image {
             max-width: 250px;
-            border: 2px solid #45a29e;
+            border: 2px solid #66fcf1;
             border-radius: 12px;
-            box-shadow: 0 0 25px rgba(69, 162, 158, 0.3);
+            box-shadow: 0 0 25px rgba(102, 252, 241, 0.5);
         }
 
         .highlight {
             color: #66fcf1;
             font-weight: 600;
+            text-shadow: 0 0 5px #66fcf1;
         }
     </style>
 </head>
