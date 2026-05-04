@@ -7,7 +7,7 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, active_tasks, cover_cache
+from modules.utils import bot, generate_premium_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, active_tasks, cover_cache
 
 labeler = BotLabeler()
 
@@ -202,7 +202,14 @@ async def handle_section_request(message: Message):
 
             try:
                 pdf_filename = f"archive_{vk_id}_{target_section}.pdf"
-                generate_pdf(display_text, pdf_filename)
+
+                date = user.get("birth_date", "неизвестно")
+                time = user.get("birth_time", "неизвестно")
+                city = user.get("birth_city", "неизвестно")
+                birth_info = f"{date} {time} {city}"
+                section_title = "РАЗДЕЛ: " + {"sex":"СЕКС", "money":"ДЕНЬГИ", "shadow":"ТЕНЬ", "final":"ФИНАЛ"}.get(target_section, target_section.upper())
+
+                generate_premium_pdf(first_name, birth_info, section_title, display_text, pdf_filename, card_id)
                 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  DocMessagesUploader
                 doc_uploader = DocMessagesUploader(bot.api)
                 doc_attachment = await doc_uploader.upload(title="Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)
@@ -482,7 +489,14 @@ async def process_synastry_date(message: Message):
 
         try:
             pdf_filename = f"archive_{vk_id}_synastry.pdf"
-            generate_pdf(display_text, pdf_filename)
+
+            date = user.get("birth_date", "неизвестно")
+            time = user.get("birth_time", "неизвестно")
+            city = user.get("birth_city", "неизвестно")
+            birth_info = f"{date} {time} {city}"
+            partner_name = payload.get("name", "Партнер")
+
+            generate_premium_pdf(partner_name, birth_info, "СИНАСТРИЯ", display_text, pdf_filename, card_id)
             from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  DocMessagesUploader
             doc_uploader = DocMessagesUploader(bot.api)
             doc_attachment = await doc_uploader.upload(title="Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)

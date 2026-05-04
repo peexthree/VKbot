@@ -7,7 +7,7 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, active_tasks, cover_cache
+from modules.utils import bot, generate_premium_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, active_tasks, cover_cache
 
 labeler = BotLabeler()
 
@@ -197,7 +197,8 @@ async def process_payment_and_generate(vk_id: int, section: str):
 
                 if bundle_text:
                     pdf_filename = f"archive_{vk_id}_bundle.pdf"
-                    generate_pdf(bundle_text, pdf_filename)
+                    birth_info = f"{date} {time} {city}"
+                    generate_premium_pdf(first_name, birth_info, "РАЗДЕЛ: БАНДЛ", bundle_text, pdf_filename, None)
                     from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  DocMessagesUploader
                     doc_uploader = DocMessagesUploader(bot.api)
                     doc_attachment = await doc_uploader.upload(title="Твой_архив_БАНДЛ.pdf", file_source=pdf_filename, peer_id=vk_id)
