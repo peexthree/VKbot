@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Montserrat:wght@300;400;600&display=swap');
+
+        @page {
+            size: A4;
+            margin: 2cm;
+            @bottom-center {
+                content: "ЛИЧНЫЙ ТЕРМИНАЛ АСКЕТА • " counter(page);
+                font-family: 'Montserrat', sans-serif;
+                font-size: 9pt;
+                color: #555555;
+            }
+        }
+
+        body {
+            background-color: #0b0c10;
+            color: #c5c6c7;
+            font-family: 'Montserrat', sans-serif;
+            line-height: 1.6;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Cinzel', serif;
+            color: #d4af37;
+            text-align: center;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .cover-page {
+            height: 100vh;
+            text-align: center;
+            padding-top: 30%;
+        }
+
+        .title {
+            font-size: 42pt;
+            letter-spacing: 5px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+        }
+
+        .subtitle {
+            font-size: 18pt;
+            color: #66fcf1;
+            margin-bottom: 50px;
+            letter-spacing: 2px;
+        }
+
+        .user-info {
+            font-size: 12pt;
+            color: #888888;
+            border-top: 1px solid #1f2833;
+            border-bottom: 1px solid #1f2833;
+            padding: 20px 0;
+            display: inline-block;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        .content-section {
+            margin-top: 20px;
+            font-size: 12pt;
+            text-align: justify;
+        }
+
+        .card-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .card-image {
+            max-width: 250px;
+            border: 2px solid #45a29e;
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(69, 162, 158, 0.3);
+        }
+
+        .highlight {
+            color: #66fcf1;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="cover-page">
+        <div class="title">СЕКРЕТНЫЙ АРХИВ</div>
+        <div class="subtitle">{{ section_name }}</div>
+
+        <div class="user-info">
+            ОБЪЕКТ: <span class="highlight">{{ user_name }}</span><br>
+            ТОЧКА ВХОДА: {{ birth_info }}
+        </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <h2>АНАЛИЗ СИСТЕМЫ</h2>
+
+    {% if card_image_path %}
+    <div class="card-container">
+        <img src="{{ card_image_path }}" class="card-image">
+    </div>
+    {% endif %}
+
+    <div class="content-section">
+        {{ text_content | safe }}
+    </div>
+</body>
+</html>

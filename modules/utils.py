@@ -122,43 +122,34 @@ async def get_fsm_step(vk_id: int) -> dict | None:
     except Exception:
         return None
 
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.lib.colors import HexColor
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import textwrap
+import os
+from jinja2 import Environment, FileSystemLoader
+from weasyprint import HTML
 
-def generate_pdf(text: str, filename: str):
-    pdfmetrics.registerFont(TTFont('Roboto', 'Roboto.ttf'))
-    c = canvas.Canvas(filename, pagesize=A4)
-    width, height = A4
-    c.setFillColor(HexColor('#0F0F1A'))
-    c.rect(0, 0, width, height, fill=1, stroke=0)
-    c.setFillColor(HexColor('#D4AF37'))
-    c.setFont("Roboto", 24)
-    c.drawCentredString(width / 2, height - 80, "ТВОЙ ПЕРСОНАЛЬНЫЙ АРХИВ")
-    c.setFillColor(HexColor('#E53935'))
-    c.setLineWidth(2)
-    c.line(50, height - 100, width - 50, height - 100)
-    c.setFillColor(HexColor('#FFFFFF'))
-    c.setFont("Roboto", 12)
+def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, text_content: str, output_filename: str, card_id: str = None):
+    try:
+        env = Environment(loader=FileSystemLoader('templates'))
+        template = env.get_template('report.html')
 
-    y = height - 140
-    margin = 50
-    lines = text.split('\n')
+        # Меняем переносы строк на HTML-теги
+        formatted_text = text_content.replace('\n', '<br>')
 
-    for line in lines:
-        wrapped_lines = textwrap.wrap(line, width=70)
-        for w_line in wrapped_lines:
-            if y < 50:
-                c.showPage()
-                c.setFillColor(HexColor('#0F0F1A'))
-                c.rect(0, 0, width, height, fill=1, stroke=0)
-                c.setFillColor(HexColor('#FFFFFF'))
-                c.setFont("Roboto", 12)
-                y = height - 50
-            c.drawString(margin, y, w_line)
-            y -= 18
-        y -= 10
-    c.save()
+        card_image_uri = ""
+        if card_id:
+            local_path = os.path.abspath(f"cards/{card_id}.jpeg")
+            if os.path.exists(local_path):
+                card_image_uri = f"file://{local_path}"
+
+        html_out = template.render(
+            user_name=user_name,
+            birth_info=birth_info,
+            section_name=section_name,
+            text_content=formatted_text,
+            card_image_path=card_image_uri
+        )
+
+        HTML(string=html_out).write_pdf(output_filename)
+        return True
+    except Exception as e:
+        print(f"Ошибка генерации PDF: {e}")
+        return False
