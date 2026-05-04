@@ -23,92 +23,139 @@ async def show_balance(message: Message):
 
     await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ")
 
-@labeler.message(text=["✦ Настройки", "Настройки", "⚙ НАСТРОЙКИ"])
+@labeler.message(text=["✦ Настройки ⚙", "Настройки", "⚙ НАСТРОЙКИ"])
 async def settings_handler(message: Message):
     vk_id = message.from_id
     if vk_id in active_tasks:
         return
 
-    user = await get_user(vk_id)
-    if not user:
-        await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
-        return
-
     active_tasks.add(vk_id)
     try:
-        import json
-        purchased_skins = user.get("purchased_skins", [])
-        active_skin = user.get("active_skin", "olesya")
-        balance = user.get("balance", 0)
+        text = "✦ НАСТРОЙКИ И ЮРИДИЧЕСКИЙ ЩИТ ✦"
 
-        free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
-        paid_skins = ["Олег Шэпс", "Влад Череватов", "Виктория Райдес", "Александр Шеппс", "Баба Ванга", "Григорий Распутин"]
+        kb = Keyboard(inline=True)
+        kb.add(Text("Изменить свои данные"), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
+        kb.add(Text("Выбрать персонажа"), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+        kb.add(Text("Отменить подписку"), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
+        kb.add(Text("СБРОС АККАУНТА"), color=KeyboardButtonColor.NEGATIVE)
+        kb.row()
+        kb.add(Text("Назад в профиль"), color=KeyboardButtonColor.PRIMARY)
 
-        await message.answer(f"✦ ВЫБОР СКИНА (ИИ-ПЕРСОНАЖА) ✦\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.\nВыбери своего проводника в мир непознанного.")
-
-        # Отправляем бесплатные скины
-        for skin in free_skins:
-            await asyncio.sleep(0.5)
-            from modules.utils import SKIN_ASSETS
-            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(skin, "o.png"))
-            if skin_att:
-                await message.answer(attachment=skin_att)
-                await asyncio.sleep(0.5)
-
-            btn_color = "positive" if skin == active_skin or (skin == "Олеся Ивонченко" and active_skin == "olesya") else "secondary"
-            label = f"[{skin}] - Активен" if btn_color == "positive" else skin
-            payload = f"SKIN_{skin}"
-
-            keyboard_obj = {
-                "inline": True,
-                "buttons": [[{"action": {"type": "text", "label": label, "payload": payload}, "color": btn_color}]]
-            }
-            kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-            try:
-                await message.answer(f"Бесплатный скин:\n{skin}", keyboard=kb_json)
-            except Exception:
-                await message.answer(f"Бесплатный скин:\n{skin}")
-
-        # Отправляем платные скины
-        for skin in paid_skins:
-            await asyncio.sleep(0.5)
-            from modules.utils import SKIN_ASSETS
-            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(skin, "o.png"))
-            if skin_att:
-                await message.answer(attachment=skin_att)
-                await asyncio.sleep(0.5)
-
-            if skin in purchased_skins:
-                btn_color = "positive" if skin == active_skin else "secondary"
-                label = f"[{skin}] - Активен" if btn_color == "positive" else skin
-                payload = f"SKIN_{skin}"
-
-                keyboard_obj = {
-                    "inline": True,
-                    "buttons": [[{"action": {"type": "text", "label": label, "payload": payload}, "color": btn_color}]]
-                }
-                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                try:
-                    await message.answer(f"Купленный скин:\n{skin}", keyboard=kb_json)
-                except Exception:
-                    await message.answer(f"Купленный скин:\n{skin}")
-            else:
-                keyboard_obj = {
-                    "inline": True,
-                    "buttons": [[{"action": {"type": "text", "label": f"Купить {skin}", "payload": f"BUY_SKIN_{skin}"}, "color": "primary"}]]
-                }
-                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                try:
-                    await message.answer(f"Премиум скин:\n{skin}\nЦена: 150 РУБ или 15 бонусов.", keyboard=kb_json)
-                except Exception:
-                    await message.answer(f"Премиум скин:\n{skin}\nЦена: 150 РУБ или 15 бонусов.")
-
-        await asyncio.sleep(0.5)
-        await message.answer("ВНИМАНИЕ: ИИ-персонажи - это цифровая пародия. Совпадения с реальными личностями - дань уважения их образу для развлекательных целей. Реальные люди не имеют отношения к ответам системы.")
+        await message.answer(text, keyboard=kb.get_json())
     finally:
         active_tasks.discard(vk_id)
 
-@labeler.message(func=lambda m: m.text and (m.text.startswith("SKIN_") or m.text.startswith("BUY_SKIN_") or m.text in ["Олеся Ивонченко", "Серьезный Аскет"] or any(s in m.text for s in ["Олег Шэпс", "Влад Череватов", "Виктория Райдес", "Александр Шеппс", "Баба Ванга", "Григорий Распутин"])))
+@labeler.message(text="Изменить свои данные")
+async def settings_change_data(message: Message):
+    vk_id = message.from_id
+    if vk_id in active_tasks:
+        return
+    active_tasks.add(vk_id)
+    try:
+        await set_user_state(vk_id, json.dumps({"step": "date"}))
+        await message.answer("Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):")
+    finally:
+        active_tasks.discard(vk_id)
+
+@labeler.message(text="Отменить подписку")
+async def settings_cancel_subscription(message: Message):
+    vk_id = message.from_id
+    if vk_id in active_tasks:
+        return
+    active_tasks.add(vk_id)
+    try:
+        await message.answer("Ваш аккаунт не имеет активных рекуррентных подписок. Все платежи разовые. Для прекращения получения транзитов просто не пополняйте баланс. Отвязка карт не требуется по ФЗ №376-ФЗ.")
+    finally:
+        active_tasks.discard(vk_id)
+
+@labeler.message(text="СБРОС АККАУНТА")
+async def settings_reset_account(message: Message):
+    vk_id = message.from_id
+    if vk_id in active_tasks:
+        return
+    active_tasks.add(vk_id)
+    try:
+        await update_user(vk_id, {
+            "birth_date": "",
+            "birth_time": "",
+            "birth_city": "",
+            "purchased_sections": {},
+            "core_profile": ""
+        })
+        await set_user_state(vk_id, "")
+        await message.answer("Система обнулена")
+    finally:
+        active_tasks.discard(vk_id)
+
+@labeler.message(text="Назад в профиль")
+async def settings_back_to_profile(message: Message):
+    await show_profile(message)
+
+@labeler.message(text="Выбрать персонажа")
+async def settings_choose_character(message: Message):
+    vk_id = message.from_id
+    if vk_id in active_tasks:
+        return
+    active_tasks.add(vk_id)
+    try:
+        user = await get_user(vk_id)
+        if not user:
+            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            return
+
+        purchased_skins = user.get("purchased_skins", [])
+        from modules.utils import SKIN_ASSETS
+
+        styles = {
+            "olesya": "сарказм",
+            "Олеся Ивонченко": "сарказм",
+            "asket": "строгость",
+            "Серьезный Аскет": "строгость",
+            "Влад Череватов": "дерзость",
+            "Виктория Райдес": "властность",
+            "Олег Шэпс": "загадочность",
+            "Александр Шеппс": "мистицизм",
+            "Баба Ванга": "пророчества",
+            "Григорий Распутин": "безумие"
+        }
+
+        free_skins = ["Олеся Ивонченко", "Серьезный Аскет", "olesya", "asket"]
+
+        for skin_name, filename in SKIN_ASSETS.items():
+            # Skip english duplicate names if we only want to display Russian
+            if skin_name in ["olesya", "asket"]:
+                 continue
+
+            await asyncio.sleep(0.5)
+
+            try:
+                photo = await upload_local_photo(bot.api, filename)
+            except Exception:
+                photo = None
+
+            style_desc = styles.get(skin_name, "мистицизм")
+            text = f"✦ ПЕРСОНАЖ: {skin_name}\nСтиль: {style_desc}\nЦена: 150 РУБ или 15 бонусов."
+
+            kb = Keyboard(inline=True)
+            if skin_name in purchased_skins or skin_name in free_skins:
+                kb.add(Text("ВЫБРАТЬ", payload=f"SKIN_{skin_name}"), color=KeyboardButtonColor.POSITIVE)
+            else:
+                kb.add(Text("КУПИТЬ 150 РУБ", payload=f"BUY_SKIN_{skin_name}"), color=KeyboardButtonColor.PRIMARY)
+
+            if photo:
+                try:
+                    await message.answer(text, attachment=photo, keyboard=kb.get_json())
+                except Exception:
+                    await message.answer(text, keyboard=kb.get_json())
+            else:
+                await message.answer(text, keyboard=kb.get_json())
+    finally:
+        active_tasks.discard(vk_id)
+
+@labeler.message(func=lambda m: (m.payload and (m.payload.startswith('"SKIN_') or m.payload.startswith('"BUY_SKIN_') or m.payload.startswith('SKIN_') or m.payload.startswith('BUY_SKIN_'))) or (m.text and (m.text.startswith("SKIN_") or m.text.startswith("BUY_SKIN_") or m.text in ["Олеся Ивонченко", "Серьезный Аскет"] or any(s in m.text for s in ["Олег Шэпс", "Влад Череватов", "Виктория Райдес", "Александр Шеппс", "Баба Ванга", "Григорий Распутин"]))))
 async def process_skin_action(message: Message):
     vk_id = message.from_id
     if vk_id in active_tasks:
@@ -121,9 +168,15 @@ async def process_skin_action(message: Message):
     active_tasks.add(vk_id)
     try:
         import json
-        text = message.text
 
-        free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
+        # Determine payload or text
+        payload = message.payload
+        if payload:
+             payload = payload.strip('"') # vkbottle payload might have quotes
+
+        text = payload if payload else message.text
+
+        free_skins = ["Олеся Ивонченко", "Серьезный Аскет", "olesya", "asket"]
         paid_skins = ["Олег Шэпс", "Влад Череватов", "Виктория Райдес", "Александр Шеппс", "Баба Ванга", "Григорий Распутин"]
 
         # Парсим действие
@@ -215,41 +268,45 @@ async def process_skin_action(message: Message):
 @labeler.message(text=["✦ Мой профиль", "Мой профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ"])
 async def show_profile(message: Message):
     import json
+    import datetime
+    from modules.utils import SKIN_ASSETS
     vk_id = message.from_id
     user = await get_user(vk_id)
     if not user:
         await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
         return
 
-    date = user.get("birth_date", "Неизвестно")
-    time = user.get("birth_time", "Неизвестно")
-    city = user.get("birth_city", "Неизвестно")
-    purchased = user.get("purchased_sections", {})
-    first_name = purchased.get("first_name", "")
+    first_name = user.get("purchased_sections", {}).get("first_name", "Неизвестно")
+    birth_date = user.get("birth_date", "Неизвестно")
+    birth_city = user.get("birth_city", "Неизвестно")
 
-    name_line = f"👤 ИМЯ: {first_name}\n" if first_name else ""
+    created_at_str = user.get("created_at")
+    days_in_matrix = 0
+    if created_at_str:
+        try:
+            created_at = datetime.datetime.fromisoformat(created_at_str)
+            days_in_matrix = (datetime.datetime.now(datetime.timezone.utc) - created_at).days
+        except ValueError:
+            days_in_matrix = 0
 
-    unlocked_count = 0
-    if purchased.get("sex"): unlocked_count += 1
-    if purchased.get("money"): unlocked_count += 1
-    if purchased.get("shadow"): unlocked_count += 1
-    if purchased.get("final"): unlocked_count += 1
-
-    percent = unlocked_count * 25
-    progress_bar = f"📊 СИНХРОНИЗАЦИЯ: {percent}%\n"
-
-    storefront_kb = await get_storefront_keyboard(purchased)
-    status_text = "" if storefront_kb else "\n\nВСЕ РАЗДЕЛЫ ОТКРЫТЫ."
-
-    visit_streak = user.get("visit_streak", 0)
-    unlocked_cards = user.get("unlocked_cards", [])
+    unlocked_cards = user.get("unlocked_cards", {})
+    if isinstance(unlocked_cards, list):
+         unlocked_cards = {}
     cards_count = len(unlocked_cards)
+    total_cards_received = cards_count
+
+    bars = min(10, int((cards_count / 78) * 10))
+    progress_bar = ("|" * bars) + ("." * (10 - bars))
+
+    balance = user.get("balance", 0)
+    bonuses = user.get("bonuses", 0)
+
+    status = "Пробужденный" if bonuses > 0 else "Спящий"
 
     transit_expires = user.get("transit_sub_expires_at")
     transit_status = "Базовый"
     transit_timer = "Отсутствует"
     if transit_expires:
-        import datetime
         try:
             exp_date = datetime.datetime.fromisoformat(transit_expires)
             if exp_date > datetime.datetime.now(datetime.timezone.utc):
@@ -258,30 +315,45 @@ async def show_profile(message: Message):
         except ValueError:
             pass
 
-    is_awake = "Пробужденный" if unlocked_count == 4 else "Спящий"
-
     profile_text = (
-        f"✦ ЛИЧНЫЙ ТЕРМИНАЛ АСКЕТА ✦\n\n"
-        f"{name_line}📍 ТОЧКА ВХОДА: {date} {time} {city}\n\n"
-        f"⏳ ДНЕЙ В МАТРИЦЕ: {visit_streak}\n"
-        f"🎴 СОБРАНО КАРТ: {cards_count}/78\n"
-        f"{progress_bar}"
-        f"🛡 СТАТУС: {is_awake}\n"
-        f"📡 ТРАНЗИТ: {transit_status}\n"
-        f"🕙 ДОСТУП ДО: {transit_timer}\n"
-        f"{status_text}"
+        f"✦ ЛИЧНЫЙ ТЕРМИНАЛ ✦\n\n"
+        f"👤 ИМЯ: {first_name}\n\n"
+        f"📍 ТОЧКА ВХОДА: {birth_date} - {birth_city}\n\n"
+        f"⏳ ДНЕЙ В МАТРИЦЕ: {days_in_matrix}\n\n"
+        f"🎴 СОБРАНО КАРТ: {total_cards_received} из 78\n\n"
+        f"📊 СИНХРОНИЗАЦИЯ: {progress_bar}\n\n"
+        f"💳 БАЛАНС: {balance} РУБ\n\n"
+        f"💎 БОНУСЫ: {bonuses}\n\n"
+        f"🛡 СТАТУС: {status}\n\n"
+        f"📡 ТРАНЗИТ: {transit_status}\n\n"
+        f"🕙 ДОСТУП ДО: {transit_timer}\n\n"
+        f"Оплачивая услуги, вы принимаете условия Публичной оферты: https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
     )
 
-    kb_dict = json.loads(await get_sections_keyboard(vk_id, user))
+    kb = Keyboard(inline=True)
+    kb.add(Text("✦ Настройки ⚙"), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Text("Позвать друга 👥"), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+    kb.add(Text("🎴 МОЙ ГРИМУАР"), color=KeyboardButtonColor.PRIMARY)
 
-    # Add grimoire button
-    kb_dict["buttons"].insert(0, [{"action": {"type": "text", "label": "🎴 МОЙ ГРИМУАР"}, "color": "secondary"}])
+    active_skin = user.get("active_skin", "olesya")
+    skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
+    photo = await upload_local_photo(bot.api, skin_filename)
 
-    kb_json = json.dumps(kb_dict, ensure_ascii=False)
     try:
-        await message.answer(profile_text, keyboard=kb_json)
-    except Exception:
-        await message.answer(profile_text)
+        if photo:
+            await message.answer(profile_text, attachment=photo, keyboard=kb.get_json())
+        else:
+            await message.answer(profile_text, keyboard=kb.get_json())
+    except Exception as e:
+        print(f"Error in show_profile: {e}")
+        try:
+             if photo:
+                  await message.answer(profile_text, attachment=photo)
+             else:
+                  await message.answer(profile_text)
+        except:
+             pass
 
 @labeler.message(text=["🎴 МОЙ ГРИМУАР"])
 async def show_grimoire(message: Message):
@@ -398,7 +470,7 @@ async def god_mode_handler(message: Message):
         active_tasks.discard(vk_id)
 
 
-@labeler.message(text=["Слить друга", "✦ Слить друга"])
+@labeler.message(text=["Слить друга", "✦ Слить друга", "Позвать друга 👥", "✦ Позвать друга 👥"])
 async def referral_handler(message: Message):
     vk_id = message.from_id
     await message.answer(f"✦ РЕФЕРАЛЬНАЯ СИСТЕМА ✦\n\nТвой промокод: ПРОМО-{vk_id}\n\nОтправь этот код другу. Если он напишет его мне, вы оба получите по 50 бонусов!")
