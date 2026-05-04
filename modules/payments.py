@@ -1,3 +1,4 @@
+from cache import acquire_lock, release_lock
 import asyncio
 import json
 import random
@@ -7,7 +8,7 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_premium_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, active_tasks, cover_cache
+from modules.utils import bot, generate_premium_pdf, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache
 
 labeler = BotLabeler()
 
@@ -231,13 +232,14 @@ async def money_transfer_handler(event: dict):
         print(f"Error handling money_transfer: {e}")
 
 async def process_payment_and_generate(vk_id: int, section: str):
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
+
         return
     user = await get_user(vk_id)
     if not user:
         return
 
-    active_tasks.add(vk_id)
+
     try:
         try:
             await bot.api.messages.send(
@@ -349,7 +351,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 random_id=0
             )
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text=["СЕКС (РАЗОВАЯ)", "ДЕНЬГИ (РАЗОВАЯ)", "ТЕНЬ (РАЗОВАЯ)", "ФИНАЛ (РАЗОВАЯ)", "БАНДЛ", "👄 СЕКС (РАЗОВАЯ)", "💰 ДЕНЬГИ (РАЗОВАЯ)", "🌘 ТЕНЬ (РАЗОВАЯ)", "🏁 ФИНАЛ (РАЗОВАЯ)", "📦 БАНДЛ", "🔮 ВОПРОС СУДЬБЕ"])
 async def handle_storefront_purchase(message: Message):
@@ -509,14 +511,15 @@ async def process_tariff_purchase(message: Message):
     vk_id = message.from_id
     from database import set_user_state
     await set_user_state(vk_id, "")
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
+
         return
 
     user = await get_user(vk_id)
     if not user:
         return
 
-    active_tasks.add(vk_id)
+
     try:
         text = message.text.upper()
         balance = user.get("balance", 0)
@@ -597,7 +600,7 @@ async def process_tariff_purchase(message: Message):
                 await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.\nОплата возможна только реальным балансом.")
 
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 async def execute_generation(vk_id: int, peer_id: int, target_section: str, partner_name: str, partner_date: str):
     user = await get_user(vk_id)

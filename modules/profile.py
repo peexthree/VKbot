@@ -1,3 +1,4 @@
+from cache import acquire_lock, release_lock
 import asyncio
 import json
 import random
@@ -7,7 +8,7 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, active_tasks, cover_cache
+from modules.utils import bot, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache
 
 labeler = BotLabeler()
 
@@ -30,10 +31,11 @@ async def settings_handler(message: Message):
     vk_id = message.from_id
     from database import set_user_state
     await set_user_state(vk_id, "")
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
+
         return
 
-    active_tasks.add(vk_id)
+
     try:
         text = "✦ НАСТРОЙКИ И ЮРИДИЧЕСКИЙ ЩИТ ✦"
 
@@ -50,41 +52,44 @@ async def settings_handler(message: Message):
 
         await message.answer(text, keyboard=kb.get_json())
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text="Изменить свои данные")
 async def settings_change_data(message: Message):
     vk_id = message.from_id
     from database import set_user_state
     await set_user_state(vk_id, "")
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
+
         return
-    active_tasks.add(vk_id)
+
     try:
         await set_user_state(vk_id, json.dumps({"step": "date"}))
         await message.answer("Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):")
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text="Отменить подписку")
 async def settings_cancel_subscription(message: Message):
     vk_id = message.from_id
     from database import set_user_state
     await set_user_state(vk_id, "")
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
+
         return
-    active_tasks.add(vk_id)
+
     try:
         await message.answer("Ваш аккаунт не имеет активных рекуррентных подписок. Все платежи разовые. Для прекращения получения транзитов просто не пополняйте баланс. Отвязка карт не требуется по ФЗ №376-ФЗ.")
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text="СБРОС АККАУНТА")
 async def settings_reset_account(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
+
         return
-    active_tasks.add(vk_id)
+
     try:
         await update_user(vk_id, {
             "birth_date": "",
@@ -96,7 +101,7 @@ async def settings_reset_account(message: Message):
         await set_user_state(vk_id, "")
         await message.answer("Система обнулена")
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text="Назад в профиль")
 async def settings_back_to_profile(message: Message):
@@ -107,9 +112,10 @@ async def settings_choose_character(message: Message):
     vk_id = message.from_id
     from database import set_user_state
     await set_user_state(vk_id, "")
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
+
         return
-    active_tasks.add(vk_id)
+
     try:
         user = await get_user(vk_id)
         if not user:
@@ -166,19 +172,20 @@ async def settings_choose_character(message: Message):
             else:
                 await message.answer(text, keyboard=kb.get_json())
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(func=lambda m: m.payload and "cmd" in m.payload and "skin" in m.payload)
 async def process_skin_action(message: Message):
     vk_id = message.from_id
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
+
         return
 
     user = await get_user(vk_id)
     if not user:
         return
 
-    active_tasks.add(vk_id)
+
     try:
         import json
         payload = json.loads(message.payload)
@@ -214,7 +221,7 @@ async def process_skin_action(message: Message):
             else:
                 await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.")
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text=["✦ Мой профиль", "Мой профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ"])
 async def show_profile(message: Message):
@@ -390,10 +397,11 @@ async def god_mode_handler(message: Message):
 
     from database import set_user_state
     await set_user_state(vk_id, "")
-    if vk_id in active_tasks:
+    if not await acquire_lock(vk_id):
+
         return
 
-    active_tasks.add(vk_id)
+
     try:
         user = await get_user(vk_id)
         if not user:
@@ -424,7 +432,7 @@ async def god_mode_handler(message: Message):
                 "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ  ."
             )
     finally:
-        active_tasks.discard(vk_id)
+        await release_lock(vk_id)
 
 
 @labeler.message(text=["Слить друга", "✦ Слить друга", "Позвать друга 👥", "✦ Позвать друга 👥"])
