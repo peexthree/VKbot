@@ -14,6 +14,8 @@ labeler = BotLabeler()
 @labeler.message(text=["✦ Баланс", "Баланс", "💳 БАЛАНС"])
 async def show_balance(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
         await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
@@ -26,6 +28,8 @@ async def show_balance(message: Message):
 @labeler.message(text=["✦ Настройки ⚙", "Настройки", "⚙ НАСТРОЙКИ"])
 async def settings_handler(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 
@@ -51,6 +55,8 @@ async def settings_handler(message: Message):
 @labeler.message(text="Изменить свои данные")
 async def settings_change_data(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
     active_tasks.add(vk_id)
@@ -63,6 +69,8 @@ async def settings_change_data(message: Message):
 @labeler.message(text="Отменить подписку")
 async def settings_cancel_subscription(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
     active_tasks.add(vk_id)
@@ -97,6 +105,8 @@ async def settings_back_to_profile(message: Message):
 @labeler.message(text="Выбрать персонажа")
 async def settings_choose_character(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
     active_tasks.add(vk_id)
@@ -212,6 +222,8 @@ async def show_profile(message: Message):
     import datetime
     from modules.utils import SKIN_ASSETS
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
         await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
@@ -300,6 +312,8 @@ async def show_profile(message: Message):
 async def show_grimoire(message: Message):
     import json
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
         return
@@ -374,6 +388,8 @@ async def view_grimoire_card(message: Message):
 async def god_mode_handler(message: Message):
     vk_id = message.from_id
 
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 
@@ -414,6 +430,8 @@ async def god_mode_handler(message: Message):
 @labeler.message(text=["Слить друга", "✦ Слить друга", "Позвать друга 👥", "✦ Позвать друга 👥"])
 async def referral_handler(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     await message.answer(f"✦ РЕФЕРАЛЬНАЯ СИСТЕМА ✦\n\nТвой промокод: ПРОМО-{vk_id}\n\nОтправь этот код другу. Если он напишет его мне, вы оба получите по 50 бонусов!")
 
 @labeler.message(func=lambda m: m.text and re.match(r"^ПРОМО-\d+$", m.text.strip()))

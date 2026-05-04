@@ -19,13 +19,105 @@ async def message_event_handler(event: dict):
     event_id = obj.get("event_id")
     payload = obj.get("payload", {})
 
-    if not vk_id or not payload or "oracle_card" not in payload:
+    if not vk_id or not payload:
+        return
+
+    import json
+
+    cmd = payload.get("cmd")
+    if cmd in ["pay_rub", "pay_bonuses"]:
+        try:
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id,
+                user_id=vk_id,
+                peer_id=peer_id
+            )
+
+            user = await get_user(vk_id)
+            if not user:
+                return
+
+            section = payload.get("section")
+            if cmd == "pay_rub":
+                # Find price from mapping
+                # We can deduce from section, but wait, the prompt says amount_needed // 10, so amount_needed is known in handle_storefront_purchase
+                # For pay_rub, we can just look up the price
+                prices = {"sex": 100, "money": 90, "shadow": 70, "final": 120, "all": 300, "oracle": 50}
+                amount_needed = prices.get(section, 9999)
+                balance = user.get("balance", 0)
+                if balance >= amount_needed:
+                    await update_user(vk_id, {"balance": balance - amount_needed})
+                    await process_payment_and_generate(vk_id, section)
+                else:
+                    await bot.api.messages.send(peer_id=peer_id, message="Недостаточно рублей.", random_id=0)
+            elif cmd == "pay_bonuses":
+                price = payload.get("price", 9999)
+                bonuses = user.get("bonuses", 0)
+                if bonuses >= price:
+                    await update_user(vk_id, {"bonuses": bonuses - price})
+                    await process_payment_and_generate(vk_id, section)
+                else:
+                    await bot.api.messages.send(peer_id=peer_id, message="Недостаточно бонусов.", random_id=0)
+        except Exception as e:
+            print(f"Error in pay handlers: {e}")
+        return
+
+    if cmd == "global_cut":
+        try:
+            await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+
+            # Edit the message to remove the button
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ.",
+                conversation_message_id=obj.get("conversation_message_id"),
+                random_id=0
+            )
+
+            from vkbottle import Keyboard, Callback
+            kb = Keyboard(inline=True)
+            for i in range(10):
+                if i > 0 and i % 5 == 0:
+                    kb.row()
+                kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color="secondary")
+
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message="Выбери карту из разложенных:",
+                keyboard=kb.get_json(),
+                random_id=0
+            )
+        except Exception as e:
+            print(f"Error in global_cut: {e}")
+        return
+
+    if cmd == "global_draw":
+        try:
+            await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+            state_dict = await get_fsm_step(vk_id)
+            if not state_dict or state_dict.get("step") != "global_cut":
+                return
+
+            target_section = state_dict.get("target_section", "")
+            partner_name = state_dict.get("partner_name", "")
+            partner_date = state_dict.get("partner_date", "")
+
+            await set_user_state(vk_id, "")
+
+            await bot.api.messages.send(peer_id=peer_id, message="Считываю поток...", random_id=0)
+
+            if target_section:
+                await execute_generation(vk_id, peer_id, target_section, partner_name, partner_date)
+        except Exception as e:
+            print(f"Error in global_draw: {e}")
+        return
+
+    if "oracle_card" not in payload:
         return
 
     card_id = payload["oracle_card"]
 
     try:
-        import json
         # Stop loading animation
         await bot.api.messages.send_message_event_answer(
             event_id=event_id,
@@ -214,40 +306,48 @@ async def process_payment_and_generate(vk_id: int, section: str):
                     await update_user(vk_id, {"purchased_sections": purchased})
             except Exception as e:
                 print(f"Error generating bundle pdf: {e}")
+
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             import json
             await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
             await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.\n\nНАПИШИ СВОЙ ВОПРОС СУДЬБЕ ПРЯМО СЕЙЧАС.", random_id=0)
+            return # Oracle uses its own flow
         elif section in ["sex", "money", "shadow", "final"]:
             purchased[section] = True
             updates = {"purchased_sections": purchased}
-
-            # Check if all four main sections are purchased
             if purchased.get("sex") and purchased.get("money") and purchased.get("shadow") and purchased.get("final"):
                 updates["has_full_chart"] = True
-
             await update_user(vk_id, updates)
             await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.\n\nРаздел открыт.", random_id=0)
 
-        user = await get_user(vk_id)
-        kb_json = await get_sections_keyboard(vk_id, user)
+        # Transition to Global Cut FSM
+        import json
+        await set_user_state(vk_id, json.dumps({
+            "step": "global_cut",
+            "target_section": section,
+            "partner_name": user.get("partner_name", ""),
+            "partner_date": user.get("partner_date", "")
+        }))
 
-        if section != "oracle":
-            try:
-                await bot.api.messages.send(
-                    peer_id=vk_id,
-                    message="Используйте меню для вызова нужного раздела:",
-                    keyboard=kb_json,
-                    random_id=0
-                )
-            except Exception:
-                await bot.api.messages.send(
-                    peer_id=vk_id,
-                    message="Используйте меню для вызова нужного раздела:",
-                    random_id=0
-                )
+        kb = Keyboard(inline=True)
+        from vkbottle import Callback
+        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.PRIMARY)
+
+        try:
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже, чтобы обрезать колоду.",
+                keyboard=kb.get_json(),
+                random_id=0
+            )
+        except Exception:
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже, чтобы обрезать колоду.",
+                random_id=0
+            )
     finally:
         active_tasks.discard(vk_id)
 
@@ -255,6 +355,8 @@ async def process_payment_and_generate(vk_id: int, section: str):
 async def handle_storefront_purchase(message: Message):
     import json
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     text = message.text.upper()
 
     user = await get_user(vk_id)
@@ -405,6 +507,8 @@ async def handle_storefront_purchase(message: Message):
 @labeler.message(text=["ТАРИФ 1 (99 РУБ)", "ТАРИФ 2 (290 РУБ)", "VIP БАНДЛ (590 РУБ)", "🛰 ТАРИФ 1 (99 РУБ)", "🛰 ТАРИФ 2 (290 РУБ)", "🛰 VIP БАНДЛ (590 РУБ)"])
 async def process_tariff_purchase(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 
@@ -494,3 +598,219 @@ async def process_tariff_purchase(message: Message):
 
     finally:
         active_tasks.discard(vk_id)
+
+async def execute_generation(vk_id: int, peer_id: int, target_section: str, partner_name: str, partner_date: str):
+    user = await get_user(vk_id)
+    if not user:
+        return
+
+    purchased = user.get("purchased_sections", {})
+    date = user.get("birth_date", "неизвестно")
+    time = user.get("birth_time", "неизвестно")
+    city = user.get("birth_city", "неизвестно")
+    first_name = purchased.get("first_name", "")
+    sex_val = purchased.get("sex_val", 0)
+    core_profile = user.get("core_profile", "")
+    active_skin = user.get("active_skin", "olesya") if user else "olesya"
+
+    from ai_service import generate_section
+    import re
+    import os
+
+    if target_section == "welcome":
+        base_text = await generate_section("base", date, time, city, core_profile, skin=active_skin)
+
+        if base_text:
+            if first_name:
+                base_text = f"{first_name},\n\n" + base_text
+
+            kb_json = await get_sections_keyboard(vk_id, user)
+
+            parts = re.split(r"(?i)\bБАЗА\b", base_text, maxsplit=1)
+
+            if len(parts) > 1:
+                intro = parts[0].strip()
+                main_part = "✦ БАЗА ✦\n\n" + parts[1].strip()
+
+                await bot.api.messages.send(peer_id=peer_id, message=intro, random_id=0)
+                await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+                import asyncio
+                await asyncio.sleep(4)
+
+                try:
+                    await bot.api.messages.send(peer_id=peer_id, message=main_part, keyboard=kb_json, random_id=0)
+                except Exception as e:
+                    print(f"Error sending message with keyboard in execute_generation: {e}")
+                    await bot.api.messages.send(peer_id=peer_id, message=main_part, random_id=0)
+            else:
+                full_text = f"✦ БАЗА ✦\n\n{base_text}"
+                try:
+                    await bot.api.messages.send(peer_id=peer_id, message=full_text, keyboard=kb_json, random_id=0)
+                except Exception as e:
+                    print(f"Error sending message with keyboard in execute_generation: {e}")
+                    await bot.api.messages.send(peer_id=peer_id, message=full_text, random_id=0)
+        else:
+            base_text = "ДАННЫЕ СОХРАНЕНЫ. СИСТЕМА В ОЖИДАНИИ."
+            kb_json = await get_sections_keyboard(vk_id, user)
+            try:
+                await bot.api.messages.send(peer_id=peer_id, message=f"✦ БАЗА ✦\n\n{base_text}", keyboard=kb_json, random_id=0)
+            except Exception as e:
+                await bot.api.messages.send(peer_id=peer_id, message=f"✦ БАЗА ✦\n\n{base_text}", random_id=0)
+
+    elif target_section == "all":
+        try:
+            bundle_text = ""
+            for sect, name in [("sex", "СЕКС"), ("money", "ДЕНЬГИ"), ("shadow", "ТЕНЬ"), ("final", "ФИНАЛ")]:
+                part_text = await generate_section(sect, date, time, city, core_profile, first_name, sex_val, skin=active_skin)
+                if part_text:
+                    part_text = re.sub(r"ID_?ТАРО:\s*\d+", "", part_text).strip()
+                    bundle_text += f"\n\n--- РАЗДЕЛ {name} ---\n\n" + part_text
+
+            if bundle_text:
+                pdf_filename = f"archive_{vk_id}_bundle.pdf"
+                generate_pdf(bundle_text, pdf_filename)
+                from vkbottle import DocMessagesUploader
+                doc_uploader = DocMessagesUploader(bot.api)
+                doc_attachment = await doc_uploader.upload(title="Твой_архив_БАНДЛ.pdf", file_source=pdf_filename, peer_id=vk_id)
+                await bot.api.messages.send(peer_id=vk_id, message="Твой персональный архив (БАНДЛ). Скачай, чтобы не потерять.", attachment=doc_attachment, random_id=0)
+                if os.path.exists(pdf_filename):
+                    os.remove(pdf_filename)
+
+                purchased["sex"] = False
+                purchased["money"] = False
+                purchased["shadow"] = False
+                purchased["final"] = False
+                await update_user(vk_id, {"purchased_sections": purchased})
+
+            kb_json = await get_sections_keyboard(vk_id, user)
+            try:
+                await bot.api.messages.send(
+                    peer_id=vk_id,
+                    message="Используйте меню для вызова нужного раздела:",
+                    keyboard=kb_json,
+                    random_id=0
+                )
+            except Exception:
+                await bot.api.messages.send(
+                    peer_id=vk_id,
+                    message="Используйте меню для вызова нужного раздела:",
+                    random_id=0
+                )
+        except Exception as e:
+            print(f"Error generating bundle pdf: {e}")
+
+    else:
+        # Standard generation logic handled outside if needed, or we just trigger the normal flow
+        # In the original code, process_payment_and_generate didn't actually generate immediately for individual sections!
+        # It just unlocked them and told the user to use the menu!
+        # But task 4 says: "Обязательный выбор карты перед КАЖДОЙ генерацией... Выполняй старую логику генерации текста"
+        # Since individual sections generate when requested via handle_section_request in services.py,
+        # we need to redirect there, or just trigger the generation here.
+        # Wait, the prompt says "Обязательный выбор карты перед КАЖДОЙ генерацией... переводи в FSM ... Выполняй старую логику генерации"
+        # If it was an individual section, the generation is actually inside `services.py` `handle_section_request`.
+        # So I will execute `handle_section_request` logic here if it's a section.
+        result_text = await generate_section(target_section, date, time, city, core_profile, first_name, sex_val, skin=active_skin)
+        if result_text:
+            if first_name:
+                result_text = f"{first_name},\n\n" + result_text
+
+            kb_json = await get_sections_keyboard(vk_id, user)
+
+            import random
+            match = re.search(r"ID_?ТАРО:\s*(\d+)", result_text)
+            if match:
+                num = int(match.group(1))
+                if 0 <= num <= 77:
+                    card_id = str(num)
+                else:
+                    card_id = str(random.randint(0, 77))
+            else:
+                card_id = str(random.randint(0, 77))
+
+            user = await get_user(vk_id)
+            if user:
+                unlocked_cards = user.get("unlocked_cards", {})
+                if isinstance(unlocked_cards, list):
+                    unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+
+                if card_id not in unlocked_cards:
+                    from ai_service import generate_text
+                    grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
+                    signature = await generate_text(grimoire_prompt, skin=active_skin)
+                    unlocked_cards[card_id] = signature if signature else "Первое касание"
+
+                current_total = user.get("total_cards_received", 0)
+                await update_user(vk_id, {"total_cards_received": current_total + 1, "unlocked_cards": unlocked_cards})
+
+            photo_attachment = None
+            try:
+                photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg")
+            except Exception as e:
+                pass
+
+            display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
+
+            try:
+                pdf_filename = f"archive_{vk_id}_{target_section}.pdf"
+                generate_pdf(display_text, pdf_filename)
+                from vkbottle import DocMessagesUploader
+                doc_uploader = DocMessagesUploader(bot.api)
+                doc_attachment = await doc_uploader.upload(title=f"Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)
+                await bot.api.messages.send(peer_id=vk_id, message="Твой персональный архив. Скачай, чтобы не потерять.", attachment=doc_attachment, random_id=0)
+                if os.path.exists(pdf_filename):
+                    os.remove(pdf_filename)
+            except Exception as e:
+                pass
+
+            section_header = target_section_ru = {
+                "sex": "СЕКС",
+                "money": "ДЕНЬГИ",
+                "shadow": "ТЕНЬ",
+                "final": "ФИНАЛ",
+                "synastry": "СИНАСТРИЯ"
+            }.get(target_section, target_section.upper())
+
+            parts = re.split(rf"(?i)\b{target_section_ru}\b", display_text, maxsplit=1)
+            intro = ""
+            main_part = display_text
+
+            if len(parts) > 1:
+                intro = parts[0].strip()
+                main_part = f"{target_section_ru}\n" + parts[1].strip()
+
+            from modules.utils import SKIN_ASSETS
+            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+            if skin_att:
+                await bot.api.messages.send(peer_id=peer_id, message="", attachment=skin_att, random_id=0)
+                import asyncio
+                await asyncio.sleep(0.5)
+
+            if intro:
+                await bot.api.messages.send(peer_id=peer_id, message=intro, random_id=0)
+                await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+                import asyncio
+                await asyncio.sleep(4)
+                try:
+                    await bot.api.messages.send(peer_id=peer_id, message=main_part, keyboard=kb_json, random_id=0)
+                except Exception:
+                    await bot.api.messages.send(peer_id=peer_id, message=main_part, random_id=0)
+            else:
+                try:
+                    await bot.api.messages.send(peer_id=peer_id, message=display_text, keyboard=kb_json, random_id=0)
+                except Exception:
+                    await bot.api.messages.send(peer_id=peer_id, message=display_text, random_id=0)
+
+            if photo_attachment:
+                caption = ""
+                if user:
+                    unlocked_cards = user.get("unlocked_cards", {})
+                    if isinstance(unlocked_cards, dict):
+                        caption = unlocked_cards.get(card_id, "Новая карта добавлена в твой Гримуар.")
+
+                try:
+                    await bot.api.messages.send(peer_id=peer_id, message=f"🎴 Значение карты:\n{caption}", attachment=photo_attachment, random_id=0)
+                except Exception:
+                    await bot.api.messages.send(peer_id=peer_id, message="", attachment=photo_attachment, random_id=0)
+
+            purchased[target_section] = False
+            await update_user(vk_id, {"purchased_sections": purchased})

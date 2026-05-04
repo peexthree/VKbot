@@ -174,6 +174,8 @@ async def card_of_day_handler(message: Message):
     import re
     import random
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 
@@ -390,6 +392,8 @@ async def card_of_day_handler(message: Message):
 @labeler.message(text=["ВОПРОС СУДЬБЕ", "✦ ВОПРОС СУДЬБЕ"])
 async def oracle_handler(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 
@@ -518,6 +522,8 @@ async def process_oracle_question(message: Message):
 @labeler.message(text=["АНТИТАРО", "✦ АНТИТАРО", "👺 АНТИТАРО"])
 async def antitarot_handler(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 

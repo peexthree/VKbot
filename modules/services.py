@@ -15,6 +15,8 @@ labeler = BotLabeler()
 async def show_services(message: Message):
     import json
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
         await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
@@ -92,6 +94,8 @@ async def show_services(message: Message):
 @labeler.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)", "👄 СЕКС", "💰 ДЕНЬГИ", "🌘 ТЕНЬ", "🏁 ФИНАЛ"])
 async def handle_section_request(message: Message):
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 
@@ -302,6 +306,8 @@ async def handle_section_request(message: Message):
 async def synastry_handler(message: Message):
     import json
     vk_id = message.from_id
+    from database import set_user_state
+    await set_user_state(vk_id, "")
     if vk_id in active_tasks:
         return
 
