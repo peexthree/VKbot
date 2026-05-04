@@ -141,6 +141,7 @@ async def money_transfer_handler(event: dict):
 
 async def process_payment_and_generate(vk_id: int, section: str):
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
     user = await get_user(vk_id)
     if not user:
@@ -406,6 +407,7 @@ async def handle_storefront_purchase(message: Message):
 async def process_tariff_purchase(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     user = await get_user(vk_id)

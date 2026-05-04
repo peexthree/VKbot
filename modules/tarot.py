@@ -24,6 +24,7 @@ async def is_waiting_oracle_cut(message: Message) -> bool:
 async def process_oracle_cut(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     try:
@@ -175,6 +176,7 @@ async def card_of_day_handler(message: Message):
     import random
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     user = await get_user(vk_id)
@@ -393,6 +395,7 @@ async def card_of_day_handler(message: Message):
 async def oracle_handler(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     user = await get_user(vk_id)
@@ -499,6 +502,7 @@ async def is_waiting_oracle_question(message: Message) -> bool:
 async def process_oracle_question(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
     try:
         import json
@@ -522,6 +526,7 @@ async def process_oracle_question(message: Message):
 async def antitarot_handler(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     user = await get_user(vk_id)

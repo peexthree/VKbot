@@ -94,6 +94,7 @@ async def show_services(message: Message):
 async def handle_section_request(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     user = await get_user(vk_id)
@@ -298,6 +299,7 @@ async def synastry_handler(message: Message):
     import json
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     user = await get_user(vk_id)
@@ -372,6 +374,7 @@ async def is_waiting_synastry_name(message: Message) -> bool:
 async def process_synastry_name(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     try:
@@ -394,6 +397,7 @@ async def is_waiting_synastry_date(message: Message) -> bool:
 async def process_synastry_date(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     user = await get_user(vk_id)

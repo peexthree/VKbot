@@ -28,6 +28,7 @@ async def show_balance(message: Message):
 async def settings_handler(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     try:
@@ -52,6 +53,7 @@ async def settings_handler(message: Message):
 async def settings_change_data(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
     try:
         await set_user_state(vk_id, json.dumps({"step": "date"}))
@@ -63,6 +65,7 @@ async def settings_change_data(message: Message):
 async def settings_cancel_subscription(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
     try:
         await message.answer("Ваш аккаунт не имеет активных рекуррентных подписок. Все платежи разовые. Для прекращения получения транзитов просто не пополняйте баланс. Отвязка карт не требуется по ФЗ №376-ФЗ.")
@@ -73,6 +76,7 @@ async def settings_cancel_subscription(message: Message):
 async def settings_reset_account(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
     try:
         await update_user(vk_id, {
@@ -95,6 +99,7 @@ async def settings_back_to_profile(message: Message):
 async def settings_choose_character(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
     try:
         user = await get_user(vk_id)
@@ -158,6 +163,7 @@ async def settings_choose_character(message: Message):
 async def process_skin_action(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     user = await get_user(vk_id)
@@ -371,6 +377,7 @@ async def god_mode_handler(message: Message):
     vk_id = message.from_id
 
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     try:

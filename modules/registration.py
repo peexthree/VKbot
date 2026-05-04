@@ -34,6 +34,7 @@ async def reset_user_handler(message: Message):
 async def start_handler(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     try:
@@ -123,6 +124,7 @@ async def is_waiting_confirm_data(message: Message) -> bool:
 async def process_confirm_data(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     try:
@@ -162,6 +164,7 @@ async def is_waiting_date(message: Message) -> bool:
 async def process_date(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     try:
@@ -189,6 +192,7 @@ async def is_waiting_time(message: Message) -> bool:
 async def process_time(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     try:
@@ -277,6 +281,7 @@ async def is_waiting_city(message: Message) -> bool:
 async def process_city(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     try:
@@ -363,6 +368,7 @@ async def process_city(message: Message):
 async def back_to_main_menu(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
+        await release_lock(vk_id)
         return
 
     user = await get_user(vk_id)
