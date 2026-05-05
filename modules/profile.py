@@ -263,8 +263,8 @@ async def show_profile(message: Message):
             if exp_date > datetime.datetime.now(datetime.timezone.utc):
                 transit_status = "Активен"
                 transit_timer = exp_date.strftime("%d.%m.%Y")
-        except ValueError:
-            logger.exception("Ignored Exception")
+        except ValueError as e:
+            logger.error(f"Ignored Exception: {str(e)}")
 
     profile_text = (
         f"✦ ЛИЧНАЯ КАРТА ✦\n"
@@ -280,7 +280,9 @@ async def show_profile(message: Message):
     )
 
     purchased = user.get("purchased_sections", {})
-    if purchased.get("sex") and not purchased.get("money"):
+    if status == "Спящий":
+        profile_text += "✨ Твоя энергия на нуле. Открой 'Карта дня', чтобы пробудиться и запустить энергообмен!\n\n"
+    elif purchased.get("sex") and not purchased.get("money"):
         profile_text += "✨ Рекомендуем продолжить погружение с разделом 'Код твоего богатства'\n\n"
 
     profile_text += f"Оплачивая услуги, вы принимаете условия Публичной оферты: https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
@@ -301,14 +303,14 @@ async def show_profile(message: Message):
         else:
             await message.answer(profile_text, keyboard=kb.get_json())
     except Exception as e:
-        logger.exception(f"Error in show_profile: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         try:
              if photo:
                   await message.answer(profile_text, attachment=photo)
              else:
                   await message.answer(profile_text)
         except Exception as e:
-             logger.exception("Ignored Exception")
+             logger.error(f"Ignored Exception: {str(e)}")
 
 @labeler.message(text=["🎴 МОЙ ГРИМУАР"])
 async def show_grimoire(message: Message):
@@ -403,7 +405,7 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
             random_id=0
         )
     except Exception as e:
-        logger.exception(f"Error sending grimoire page: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
 
 @labeler.message(func=lambda m: m.text and re.match(r"(?i)^гримуар\s+\d+$", m.text.strip()))
@@ -524,7 +526,7 @@ async def apply_promo_handler(message: Message):
     try:
         await bot.api.messages.send(peer_id=referrer_id, message=f"Твой друг активировал промокод! Тебе начислено 500 Энергии звезд. Твой баланс: {referrer_balance} Энергии звезд", random_id=0)
     except Exception as e:
-        logger.exception("Ignored Exception")
+        logger.error(f"Ignored Exception: {str(e)}")
 
 
 @labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 Путеводитель"])

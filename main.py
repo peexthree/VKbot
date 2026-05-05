@@ -46,6 +46,22 @@ async def main():
     bot.labeler.load(tarot.labeler)
     bot.labeler.load(payments.labeler)
 
+    # Фоновая задача: Предзагрузка (Warmup)
+    async def warmup_task():
+        try:
+            from modules.utils import upload_local_photo
+            covers = [
+                "sex1.jpg", "money1.jpg", "demon1.jpg", "way1.jpg",
+                "sin.jpeg", "ora1.jpg", "full1.jpg",
+                "o.png", "as.jpeg", "ol.jpeg", "2o.jpeg", "v.jpeg", "a.jpeg", "ba.jpeg", "r.jpeg"
+            ]
+            logger.info("Запуск предзагрузки (Warmup) картинок...")
+            for cover in covers:
+                await upload_local_photo(bot.api, cover)
+            logger.info("Предзагрузка (Warmup) картинок успешно завершена.")
+        except Exception as e:
+            logger.error(f"Ошибка при предзагрузке (Warmup) картинок: {str(e)}")
+
     # Фоновая задача для ежедневных прогнозов
     async def daily_forecast_cron():
         while True:
@@ -93,7 +109,7 @@ async def main():
                                     await update_user(vk_id, {"transit_trial_days": trial_days + 1})
                             except Exception as e:
                                 import hashlib
-                                logger.exception(f"Не удалось отправить транзит {hashlib.sha256(str(vk_id).encode()).hexdigest()[:12]}: {e}")
+                                logger.error(f"Ошибка: {str(e)}")
                     
                     elif trial_days == 3:
                         try:
@@ -117,7 +133,7 @@ async def main():
                             await update_user(vk_id, {"transit_trial_days": 4})
                         except Exception as e:
                             import hashlib
-                            logger.exception(f"Не удалось отправить upsell {hashlib.sha256(str(vk_id).encode()).hexdigest()[:12]}: {e}")
+                            logger.error(f"Ошибка: {str(e)}")
 
                 sem = asyncio.Semaphore(5)
                 async def sem_process_user(u):
@@ -132,6 +148,7 @@ async def main():
     # Запуск
     bot.loop_wrapper._running = True
     asyncio.create_task(bot.run_polling())
+    asyncio.create_task(warmup_task())
     asyncio.create_task(daily_forecast_cron())
     
     app = web.Application()

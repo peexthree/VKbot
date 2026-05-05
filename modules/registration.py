@@ -61,7 +61,7 @@ async def start_handler(message: Message):
                 if info.city:
                     city = info.city.title
         except Exception as e:
-            logger.exception(f"Error fetching user info: {e}")
+            logger.error(f"Ошибка: {str(e)}")
 
         if not user:
             user = await create_user(vk_id, "", "", "")
@@ -220,19 +220,19 @@ async def process_time(message: Message):
                     try:
                         await message.answer(main_part, keyboard=kb_json)
                     except Exception as e:
-                        logger.exception(f"Error sending message with keyboard in process_time: {e}")
+                        logger.error(f"Ошибка: {str(e)}")
                         await message.answer(main_part)
                 else:
                     try:
                         await message.answer(base_text, keyboard=kb_json)
                     except Exception as e:
-                        logger.exception(f"Error sending message with keyboard in process_time: {e}")
+                        logger.error(f"Ошибка: {str(e)}")
                         await message.answer(base_text)
             else:
                 try:
                     await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
                 except Exception as e:
-                    logger.exception(f"Error sending navigation menu: {e}")
+                    logger.error(f"Ошибка: {str(e)}")
         else:
             await set_user_state(vk_id, json.dumps({"step": "city", "date": date_str, "time": time_str}))
             await message.answer("Укажите ГОРОД рождения:")
@@ -294,7 +294,7 @@ async def process_city(message: Message):
                 keyboard=json.dumps(kb_inline, ensure_ascii=False)
             )
         except Exception as e:
-            logger.exception(f"Error sending sync completion message: {e}")
+            logger.error(f"Ошибка: {str(e)}")
             await message.answer("Твоя матрица готова к чтению. Ты можешь изучить разделы меню, либо позволить мне сделать первый базовый разбор прямо сейчас.", keyboard=json.dumps(kb_inline, ensure_ascii=False))
 
     finally:
@@ -325,6 +325,6 @@ async def back_to_main_menu(message: Message):
                 "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?"
             )
     except Exception as e:
-        logger.exception(f"Error sending main menu: {e}")
+        logger.error(f"Ошибка: {str(e)}")
     finally:
         await release_lock(vk_id)
