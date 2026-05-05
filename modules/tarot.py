@@ -167,12 +167,17 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
 @labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня"])
 async def card_of_day_handler(message: Message):
+    text = message.text.strip()
+    if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or (text.startswith("✦") and "Карта дня" not in text):
+        return
+    await card_of_day_logic(message.from_id, message.peer_id)
+
+async def card_of_day_logic(vk_id: int, peer_id: int):
     import json
     import datetime
     import re
     import random
-    vk_id = message.from_id
-    logger.info(f"card_of_day_handler triggered by vk_id={vk_id}")
+    logger.info(f"card_of_day_logic triggered by vk_id={vk_id}")
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
@@ -180,10 +185,6 @@ async def card_of_day_handler(message: Message):
 
     user = await get_user(vk_id)
     if not user:
-        return
-
-    text = message.text.strip()
-    if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or (text.startswith("✦") and "Карта дня" not in text):
         return
 
     state_dict = await get_fsm_step(vk_id)
@@ -214,18 +215,22 @@ async def card_of_day_handler(message: Message):
             }
             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
             try:
-                await message.answer(
-                    "Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу.",
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    random_id=0,
+                    message="Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу.",
                     keyboard=kb_json
                 )
             except Exception as e:
-                await message.answer(
-                    "Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу."
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    random_id=0,
+                    message="Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу."
                 )
             return
 
-        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-        await message.answer("Тяну карту дня...")
+        await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="Тяну карту дня...")
         import asyncio
         await asyncio.sleep(2)
 
@@ -261,8 +266,8 @@ async def card_of_day_handler(message: Message):
         from ai_service import generate_section
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
-        await message.answer("ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...")
-        await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...")
+        await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
         result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin)
 
@@ -326,22 +331,22 @@ async def card_of_day_handler(message: Message):
         from modules.utils import SKIN_ASSETS
         skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
         if skin_att:
-            await message.answer(attachment=skin_att)
+            await bot.api.messages.send(peer_id=peer_id, random_id=0, message="", attachment=skin_att)
             await asyncio.sleep(0.5)
 
         if intro:
-            await message.answer(intro)
-            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+            await bot.api.messages.send(peer_id=peer_id, random_id=0, message=intro)
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
             await asyncio.sleep(4)
             try:
-                await message.answer(main_part, keyboard=kb_json)
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=main_part, keyboard=kb_json)
             except Exception as e:
-                await message.answer(main_part)
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=main_part)
         else:
             try:
-                await message.answer(display_text, keyboard=kb_json)
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=display_text, keyboard=kb_json)
             except Exception as e:
-                await message.answer(display_text)
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=display_text)
 
         if photo_attachment:
             caption = ""
@@ -351,14 +356,14 @@ async def card_of_day_handler(message: Message):
                     caption = unlocked_cards.get(card_id, "Новая карта добавлена в твой Гримуар.")
 
             try:
-                await message.answer(f"🎴 Значение карты:\n{caption}", attachment=photo_attachment)
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=f"🎴 Значение карты:\n{caption}", attachment=photo_attachment)
             except Exception as e:
-                await message.answer("", attachment=photo_attachment)
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message="", attachment=photo_attachment)
 
         if visit_streak >= 7:
             await asyncio.sleep(2)
-            await message.answer("Твоя недельная матрица синхронизирована. Твой бесплатный отчет готов.")
-            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+            await bot.api.messages.send(peer_id=peer_id, random_id=0, message="Твоя недельная матрица синхронизирована. Твой бесплатный отчет готов.")
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
             await asyncio.sleep(3)
 
             from cache import get_tarot_names
@@ -372,12 +377,12 @@ async def card_of_day_handler(message: Message):
                 "Что преобладало, какие тенденции, и куда это ведет."
             )
 
-            await bot.api.messages.send(peer_id=message.peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
-            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+            await bot.api.messages.send(peer_id=peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
             synthesis_result = await generate_text(synthesis_prompt, skin=active_skin)
             if synthesis_result:
-                await message.answer(f"✦ ЕЖЕНЕДЕЛЬНЫЙ СИНТЕЗ ✦\n\n{synthesis_result}")
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=f"✦ ЕЖЕНЕДЕЛЬНЫЙ СИНТЕЗ ✦\n\n{synthesis_result}")
 
             await update_user(vk_id, {
                 "visit_streak": 0,

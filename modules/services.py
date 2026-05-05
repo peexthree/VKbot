@@ -39,49 +39,55 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
             "key": "sex",
             "title": "Твоя сексуальная энергия",
             "desc": "1000 Энергии. Снимет блоки и раскроет матрицу страсти.",
-            "image_name": "sex1.jpg"
+            "image_name": "uslugi/sex.jpg"
         },
         {
             "key": "money",
             "title": "Код твоего богатства",
             "desc": "900 Энергии. Пробьет финансовый потолок и привлечет деньги.",
-            "image_name": "money1.jpg"
+            "image_name": "uslugi/Money.jpg"
         },
         {
             "key": "shadow",
             "title": "Твои скрытые грани",
             "desc": "700 Энергии. Раскроет подавленные эмоции и теневые стороны.",
-            "image_name": "demon1.jpg"
+            "image_name": "uslugi/DEMONS.jpg"
         },
         {
             "key": "final",
             "title": "Твой истинный путь",
             "desc": "1200 Энергии. Осознание предназначения и вектора развития.",
-            "image_name": "way1.jpg"
+            "image_name": "uslugi/WAYLIFE.jpg"
         },
         {
             "key": "synastry",
             "title": "Тайна ваших отношений",
             "desc": "1500 Энергии. Жесткий разбор мэтча и совместимости.",
-            "image_name": "sin.jpeg"
+            "image_name": "uslugi/SINISTRY.jpg"
         },
         {
             "key": "oracle",
             "title": "Вопрос судьбе (Оракул)",
             "desc": "500 Энергии. Мгновенный ответ судьбы без воды.",
-            "image_name": "ora1.jpg"
+            "image_name": "uslugi/QUEST.jpg"
         },
         {
             "key": "antitaro",
             "title": "Антитаро (Разрыв иллюзий)",
             "desc": "500 Энергии. Жесткий разбор иллюзий и снятие розовых очков.",
-            "image_name": "demon1.jpg"
+            "image_name": "uslugi/ANTITARO.jpg"
         },
         {
             "key": "all",
             "title": "Золотой архив всех откровений",
             "desc": "3000 Энергии. Полный доступ ко всем тайнам твоей матрицы.",
-            "image_name": "full1.jpg"
+            "image_name": "uslugi/VIP.jpg"
+        },
+        {
+            "key": "card_of_day",
+            "title": "Карта дня",
+            "desc": "Бесплатно. Твоя персональная карта дня. Открой завесу тайн.",
+            "image_name": "uslugi/cardofday.jpg"
         }
     ]
 
@@ -94,6 +100,9 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         title_trimmed = svc['title'][:80]
         desc_trimmed = svc['desc'][:80] + "..." if len(svc['desc']) > 80 else svc['desc']
 
+        button_cmd = "buy" if svc['key'] != "card_of_day" else "card_of_day"
+        button_label = "КУПИТЬ" if svc['key'] != "card_of_day" else "ПОЛУЧИТЬ"
+
         # We need a valid action URL or action for the element itself. Usually "open_photo" or "open_link"
         element = {
             "title": title_trimmed,
@@ -103,8 +112,8 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
                 {
                     "action": {
                         "type": "callback",
-                        "payload": json.dumps({"cmd": "buy", "type": "service", "key": svc['key']}),
-                        "label": "КУПИТЬ"
+                        "payload": json.dumps({"cmd": button_cmd, "type": "service", "key": svc['key']}),
+                        "label": button_label
                     },
                     "color": "positive"
                 }
@@ -333,19 +342,19 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
             "key": "tariff_1",
             "title": "Спутник 7 дней",
             "desc": "990 Энергии. Ежедневные прогнозы и транзиты на 7 дней.",
-            "image_name": "full1.jpg"
+            "image_name": "uslugi/7day.jpg"
         },
         {
             "key": "tariff_2",
             "title": "Оракул 30 дней",
             "desc": "2900 Энергии. Ежедневные прогнозы и транзиты на 30 дней.",
-            "image_name": "full1.jpg"
+            "image_name": "uslugi/30day.jpg"
         },
         {
             "key": "tariff_vip",
             "title": "VIP Архив",
             "desc": "5900 Энергии. Золотой архив тайн + месяц транзитов.",
-            "image_name": "full1.jpg"
+            "image_name": "uslugi/VIPTOP.jpg"
         }
     ]
 
