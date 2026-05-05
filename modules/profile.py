@@ -9,6 +9,7 @@ from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUplo
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
 from modules.utils import bot, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache
+from loguru import logger
 
 labeler = BotLabeler()
 
@@ -300,7 +301,7 @@ async def show_profile(message: Message):
         else:
             await message.answer(profile_text, keyboard=kb.get_json())
     except Exception as e:
-        print(f"Error in show_profile: {e}")
+        logger.exception(f"Error in show_profile: {e}")
         try:
              if photo:
                   await message.answer(profile_text, attachment=photo)
@@ -402,7 +403,7 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
             random_id=0
         )
     except Exception as e:
-        print(f"Error sending grimoire page: {e}")
+        logger.exception(f"Error sending grimoire page: {e}")
         await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
 
 @labeler.message(func=lambda m: m.text and re.match(r"(?i)^гримуар\s+\d+$", m.text.strip()))
@@ -484,6 +485,7 @@ async def god_mode_handler(message: Message):
 @labeler.message(text=["Слить друга", "✦ Слить друга", "Позвать друга 👥", "✦ Позвать друга 👥"])
 async def referral_handler(message: Message):
     vk_id = message.from_id
+    logger.info(f"referral_handler triggered by vk_id={vk_id}")
     from database import set_user_state
     await set_user_state(vk_id, "")
     await message.answer(f"✦ РЕФЕРАЛЬНАЯ СИСТЕМА ✦\n\nТвой промокод: ПРОМО-{vk_id}\n\nОтправь этот код другу. Если он напишет его мне, вы оба получите по 500 Энергии звезд!")

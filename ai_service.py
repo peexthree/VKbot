@@ -5,6 +5,7 @@ import base64
 import json
 import re
 import random
+from loguru import logger
 
 async def get_gemini_api_keys() -> list[str]:
     api_keys_str = os.environ.get('GEMINI_API_KEYS', '')
@@ -16,7 +17,7 @@ async def get_gemini_api_keys() -> list[str]:
 async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya") -> str | None:
     api_keys = await get_gemini_api_keys()
     if not api_keys:
-        print("No API keys provided")
+        logger.error("No API keys provided")
         return None
 
     models = ["models/gemma-3-27b-it", "models/gemma-3-12b-it", "models/gemma-3-4b-it", "models/gemma-3-1b-it"]
@@ -82,7 +83,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                             except (KeyError, IndexError):
                                 continue
                         elif resp.status == 429:
-                            print(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
+                            logger.warning(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
                             retry_count = 0
                             success = False
                             while retry_count < 3 and not success:
@@ -103,18 +104,17 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                             continue
                         else:
                             error_text = await resp.text()
-                            print(f"Text API Error status {resp.status} on {model}. Trying next key.")
-                            print(f"Error details: {error_text}")
+                            logger.error(f"Text API Error status {resp.status} on {model}. Trying next key. Error details: {error_text}")
                             continue
                 except asyncio.TimeoutError:
-                    print(f"Timeout on {model}. Trying next.")
+                    logger.warning(f"Timeout on {model}. Trying next.")
                     return "Сервис временно перегружен, пожалуйста, подождите немного и повторите запрос."
                 except Exception as e:
                     last_exception = e
-                    print(f"API Error ({model}): {e}. Trying next.")
+                    logger.exception(f"API Error ({model}): {e}. Trying next.")
                     continue
 
-    print(f"All keys and models exhausted or failed for text generation. Last error: {last_exception}")
+    logger.error(f"All keys and models exhausted or failed for text generation. Last error: {last_exception}")
     return None
 async def extract_birth_data(text: str) -> dict | None:
     prompt = (
@@ -131,7 +131,7 @@ async def extract_birth_data(text: str) -> dict | None:
         clean_res = res.strip()
         return json.loads(clean_res)
     except Exception as e:
-        print(f"Ошибка парсинга: {e}")
+        logger.exception(f"Ошибка парсинга: {e}")
         return None
 
 async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya") -> str | None:

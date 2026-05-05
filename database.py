@@ -4,6 +4,7 @@ import os
 import aiohttp
 from typing import Optional, Dict, Any
 import traceback
+from loguru import logger
 
 URL = os.environ.get("SUPABASE_URL", "")
 KEY = os.environ.get("SUPABASE_KEY", "")
@@ -42,11 +43,10 @@ async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
                         asyncio.create_task(update_user(vk_id, {"balance": new_balance, "bonuses": None}))
                     return user
             else:
-                print(f"Supabase error in get_user: {r.status} {await r.text()}")
+                logger.error(f"Supabase error in get_user: {r.status} {await r.text()}")
             return None
     except Exception as e:
-        print(f"Exception in get_user: {e}")
-        traceback.print_exc()
+        logger.exception(f"Exception in get_user: {e}")
         return None
 
 async def get_all_subscribed_users() -> list[Dict[str, Any]]:
@@ -59,11 +59,10 @@ async def get_all_subscribed_users() -> list[Dict[str, Any]]:
                 data = await r.json()
                 return data
             else:
-                print(f"Supabase error in get_all_subscribed_users: {r.status} {await r.text()}")
+                logger.error(f"Supabase error in get_all_subscribed_users: {r.status} {await r.text()}")
             return []
     except Exception as e:
-        print(f"Exception in get_all_subscribed_users: {e}")
-        traceback.print_exc()
+        logger.exception(f"Exception in get_all_subscribed_users: {e}")
         return []
 
 async def get_all_users() -> list[Dict[str, Any]]:
@@ -76,11 +75,10 @@ async def get_all_users() -> list[Dict[str, Any]]:
                 data = await r.json()
                 return data
             else:
-                print(f"Supabase error in get_all_users: {r.status} {await r.text()}")
+                logger.error(f"Supabase error in get_all_users: {r.status} {await r.text()}")
             return []
     except Exception as e:
-        print(f"Exception in get_all_users: {e}")
-        traceback.print_exc()
+        logger.exception(f"Exception in get_all_users: {e}")
         return []
 
 async def get_inactive_free_users() -> list[Dict[str, Any]]:
@@ -93,11 +91,10 @@ async def get_inactive_free_users() -> list[Dict[str, Any]]:
                 data = await r.json()
                 return data
             else:
-                print(f"Supabase error in get_inactive_free_users: {r.status} {await r.text()}")
+                logger.error(f"Supabase error in get_inactive_free_users: {r.status} {await r.text()}")
             return []
     except Exception as e:
-        print(f"Exception in get_inactive_free_users: {e}")
-        traceback.print_exc()
+        logger.exception(f"Exception in get_inactive_free_users: {e}")
         return []
 
 async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: str) -> Optional[Dict[str, Any]]:
@@ -128,14 +125,13 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
             if r.status in (200, 201):
                 data = await r.json()
                 if data:
-                    print("Записано в Users")
+                    logger.info(f"Записано в Users: vk_id={vk_id}")
                     return data[0]
             else:
-                print(f"Supabase error in create_user: {r.status} {await r.text()}")
+                logger.error(f"Supabase error in create_user: {r.status} {await r.text()}")
             return None
     except Exception as e:
-        print(f"Exception in create_user: {e}")
-        traceback.print_exc()
+        logger.exception(f"Exception in create_user: {e}")
         return None
 
 async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -146,14 +142,13 @@ async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str,
             if r.status in (200, 204):
                 data = await r.json()
                 if data:
-                    print("Записано в Users")
+                    logger.info(f"Обновлено в Users: vk_id={vk_id}")
                     return data[0]
             else:
-                print(f"Supabase error in update_user: {r.status} {await r.text()}")
+                logger.error(f"Supabase error in update_user: {r.status} {await r.text()}")
             return None
     except Exception as e:
-        print(f"Exception in update_user: {e}")
-        traceback.print_exc()
+        logger.exception(f"Exception in update_user: {e}")
         return None
 
 async def get_user_state(vk_id: int) -> Optional[str]:

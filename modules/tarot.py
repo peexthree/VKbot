@@ -9,6 +9,7 @@ from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUplo
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
 from modules.utils import bot, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from loguru import logger
 
 labeler = BotLabeler()
 
@@ -58,6 +59,7 @@ async def process_oracle_cut(message: Message):
         await release_lock(vk_id)
 
 async def process_oracle_final(vk_id: int, text: str, card_ids: list):
+    logger.info(f"process_oracle_final triggered by vk_id={vk_id}")
     user = await get_user(vk_id)
     if not user:
         return
@@ -157,7 +159,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             await asyncio.sleep(0.5)
 
     except Exception as e:
-        print(f"Error in process_oracle_final: {e}")
+        logger.exception(f"Error in process_oracle_final: {e}")
 
 @labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня"])
 async def card_of_day_handler(message: Message):
@@ -166,6 +168,7 @@ async def card_of_day_handler(message: Message):
     import re
     import random
     vk_id = message.from_id
+    logger.info(f"card_of_day_handler triggered by vk_id={vk_id}")
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
@@ -300,7 +303,7 @@ async def card_of_day_handler(message: Message):
             from vkbottle import PhotoMessageUploader
             photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg")
         except Exception as e:
-            print(f"Failed to upload tarot card {card_id}: {e}")
+            logger.exception(f"Failed to upload tarot card {card_id}: {e}")
 
         display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
 

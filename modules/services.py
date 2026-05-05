@@ -12,11 +12,13 @@ from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUplo
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
 from modules.utils import bot, generate_premium_pdf, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache, SKIN_ASSETS
+from loguru import logger
 
 labeler = BotLabeler()
 
 @labeler.message(text=["✦ Услуги", "Услуги", "✦ УСЛУГИ 🛒"])
 async def show_services_handler(message: Message):
+    logger.info(f"show_services_handler triggered by from_id={message.from_id}")
     await show_services(message.from_id, message.peer_id, 0)
 
 async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
@@ -128,7 +130,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=edit_msg_id, message=msg_text, attachment=att, keyboard=kb_json)
                 return
             except Exception as e:
-                print(f"Error editing message: {e}, falling back to send.")
+                logger.exception(f"Error editing message: {e}, falling back to send.")
 
         if att:
             try:
@@ -141,7 +143,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
             except Exception:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
     except Exception as e:
-        print(f"Error sending service block {svc['title']}: {e}")
+        logger.exception(f"Error sending service block {svc['title']}: {e}")
         try:
             await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
         except Exception:
@@ -260,7 +262,7 @@ async def process_synastry_date(message: Message):
 
             photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg")
         except Exception as e:
-            print(f"Failed to upload tarot card {card_id}: {e}")
+            logger.exception(f"Failed to upload tarot card {card_id}: {e}")
 
         display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
 
@@ -282,7 +284,7 @@ async def process_synastry_date(message: Message):
             if os.path.exists(pdf_filename):
                 os.remove(pdf_filename)
         except Exception as e:
-            print(f"Failed to process pdf for synastry: {e}")
+            logger.exception(f"Failed to process pdf for synastry: {e}")
 
         parts = re.split(rf"(?i)\bСИНАСТРИЯ\b", display_text, maxsplit=1)
         intro = ""
@@ -405,7 +407,7 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=edit_msg_id, message=msg_text, attachment=att, keyboard=kb_json)
                 return
             except Exception as e:
-                print(f"Error editing message: {e}, falling back to send.")
+                logger.exception(f"Error editing message: {e}, falling back to send.")
 
         if att:
             try:
@@ -418,7 +420,7 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
             except Exception:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
     except Exception as e:
-        print(f"Error sending tariff block {svc['title']}: {e}")
+        logger.exception(f"Error sending tariff block {svc['title']}: {e}")
         try:
             await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
         except Exception:

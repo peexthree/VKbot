@@ -23,6 +23,7 @@ from modules.services import show_tariffs
 from modules.profile import show_grimoire_page
 from modules.profile import view_card_direct
 from modules.tarot import process_oracle_final
+from loguru import logger
 
 labeler = BotLabeler()
 
@@ -40,6 +41,7 @@ async def message_event_handler(event: dict):
             return
 
         cmd = payload.get("cmd")
+        logger.info(f"message_event_handler triggered by vk_id={vk_id}, cmd={cmd}")
 
         # 1. Сразу отвечаем ВК, чтобы убрать «часики» на кнопке
         try:
@@ -49,7 +51,7 @@ async def message_event_handler(event: dict):
                 peer_id=peer_id
             )
         except Exception as e:
-            print(f"Error answering event: {e}")
+            logger.exception(f"Error answering event: {e}")
             
         # 2. Обработка команд (CALLBACK)
         if cmd == "welcome_bonus":
@@ -247,6 +249,7 @@ async def money_transfer_handler(event: dict):
         vk_id = obj.get("from_id")
         amount = obj.get("amount")
 
+        logger.info(f"money_transfer_handler triggered by from_id={vk_id}, amount={amount}")
         tx_key = f"tx_vkpay_{vk_id}_{amount}_{event.get('event_id', 'none')}"
         if not await acquire_lock(tx_key, ttl=3600): return
 
@@ -268,7 +271,7 @@ async def money_transfer_handler(event: dict):
             random_id=0
         )
     except Exception as e:
-        print(f"Error handling money_transfer: {e}")
+        logger.exception(f"Error handling money_transfer: {e}")
 
 async def process_payment_and_generate(vk_id: int, section: str):
     if not await acquire_lock(vk_id): return
