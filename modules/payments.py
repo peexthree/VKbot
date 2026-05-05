@@ -84,6 +84,26 @@ async def message_event_handler(event: dict):
             }
             await bot.api.messages.send(peer_id=peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ", keyboard=json.dumps(kb, ensure_ascii=False), random_id=0)
 
+        elif cmd == "use_section":
+            target_section = payload.get("key")
+            user = await get_user(vk_id)
+            if user and target_section:
+                purchased = user.get("purchased_sections", {})
+                has_access = purchased.get(target_section)
+                if target_section in ["sex", "money", "shadow", "final"]:
+                    if purchased.get("all") or user.get("has_full_chart"):
+                        has_access = True
+
+                if has_access:
+                    await set_user_state(vk_id, json.dumps({
+                        "step": "global_cut", "target_section": target_section
+                    }))
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
+                    await bot.api.messages.send(peer_id=peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+                else:
+                    await show_services(vk_id, peer_id, 0) # Fallback if they don't own it
+
         elif cmd == "main_menu":
             user = await get_user(vk_id)
             kb_json = await get_sections_keyboard(vk_id, user)

@@ -148,61 +148,6 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
             pass
 
 
-@labeler.message(text=[
-    "✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)",
-    "👄 СЕКС", "💰 ДЕНЬГИ", "🌘 ТЕНЬ", "🏁 ФИНАЛ",
-    "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ", "💰 КОД ТВОЕГО БОГАТСТВА",
-    "🌘 ТВОИ СКРЫТЫЕ ГРАНИ", "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ", "АНТИТАРО", "👨‍❤️‍👨 СИНАСТРИЯ", "Синастрия (Совместимость)", "✦ Синастрия (Совместимость)", "👨‍❤️‍👨 СИНАСТРИЯ (СОВМЕСТИМОСТЬ)"
-])
-async def handle_section_request(message: Message):
-    vk_id = message.from_id
-    peer_id = message.peer_id
-    user = await get_user(vk_id)
-    if not user:
-        return
-
-    text = message.text.upper()
-
-    # Маппинг текстов кнопок в ключи разделов и индексы товаров
-    section_map = {
-        "СЕКС": ("sex", 0),
-        "СЕКСУАЛЬНАЯ ЭНЕРГИЯ": ("sex", 0),
-        "ДЕНЬГИ": ("money", 1),
-        "БОГАТСТВА": ("money", 1),
-        "ТЕНЬ": ("shadow", 2),
-        "ГРАНИ": ("shadow", 2),
-        "ФИНАЛ": ("final", 3),
-        "ИСТИННЫЙ ПУТЬ": ("final", 3),
-        "СИНАСТРИЯ": ("synastry", 4),
-        "СОВМЕСТИМОСТЬ": ("synastry", 4),
-        "АНТИТАРО": ("antitaro", 6),
-    }
-
-    target_key = None
-    target_idx = 0
-
-    for k, v in section_map.items():
-        if k in text:
-            target_key, target_idx = v
-            break
-
-    if not target_key:
-        return
-
-    purchased = user.get("purchased_sections", {})
-
-    if purchased.get(target_key) or purchased.get("all") or user.get("has_full_chart"):
-        # Если раздел уже куплен, запускаем FSM глобальной обрезки
-        import json
-        await set_user_state(vk_id, json.dumps({
-            "step": "global_cut", "target_section": target_key
-        }))
-        kb = Keyboard(inline=True)
-        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        await bot.api.messages.send(peer_id=peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
-    else:
-        # Если не куплен, выводим карточку товара
-        await show_services(vk_id, peer_id, target_idx)
 async def is_waiting_synastry_name(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
         return False
