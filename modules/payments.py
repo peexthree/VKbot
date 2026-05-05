@@ -58,7 +58,6 @@ async def message_event_handler(event: dict):
                     random_id=0
                 )
 
-                from database import set_user_state
                 await set_user_state(vk_id, json.dumps({
                     "step": "global_cut",
                     "target_section": "welcome"
@@ -88,7 +87,6 @@ async def message_event_handler(event: dict):
 
         if cmd == "main_menu":
             try:
-                from database import get_user
                 from modules.utils import get_sections_keyboard
                 user = await get_user(vk_id)
                 kb_json = await get_sections_keyboard(vk_id, user)
@@ -236,7 +234,6 @@ async def message_event_handler(event: dict):
 
         if cmd == "global_draw":
             try:
-                from database import set_user_state
                 state_dict = await get_fsm_step(vk_id)
                 if not state_dict or state_dict.get("step") != "global_cut":
                     return
@@ -412,7 +409,6 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 sex_val = purchased.get("sex_val", 0)
                 core_profile = user.get("core_profile", "")
 
-                from ai_service import generate_section
 
                 try:
                     await bot.api.messages.send(peer_id=vk_id, message="Собираю данные для Золотого архива всех откровений. Это займет около минуты...", random_id=0)
@@ -506,7 +502,6 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
     core_profile = user.get("core_profile", "")
     active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
-    from ai_service import generate_section
     import re
     import os
 
@@ -631,7 +626,6 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
                     unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
 
                 if card_id not in unlocked_cards:
-                    from ai_service import generate_text
                     grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
                     signature = await generate_text(grimoire_prompt, skin=active_skin)
                     unlocked_cards[card_id] = signature if signature else "Первое касание"

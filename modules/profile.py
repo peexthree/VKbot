@@ -525,7 +525,7 @@ async def apply_promo_handler(message: Message):
         pass
 
 
-@labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель"])
+@labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 Путеводитель"])
 async def show_guide(message: Message):
     vk_id = message.from_id
     text = (
