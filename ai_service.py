@@ -116,25 +116,22 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
 
     print(f"All keys and models exhausted or failed for text generation. Last error: {last_exception}")
     return None
-
 async def extract_birth_data(text: str) -> dict | None:
     prompt = (
-        f"Пользователь написал следующий текст: '{text}'. "
-        f"Вытащи из него дату рождения (формат DD.MM.YYYY), время рождения (формат HH:MM, если не указано - '12:00') "
-        f"и город рождения. Верни строго JSON вида: "
-        f"{{\"date\": \"15.04.1990\", \"time\": \"14:30\", \"city\": \"Москва\"}}. "
-        f"Если дату или город невозможно определить, верни пустые строки для них."
+        f"Пользователь написал: '{text}'. "
+        f"Вытащи дату рождения (DD.MM.YYYY), время (HH:MM) и город. "
+        f"Верни строго JSON: {{\"date\": \"15.04.1990\", \"time\": \"14:30\", \"city\": \"Москва\"}}."
     )
     res = await generate_text(prompt, json_mode=True)
-    if not res:
-        return None
+    if not res: return None
     try:
-        clean_res = res.replace('```json', '').replace('
-```', '').strip()
-        data = json.loads(clean_res)
-        return data
-    except json.JSONDecodeError:
-        print(f"Failed to decode JSON from extraction: {res}")
+        # Безопасная очистка в несколько этапов
+        res = res.replace('```json', '')
+        res = res.replace('```', '')
+        clean_res = res.strip()
+        return json.loads(clean_res)
+    except Exception as e:
+        print(f"Ошибка парсинга: {e}")
         return None
 
 async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya") -> str | None:
