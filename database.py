@@ -163,7 +163,10 @@ async def set_user_state(vk_id: int, state: str) -> bool:
     from modules.states import MyStates
     import json
     if not state:
-        await bot.state_dispenser.delete(vk_id)
+        try:
+            await bot.state_dispenser.delete(vk_id)
+        except KeyError:
+            pass
         await set_fsm_state(vk_id, state)
         return True
 
