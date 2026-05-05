@@ -5,6 +5,7 @@ import aiohttp
 import aiofiles
 import datetime
 from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
+from loguru import logger
 
 cover_cache = {}
 
@@ -36,7 +37,7 @@ async def upload_local_photo(bot_api, filename: str) -> str:
             cover_cache[filename] = raw_photo_id
             return raw_photo_id
     except Exception as e:
-        print(f"Failed to upload local photo {filename}: {e}")
+        logger.exception(f"Failed to upload local photo {filename}: {e}")
         return ""
 
 async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int):
@@ -76,7 +77,7 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
                 random_id=0
             )
         except Exception as e:
-            print(f"Failed to send daily bonus notification: {e}")
+            logger.exception(f"Failed to send daily bonus notification: {e}")
 
 
 def get_dynamic_keyboard(user: dict | None = None) -> str:
@@ -182,5 +183,5 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
         HTML(string=html_out).write_pdf(output_filename)
         return True
     except Exception as e:
-        print(f"Ошибка генерации PDF: {e}")
+        logger.exception(f"Ошибка генерации PDF: {e}")
         return False

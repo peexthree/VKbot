@@ -239,19 +239,19 @@ async def process_time(message: Message):
                     try:
                         await message.answer(main_part, keyboard=kb_json)
                     except Exception as e:
-                        print(f"Error sending message with keyboard in process_time: {e}")
+                        logger.exception(f"Error sending message with keyboard in process_time: {e}")
                         await message.answer(main_part)
                 else:
                     try:
                         await message.answer(base_text, keyboard=kb_json)
                     except Exception as e:
-                        print(f"Error sending message with keyboard in process_time: {e}")
+                        logger.exception(f"Error sending message with keyboard in process_time: {e}")
                         await message.answer(base_text)
             else:
                 try:
                     await message.answer("Используйте меню для навигации:", keyboard=get_dynamic_keyboard(user))
                 except Exception as e:
-                    print(f"Error sending navigation menu: {e}")
+                    logger.exception(f"Error sending navigation menu: {e}")
         else:
             await set_user_state(vk_id, json.dumps({"step": "city", "date": date_str, "time": time_str}))
             await message.answer("Укажите ГОРОД рождения:")
@@ -317,7 +317,7 @@ async def process_city(message: Message):
                 keyboard=json.dumps(kb, ensure_ascii=False)
             )
         except Exception as e:
-            print(f"Error sending sync completion message: {e}")
+            logger.exception(f"Error sending sync completion message: {e}")
             await message.answer("Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 700 Энергии звезд и твой первый анализ. Нажми кнопку ниже, чтобы забрать дар и увидеть магию в действии.")
 
     finally:
@@ -348,6 +348,6 @@ async def back_to_main_menu(message: Message):
                 "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?"
             )
     except Exception as e:
-        print(f"Error sending main menu: {e}")
+        logger.exception(f"Error sending main menu: {e}")
     finally:
         await release_lock(vk_id)
