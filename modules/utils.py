@@ -82,7 +82,7 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
 
 def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную (нижнюю) клавиатуру с Картой дня и Путеводителем"""
-    keyboard = Keyboard(inline=True)
+    keyboard = Keyboard(inline=False)
     
     keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
     keyboard.add(Text("🛰 ТАРИФЫ"), color=KeyboardButtonColor.SECONDARY)
@@ -93,7 +93,6 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     keyboard.row()
     
     keyboard.add(Text("📖 Путеводитель"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("✦ Главное меню"), color=KeyboardButtonColor.SECONDARY)
     
     return keyboard.get_json()
 
