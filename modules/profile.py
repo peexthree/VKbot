@@ -5,10 +5,10 @@ import random
 import re
 import datetime
 from vkbottle.bot import BotLabeler, Message
-from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
+from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache
+from modules.utils import bot, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache
 
 labeler = BotLabeler()
 
@@ -22,9 +22,9 @@ async def show_balance(message: Message):
         await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
         return
 
-    balance = user.get("balance", 0)
+    balance = int(user.get("balance", 0) or 0)
 
-    await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ")
+    await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд")
 
 @labeler.message(text=["✦ Настройки ⚙", "Настройки", "⚙ НАСТРОЙКИ"])
 async def settings_handler(message: Message):
@@ -32,9 +32,7 @@ async def settings_handler(message: Message):
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
-
         return
-
 
     try:
         text = "✦ НАСТРОЙКИ И ЮРИДИЧЕСКИЙ ЩИТ ✦"
@@ -60,7 +58,6 @@ async def settings_change_data(message: Message):
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
-
         return
 
     try:
@@ -75,7 +72,6 @@ async def settings_cancel_subscription(message: Message):
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
-
         return
 
     try:
@@ -87,7 +83,6 @@ async def settings_cancel_subscription(message: Message):
 async def settings_reset_account(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
-
         return
 
     try:
@@ -113,7 +108,6 @@ async def settings_choose_character(message: Message):
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
-
         return
 
     try:
@@ -141,7 +135,6 @@ async def settings_choose_character(message: Message):
         free_skins = ["Олеся Ивонченко", "Серьезный Аскет", "olesya", "asket"]
 
         for skin_name, filename in SKIN_ASSETS.items():
-            # Skip english duplicate names if we only want to display Russian
             if skin_name in ["olesya", "asket"]:
                  continue
 
@@ -153,7 +146,7 @@ async def settings_choose_character(message: Message):
                 photo = None
 
             style_desc = styles.get(skin_name, "мистицизм")
-            text = f"✦ ПЕРСОНАЖ: {skin_name}\nСтиль: {style_desc}\nЦена: 150 РУБ или 15 бонусов."
+            text = f"✦ ПЕРСОНАЖ: {skin_name}\nСтиль: {style_desc}\nЦена: 1500 Энергии звезд."
 
             from vkbottle import Keyboard, KeyboardButtonColor, Text
             import json
@@ -162,7 +155,7 @@ async def settings_choose_character(message: Message):
             if skin_name in purchased_skins or skin_name in free_skins:
                 kb.add(Text("ВЫБРАТЬ", payload=json.dumps({"cmd": "set_skin", "skin": skin_name})), color=KeyboardButtonColor.POSITIVE)
             else:
-                kb.add(Text("КУПИТЬ 150 РУБ", payload=json.dumps({"cmd": "buy_skin", "skin": skin_name})), color=KeyboardButtonColor.PRIMARY)
+                kb.add(Text("КУПИТЬ 1500 Энергии", payload=json.dumps({"cmd": "buy_skin", "skin": skin_name})), color=KeyboardButtonColor.PRIMARY)
 
             if photo:
                 try:
@@ -178,13 +171,11 @@ async def settings_choose_character(message: Message):
 async def process_skin_action(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
-
         return
 
     user = await get_user(vk_id)
     if not user:
         return
-
 
     try:
         import json
@@ -194,7 +185,7 @@ async def process_skin_action(message: Message):
 
         purchased_skins = user.get("purchased_skins", [])
         free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
-        balance = user.get("balance", 0)
+        balance = int(user.get("balance", 0) or 0)
 
         if action == "set_skin":
             if target_skin in free_skins or target_skin in purchased_skins:
@@ -208,7 +199,7 @@ async def process_skin_action(message: Message):
                 await message.answer("Этот скин уже куплен.")
                 return
 
-            price = 150
+            price = 1500
             if balance >= price:
                 new_balance = balance - price
                 purchased_skins.append(target_skin)
@@ -217,9 +208,9 @@ async def process_skin_action(message: Message):
                     "purchased_skins": purchased_skins,
                     "active_skin": target_skin
                 })
-                await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: 💳 {new_balance} РУБ.")
+                await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: 💳 {new_balance} Энергии звезд.")
             else:
-                await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.")
+                await message.answer(f"Недостаточно Энергии звезд. Цена: {price}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд.")
     finally:
         await release_lock(vk_id)
 
@@ -258,10 +249,9 @@ async def show_profile(message: Message):
     bars = min(10, int((cards_count / 78) * 10))
     progress_bar = ("|" * bars) + ("." * (10 - bars))
 
-    balance = user.get("balance", 0)
-    bonuses = user.get("bonuses", 0)
+    balance = int(user.get("balance", 0) or 0)
 
-    status = "Пробужденный" if bonuses > 0 else "Спящий"
+    status = "Пробужденный" if balance > 0 else "Спящий"
 
     transit_expires = user.get("transit_sub_expires_at")
     transit_status = "Базовый"
@@ -282,8 +272,7 @@ async def show_profile(message: Message):
         f"⏳ ДНЕЙ В ОСОЗНАННОСТИ: {days_in_matrix}\n"
         f"🎴 СОБРАНО КАРТ: {total_cards_received} из 78\n"
         f"📊 ПРОГРЕСС: {progress_bar}\n"
-        f"💳 БАЛАНС: {balance} РУБ\n"
-        f"💎 БОНУСЫ: {bonuses}\n"
+        f"💳 БАЛАНС: {balance} Энергии звезд\n"
         f"🛡 СТАТУС: {status}\n"
         f"📡 ТРАНЗИТ: {transit_status}\n"
         f"🕙 ДОСТУП ДО: {transit_timer}\n\n"
@@ -340,7 +329,6 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
     from cache import get_tarot_names
     tarot_names = await get_tarot_names()
 
-    # Gather all unlocked cards
     unlocked_items = []
     for i in range(78):
         card_id_str = str(i)
@@ -459,9 +447,7 @@ async def god_mode_handler(message: Message):
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
-
         return
-
 
     try:
         user = await get_user(vk_id)
@@ -479,7 +465,6 @@ async def god_mode_handler(message: Message):
 
         await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
 
-        # Need to get updated user for keyboard
         user = await get_user(vk_id)
         kb_json = await get_sections_keyboard(vk_id, user)
 
@@ -501,7 +486,7 @@ async def referral_handler(message: Message):
     vk_id = message.from_id
     from database import set_user_state
     await set_user_state(vk_id, "")
-    await message.answer(f"✦ РЕФЕРАЛЬНАЯ СИСТЕМА ✦\n\nТвой промокод: ПРОМО-{vk_id}\n\nОтправь этот код другу. Если он напишет его мне, вы оба получите по 50 бонусов!")
+    await message.answer(f"✦ РЕФЕРАЛЬНАЯ СИСТЕМА ✦\n\nТвой промокод: ПРОМО-{vk_id}\n\nОтправь этот код другу. Если он напишет его мне, вы оба получите по 500 Энергии звезд!")
 
 @labeler.message(func=lambda m: m.text and re.match(r"^ПРОМО-\d+$", m.text.strip()))
 async def apply_promo_handler(message: Message):
@@ -521,25 +506,21 @@ async def apply_promo_handler(message: Message):
         await message.answer("Сначала зарегистрируйся в системе (напиши Начать).")
         return
 
-    # Prevent reuse by checking if they already applied a promo (e.g. check some field, but we'll just give bonuses)
-    # Actually, we should probably check if they already used one.
-    # To keep it simple, we just give bonuses.
-
     referrer = await get_user(referrer_id)
     if not referrer:
         await message.answer("Такого промокода не существует.")
         return
 
-    user_bonuses = user.get("bonuses", 0) + 50
-    referrer_bonuses = referrer.get("bonuses", 0) + 50
+    user_balance = int(user.get("balance", 0) or 0) + 500
+    referrer_balance = int(referrer.get("balance", 0) or 0) + 500
 
-    await update_user(vk_id, {"bonuses": user_bonuses})
-    await update_user(referrer_id, {"bonuses": referrer_bonuses})
+    await update_user(vk_id, {"balance": user_balance})
+    await update_user(referrer_id, {"balance": referrer_balance})
 
-    await message.answer(f"ПРОМОКОД АКТИВИРОВАН! Тебе начислено 500 Энергии звезд. Твой баланс: {user_bonuses}")
+    await message.answer(f"ПРОМОКОД АКТИВИРОВАН! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
 
     try:
-        await bot.api.messages.send(peer_id=referrer_id, message=f"Твой друг активировал промокод! Тебе начислено 500 Энергии звезд. Твой баланс: {referrer_bonuses}", random_id=0)
+        await bot.api.messages.send(peer_id=referrer_id, message=f"Твой друг активировал промокод! Тебе начислено 500 Энергии звезд. Твой баланс: {referrer_balance} Энергии звезд", random_id=0)
     except Exception:
         pass
 
