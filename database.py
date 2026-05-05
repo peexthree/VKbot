@@ -88,7 +88,6 @@ async def get_inactive_free_users() -> list[Dict[str, Any]]:
     if not URL or not KEY or session is None:
         return []
     try:
-        # Для демо берем всех, кто не купил. В реальности нужно фильтровать по created_at < now - 3 days
         async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?has_full_chart=eq.false", headers=HEADERS) as r:
             if r.status == 200:
                 data = await r.json()
@@ -117,7 +116,8 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "purchased_skins": [],
         "transit_trial_days": 0,
         "transit_sub_expires_at": None,
-        "bonuses": 0,
+        "bonuses": None, 
+        "last_daily_bonus_date": None,
         "last_active_date": None,
         "unlocked_cards": {},
         "weekly_log": [],
