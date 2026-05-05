@@ -147,7 +147,7 @@ async def get_fsm_step(vk_id: int) -> dict | None:
     if data:
         try:
             return json.loads(data)
-        except Exception:
+        except Exception as e:
             return None
     return None
 

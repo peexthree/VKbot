@@ -36,6 +36,10 @@ async def message_event_handler(event: dict):
     event_id = obj.get("event_id")
     payload = obj.get("payload", {})
 
+    # Throttling is very important for inline callbacks (MESSAGE_EVENT) as well.
+    from cache import check_throttle
+    if vk_id and await check_throttle(vk_id): return
+
     if not await acquire_lock(vk_id, ttl=2): return
     try:
         if not vk_id or not payload:
@@ -307,18 +311,39 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
             # Очищаем текст от тех. тегов ID_ТАРО
             display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
 
-            # 4. Генерация PDF
+            # 4. Генерация PDF (через asyncio.to_thread чтобы не блокировать event loop)
             pdf_name = f"report_{vk_id}_{target_section}.pdf"
             b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
-            generate_premium_pdf(p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name)
+            await asyncio.to_thread(generate_premium_pdf, p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name)
 
             # 5. Отправка
             doc = await DocMessagesUploader(bot.api).upload(title=f"{target_section}.pdf", file_source=pdf_name, peer_id=peer_id)
             kb = await get_sections_keyboard(vk_id, user)
             await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=doc, keyboard=kb, random_id=0)
 
-            if os.path.exists(pdf_name): os.remove(pdf_name)
+            if os.path.exists(pdf_name):
+                await asyncio.to_thread(os.remove, pdf_name)
         else:
-            await bot.api.messages.send(peer_id=peer_id, message="К сожалению, связь с духами прервалась. Попробуй еще раз.", random_id=0)
+            await handle_generation_failure(vk_id, peer_id, target_section)
     except Exception as e:
         logger.exception(f"КРИТИЧЕСКАЯ ОШИБКА ГЕНЕРАЦИИ: {e}")
+        await handle_generation_failure(vk_id, peer_id, target_section)
+
+async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str):
+    """Возвращает деньги при сбое генерации"""
+    prices = {
+        "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
+        "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
+        "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
+    }
+    price_of_service = prices.get(target_section, 0)
+
+    user = await get_user(vk_id)
+    if user and price_of_service > 0:
+        await update_user(vk_id, {"balance": user.get("balance", 0) + price_of_service})
+
+    await bot.api.messages.send(
+        peer_id=peer_id,
+        message="К сожалению, связь с духами прервалась. Твоя Энергия звезд возвращена на баланс. Попробуй еще раз через минуту.",
+        random_id=0
+    )

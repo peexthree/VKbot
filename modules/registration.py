@@ -1,4 +1,5 @@
 from cache import acquire_lock, release_lock
+from modules.states import MyStates
 import asyncio
 import json
 import random
@@ -60,7 +61,7 @@ async def start_handler(message: Message):
                 if info.city:
                     city = info.city.title
         except Exception as e:
-            print(f"Error fetching user info: {e}")
+            logger.exception(f"Error fetching user info: {e}")
 
         if not user:
             user = await create_user(vk_id, "", "", "")
@@ -107,15 +108,7 @@ async def start_handler(message: Message):
     finally:
         await release_lock(vk_id)
 
-async def is_waiting_confirm_data(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"):
-        return False
-    if message.text and message.text.lower() in ["начать", "start", "/start"]:
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "confirm_data"
-
-@labeler.message(func=is_waiting_confirm_data)
+@labeler.message(state=MyStates.WAITING_CONFIRM_DATA)
 async def process_confirm_data(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -146,15 +139,7 @@ async def process_confirm_data(message: Message):
     finally:
         await release_lock(vk_id)
 
-async def is_waiting_date(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"):
-        return False
-    if message.text and message.text.lower() in ["начать", "start", "/start"]:
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "date"
-
-@labeler.message(func=is_waiting_date)
+@labeler.message(state=MyStates.WAITING_FOR_DATE)
 async def process_date(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -172,15 +157,7 @@ async def process_date(message: Message):
     finally:
         await release_lock(vk_id)
 
-async def is_waiting_time(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"):
-        return False
-    if message.text and message.text.lower() in ["начать", "start", "/start"]:
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "time"
-
-@labeler.message(func=is_waiting_time)
+@labeler.message(state=MyStates.WAITING_FOR_TIME)
 async def process_time(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -258,15 +235,7 @@ async def process_time(message: Message):
     finally:
         await release_lock(vk_id)
 
-async def is_waiting_city(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"):
-        return False
-    if message.text and message.text.lower() in ["начать", "start", "/start"]:
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "city"
-
-@labeler.message(func=is_waiting_city)
+@labeler.message(state=MyStates.WAITING_FOR_CITY)
 async def process_city(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -352,7 +321,7 @@ async def back_to_main_menu(message: Message):
                 "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
                 keyboard=kb_json
             )
-        except Exception:
+        except Exception as e:
             await message.answer(
                 "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?"
             )

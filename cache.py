@@ -14,6 +14,16 @@ async def acquire_lock(vk_id: int | str, ttl: int = 90) -> bool:
 async def release_lock(vk_id: int | str):
     await redis_client.delete(f"lock:{vk_id}")
 
+async def check_throttle(vk_id: int | str) -> bool:
+    """Returns True if the user is throttled (should be ignored), False otherwise."""
+    from loguru import logger
+    try:
+        res = await redis_client.set(f"throttle:{vk_id}", "1", nx=True, ex=2)
+        return not bool(res)
+    except Exception as e:
+        logger.exception(f"Error checking throttle for {vk_id}")
+        return False
+
 async def set_fsm_state(vk_id: int | str, state_data: str, ttl: int = 86400):
     if not state_data:
         await redis_client.delete(f"fsm:{vk_id}")
@@ -30,16 +40,17 @@ async def get_tarot_names() -> dict:
     if TAROT_NAMES_CACHE is not None:
         return TAROT_NAMES_CACHE
 
+    from loguru import logger
     try:
         cached = await redis_client.get("system:tarot_names")
         if cached:
             try:
                 TAROT_NAMES_CACHE = json.loads(cached)
                 return TAROT_NAMES_CACHE
-            except Exception:
-                pass
-    except Exception:
-        pass 
+            except Exception as e:
+                logger.exception("Error decoding tarot names from cache")
+    except Exception as e:
+        logger.exception("Error fetching tarot names from cache")
 
     try:
         with open("tarot_ids.json", "r", encoding="utf-8") as f:
@@ -47,8 +58,9 @@ async def get_tarot_names() -> dict:
             TAROT_NAMES_CACHE = names
             try:
                 await redis_client.set("system:tarot_names", json.dumps(names, ensure_ascii=False))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.exception("Error saving tarot names to cache")
             return names
-    except Exception:
+    except Exception as e:
+        logger.exception("Error loading tarot names from file")
         return {}

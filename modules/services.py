@@ -2,6 +2,7 @@ import os
 import json
 import math
 from cache import acquire_lock, release_lock
+from modules.states import MyStates
 import asyncio
 
 import random
@@ -29,8 +30,8 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     if not user:
         try:
             await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Ignored Exception")
         return
 
     services = [
@@ -135,19 +136,19 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         if att:
             try:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, keyboard=kb_json, random_id=0)
-            except Exception:
+            except Exception as e:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, random_id=0)
         else:
             try:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
-            except Exception:
+            except Exception as e:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
     except Exception as e:
         logger.exception(f"Error sending service block {svc['title']}: {e}")
         try:
             await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Ignored Exception")
 
 
 async def is_waiting_synastry_name(message: Message) -> bool:
@@ -172,15 +173,7 @@ async def process_synastry_name(message: Message):
     finally:
         await release_lock(vk_id)
 
-async def is_waiting_synastry_date(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"):
-        return False
-    if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "waiting_synastry_date"
-
-@labeler.message(func=is_waiting_synastry_date)
+@labeler.message(state=MyStates.WAITING_SYNASTRY_DATE)
 async def process_synastry_date(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -275,14 +268,14 @@ async def process_synastry_date(message: Message):
             birth_info = f"{date} {time} {city}"
             partner_name = state_dict.get("partner_name", "Партнер")
 
-            generate_premium_pdf(partner_name, birth_info, "СИНАСТРИЯ", display_text, pdf_filename, card_id)
+            await asyncio.to_thread(generate_premium_pdf, partner_name, birth_info, "СИНАСТРИЯ", display_text, pdf_filename, card_id)
 
             doc_uploader = DocMessagesUploader(bot.api)
             doc_attachment = await doc_uploader.upload(title="Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)
             await bot.api.messages.send(peer_id=vk_id, message="Твой персональный архив. Скачай, чтобы не потерять.", attachment=doc_attachment, random_id=0)
 
             if os.path.exists(pdf_filename):
-                os.remove(pdf_filename)
+                await asyncio.to_thread(os.remove, pdf_filename)
         except Exception as e:
             logger.exception(f"Failed to process pdf for synastry: {e}")
 
@@ -306,12 +299,12 @@ async def process_synastry_date(message: Message):
             await asyncio.sleep(4)
             try:
                 await message.answer(main_part, keyboard=kb_json)
-            except Exception:
+            except Exception as e:
                 await message.answer(main_part)
         else:
             try:
                 await message.answer(display_text, keyboard=kb_json)
-            except Exception:
+            except Exception as e:
                 await message.answer(display_text)
 
         if photo_attachment:
@@ -323,7 +316,7 @@ async def process_synastry_date(message: Message):
 
             try:
                 await message.answer(f"🎴 Значение карты:\n{caption}", attachment=photo_attachment)
-            except Exception:
+            except Exception as e:
                 await message.answer("", attachment=photo_attachment)
 
     finally:
@@ -341,8 +334,8 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     if not user:
         try:
             await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Ignored Exception")
         return
 
     tariffs = [
@@ -412,16 +405,16 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         if att:
             try:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, keyboard=kb_json, random_id=0)
-            except Exception:
+            except Exception as e:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, random_id=0)
         else:
             try:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
-            except Exception:
+            except Exception as e:
                 await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
     except Exception as e:
         logger.exception(f"Error sending tariff block {svc['title']}: {e}")
         try:
             await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Ignored Exception")
