@@ -14,7 +14,7 @@ from database import get_user, update_user, set_user_state, get_user_state, crea
 from ai_service import generate_text, generate_section
 from modules.utils import (
     bot, generate_premium_pdf, get_fsm_step, upload_local_photo, 
-    get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache
+    get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore
 )
 from cache import acquire_lock, release_lock
 
@@ -301,6 +301,9 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         active_skin = user.get("active_skin", "olesya")
 
         # 3. Генерация текста
+        await bot.api.messages.send(peer_id=peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
+        await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+
         res_text = await generate_section(
             target_section, user.get("birth_date"), user.get("birth_time"),
             user.get("birth_city"), user.get("core_profile", ""),
@@ -314,7 +317,8 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
             # 4. Генерация PDF (через asyncio.to_thread чтобы не блокировать event loop)
             pdf_name = f"report_{vk_id}_{target_section}.pdf"
             b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
-            await asyncio.to_thread(generate_premium_pdf, p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name)
+            async with pdf_semaphore:
+                await asyncio.to_thread(generate_premium_pdf, p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name)
 
             # 5. Отправка
             doc = await DocMessagesUploader(bot.api).upload(title=f"{target_section}.pdf", file_source=pdf_name, peer_id=peer_id)

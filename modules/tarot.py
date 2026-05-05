@@ -112,6 +112,9 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             "Сначала выведи: Карта [N]: [Название] - [Краткий смысл]. Только потом делай общий синтез."
         )
 
+        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
+        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+
         result_text = await generate_text(prompt, skin=active_skin)
         if not result_text:
             result_text = "Оракул молчит. Попробуй позже."
@@ -257,6 +260,10 @@ async def card_of_day_handler(message: Message):
 
         from ai_service import generate_section
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
+
+        await message.answer("ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...")
+        await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+
         result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin)
 
         if not result_text:
@@ -364,6 +371,9 @@ async def card_of_day_handler(message: Message):
                 "Проанализируй этот список в динамике, сделай профессиональный разбор. "
                 "Что преобладало, какие тенденции, и куда это ведет."
             )
+
+            await bot.api.messages.send(peer_id=message.peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
+            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
 
             synthesis_result = await generate_text(synthesis_prompt, skin=active_skin)
             if synthesis_result:

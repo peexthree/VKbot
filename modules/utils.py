@@ -155,6 +155,8 @@ async def get_fsm_step(vk_id: int) -> dict | None:
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
+pdf_semaphore = asyncio.Semaphore(1)
+
 def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, text_content: str, output_filename: str, card_id: str = None):
     try:
         env = Environment(loader=FileSystemLoader('templates'))

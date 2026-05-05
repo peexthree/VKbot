@@ -70,70 +70,54 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                 "contents": [{"parts": [{"text": final_prompt}]}]
             }
 
-            from database import session as db_session
-
-            # Если db_session недоступна (например, в тестах), создаем временную сессию
-            use_temp_session = db_session is None
-            session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) if use_temp_session else db_session
-
             try:
-                # Используем нужный timeout
-                req_kwargs = {"json": payload}
-                if not use_temp_session:
-                    req_kwargs["timeout"] = aiohttp.ClientTimeout(total=30)
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                    req_kwargs = {"json": payload}
 
-                try:
-                    async with session.post(url, **req_kwargs) as resp:
-                        if resp.status == 200:
-                            res_data = await resp.json()
-                            try:
-                                text = res_data['candidates'][0]['content']['parts'][0]['text']
-                                if not json_mode:
-                                    text = text.replace('*', '').replace('#', '').replace('_', '').replace('—', '-')
-                                if use_temp_session: await session.close()
-                                return text
-                            except (KeyError, IndexError):
-                                if use_temp_session: await session.close()
+                    try:
+                        async with session.post(url, **req_kwargs) as resp:
+                            if resp.status == 200:
+                                res_data = await resp.json()
+                                try:
+                                    text = res_data['candidates'][0]['content']['parts'][0]['text']
+                                    if not json_mode:
+                                        text = text.replace('*', '').replace('#', '').replace('_', '').replace('—', '-')
+                                    return text
+                                except (KeyError, IndexError):
+                                    continue
+                            elif resp.status == 429:
+                                logger.warning(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
+                                retry_count = 0
+                                success = False
+                                while retry_count < 3 and not success:
+                                    retry_count += 1
+                                    await asyncio.sleep(2 ** retry_count)
+                                    async with session.post(url, **req_kwargs) as retry_resp:
+                                        if retry_resp.status == 200:
+                                            res_data = await retry_resp.json()
+                                            try:
+                                                text = res_data['candidates'][0]['content']['parts'][0]['text']
+                                                if not json_mode:
+                                                    text = text.replace('*', '').replace('#', '').replace('_', '').replace('—', '-')
+                                                return text
+                                            except (KeyError, IndexError):
+                                                pass
+                                        elif retry_resp.status != 429:
+                                            break
                                 continue
-                        elif resp.status == 429:
-                            logger.warning(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
-                            retry_count = 0
-                            success = False
-                            while retry_count < 3 and not success:
-                                retry_count += 1
-                                await asyncio.sleep(2 ** retry_count)
-                                async with session.post(url, **req_kwargs) as retry_resp:
-                                    if retry_resp.status == 200:
-                                        res_data = await retry_resp.json()
-                                        try:
-                                            text = res_data['candidates'][0]['content']['parts'][0]['text']
-                                            if not json_mode:
-                                                text = text.replace('*', '').replace('#', '').replace('_', '').replace('—', '-')
-                                            if use_temp_session: await session.close()
-                                            return text
-                                        except (KeyError, IndexError):
-                                            pass
-                                    elif retry_resp.status != 429:
-                                        break
-                            if use_temp_session: await session.close()
-                            continue
-                        else:
-                            error_text = await resp.text()
-                            logger.error(f"Text API Error status {resp.status} on {model}. Trying next key. Error details: {error_text}")
-                            if use_temp_session: await session.close()
-                            continue
-                except asyncio.TimeoutError:
-                    logger.warning(f"Timeout on {model}. Trying next.")
-                    if use_temp_session: await session.close()
-                    return "Сервис временно перегружен, пожалуйста, подождите немного и повторите запрос."
-                except Exception as e:
-                    last_exception = e
-                    logger.exception(f"API Error ({model}): {e}. Trying next.")
-                    if use_temp_session: await session.close()
-                    continue
+                            else:
+                                error_text = await resp.text()
+                                logger.error(f"Text API Error status {resp.status} on {model}. Trying next key. Error details: {error_text}")
+                                continue
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Timeout on {model}. Trying next.")
+                        return "Сервис временно перегружен, пожалуйста, подождите немного и повторите запрос."
+                    except Exception as e:
+                        last_exception = e
+                        logger.exception(f"API Error ({model}): {e}. Trying next.")
+                        continue
             except Exception as e:
                 logger.exception(f"Global Session API Error ({model}): {e}. Trying next.")
-                if use_temp_session: await session.close()
                 continue
 
     logger.error(f"All keys and models exhausted or failed for text generation. Last error: {last_exception}")
