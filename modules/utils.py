@@ -3,6 +3,7 @@ import json
 import os
 import aiohttp
 import aiofiles
+import datetime
 from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
 
 cover_cache = {}
@@ -38,35 +39,89 @@ async def upload_local_photo(bot_api, filename: str) -> str:
         print(f"Failed to upload local photo {filename}: {e}")
         return ""
 
-def get_dynamic_keyboard(user: dict | None) -> str:
+async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int):
+    """Проверяет и выдает ежедневный бонус (100 Энергии звезд) при отрисовке меню"""
+    if not user:
+        return
+        
+    from database import update_user
+    
+    last_bonus_date_str = user.get("last_daily_bonus_date")
+    now_date = datetime.datetime.now(datetime.timezone.utc).date()
+    
+    should_give = False
+    
+    if not last_bonus_date_str:
+        should_give = True
+    else:
+        try:
+            last_bonus_date = datetime.date.fromisoformat(last_bonus_date_str)
+            if now_date > last_bonus_date:
+                should_give = True
+        except ValueError:
+            should_give = True
+            
+    if should_give:
+        current_balance = int(user.get("balance", 0) or 0)
+        new_balance = current_balance + 100
+        await update_user(vk_id, {
+            "balance": new_balance, 
+            "last_daily_bonus_date": now_date.isoformat()
+        })
+        try:
+            from modules.bot_init import bot
+            await bot.api.messages.send(
+                peer_id=peer_id, 
+                message=f"🎁 Твой ежедневный дар: +100 Энергии звезд.\nВозвращайся завтра за новой порцией. Твой баланс: {new_balance}.", 
+                random_id=0
+            )
+        except Exception as e:
+            print(f"Failed to send daily bonus notification: {e}")
+
+
+def get_dynamic_keyboard(user: dict | None = None) -> str:
+    """Генерирует главную (нижнюю) клавиатуру с Картой дня и Путеводителем"""
     keyboard = Keyboard(inline=False)
+    
     keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
     keyboard.add(Text("🛰 ТАРИФЫ"), color=KeyboardButtonColor.SECONDARY)
     keyboard.row()
+    
+    keyboard.add(Text("🃏 Карта дня"), color=KeyboardButtonColor.PRIMARY)
     keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.PRIMARY)
     keyboard.row()
+    
+    keyboard.add(Text("📖 Путеводитель"), color=KeyboardButtonColor.SECONDARY)
     keyboard.add(Text("✦ Главное меню"), color=KeyboardButtonColor.SECONDARY)
+    
     return keyboard.get_json()
 
-async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
+async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
+    """Генерирует инлайн клавиатуру для открытых (купленных) разделов"""
+    # Заодно при отрисовке инлайн-кнопок меню выдадим бонус, если наступил новый день
+    await check_and_give_daily_bonus(vk_id, user, vk_id)
+    
     purchased = user.get("purchased_sections", {}) if user else {}
     buttons = []
 
-    # Секс
+    # Если куплен Секс, но результат еще не сгенерирован
     if purchased.get("sex"):
         buttons.append([{"action": {"type": "text", "label": "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ"}, "color": "positive"}])
 
-    # Деньги
     if purchased.get("money"):
         buttons.append([{"action": {"type": "text", "label": "💰 КОД ТВОЕГО БОГАТСТВА"}, "color": "positive"}])
 
-    # Тень
     if purchased.get("shadow"):
         buttons.append([{"action": {"type": "text", "label": "🌘 ТВОИ СКРЫТЫЕ ГРАНИ"}, "color": "positive"}])
 
-    # Финал
     if purchased.get("final"):
         buttons.append([{"action": {"type": "text", "label": "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ"}, "color": "positive"}])
+        
+    if purchased.get("antitaro"):
+        buttons.append([{"action": {"type": "text", "label": "АНТИТАРО"}, "color": "positive"}])
+        
+    if purchased.get("synastry"):
+        buttons.append([{"action": {"type": "text", "label": "👨‍❤️‍👨 СИНАСТРИЯ"}, "color": "positive"}])
 
     if not buttons:
         buttons.append([{"action": {"type": "text", "label": "✦ УСЛУГИ 🛒"}, "color": "secondary"}])
@@ -79,39 +134,11 @@ async def get_sections_keyboard(user_id: int, user: dict | None) -> str:
     return json.dumps(keyboard_obj, ensure_ascii=False)
 
 async def get_storefront_keyboard(purchased: dict) -> str | None:
-    import json
-    buttons = []
-
-    if not purchased.get("sex"):
-        buttons.append([{"action": {"type": "text", "label": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ"}, "color": "secondary"}])
-
-    if not purchased.get("money"):
-        buttons.append([{"action": {"type": "text", "label": "КОД ТВОЕГО БОГАТСТВА"}, "color": "secondary"}])
-
-    if not purchased.get("shadow"):
-        buttons.append([{"action": {"type": "text", "label": "ТВОИ СКРЫТЫЕ ГРАНИ"}, "color": "secondary"}])
-
-    if not purchased.get("final"):
-        buttons.append([{"action": {"type": "text", "label": "ТВОЙ ИСТИННЫЙ ПУТЬ"}, "color": "secondary"}])
-
-    purchased_count = sum([bool(purchased.get("sex")), bool(purchased.get("money")), bool(purchased.get("shadow")), bool(purchased.get("final"))])
-    if purchased_count < 2:
-        buttons.append([{"action": {"type": "text", "label": "ЗОЛОТОЙ АРХИВ"}, "color": "secondary"}])
-
-    # Oracle freemium skip button (always added as an option to purchase)
-    buttons.append([{"action": {"type": "text", "label": "ВОПРОС СУДЬБЕ"}, "color": "secondary"}])
-
-    if buttons:
-        keyboard_obj = {
-            "inline": True,
-            "buttons": buttons
-        }
-        return json.dumps(keyboard_obj, ensure_ascii=False)
+    # Эта функция больше не используется для основной витрины (мы используем карусель из services.py)
+    # Оставляем пустую реализацию для совместимости со старыми модулями
     return None
 
 from modules.bot_init import bot
-
-import json
 from database import get_user_state
 
 async def get_fsm_step(vk_id: int) -> dict | None:
@@ -124,7 +151,6 @@ async def get_fsm_step(vk_id: int) -> dict | None:
     return None
 
 
-import os
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
