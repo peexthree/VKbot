@@ -1,6 +1,7 @@
 from vkbottle import BaseMiddleware
 from vkbottle.bot import Message
-from cache import check_throttle
+from cache import check_throttle, check_and_set_throttle_warning
+from loguru import logger
 import json
 
 class ThrottleMiddleware(BaseMiddleware[Message]):
@@ -27,4 +28,10 @@ class ThrottleMiddleware(BaseMiddleware[Message]):
         if is_heavy:
             is_throttled = await check_throttle(vk_id)
             if is_throttled:
+                should_warn = await check_and_set_throttle_warning(vk_id)
+                if should_warn:
+                    try:
+                        await self.event.answer("ТЫ СЛИШКОМ ТОРОПИШЬСЯ, ЭНЕРГИЯ НЕ УСПЕВАЕТ ВОССТАНОВИТЬСЯ")
+                    except Exception as e:
+                        logger.error(f"Ошибка отправки предупреждения о троттлинге: {str(e)}")
                 self.stop("Throttled")

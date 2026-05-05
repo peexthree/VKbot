@@ -46,7 +46,7 @@ async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
                 logger.error(f"Supabase error in get_user: {r.status} {await r.text()}")
             return None
     except Exception as e:
-        logger.exception(f"Exception in get_user: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         return None
 
 async def get_all_subscribed_users() -> list[Dict[str, Any]]:
@@ -62,7 +62,7 @@ async def get_all_subscribed_users() -> list[Dict[str, Any]]:
                 logger.error(f"Supabase error in get_all_subscribed_users: {r.status} {await r.text()}")
             return []
     except Exception as e:
-        logger.exception(f"Exception in get_all_subscribed_users: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         return []
 
 async def get_all_users() -> list[Dict[str, Any]]:
@@ -78,7 +78,7 @@ async def get_all_users() -> list[Dict[str, Any]]:
                 logger.error(f"Supabase error in get_all_users: {r.status} {await r.text()}")
             return []
     except Exception as e:
-        logger.exception(f"Exception in get_all_users: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         return []
 
 async def get_inactive_free_users() -> list[Dict[str, Any]]:
@@ -94,7 +94,7 @@ async def get_inactive_free_users() -> list[Dict[str, Any]]:
                 logger.error(f"Supabase error in get_inactive_free_users: {r.status} {await r.text()}")
             return []
     except Exception as e:
-        logger.exception(f"Exception in get_inactive_free_users: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         return []
 
 async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: str) -> Optional[Dict[str, Any]]:
@@ -131,7 +131,7 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
                 logger.error(f"Supabase error in create_user: {r.status} {await r.text()}")
             return None
     except Exception as e:
-        logger.exception(f"Exception in create_user: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         return None
 
 async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -148,7 +148,7 @@ async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str,
                 logger.error(f"Supabase error in update_user: {r.status} {await r.text()}")
             return None
     except Exception as e:
-        logger.exception(f"Exception in update_user: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         return None
 
 async def check_and_save_transaction(transaction_id: str, vk_id: int, amount: int) -> bool:
@@ -180,7 +180,7 @@ async def check_and_save_transaction(transaction_id: str, vk_id: int, amount: in
                 logger.error(f"Supabase error in check_and_save_transaction (post): {r.status} {await r.text()}")
                 return False
     except Exception as e:
-        logger.exception(f"Exception in check_and_save_transaction: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         return False
 
 async def get_user_state(vk_id: int) -> Optional[str]:

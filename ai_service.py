@@ -114,10 +114,10 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                         return "Сервис временно перегружен, пожалуйста, подождите немного и повторите запрос."
                     except Exception as e:
                         last_exception = e
-                        logger.exception(f"API Error ({model}): {e}. Trying next.")
+                        logger.error(f"Ошибка: {str(e)}")
                         continue
             except Exception as e:
-                logger.exception(f"Global Session API Error ({model}): {e}. Trying next.")
+                logger.error(f"Ошибка: {str(e)}")
                 continue
 
     logger.error(f"All keys and models exhausted or failed for text generation. Last error: {last_exception}")
@@ -137,7 +137,7 @@ async def extract_birth_data(text: str) -> dict | None:
         clean_res = res.strip()
         return json.loads(clean_res)
     except Exception as e:
-        logger.exception(f"Ошибка парсинга: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         return None
 
 async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya") -> str | None:

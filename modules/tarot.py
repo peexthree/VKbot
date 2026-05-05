@@ -163,7 +163,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             await asyncio.sleep(0.5)
 
     except Exception as e:
-        logger.exception(f"Error in process_oracle_final: {e}")
+        logger.error(f"Ошибка: {str(e)}")
 
 @labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня"])
 async def card_of_day_handler(message: Message):
@@ -311,7 +311,7 @@ async def card_of_day_handler(message: Message):
             from vkbottle import PhotoMessageUploader
             photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg")
         except Exception as e:
-            logger.exception(f"Failed to upload tarot card {card_id}: {e}")
+            logger.error(f"Ошибка: {str(e)}")
 
         display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
 

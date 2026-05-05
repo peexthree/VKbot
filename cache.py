@@ -21,7 +21,17 @@ async def check_throttle(vk_id: int | str) -> bool:
         res = await redis_client.set(f"throttle:{vk_id}", "1", nx=True, ex=2)
         return not bool(res)
     except Exception as e:
-        logger.exception(f"Error checking throttle for {vk_id}")
+        logger.error(f"Ошибка проверки троттлинга для {vk_id}: {str(e)}")
+        return False
+
+async def check_and_set_throttle_warning(vk_id: int | str) -> bool:
+    """Returns True if a warning should be sent (i.e. cooldown is over), False if warning is on cooldown."""
+    from loguru import logger
+    try:
+        res = await redis_client.set(f"throttle_warning:{vk_id}", "1", nx=True, ex=10)
+        return bool(res)
+    except Exception as e:
+        logger.error(f"Ошибка проверки предупреждения троттлинга для {vk_id}: {str(e)}")
         return False
 
 async def set_fsm_state(vk_id: int | str, state_data: str, ttl: int = 86400):
@@ -48,9 +58,9 @@ async def get_tarot_names() -> dict:
                 TAROT_NAMES_CACHE = json.loads(cached)
                 return TAROT_NAMES_CACHE
             except Exception as e:
-                logger.exception("Error decoding tarot names from cache")
+                logger.error(f"Ошибка декодирования имен таро из кэша: {str(e)}")
     except Exception as e:
-        logger.exception("Error fetching tarot names from cache")
+        logger.error(f"Ошибка получения имен таро из кэша: {str(e)}")
 
     try:
         with open("tarot_ids.json", "r", encoding="utf-8") as f:
@@ -59,8 +69,8 @@ async def get_tarot_names() -> dict:
             try:
                 await redis_client.set("system:tarot_names", json.dumps(names, ensure_ascii=False))
             except Exception as e:
-                logger.exception("Error saving tarot names to cache")
+                logger.error(f"Ошибка сохранения имен таро в кэш: {str(e)}")
             return names
     except Exception as e:
-        logger.exception("Error loading tarot names from file")
+        logger.error(f"Ошибка загрузки имен таро из файла: {str(e)}")
         return {}

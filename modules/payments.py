@@ -57,7 +57,7 @@ async def message_event_handler(event: dict):
                 peer_id=peer_id
             )
         except Exception as e:
-            logger.exception(f"Error answering event: {e}")
+            logger.error(f"Ошибка: {str(e)}")
             
         # 2. Обработка команд (CALLBACK)
         if cmd == "use_section":
@@ -262,7 +262,7 @@ async def money_transfer_handler(event: dict):
             random_id=0
         )
     except Exception as e:
-        logger.exception(f"Error handling money_transfer: {e}")
+        logger.error(f"Ошибка: {str(e)}")
 
 async def process_payment_and_generate(vk_id: int, section: str):
     if not await acquire_lock(vk_id): return
@@ -340,7 +340,7 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         else:
             await handle_generation_failure(vk_id, peer_id, target_section)
     except Exception as e:
-        logger.exception(f"КРИТИЧЕСКАЯ ОШИБКА ГЕНЕРАЦИИ: {e}")
+        logger.error(f"Ошибка: {str(e)}")
         await handle_generation_failure(vk_id, peer_id, target_section)
 
 async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str):
