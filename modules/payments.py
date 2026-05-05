@@ -1,6 +1,7 @@
 import math
 import asyncio
 import json
+from loguru import logger
 import random
 import re
 import datetime
@@ -307,5 +308,41 @@ async def process_payment_and_generate(vk_id: int, section: str):
         await release_lock(vk_id)
 
 async def execute_generation(vk_id: int, peer_id: int, target_section: str, partner_name: str, partner_date: str):
-    # Твоя логика генерации из прошлого файла...
-    pass
+    """ПОЛНАЯ ЛОГИКА ГЕНЕРАЦИИ"""
+    try:
+        user = await get_user(vk_id)
+        if not user: return
+
+        # 1. Показываем прогресс
+        await bot.api.messages.send(peer_id=peer_id, message="🔮 Начинаю таинство разбора. Это займет около минуты...", random_id=0)
+
+        # 2. Формируем данные
+        p = user.get("purchased_sections", {})
+        active_skin = user.get("active_skin", "olesya")
+
+        # 3. Генерация текста
+        res_text = await generate_section(
+            target_section, user.get("birth_date"), user.get("birth_time"),
+            user.get("birth_city"), user.get("core_profile", ""),
+            p.get("first_name", ""), p.get("sex_val", 0), skin=active_skin
+        )
+
+        if res_text:
+            # Очищаем текст от тех. тегов ID_ТАРО
+            display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
+
+            # 4. Генерация PDF
+            pdf_name = f"report_{vk_id}_{target_section}.pdf"
+            b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
+            generate_premium_pdf(p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name)
+
+            # 5. Отправка
+            doc = await DocMessagesUploader(bot.api).upload(title=f"{target_section}.pdf", file_source=pdf_name, peer_id=peer_id)
+            kb = await get_sections_keyboard(vk_id, user)
+            await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=doc, keyboard=kb, random_id=0)
+
+            if os.path.exists(pdf_name): os.remove(pdf_name)
+        else:
+            await bot.api.messages.send(peer_id=peer_id, message="К сожалению, связь с духами прервалась. Попробуй еще раз.", random_id=0)
+    except Exception as e:
+        logger.exception(f"КРИТИЧЕСКАЯ ОШИБКА ГЕНЕРАЦИИ: {e}")
