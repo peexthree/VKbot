@@ -5,10 +5,10 @@ import random
 import re
 import datetime
 from vkbottle.bot import BotLabeler, Message
-from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
+from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from modules.utils import bot, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
 
 labeler = BotLabeler()
 
@@ -16,7 +16,6 @@ labeler = BotLabeler()
 async def reset_user_handler(message: Message):
     vk_id = message.from_id
 
-    # 1. Полностью обнуляем поля регистрации в БД
     await update_user(vk_id, {
         "birth_date": "",
         "birth_time": "",
@@ -25,7 +24,6 @@ async def reset_user_handler(message: Message):
         "core_profile": ""
     })
 
-    # 2. Очищаем состояние FSM
     await set_user_state(vk_id, "")
 
     await message.answer("СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для теста с нуля.")
@@ -36,14 +34,11 @@ async def start_handler(message: Message):
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
-
         return
-
 
     try:
         user = await get_user(vk_id)
 
-        # 1. Если данные уже есть (дата, время, город) - прыгаем сразу в главное меню
         if user and user.get("birth_date") and user.get("birth_time") and user.get("birth_city"):
             purchased = user.get("purchased_sections", {})
             first_name = purchased.get("first_name", "")
@@ -51,7 +46,6 @@ async def start_handler(message: Message):
             await message.answer(f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\n{greeting}", keyboard=get_dynamic_keyboard(user))
             return
 
-        # 2. Получаем данные из VK
         first_name = ""
         sex = 0
         bdate = ""
@@ -72,14 +66,12 @@ async def start_handler(message: Message):
             user = await create_user(vk_id, "", "", "")
 
         if user:
-            # Store first_name and sex in purchased_sections jsonb field
             purchased = user.get("purchased_sections", {})
             purchased["first_name"] = first_name
-            purchased["sex_val"] = sex # Avoid overwriting the "sex" purchased section key
+            purchased["sex_val"] = sex 
             await update_user(vk_id, {"purchased_sections": purchased})
 
         import json
-        # Если вк вернул bdate (в формате D.M.YYYY) и город
         psycho_positioning = "Интеллектуальный анализ подсознания через систему символов. Этот инструмент создан для тех, кто готов заглянуть за грань привычного и получить жесткие, структурированные ответы."
         if bdate and city:
             await set_user_state(vk_id, json.dumps({"step": "confirm_data", "date": bdate, "city": city}))
@@ -127,9 +119,7 @@ async def is_waiting_confirm_data(message: Message) -> bool:
 async def process_confirm_data(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
-
         return
-
 
     try:
         text = message.text.strip().lower()
@@ -168,14 +158,11 @@ async def is_waiting_date(message: Message) -> bool:
 async def process_date(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
-
         return
-
 
     try:
         date_str = message.text.strip()
 
-        # В реальном проекте тут нужна валидация даты
         import json
         await set_user_state(vk_id, json.dumps({"step": "time", "date": date_str}))
 
@@ -197,9 +184,7 @@ async def is_waiting_time(message: Message) -> bool:
 async def process_time(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
-
         return
-
 
     try:
         time_str = message.text.strip()
@@ -212,7 +197,6 @@ async def process_time(message: Message):
 
         import json
 
-        # If we already got the city from VK, we can skip process_city
         if city_str_existing:
             await message.answer("Анализирую координаты...")
             await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
@@ -241,7 +225,6 @@ async def process_time(message: Message):
 
                 kb_json = await get_sections_keyboard(vk_id, user)
 
-                # Split base_text if "БАЗА" exists
                 import re
                 parts = re.split(r"(?i)\bБАЗА\b", base_text, maxsplit=1)
 
@@ -287,9 +270,7 @@ async def is_waiting_city(message: Message) -> bool:
 async def process_city(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
-
         return
-
 
     try:
         city_str = message.text.strip()
@@ -303,7 +284,6 @@ async def process_city(message: Message):
         await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
         await asyncio.sleep(5)
 
-        # Мгновенный коммит
         user = await update_user(vk_id, {
             "birth_date": date,
             "birth_time": time,
@@ -313,7 +293,6 @@ async def process_city(message: Message):
             await message.answer("СИСТЕМА ДАЛА СБОЙ. Не удалось сохранить данные в базу. Повторите попытку позже.")
             return
 
-        # Очистка состояния
         await set_user_state(vk_id, "")
 
         user = await get_user(vk_id)
@@ -326,7 +305,7 @@ async def process_city(message: Message):
                 "action": {
                     "type": "callback",
                     "payload": json.dumps({"cmd": "welcome_bonus"}),
-                    "label": "Получить анализ и 70 бонусов"
+                    "label": "Получить анализ и 700 Энергии звезд"
                 },
                 "color": "primary"
             }]]
@@ -334,12 +313,12 @@ async def process_city(message: Message):
 
         try:
             await message.answer(
-                "Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 70 приветственных бонусов и твой первый анализ. Нажми кнопку ниже, чтобы забрать подарок и увидеть магию в действии.",
+                "Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 700 Энергии звезд и твой первый анализ. Нажми кнопку ниже, чтобы забрать дар и увидеть магию в действии.",
                 keyboard=json.dumps(kb, ensure_ascii=False)
             )
         except Exception as e:
             print(f"Error sending sync completion message: {e}")
-            await message.answer("Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 70 приветственных бонусов и твой первый анализ. Нажми кнопку ниже, чтобы забрать подарок и увидеть магию в действии.")
+            await message.answer("Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 700 Энергии звезд и твой первый анализ. Нажми кнопку ниже, чтобы забрать дар и увидеть магию в действии.")
 
     finally:
         await release_lock(vk_id)
@@ -350,14 +329,12 @@ async def back_to_main_menu(message: Message):
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
-
         return
 
     user = await get_user(vk_id)
     if not user:
         await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
         return
-
 
     try:
         kb_json = await get_sections_keyboard(vk_id, user)
@@ -374,4 +351,3 @@ async def back_to_main_menu(message: Message):
         print(f"Error sending main menu: {e}")
     finally:
         await release_lock(vk_id)
-
