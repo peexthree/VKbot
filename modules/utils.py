@@ -81,7 +81,7 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
 
 def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную (нижнюю) клавиатуру с Картой дня и Путеводителем"""
-    keyboard = Keyboard(inline=False)
+    keyboard = Keyboard(inline=True)
     
     keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
     keyboard.add(Text("🛰 ТАРИФЫ"), color=KeyboardButtonColor.SECONDARY)
@@ -102,29 +102,30 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     await check_and_give_daily_bonus(vk_id, user, vk_id)
     
     purchased = user.get("purchased_sections", {}) if user else {}
+    has_all = purchased.get("all") or (user and user.get("has_full_chart"))
     buttons = []
 
     # Если куплен Секс, но результат еще не сгенерирован
-    if purchased.get("sex"):
-        buttons.append([{"action": {"type": "text", "label": "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ"}, "color": "positive"}])
+    if purchased.get("sex") or has_all:
+        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "sex"}), "label": "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ"}, "color": "positive"}])
 
-    if purchased.get("money"):
-        buttons.append([{"action": {"type": "text", "label": "💰 КОД ТВОЕГО БОГАТСТВА"}, "color": "positive"}])
+    if purchased.get("money") or has_all:
+        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "money"}), "label": "💰 КОД ТВОЕГО БОГАТСТВА"}, "color": "positive"}])
 
-    if purchased.get("shadow"):
-        buttons.append([{"action": {"type": "text", "label": "🌘 ТВОИ СКРЫТЫЕ ГРАНИ"}, "color": "positive"}])
+    if purchased.get("shadow") or has_all:
+        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "shadow"}), "label": "🌘 ТВОИ СКРЫТЫЕ ГРАНИ"}, "color": "positive"}])
 
-    if purchased.get("final"):
-        buttons.append([{"action": {"type": "text", "label": "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ"}, "color": "positive"}])
+    if purchased.get("final") or has_all:
+        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "final"}), "label": "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ"}, "color": "positive"}])
         
     if purchased.get("antitaro"):
-        buttons.append([{"action": {"type": "text", "label": "АНТИТАРО"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "antitaro"}), "label": "АНТИТАРО"}, "color": "positive"}])
         
     if purchased.get("synastry"):
-        buttons.append([{"action": {"type": "text", "label": "👨‍❤️‍👨 СИНАСТРИЯ"}, "color": "positive"}])
+        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "synastry"}), "label": "👨‍❤️‍👨 СИНАСТРИЯ"}, "color": "positive"}])
 
     if not buttons:
-        buttons.append([{"action": {"type": "text", "label": "✦ УСЛУГИ 🛒"}, "color": "secondary"}])
+        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": 0}), "label": "✦ УСЛУГИ 🛒"}, "color": "secondary"}])
 
     keyboard_obj = {
         "inline": True,

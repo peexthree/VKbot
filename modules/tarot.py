@@ -373,11 +373,6 @@ async def card_of_day_handler(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(text=["ВОПРОС СУДЬБЕ", "✦ ВОПРОС СУДЬБЕ"])
-async def oracle_handler(message: Message):
-    # Этот обработчик больше не нужен, так как покупка Оракула идет напрямую из витрины. Оставляем для совместимости со старыми кнопками.
-    pass
-
 async def is_waiting_oracle_question(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
         return False
@@ -410,7 +405,3 @@ async def process_oracle_question(message: Message):
         await release_lock(vk_id)
 
 
-@labeler.message(text=["АНТИТАРО", "✦ АНТИТАРО", "👺 АНТИТАРО"])
-async def antitarot_handler(message: Message):
-    # Эта функция больше не нужна, так как покупка Антитаро идет через services.py и payments.py.
-    pass
