@@ -72,7 +72,7 @@ async def main():
                             f"В начале добавь шкалу энергии: 'Энергия [Случайное число 1-10]/10'. "
                             f"Укажи 'Фокус:' и 'Уязвимость:'. Опирайся на этот профиль: {core_profile}. "
                             f"Коротко, жестко. "
-                            f"КРИТИЧЕСКОЕ ПРАВИЛО: Строгий запрет на выделение текста маркерами. Никаких звездочек (*). Никакого жирного шрифта. Используй только короткие тире (-) для создания списков и структуры."
+                            f"КРИТИЧЕСКОЕ ПРАВИЛО: Строгий запрет на выделение текста маркерами. Никаких звездочек. Никакого жирного шрифта. Используй только короткие тире (-) для создания списков и структуры."
                         )
                         forecast = await generate_text(prompt, skin=active_skin)
                         if forecast:
@@ -93,9 +93,9 @@ async def main():
                             keyboard_obj = {
                                 "inline": True,
                                 "buttons": [
-                                    [{"action": {"type": "text", "label": "ТАРИФ 1 (99 РУБ)"}, "color": "secondary"}],
-                                    [{"action": {"type": "text", "label": "ТАРИФ 2 (290 РУБ)"}, "color": "primary"}],
-                                    [{"action": {"type": "text", "label": "VIP БАНДЛ (590 РУБ)"}, "color": "positive"}]
+                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 0}), "label": "Спутник 7 дней"}, "color": "secondary"}],
+                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 1}), "label": "Оракул 30 дней"}, "color": "primary"}],
+                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 2}), "label": "VIP Архив"}, "color": "positive"}]
                                 ]
                             }
                             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
