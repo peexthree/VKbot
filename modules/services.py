@@ -373,7 +373,7 @@ async def synastry_handler(message: Message):
 
     try:
         balance = user.get("balance", 0)
-        amount_needed = 150
+        amount_needed = 1500
         if balance >= amount_needed:
             new_balance = balance - amount_needed
             await update_user(vk_id, {"balance": new_balance})
@@ -382,14 +382,18 @@ async def synastry_handler(message: Message):
             await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
             await message.answer("СИНАСТРИЯ АКТИВИРОВАНА.\n\nВведите ИМЯ вашего партнера:")
         else:
+            import math
+            missing_energy = amount_needed - balance
+            rub_needed = math.ceil(missing_energy / 10)
+
             keyboard_obj = {
                 "inline": True,
                 "buttons": [[{
-                    "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={amount_needed}"}
+                    "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={rub_needed}"}
                 }]]
             }
             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-            msg_text = f"РАЗДЕЛ СИНАСТРИЯ - Цена: {amount_needed} РУБ.\nЖесткий разбор мэтча с партнером.\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
+            msg_text = f"РАЗДЕЛ СИНАСТРИЯ - Цена: {amount_needed} Энергии звезд.\nЖесткий разбор мэтча с партнером.\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд."
 
             photo_attachment = None
             try:

@@ -258,10 +258,22 @@ async def show_profile(message: Message):
     bars = min(10, int((cards_count / 78) * 10))
     progress_bar = ("|" * bars) + ("." * (10 - bars))
 
-    balance = user.get("balance", 0)
-    bonuses = user.get("bonuses", 0)
+    # Daily bonus logic
+    last_active = user.get("last_active_date")
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    current_date_str = now_utc.strftime("%Y-%m-%d")
 
-    status = "Пробужденный" if bonuses > 0 else "Спящий"
+    balance = user.get("balance", 0)
+
+    if last_active != current_date_str:
+        balance += 100
+        await update_user(vk_id, {"balance": balance, "last_active_date": current_date_str})
+        try:
+            await bot.api.messages.send(peer_id=message.peer_id, message="Ежедневный дар получен: 100 Энергии звезд начислено!", random_id=0)
+        except Exception:
+            pass
+
+    status = "Пробужденный" if balance > 0 else "Спящий"
 
     transit_expires = user.get("transit_sub_expires_at")
     transit_status = "Базовый"
@@ -282,8 +294,7 @@ async def show_profile(message: Message):
         f"⏳ ДНЕЙ В ОСОЗНАННОСТИ: {days_in_matrix}\n"
         f"🎴 СОБРАНО КАРТ: {total_cards_received} из 78\n"
         f"📊 ПРОГРЕСС: {progress_bar}\n"
-        f"💳 БАЛАНС: {balance} РУБ\n"
-        f"💎 БОНУСЫ: {bonuses}\n"
+        f"💳 БАЛАНС: {balance} Энергии звезд\n"
         f"🛡 СТАТУС: {status}\n"
         f"📡 ТРАНЗИТ: {transit_status}\n"
         f"🕙 ДОСТУП ДО: {transit_timer}\n\n"
@@ -501,7 +512,7 @@ async def referral_handler(message: Message):
     vk_id = message.from_id
     from database import set_user_state
     await set_user_state(vk_id, "")
-    await message.answer(f"✦ РЕФЕРАЛЬНАЯ СИСТЕМА ✦\n\nТвой промокод: ПРОМО-{vk_id}\n\nОтправь этот код другу. Если он напишет его мне, вы оба получите по 50 бонусов!")
+    await message.answer(f"✦ РЕФЕРАЛЬНАЯ СИСТЕМА ✦\n\nТвой промокод: ПРОМО-{vk_id}\n\nОтправь этот код другу. Если он напишет его мне, вы оба получите по 500 Энергии звезд!")
 
 @labeler.message(func=lambda m: m.text and re.match(r"^ПРОМО-\d+$", m.text.strip()))
 async def apply_promo_handler(message: Message):
@@ -530,16 +541,16 @@ async def apply_promo_handler(message: Message):
         await message.answer("Такого промокода не существует.")
         return
 
-    user_bonuses = user.get("bonuses", 0) + 50
-    referrer_bonuses = referrer.get("bonuses", 0) + 50
+    user_balance = user.get("balance", 0) + 500
+    referrer_balance = referrer.get("balance", 0) + 500
 
-    await update_user(vk_id, {"bonuses": user_bonuses})
-    await update_user(referrer_id, {"bonuses": referrer_bonuses})
+    await update_user(vk_id, {"balance": user_balance})
+    await update_user(referrer_id, {"balance": referrer_balance})
 
-    await message.answer(f"ПРОМОКОД АКТИВИРОВАН! Тебе начислено 500 Энергии звезд. Твой баланс: {user_bonuses}")
+    await message.answer(f"ПРОМОКОД АКТИВИРОВАН! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
 
     try:
-        await bot.api.messages.send(peer_id=referrer_id, message=f"Твой друг активировал промокод! Тебе начислено 500 Энергии звезд. Твой баланс: {referrer_bonuses}", random_id=0)
+        await bot.api.messages.send(peer_id=referrer_id, message=f"Твой друг активировал промокод! Тебе начислено 500 Энергии звезд. Твой баланс: {referrer_balance} Энергии звезд", random_id=0)
     except Exception:
         pass
 

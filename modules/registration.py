@@ -326,7 +326,7 @@ async def process_city(message: Message):
                 "action": {
                     "type": "callback",
                     "payload": json.dumps({"cmd": "welcome_bonus"}),
-                    "label": "Получить анализ и 70 бонусов"
+                    "label": "Получить анализ и 700 Энергии звезд"
                 },
                 "color": "primary"
             }]]
@@ -334,12 +334,12 @@ async def process_city(message: Message):
 
         try:
             await message.answer(
-                "Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 70 приветственных бонусов и твой первый анализ. Нажми кнопку ниже, чтобы забрать подарок и увидеть магию в действии.",
+                "Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 700 Энергии звезд и твой первый анализ. Нажми кнопку ниже, чтобы забрать подарок и увидеть магию в действии.",
                 keyboard=json.dumps(kb, ensure_ascii=False)
             )
         except Exception as e:
             print(f"Error sending sync completion message: {e}")
-            await message.answer("Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 70 приветственных бонусов и твой первый анализ. Нажми кнопку ниже, чтобы забрать подарок и увидеть магию в действии.")
+            await message.answer("Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 700 Энергии звезд и твой первый анализ. Нажми кнопку ниже, чтобы забрать подарок и увидеть магию в действии.")
 
     finally:
         await release_lock(vk_id)
@@ -360,6 +360,21 @@ async def back_to_main_menu(message: Message):
 
 
     try:
+        # Daily bonus logic
+        import datetime
+        last_active = user.get("last_active_date")
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        current_date_str = now_utc.strftime("%Y-%m-%d")
+
+        if last_active != current_date_str:
+            balance = user.get("balance", 0) + 100
+            await update_user(vk_id, {"balance": balance, "last_active_date": current_date_str})
+            try:
+                await bot.api.messages.send(peer_id=message.peer_id, message="Ежедневный дар получен: 100 Энергии звезд начислено!", random_id=0)
+            except Exception:
+                pass
+            user = await get_user(vk_id)  # fetch updated user
+
         kb_json = await get_sections_keyboard(vk_id, user)
         try:
             await message.answer(

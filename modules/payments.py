@@ -47,7 +47,7 @@ async def message_event_handler(event: dict):
                     return
 
                 if user.get("welcome_bonus_received", False):
-                    await bot.api.messages.send(peer_id=peer_id, message="Бонус уже получен", random_id=0)
+                    await bot.api.messages.send(peer_id=peer_id, message="Дар уже получен", random_id=0)
                     return
 
                 new_balance = user.get("balance", 0) + 700
@@ -123,40 +123,96 @@ async def message_event_handler(event: dict):
                 buy_type = payload.get("type")
                 key = payload.get("key")
 
-                class MockMessage:
-                    def __init__(self, from_id, peer_id, text):
-                        self.from_id = from_id
-                        self.peer_id = peer_id
-                        self.text = text
+                user = await get_user(vk_id)
+                if not user:
+                    return
+                balance = user.get("balance", 0)
 
-                    async def answer(self, text, **kwargs):
-                        try:
-                            await bot.api.messages.send(peer_id=self.peer_id, message=text, random_id=0, **kwargs)
-                        except Exception:
-                            await bot.api.messages.send(peer_id=self.peer_id, message=text, random_id=0)
-
-                # Reverse mapping to text for older functions
-
-                text_mapping = {
-                    "sex": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ",
-                    "money": "КОД ТВОЕГО БОГАТСТВА",
-                    "shadow": "ТВОИ СКРЫТЫЕ ГРАНИ",
-                    "final": "ТВОЙ ИСТИННЫЙ ПУТЬ",
-                    "synastry": "ТАЙНА ВАШИХ ОТНОШЕНИЙ",
-                    "all": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ",
-                    "oracle": "ВОПРОС СУДЬБЕ",
-                    "tariff_1": "ТАРИФ 1 (99 РУБ)",
-                    "tariff_2": "ТАРИФ 2 (290 РУБ)",
-                    "tariff_vip": "VIP БАНДЛ (590 РУБ)"
+                prices = {
+                    "sex": 1000,
+                    "money": 900,
+                    "shadow": 700,
+                    "final": 1200,
+                    "synastry": 1500,
+                    "all": 3000,
+                    "oracle": 500,
+                    "tariff_1": 990,
+                    "tariff_2": 2900,
+                    "tariff_vip": 5900
                 }
+                amount_needed = prices.get(key, 99999)
 
-                mapped_text = text_mapping.get(key, key)
-                mock_msg = MockMessage(vk_id, peer_id, mapped_text)
+                if balance >= amount_needed:
+                    new_balance = balance - amount_needed
+                    await update_user(vk_id, {"balance": new_balance})
 
-                if buy_type == "service":
-                    await handle_storefront_purchase(mock_msg)
-                elif buy_type == "tariff":
-                    await process_tariff_purchase(mock_msg)
+                    if buy_type == "service":
+                        if key == "synastry":
+                            # Start Synastry FSM logic
+                            import json
+                            from database import set_user_state
+                            await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
+                            await bot.api.messages.send(peer_id=peer_id, message="СИНАСТРИЯ АКТИВИРОВАНА.\n\nВведите ИМЯ вашего партнера:", random_id=0)
+                        else:
+                            await process_payment_and_generate(vk_id, key)
+                    elif buy_type == "tariff":
+                        import datetime
+                        tariff_days = {"tariff_1": 7, "tariff_2": 30, "tariff_vip": 30}
+                        days = tariff_days.get(key, 0)
+
+                        updates = {"balance": new_balance}
+                        now = datetime.datetime.now(datetime.timezone.utc)
+                        current_expires = user.get("transit_sub_expires_at")
+                        if current_expires:
+                            try:
+                                exp_date = datetime.datetime.fromisoformat(current_expires)
+                                if exp_date > now:
+                                    now = exp_date
+                            except ValueError:
+                                pass
+
+                        new_expires = now + datetime.timedelta(days=days)
+                        updates["transit_sub_expires_at"] = new_expires.isoformat()
+
+                        if key == "tariff_vip":
+                            purchased = user.get("purchased_sections", {})
+                            purchased["sex"] = True
+                            purchased["money"] = True
+                            purchased["shadow"] = True
+                            purchased["final"] = True
+                            updates["purchased_sections"] = purchased
+                            updates["has_full_chart"] = True
+
+                        await update_user(vk_id, updates)
+
+                        msg = f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}."
+                        if key == "tariff_vip":
+                            msg += "\nVIP БАНДЛ АКТИВИРОВАН. Все Врата открыты (Секс, Деньги, Тень, Финал)."
+
+                        msg += f"\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд."
+
+                        from modules.utils import get_sections_keyboard
+                        updated_user = await get_user(vk_id)
+                        kb_json = await get_sections_keyboard(vk_id, updated_user)
+
+                        try:
+                            await bot.api.messages.send(peer_id=peer_id, message=msg, keyboard=kb_json, random_id=0)
+                        except Exception:
+                            await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=0)
+                else:
+                    import math
+                    missing_energy = amount_needed - balance
+                    rub_needed = math.ceil(missing_energy / 10)
+
+                    kb_json_exact = json.dumps({
+                        "inline": True,
+                        "buttons": [
+                            [{"action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={rub_needed}"}}]
+                        ]
+                    })
+                    msg = f"Не хватает {missing_energy} Энергии звезд. Пополни свой поток на {rub_needed} РУБ, чтобы открыть этот раздел."
+                    await bot.api.messages.send(peer_id=peer_id, message=msg, keyboard=kb_json_exact, random_id=0)
+
             except Exception as e:
                 print(f"Error in buy handler: {e}")
             return
@@ -358,20 +414,21 @@ async def money_transfer_handler(event: dict):
             print(f"ПЛАТЕЖ ОТ НЕИЗВЕСТНОГО ПОЛЬЗОВАТЕЛЯ: vk_id={vk_id}, amount={amount_val}")
             return
 
+        energy_added = amount_val * 10
         current_balance = user.get("balance", 0)
-        new_balance = current_balance + amount_val
+        new_balance = current_balance + energy_added
 
         await update_user(vk_id, {"balance": new_balance})
 
         await bot.api.messages.send(
             peer_id=vk_id,
-            message=f"БАЛАНС ПОПОЛНЕН! НА ТВОЕМ СЧЕТУ: {new_balance} РУБ. ТЕПЕРЬ ТЫ МОЖЕШЬ АКТИВИРОВАТЬ ВЫБРАННУЮ УСЛУГУ",
+            message=f"ТВОЙ ПОТОК ПОПОЛНЕН! НА ТВОЕМ СЧЕТУ: {new_balance} Энергии звезд. ТЕПЕРЬ ТЫ МОЖЕШЬ АКТИВИРОВАТЬ ВЫБРАННУЮ УСЛУГУ",
             random_id=0
         )
         try:
             await bot.api.messages.send(
                 peer_id=27260796,
-                message=f"💰 Пополнение баланса: {amount} РУБ от пользователя {vk_id}",
+                message=f"💰 Пополнение баланса: {amount_val} РУБ ({energy_added} Энергии звезд) от пользователя {vk_id}",
                 random_id=0
             )
         except Exception:
@@ -505,295 +562,6 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже, чтобы обрезать колоду.",
                 random_id=0
             )
-    finally:
-        await release_lock(vk_id)
-
-async def handle_storefront_purchase(message: Message):
-    import json
-    vk_id = message.from_id
-    from database import set_user_state
-    await set_user_state(vk_id, "")
-    text = message.text.upper()
-
-    user = await get_user(vk_id)
-    if not user:
-        return
-
-    service_map = {
-        "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ": {
-            "name": "Твоя сексуальная энергия",
-            "amount": 100,
-            "section_key": "sex",
-            "image_name": "sex1.jpg",
-            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - твой личный ключ к пониманию Твоей сексуальной энергии. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ": {
-            "name": "Твоя сексуальная энергия",
-            "amount": 100,
-            "section_key": "sex",
-            "image_name": "sex1.jpg",
-            "desc": "ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ - Цена: 100 РУБ\nЭтот раздел - твой личный ключ к пониманию Твоей сексуальной энергии. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "КОД ТВОЕГО БОГАТСТВА": {
-            "name": "Код твоего богатства",
-            "amount": 90,
-            "section_key": "money",
-            "image_name": "money1.jpg",
-            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nЭтот раздел - твой личный ключ к пониманию Кода твоего богатства. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "💰 КОД ТВОЕГО БОГАТСТВА": {
-            "name": "Код твоего богатства",
-            "amount": 90,
-            "section_key": "money",
-            "image_name": "money1.jpg",
-            "desc": "КОД ТВОЕГО БОГАТСТВА - Цена: 90 РУБ\nЭтот раздел - твой личный ключ к пониманию Кода твоего богатства. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "ТВОИ СКРЫТЫЕ ГРАНИ": {
-            "name": "Твои скрытые грани",
-            "amount": 70,
-            "section_key": "shadow",
-            "image_name": "demon1.jpg",
-            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nЭтот раздел - твой личный ключ к пониманию Твоих скрытых граней. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "🌘 ТВОИ СКРЫТЫЕ ГРАНИ": {
-            "name": "Твои скрытые грани",
-            "amount": 70,
-            "section_key": "shadow",
-            "image_name": "demon1.jpg",
-            "desc": "ТВОИ СКРЫТЫЕ ГРАНИ - Цена: 70 РУБ\nЭтот раздел - твой личный ключ к пониманию Твоих скрытых граней. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "ТВОЙ ИСТИННЫЙ ПУТЬ": {
-            "name": "Твой истинный путь",
-            "amount": 120,
-            "section_key": "final",
-            "image_name": "way1.jpg",
-            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nЭтот раздел - твой личный ключ к пониманию Твоего истинного пути. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ": {
-            "name": "Твой истинный путь",
-            "amount": 120,
-            "section_key": "final",
-            "image_name": "way1.jpg",
-            "desc": "ТВОЙ ИСТИННЫЙ ПУТЬ - Цена: 120 РУБ\nЭтот раздел - твой личный ключ к пониманию Твоего истинного пути. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "ТАЙНА ВАШИХ ОТНОШЕНИЙ": {
-            "name": "Тайна ваших отношений",
-            "amount": 150,
-            "section_key": "synastry",
-            "image_name": "sin.jpeg",
-            "desc": "ТАЙНА ВАШИХ ОТНОШЕНИЙ - Цена: 150 РУБ\nЭтот раздел - твой личный ключ к пониманию Тайны ваших отношений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "👨‍❤️‍👨 ТАЙНА ВАШИХ ОТНОШЕНИЙ": {
-            "name": "Тайна ваших отношений",
-            "amount": 150,
-            "section_key": "synastry",
-            "image_name": "sin.jpeg",
-            "desc": "ТАЙНА ВАШИХ ОТНОШЕНИЙ - Цена: 150 РУБ\nЭтот раздел - твой личный ключ к пониманию Тайны ваших отношений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ": {
-            "name": "Золотой архив всех откровений",
-            "amount": 3000,
-            "section_key": "all",
-            "image_name": "full1.jpg",
-            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 3000 Энергии звезд\nЭтот раздел - твой личный ключ к пониманию Золотого архива всех откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "📦 ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ": {
-            "name": "Золотой архив всех откровений",
-            "amount": 3000,
-            "section_key": "all",
-            "image_name": "full1.jpg",
-            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 3000 Энергии звезд\nЭтот раздел - твой личный ключ к пониманию Золотого архива всех откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
-        },
-        "ВОПРОС СУДЬБЕ": {
-            "name": "Оракул",
-            "amount": 50,
-            "section_key": "oracle",
-            "image_name": "ora1.jpg",
-            "desc": "РАЗДЕЛ ОРАКУЛ - Цена: 50 РУБ\nТекст: [Раз в сутки бесплатно] Снятие блокировки и мгновенный ответ на твой вопрос.\nМеханика: Четкий вопрос - ОБРЕЗАТЬ КОЛОДУ - интеллектуальный анализ подсознания через символику.\nВажно: Система перегрета? Оплати принудительную синхронизацию для доступа."
-        },
-        "🔮 ВОПРОС СУДЬБЕ": {
-            "name": "Оракул",
-            "amount": 50,
-            "section_key": "oracle",
-            "image_name": "ora1.jpg",
-            "desc": "РАЗДЕЛ ОРАКУЛ - Цена: 50 РУБ\nТекст: [Раз в сутки бесплатно] Снятие блокировки и мгновенный ответ на твой вопрос.\nМеханика: Четкий вопрос - ОБРЕЗАТЬ КОЛОДУ - интеллектуальный анализ подсознания через символику.\nВажно: Система перегрета? Оплати принудительную синхронизацию для доступа."
-        }
-    }
-
-    service_info = service_map.get(text)
-    if not service_info:
-        await message.answer("Услуга не найдена. Выбери из меню.")
-        return
-
-    balance = user.get("balance", 0)
-    amount_needed = service_info["amount"]
-
-    if balance >= amount_needed:
-        new_balance = balance - amount_needed
-        await update_user(vk_id, {"balance": new_balance})
-        await process_payment_and_generate(vk_id, service_info["section_key"])
-    else:
-        bonus_price = amount_needed // 10
-        user_bonuses = user.get("bonuses", 0)
-
-        buttons = [[{
-            "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={amount_needed}"}
-        }]]
-
-        if user_bonuses >= bonus_price:
-            buttons.append([{
-                "action": {
-                    "type": "callback",
-                    "payload": json.dumps({"cmd": "pay_bonuses", "section": service_info["section_key"], "price": bonus_price}),
-                    "label": f"КУПИТЬ ЗА {bonus_price} БОНУСОВ"
-                },
-                "color": "primary"
-            }])
-
-        keyboard_obj = {
-            "inline": True,
-            "buttons": buttons
-        }
-        kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-
-        if "desc" in service_info:
-            msg_text = f"{service_info['desc']}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд."
-            image_name = service_info['image_name']
-            photo_attachment = None
-
-            try:
-                from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  PhotoMessageUploader
-                uploader = PhotoMessageUploader(bot.api)
-                filepath = f"cards/{image_name}"
-                import aiofiles
-                async with aiofiles.open(filepath, "rb") as f:
-                    data = await f.read()
-                    photo_attachment = await uploader.upload(file_source=data, peer_id=vk_id)
-            except Exception as e:
-                print(f"[ERROR] Failed to load image {image_name} from local storage: {e}")
-
-            if photo_attachment:
-                try:
-                    await message.answer(msg_text, attachment=photo_attachment, keyboard=kb_json)
-                except Exception:
-                    await message.answer(msg_text, attachment=photo_attachment)
-            else:
-                try:
-                    await message.answer(msg_text, keyboard=kb_json)
-                except Exception:
-                    await message.answer(msg_text)
-        else:
-            msg_text = f"{service_info.get('text', '')}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд."
-            try:
-                await message.answer(msg_text, keyboard=kb_json)
-            except Exception:
-                await message.answer(msg_text)
-
-async def process_tariff_purchase(message: Message):
-    vk_id = message.from_id
-    from database import set_user_state
-    await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
-
-        return
-
-    user = await get_user(vk_id)
-    if not user:
-        return
-
-
-    try:
-        text = message.text.upper()
-        balance = user.get("balance", 0)
-
-        tariff_map = {
-            "ТАРИФ 1 (99 РУБ)": {"price": 990, "days": 7, "bundle": False},
-            "ТАРИФ 2 (290 РУБ)": {"price": 2900, "days": 30, "bundle": False},
-            "VIP БАНДЛ (590 РУБ)": {"price": 5900, "days": 30, "bundle": True},
-            "🛰 ТАРИФ 1 (99 РУБ)": {"price": 990, "days": 7, "bundle": False},
-            "🛰 ТАРИФ 2 (290 РУБ)": {"price": 2900, "days": 30, "bundle": False},
-            "🛰 VIP БАНДЛ (590 РУБ)": {"price": 5900, "days": 30, "bundle": True}
-        }
-
-        t_info = tariff_map.get(text)
-        if not t_info:
-            return
-
-        price = t_info["price"]
-
-        if balance >= price:
-            import datetime
-            new_balance = balance - price
-            updates = {"balance": new_balance}
-
-            now = datetime.datetime.now(datetime.timezone.utc)
-            current_expires = user.get("transit_sub_expires_at")
-            if current_expires:
-                try:
-                    exp_date = datetime.datetime.fromisoformat(current_expires)
-                    if exp_date > now:
-                        now = exp_date
-                except ValueError:
-                    pass
-
-            new_expires = now + datetime.timedelta(days=t_info["days"])
-            updates["transit_sub_expires_at"] = new_expires.isoformat()
-
-            if t_info["bundle"]:
-                purchased = user.get("purchased_sections", {})
-                purchased["sex"] = True
-                purchased["money"] = True
-                purchased["shadow"] = True
-                purchased["final"] = True
-                updates["purchased_sections"] = purchased
-                updates["has_full_chart"] = True
-
-            await update_user(vk_id, updates)
-
-            msg = f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}."
-            if t_info["bundle"]:
-                msg += "\nVIP БАНДЛ АКТИВИРОВАН. Все Врата открыты (Секс, Деньги, Тень, Финал)."
-
-            msg += f"\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} РУБ."
-
-            # Fetch fresh user to update keyboard if bundle bought
-            updated_user = await get_user(vk_id)
-            if "purchased_sections" in updates:
-                if updated_user:
-                    updated_user["purchased_sections"] = updates["purchased_sections"]
-            kb_json = await get_sections_keyboard(vk_id, updated_user)
-
-            try:
-                await message.answer(msg, keyboard=kb_json)
-            except Exception:
-                await message.answer(msg)
-        else:
-            import json
-            keyboard_obj = {
-                "inline": True,
-                "buttons": [[{
-                    "action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={price}"}
-                }]]
-            }
-            kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-            try:
-                missing_energy = price - balance
-                rub_needed = math.ceil(missing_energy / 10)
-
-                # Rebuild keyboard with exact rub amount
-                kb_json_exact = json.dumps({
-                    "inline": True,
-                    "buttons": [
-                        [{"action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={rub_needed}"}}]
-                    ]
-                })
-
-                await message.answer(f"Не хватает {missing_energy} Энергии звезд. Пополни свой поток на {rub_needed} РУБ, чтобы открыть этот раздел.", keyboard=kb_json_exact)
-            except Exception:
-                missing_energy = price - balance
-                rub_needed = math.ceil(missing_energy / 10)
-                await message.answer(f"Не хватает {missing_energy} Энергии звезд. Пополни свой поток на {rub_needed} РУБ, чтобы открыть этот раздел.")
-
     finally:
         await release_lock(vk_id)
 
