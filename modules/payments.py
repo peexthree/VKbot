@@ -193,7 +193,7 @@ async def message_event_handler(event: dict):
             kb = Keyboard(inline=True)
             for i in range(10):
                 if i > 0 and i % 5 == 0: kb.row()
-                kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color="secondary")
+                kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
             await bot.api.messages.send(peer_id=peer_id, message="Выбери карту из разложенных:", keyboard=kb.get_json(), random_id=0)
 
         elif cmd == "global_draw":
