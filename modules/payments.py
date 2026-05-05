@@ -93,6 +93,11 @@ async def message_event_handler(event: dict):
             idx = payload.get("idx", 0)
             await show_tariffs(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
 
+        elif cmd == "card_of_day":
+            from modules.tarot import card_of_day_logic
+            await card_of_day_logic(vk_id, peer_id)
+            return
+
         elif cmd == "buy":
             buy_type = payload.get("type")
             key = payload.get("key")
