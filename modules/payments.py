@@ -17,6 +17,13 @@ from modules.utils import (
 )
 from cache import acquire_lock, release_lock
 
+# Локальные импорты, перенесенные наверх
+from modules.services import show_services
+from modules.services import show_tariffs
+from modules.profile import show_grimoire_page
+from modules.profile import view_card_direct
+from modules.tarot import process_oracle_final
+
 labeler = BotLabeler()
 
 @labeler.raw_event(GroupEventType.MESSAGE_EVENT, dataclass=dict)
@@ -84,12 +91,10 @@ async def message_event_handler(event: dict):
 
         elif cmd == "service_page":
             idx = payload.get("idx", 0)
-            from modules.services import show_services
             await show_services(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
 
         elif cmd == "tariff_page":
             idx = payload.get("idx", 0)
-            from modules.services import show_tariffs
             await show_tariffs(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
 
         elif cmd == "buy":
@@ -151,12 +156,10 @@ async def message_event_handler(event: dict):
 
         elif cmd == "grimoire_page":
             page = payload.get("page", 0)
-            from modules.profile import show_grimoire_page
             await show_grimoire_page(vk_id, peer_id, page)
 
         elif cmd == "view_card":
             card_id = str(payload.get("id"))
-            from modules.profile import view_card_direct
             await view_card_direct(vk_id, peer_id, card_id)
 
         elif cmd == "global_cut":
@@ -210,7 +213,6 @@ async def message_event_handler(event: dict):
                     peer_id=peer_id, message="Выбрано: 3/3. Карты собраны.",
                     conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json()
                 )
-                from modules.tarot import process_oracle_final
                 asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn_cards))
 
     finally:
