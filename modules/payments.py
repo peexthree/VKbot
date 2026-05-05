@@ -1,3 +1,4 @@
+import math
 from cache import acquire_lock, release_lock
 import asyncio
 import json
@@ -49,8 +50,8 @@ async def message_event_handler(event: dict):
                     await bot.api.messages.send(peer_id=peer_id, message="Бонус уже получен", random_id=0)
                     return
 
-                new_bonuses = user.get("bonuses", 0) + 70
-                await update_user(vk_id, {"bonuses": new_bonuses, "welcome_bonus_received": True})
+                new_balance = user.get("balance", 0) + 700
+                await update_user(vk_id, {"balance": new_balance, "welcome_bonus_received": True})
 
                 from database import set_user_state
                 await set_user_state(vk_id, json.dumps({
@@ -188,7 +189,7 @@ async def message_event_handler(event: dict):
                     # Find price from mapping
                     # We can deduce from section, but wait, the prompt says amount_needed // 10, so amount_needed is known in handle_storefront_purchase
                     # For pay_rub, we can just look up the price
-                    prices = {"sex": 100, "money": 90, "shadow": 70, "final": 120, "all": 300, "oracle": 50}
+                    prices = {"sex": 1000, "money": 900, "shadow": 700, "final": 1200, "all": 3000, "oracle": 500}
                     amount_needed = prices.get(section, 9999)
                     balance = user.get("balance", 0)
                     if balance >= amount_needed:
@@ -591,17 +592,17 @@ async def handle_storefront_purchase(message: Message):
         },
         "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ": {
             "name": "Золотой архив всех откровений",
-            "amount": 300,
+            "amount": 3000,
             "section_key": "all",
             "image_name": "full1.jpg",
-            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nЭтот раздел - твой личный ключ к пониманию Золотого архива всех откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
+            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 3000 Энергии звезд\nЭтот раздел - твой личный ключ к пониманию Золотого архива всех откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "📦 ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ": {
             "name": "Золотой архив всех откровений",
-            "amount": 300,
+            "amount": 3000,
             "section_key": "all",
             "image_name": "full1.jpg",
-            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 300 РУБ\nЭтот раздел - твой личный ключ к пониманию Золотого архива всех откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
+            "desc": "ЗОЛОТОЙ АРХИВ ВСЕХ ОТКРОВЕНИЙ - Цена: 3000 Энергии звезд\nЭтот раздел - твой личный ключ к пониманию Золотого архива всех откровений. Я объясню всё простыми словами, как если бы мы сидели за чашкой кофе. Ты получишь красивый PDF-файл, который останется с тобой навсегда."
         },
         "ВОПРОС СУДЬБЕ": {
             "name": "Оракул",
@@ -656,7 +657,7 @@ async def handle_storefront_purchase(message: Message):
         kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
         if "desc" in service_info:
-            msg_text = f"{service_info['desc']}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
+            msg_text = f"{service_info['desc']}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд."
             image_name = service_info['image_name']
             photo_attachment = None
 
@@ -682,7 +683,7 @@ async def handle_storefront_purchase(message: Message):
                 except Exception:
                     await message.answer(msg_text)
         else:
-            msg_text = f"{service_info.get('text', '')}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
+            msg_text = f"{service_info.get('text', '')}\n\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд."
             try:
                 await message.answer(msg_text, keyboard=kb_json)
             except Exception:
@@ -706,12 +707,12 @@ async def process_tariff_purchase(message: Message):
         balance = user.get("balance", 0)
 
         tariff_map = {
-            "ТАРИФ 1 (99 РУБ)": {"price": 99, "days": 7, "bundle": False},
-            "ТАРИФ 2 (290 РУБ)": {"price": 290, "days": 30, "bundle": False},
-            "VIP БАНДЛ (590 РУБ)": {"price": 590, "days": 30, "bundle": True},
-            "🛰 ТАРИФ 1 (99 РУБ)": {"price": 99, "days": 7, "bundle": False},
-            "🛰 ТАРИФ 2 (290 РУБ)": {"price": 290, "days": 30, "bundle": False},
-            "🛰 VIP БАНДЛ (590 РУБ)": {"price": 590, "days": 30, "bundle": True}
+            "ТАРИФ 1 (99 РУБ)": {"price": 990, "days": 7, "bundle": False},
+            "ТАРИФ 2 (290 РУБ)": {"price": 2900, "days": 30, "bundle": False},
+            "VIP БАНДЛ (590 РУБ)": {"price": 5900, "days": 30, "bundle": True},
+            "🛰 ТАРИФ 1 (99 РУБ)": {"price": 990, "days": 7, "bundle": False},
+            "🛰 ТАРИФ 2 (290 РУБ)": {"price": 2900, "days": 30, "bundle": False},
+            "🛰 VIP БАНДЛ (590 РУБ)": {"price": 5900, "days": 30, "bundle": True}
         }
 
         t_info = tariff_map.get(text)
@@ -776,9 +777,22 @@ async def process_tariff_purchase(message: Message):
             }
             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
             try:
-                await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.\nОплата возможна только реальным балансом.", keyboard=kb_json)
+                missing_energy = price - balance
+                rub_needed = math.ceil(missing_energy / 10)
+
+                # Rebuild keyboard with exact rub amount
+                kb_json_exact = json.dumps({
+                    "inline": True,
+                    "buttons": [
+                        [{"action": {"type": "vkpay", "hash": f"action=pay-to-group&group_id=219181948&amount={rub_needed}"}}]
+                    ]
+                })
+
+                await message.answer(f"Не хватает {missing_energy} Энергии звезд. Пополни свой поток на {rub_needed} РУБ, чтобы открыть этот раздел.", keyboard=kb_json_exact)
             except Exception:
-                await message.answer(f"Недостаточно средств. Цена: {price} РУБ.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.\nОплата возможна только реальным балансом.")
+                missing_energy = price - balance
+                rub_needed = math.ceil(missing_energy / 10)
+                await message.answer(f"Не хватает {missing_energy} Энергии звезд. Пополни свой поток на {rub_needed} РУБ, чтобы открыть этот раздел.")
 
     finally:
         await release_lock(vk_id)
