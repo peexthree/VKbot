@@ -151,6 +151,38 @@ async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str,
         logger.exception(f"Exception in update_user: {e}")
         return None
 
+async def check_and_save_transaction(transaction_id: str, vk_id: int, amount: int) -> bool:
+    """Checks if a vkpay transaction exists to prevent fraud, and saves it if unique."""
+    if not URL or not KEY or session is None:
+        return False
+    try:
+        # Check for existing transaction
+        async with session.get(f"{URL}/rest/v1/events?action=eq.vkpay_transaction&metadata->>transaction_id=eq.{transaction_id}", headers=HEADERS) as r:
+            if r.status == 200:
+                data = await r.json()
+                if data:
+                    logger.warning(f"Fraud protection triggered: transaction {transaction_id} already exists.")
+                    return False
+            else:
+                logger.error(f"Supabase error in check_and_save_transaction (get): {r.status} {await r.text()}")
+                return False
+
+        # Insert new transaction
+        payload = {
+            "user_id": vk_id,
+            "action": "vkpay_transaction",
+            "metadata": {"transaction_id": transaction_id, "amount": amount}
+        }
+        async with session.post(f"{URL}/rest/v1/events", headers=HEADERS, json=payload) as r:
+            if r.status in (200, 201, 204):
+                return True
+            else:
+                logger.error(f"Supabase error in check_and_save_transaction (post): {r.status} {await r.text()}")
+                return False
+    except Exception as e:
+        logger.exception(f"Exception in check_and_save_transaction: {e}")
+        return False
+
 async def get_user_state(vk_id: int) -> Optional[str]:
     from modules.bot_init import bot
     state_rec = await bot.state_dispenser.get(vk_id)

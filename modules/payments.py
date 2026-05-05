@@ -8,9 +8,10 @@ import datetime
 import os
 from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
+from vkbottle.tools.dev.keyboard.action import VKPay
 
 # Все импорты базы и сервисов — строго здесь
-from database import get_user, update_user, set_user_state, get_user_state, create_user
+from database import get_user, update_user, set_user_state, get_user_state, create_user, check_and_save_transaction
 from ai_service import generate_text, generate_section
 from modules.utils import (
     bot, generate_premium_pdf, get_fsm_step, upload_local_photo, 
@@ -142,7 +143,7 @@ async def message_event_handler(event: dict):
                 diff_energy = amount_needed - balance
                 diff_rubles = math.ceil(diff_energy / 10)
                 kb = Keyboard(inline=True)
-                kb.add(Callback("ПОПОЛНИТЬ ПРЯМО СЕЙЧАС", payload={"cmd": "pay_refill", "amount": diff_rubles}), color=KeyboardButtonColor.POSITIVE)
+                kb.add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}"))
                 await bot.api.messages.send(
                     peer_id=peer_id, 
                     message=f"Не хватает {diff_energy} Энергии звезд.\n\nПополни свой поток на {diff_rubles} РУБ, чтобы открыть этот раздел.",
@@ -231,14 +232,23 @@ async def money_transfer_handler(event: dict):
         amount = obj.get("amount")
 
         logger.info(f"money_transfer_handler triggered by from_id={vk_id}, amount={amount}")
-        tx_key = f"tx_vkpay_{vk_id}_{amount}_{event.get('event_id', 'none')}"
+
+        # event_id is unreliable or absent sometimes, but VKPay transaction usually has an id or we can use the event id
+        event_id = event.get('event_id') or str(obj.get('date', 'none'))
+        tx_key = f"tx_vkpay_{vk_id}_{amount}_{event_id}"
+
         if not await acquire_lock(tx_key, ttl=3600): return
 
         if not vk_id or not amount: return
-        amount_val = int(amount)
-        if amount_val > 1000: amount_val = amount_val // 100
 
-        added_energy = amount_val * 10
+        # VK sends amount in 1/1000 of a ruble
+        amount_rubles = int(amount) // 1000
+
+        if not await check_and_save_transaction(tx_key, vk_id, amount_rubles):
+            logger.warning(f"money_transfer_handler: duplicate or invalid transaction {tx_key} rejected")
+            return
+
+        added_energy = amount_rubles * 10
         user = await get_user(vk_id)
         if not user: return
 
@@ -248,7 +258,7 @@ async def money_transfer_handler(event: dict):
 
         await bot.api.messages.send(
             peer_id=vk_id,
-            message=f"ПОТОК ПОПОЛНЕН! НАЧИСЛЕНО: {added_energy} Энергии звезд.\nНА ТВОЕМ СЧЕТУ: {new_balance} Энергии звезд.",
+            message=f"БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: {added_energy} Энергии звезд.\nНА ТВОЕМ СЧЕТУ: {new_balance} Энергии звезд.",
             random_id=0
         )
     except Exception as e:
