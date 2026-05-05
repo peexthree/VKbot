@@ -55,39 +55,7 @@ async def message_event_handler(event: dict):
             logger.exception(f"Error answering event: {e}")
             
         # 2. Обработка команд (CALLBACK)
-        if cmd == "welcome_bonus":
-            user = await get_user(vk_id)
-            if not user: return
-
-            if user.get("welcome_bonus_received", False):
-                await bot.api.messages.send(peer_id=peer_id, message="Бонус уже получен", random_id=0)
-                return
-
-            balance = int(user.get("balance", 0) or 0)
-            new_balance = balance + 700
-            await update_user(vk_id, {"balance": new_balance, "welcome_bonus_received": True})
-            
-            await bot.api.messages.send(
-                peer_id=peer_id, 
-                message="Я подарила тебе 700 Энергии звезд для старта. Этого хватит, чтобы начать свой путь.", 
-                random_id=0
-            )
-
-            await set_user_state(vk_id, json.dumps({
-                "step": "global_cut",
-                "target_section": "welcome"
-            }))
-
-            kb = {
-                "inline": True,
-                "buttons": [[{
-                    "action": {"type": "callback", "payload": json.dumps({"cmd": "global_cut"}), "label": "✦ СДВИНУТЬ КОЛОДУ"},
-                    "color": "secondary"
-                }]]
-            }
-            await bot.api.messages.send(peer_id=peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ", keyboard=json.dumps(kb, ensure_ascii=False), random_id=0)
-
-        elif cmd == "use_section":
+        if cmd == "use_section":
             target_section = payload.get("key")
             user = await get_user(vk_id)
             if user and target_section:
@@ -186,6 +154,14 @@ async def message_event_handler(event: dict):
             await view_card_direct(vk_id, peer_id, card_id)
 
         elif cmd == "global_cut":
+            # Если в payload передан target (например, "welcome" для первого разбора), сохраняем его в стейт
+            target = payload.get("target")
+            if target:
+                 await set_user_state(vk_id, json.dumps({
+                    "step": "global_cut",
+                    "target_section": target
+                 }))
+
             await bot.api.messages.edit(
                 peer_id=peer_id,
                 message="СИНХРОНИЗАЦИЯ...",

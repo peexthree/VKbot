@@ -287,7 +287,9 @@ async def process_city(message: Message):
         user = await update_user(vk_id, {
             "birth_date": date,
             "birth_time": time,
-            "birth_city": city
+            "birth_city": city,
+            "balance": 700,
+            "welcome_bonus_received": True
         })
         if not user:
             await message.answer("СИСТЕМА ДАЛА СБОЙ. Не удалось сохранить данные в базу. Повторите попытку позже.")
@@ -295,17 +297,16 @@ async def process_city(message: Message):
 
         await set_user_state(vk_id, "")
 
-        user = await get_user(vk_id)
-
         import json
+        from modules.utils import get_dynamic_keyboard
 
-        kb = {
+        kb_inline = {
             "inline": True,
             "buttons": [[{
                 "action": {
                     "type": "callback",
-                    "payload": json.dumps({"cmd": "welcome_bonus"}),
-                    "label": "Получить анализ и 700 Энергии звезд"
+                    "payload": json.dumps({"cmd": "global_cut", "target": "welcome"}),
+                    "label": "СДЕЛАТЬ ПЕРВЫЙ РАЗБОР"
                 },
                 "color": "primary"
             }]]
@@ -313,12 +314,20 @@ async def process_city(message: Message):
 
         try:
             await message.answer(
-                "Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 700 Энергии звезд и твой первый анализ. Нажми кнопку ниже, чтобы забрать дар и увидеть магию в действии.",
-                keyboard=json.dumps(kb, ensure_ascii=False)
+                "Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам.\n\n"
+                "В качестве дара за доверие я зачислила на твой счет 700 Энергии звезд. Используй нижнее меню для навигации.",
+                keyboard=get_dynamic_keyboard(user)
+            )
+
+            await asyncio.sleep(1)
+
+            await message.answer(
+                "Твоя матрица готова к чтению. Ты можешь изучить разделы меню, либо позволить мне сделать первый базовый разбор прямо сейчас.",
+                keyboard=json.dumps(kb_inline, ensure_ascii=False)
             )
         except Exception as e:
             logger.exception(f"Error sending sync completion message: {e}")
-            await message.answer("Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам. Я подготовила для тебя 700 Энергии звезд и твой первый анализ. Нажми кнопку ниже, чтобы забрать дар и увидеть магию в действии.")
+            await message.answer("Твоя матрица готова к чтению. Ты можешь изучить разделы меню, либо позволить мне сделать первый базовый разбор прямо сейчас.", keyboard=json.dumps(kb_inline, ensure_ascii=False))
 
     finally:
         await release_lock(vk_id)
