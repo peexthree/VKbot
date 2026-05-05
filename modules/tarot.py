@@ -5,10 +5,10 @@ import random
 import re
 import datetime
 from vkbottle.bot import BotLabeler, Message
-from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
+from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, get_fsm_step,  upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from modules.utils import bot, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
 
 labeler = BotLabeler()
 
@@ -24,9 +24,7 @@ async def is_waiting_oracle_cut(message: Message) -> bool:
 async def process_oracle_cut(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
-
         return
-
 
     try:
         import json
@@ -45,7 +43,7 @@ async def process_oracle_cut(message: Message):
             "pool": pool
         }))
 
-        from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  Callback
+        from vkbottle import Callback
         kb = Keyboard(inline=True)
         for i, card_id in enumerate(pool):
             if i > 0 and i % 5 == 0:
@@ -75,13 +73,11 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             if photo:
                 attachments.append(photo)
 
-        import json
         from cache import get_tarot_names
         tarot_names = await get_tarot_names()
 
         c_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in card_ids]
 
-        # Send cards with delays
         messages = ["Настраиваюсь на вашу энергию...", "Раскладываю карты...", "Формирую ваш ответ..."]
         delays = [1, 1, 2]
 
@@ -102,10 +98,8 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
         if skin_att:
             await bot.api.messages.send(peer_id=vk_id, message="", attachment=skin_att, random_id=0)
 
-        # Build prompt with user context
         purchased = user.get("purchased_sections", {})
         sex_val = purchased.get("sex_val", 0)
-        first_name = purchased.get("first_name", "")
         gender_str = "ЖЕНЩИНА" if sex_val == 1 else "МУЖЧИНА"
 
         prompt = (
@@ -119,10 +113,9 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
         if not result_text:
             result_text = "Оракул молчит. Попробуй позже."
 
-        # Update database
         purchased["oracle_last_used"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         if purchased.get("oracle_access", False):
-            purchased["oracle_access"] = False # consume the pass
+            purchased["oracle_access"] = False
 
         user = await get_user(vk_id)
         if user:
@@ -166,7 +159,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
     except Exception as e:
         print(f"Error in process_oracle_final: {e}")
 
-@labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 КАРТА ДНЯ"])
+@labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня"])
 async def card_of_day_handler(message: Message):
     import json
     import datetime
@@ -176,7 +169,6 @@ async def card_of_day_handler(message: Message):
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
-
         return
 
     user = await get_user(vk_id)
@@ -190,7 +182,6 @@ async def card_of_day_handler(message: Message):
     state_dict = await get_fsm_step(vk_id)
     if state_dict is not None and "step" in state_dict:
         return
-
 
     try:
         purchased = user.get("purchased_sections", {})
@@ -211,7 +202,7 @@ async def card_of_day_handler(message: Message):
             keyboard_obj = {
                 "inline": True,
                 "buttons": [[{
-                    "action": {"type": "text", "label": "ВОПРОС СУДЬБЕ"}, "color": "primary"
+                    "action": {"type": "callback", "payload": json.dumps({"cmd": "buy", "type": "service", "key": "oracle"}), "label": "ВОПРОС СУДЬБЕ (ОРАКУЛ)"}, "color": "primary"
                 }]]
             }
             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
@@ -231,7 +222,6 @@ async def card_of_day_handler(message: Message):
         import asyncio
         await asyncio.sleep(2)
 
-        # Update streak
         visit_streak = user.get("visit_streak", 0)
         weekly_log = user.get("weekly_log", [])
         unlocked_cards = user.get("unlocked_cards", [])
@@ -252,7 +242,6 @@ async def card_of_day_handler(message: Message):
             visit_streak = 1
             weekly_log = []
 
-        # Mark used
         purchased["card_of_day_last_used"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         date = user.get("birth_date", "неизвестно")
@@ -295,7 +284,6 @@ async def card_of_day_handler(message: Message):
 
         weekly_log.append(card_id)
 
-        # Increment total_cards_received and save updates
         user = await get_user(vk_id)
         if user:
             current_total = user.get("total_cards_received", 0)
@@ -309,7 +297,7 @@ async def card_of_day_handler(message: Message):
 
         photo_attachment = None
         try:
-            from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader,  PhotoMessageUploader
+            from vkbottle import PhotoMessageUploader
             photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg")
         except Exception as e:
             print(f"Failed to upload tarot card {card_id}: {e}")
@@ -345,7 +333,6 @@ async def card_of_day_handler(message: Message):
                 await message.answer(display_text)
 
         if photo_attachment:
-            # Пытаемся достать значение карты из Гримуара, чтобы сделать подпись
             caption = ""
             if user:
                 unlocked_cards = user.get("unlocked_cards", {})
@@ -388,102 +375,8 @@ async def card_of_day_handler(message: Message):
 
 @labeler.message(text=["ВОПРОС СУДЬБЕ", "✦ ВОПРОС СУДЬБЕ"])
 async def oracle_handler(message: Message):
-    vk_id = message.from_id
-    from database import set_user_state
-    await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
-
-        return
-
-    user = await get_user(vk_id)
-    if not user:
-        return
-
-    # Игнорируем команды и системные сообщения
-    text = message.text.strip()
-    if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or text.startswith("✦"):
-        return
-
-    # Проверяем, не в FSM ли мы
-    state_dict = await get_fsm_step(vk_id)
-    if state_dict is not None and "step" in state_dict:
-        return
-
-
-    try:
-        import datetime
-        import json
-
-        purchased = user.get("purchased_sections", {})
-        oracle_last_used_str = purchased.get("oracle_last_used")
-        has_paid_access = purchased.get("oracle_access", False)
-
-        allow_access = False
-        if has_paid_access:
-            allow_access = True
-        else:
-            if not oracle_last_used_str:
-                allow_access = True
-            else:
-                try:
-                    last_time = datetime.datetime.fromisoformat(oracle_last_used_str)
-                    if (datetime.datetime.now(datetime.timezone.utc) - last_time).total_seconds() >= 24 * 3600:
-                        allow_access = True
-                except ValueError:
-                    allow_access = True
-
-        if not allow_access:
-            last_time = datetime.datetime.fromisoformat(oracle_last_used_str)
-            remaining = datetime.timedelta(hours=24) - (datetime.datetime.now(datetime.timezone.utc) - last_time)
-            hours, remainder = divmod(remaining.seconds, 3600)
-            minutes, _ = divmod(remainder, 60)
-
-            balance = user.get("balance", 0)
-
-            if balance >= 50:
-                keyboard_obj = {
-                    "inline": True,
-                    "buttons": [[{
-                        "action": {"type": "text", "label": "ВОПРОС СУДЬБЕ"}, "color": "secondary"
-                    }]]
-                }
-                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                try:
-                    await message.answer(
-                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ. Пропустить таймер: 500 Энергии звезд.",
-                        keyboard=kb_json
-                    )
-                except Exception:
-                    await message.answer(
-                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ. Пропустить таймер: 500 Энергии звезд."
-                    )
-            else:
-                keyboard_obj = {
-                    "inline": True,
-                    "buttons": [[{
-                        "action": {"type": "vkpay", "hash": "action=pay-to-group&group_id=219181948&amount=50"}
-                    }]]
-                }
-                kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-
-                try:
-                    await message.answer(
-                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ.",
-                        keyboard=kb_json
-                    )
-                except Exception:
-                    await message.answer(
-                        f"СИСТЕМА ПЕРЕГРЕТА. Твое будущее на сегодня исчерпано. Приходи завтра или оплати принудительную синхронизацию.\nЭнергия восстанавливается. Осталось {hours} ч. {minutes} мин.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} РУБ."
-                    )
-            return
-
-        # Start Oracle FSM
-        await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
-
-        await message.answer("ШАГ 1 ИЗ 3: ТВОЙ ВОПРОС. Напиши, что тебя волнует?\nСформулируй вопрос максимально конкретно. Система не любит размытых мыслей.")
-
-    finally:
-        await release_lock(vk_id)
+    # Этот обработчик больше не нужен, так как покупка Оракула идет напрямую из витрины. Оставляем для совместимости со старыми кнопками.
+    pass
 
 async def is_waiting_oracle_question(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
@@ -497,7 +390,6 @@ async def is_waiting_oracle_question(message: Message) -> bool:
 async def process_oracle_question(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
-
         return
 
     try:
@@ -520,37 +412,5 @@ async def process_oracle_question(message: Message):
 
 @labeler.message(text=["АНТИТАРО", "✦ АНТИТАРО", "👺 АНТИТАРО"])
 async def antitarot_handler(message: Message):
-    vk_id = message.from_id
-    from database import set_user_state
-    await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
-
-        return
-
-    user = await get_user(vk_id)
-    if not user:
-        return
-
-    balance = user.get("balance", 0)
-    if balance < 500:
-        await message.answer("ДЛЯ АКТИВАЦИИ АНТИТАРО НУЖНО 500 Энергии звезд. ТВОЙ БАЛАНС НЕДОСТАТОЧЕН.", keyboard=get_dynamic_keyboard(user))
-        return
-
-
-    try:
-        await message.answer("Активирую темный канал...", keyboard=Keyboard(inline=True).get_json())
-        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-
-        # Deduct balance
-        new_balance = balance - 50
-        await update_user(vk_id, {"balance": new_balance})
-
-        prompt = "Сделай анти-разбор таро, максимально циничный, деструктивный и жесткий совет наоборот."
-        result = await generate_text(prompt, skin=user.get("active_skin", "olesya"))
-
-        # Upload dark cover or random
-        att = await upload_local_photo(bot.api, "cover_dark.jpeg")
-
-        await message.answer(f"✦ АНТИТАРО ✦\n\n{result}", attachment=att, keyboard=get_dynamic_keyboard(user))
-    finally:
-        await release_lock(vk_id)
+    # Эта функция больше не нужна, так как покупка Антитаро идет через services.py и payments.py.
+    pass
