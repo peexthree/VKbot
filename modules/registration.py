@@ -194,6 +194,10 @@ async def process_time(message: Message):
 
             from ai_service import generate_section
             active_skin = user.get("active_skin", "olesya") if user else "olesya"
+
+            await message.answer("ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...")
+            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+
             base_text = await generate_section("base", date_str, time_str, city_str_existing, skin=active_skin)
 
             if base_text:
@@ -249,10 +253,6 @@ async def process_city(message: Message):
         time = state_dict.get("time", "")
         city = city_str
 
-        await message.answer("Анализирую координаты...")
-        await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
-        await asyncio.sleep(5)
-
         user = await update_user(vk_id, {
             "birth_date": date,
             "birth_time": time,
@@ -282,13 +282,12 @@ async def process_city(message: Message):
         }
 
         try:
+            # Отправляем оба сообщения мгновенно
             await message.answer(
                 "Я закончила изучение твоей точки входа в этот мир. Теперь система знает о тебе больше, чем ты сам.\n\n"
                 "В качестве дара за доверие я зачислила на твой счет 700 Энергии звезд. Используй нижнее меню для навигации.",
                 keyboard=get_dynamic_keyboard(user)
             )
-
-            await asyncio.sleep(1)
 
             await message.answer(
                 "Твоя матрица готова к чтению. Ты можешь изучить разделы меню, либо позволить мне сделать первый базовый разбор прямо сейчас.",

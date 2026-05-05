@@ -12,7 +12,12 @@ class ThrottleMiddleware(BaseMiddleware[Message]):
         # Standard texts might just be chat
         is_heavy = False
         if self.event.payload:
-            is_heavy = True
+            try:
+                payload = json.loads(self.event.payload)
+                if "cmd" in payload or "target" in payload:
+                    is_heavy = True
+            except json.JSONDecodeError:
+                is_heavy = True
         elif self.event.text:
             text = self.event.text.strip()
             # Emojis or specific prefixes used for menu buttons:

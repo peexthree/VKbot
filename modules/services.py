@@ -12,7 +12,7 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_premium_pdf, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache, SKIN_ASSETS
+from modules.utils import bot, generate_premium_pdf, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache, SKIN_ASSETS, pdf_semaphore
 from loguru import logger
 
 labeler = BotLabeler()
@@ -93,58 +93,52 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         }
     ]
 
-    if idx < 0 or idx >= len(services):
-        idx = 0
-
-    svc = services[idx]
-
-    msg_text = f"✦ {svc['title'].upper()} ✦\nЦена: {svc['price_text']}\n\n{svc['desc']}"
-
-    buttons = []
-
-    nav_buttons = []
-    if idx > 0:
-        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": idx - 1}), "label": "⬅ НАЗАД"}, "color": "secondary"})
-
-    nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "buy", "type": "service", "key": svc['key']}), "label": "КУПИТЬ"}, "color": "positive"})
-
-    if idx < len(services) - 1:
-        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": idx + 1}), "label": "ДАЛЕЕ ➡"}, "color": "secondary"})
-    else:
-        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 0}), "label": "🛰 ТАРИФЫ"}, "color": "primary"})
-
-    buttons.append(nav_buttons)
-
-    keyboard_obj = {
-        "inline": True,
-        "buttons": buttons
-    }
-    kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-
-    try:
-
-
+    elements = []
+    for svc in services:
         att = await upload_local_photo(bot.api, svc['image_name']) if svc['image_name'] else None
 
-        if edit_msg_id:
-            try:
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=edit_msg_id, message=msg_text, attachment=att, keyboard=kb_json)
-                return
-            except Exception as e:
-                logger.exception(f"Error editing message: {e}, falling back to send.")
+        # Trim description to fit VK Carousel limits (approx 80 chars for title, 80 chars for description in carousel)
+        # However, for carousel description max length is 80, title is 80.
+        title_trimmed = svc['title'][:80]
+        desc_trimmed = svc['desc'][:80] + "..." if len(svc['desc']) > 80 else svc['desc']
+
+        # We need a valid action URL or action for the element itself. Usually "open_photo" or "open_link"
+        element = {
+            "title": title_trimmed,
+            "description": f"Цена: {svc['price_text']}\n{desc_trimmed}",
+            "action": {"type": "open_photo"},
+            "buttons": [
+                {
+                    "action": {
+                        "type": "callback",
+                        "payload": json.dumps({"cmd": "buy", "type": "service", "key": svc['key']}),
+                        "label": "КУПИТЬ"
+                    },
+                    "color": "positive"
+                }
+            ]
+        }
 
         if att:
-            try:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, keyboard=kb_json, random_id=0)
-            except Exception as e:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, random_id=0)
-        else:
-            try:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
-            except Exception as e:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+            # att format from upload_photo is "photo{owner_id}_{photo_id}"
+            photo_id = att.replace("photo", "")
+            if "_" in photo_id:
+                element["photo_id"] = photo_id
+
+        elements.append(element)
+
+    template = {
+        "type": "carousel",
+        "elements": elements
+    }
+
+    template_json = json.dumps(template, ensure_ascii=False)
+    msg_text = "✦ ВИТРИНА УСЛУГ ✦\nВыберите услугу и нажмите 'КУПИТЬ'."
+
+    try:
+        await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
     except Exception as e:
-        logger.exception(f"Error sending service block {svc['title']}: {e}")
+        logger.exception(f"Error sending service carousel: {e}")
         try:
             await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
         except Exception as e:
@@ -213,6 +207,9 @@ async def process_synastry_date(message: Message):
 
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
+        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
+        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+
         result_text = await generate_section("synastry", date, time, city, core_profile, first_name, sex_val, partner_name=partner_name, partner_date=partner_date, skin=active_skin)
 
         if not result_text:
@@ -268,7 +265,8 @@ async def process_synastry_date(message: Message):
             birth_info = f"{date} {time} {city}"
             partner_name = state_dict.get("partner_name", "Партнер")
 
-            await asyncio.to_thread(generate_premium_pdf, partner_name, birth_info, "СИНАСТРИЯ", display_text, pdf_filename, card_id)
+            async with pdf_semaphore:
+                await asyncio.to_thread(generate_premium_pdf, partner_name, birth_info, "СИНАСТРИЯ", display_text, pdf_filename, card_id)
 
             doc_uploader = DocMessagesUploader(bot.api)
             doc_attachment = await doc_uploader.upload(title="Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)
@@ -362,58 +360,48 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         }
     ]
 
-    if idx < 0 or idx >= len(tariffs):
-        idx = 0
-
-    svc = tariffs[idx]
-
-    msg_text = f"🛰 {svc['title'].upper()} 🛰\nЦена: {svc['price_text']}\n\n{svc['desc']}"
-
-    buttons = []
-
-    nav_buttons = []
-    if idx > 0:
-        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": idx - 1}), "label": "⬅ НАЗАД"}, "color": "secondary"})
-
-    nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "buy", "type": "tariff", "key": svc['key']}), "label": "КУПИТЬ"}, "color": "positive"})
-
-    if idx < len(tariffs) - 1:
-        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": idx + 1}), "label": "ДАЛЕЕ ➡"}, "color": "secondary"})
-    else:
-        nav_buttons.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": 0}), "label": "ВЕРНУТЬСЯ К УСЛУГАМ"}, "color": "primary"})
-
-    buttons.append(nav_buttons)
-
-    keyboard_obj = {
-        "inline": True,
-        "buttons": buttons
-    }
-    kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-
-    try:
-
-
+    elements = []
+    for svc in tariffs:
         att = await upload_local_photo(bot.api, svc['image_name']) if svc['image_name'] else None
 
-        if edit_msg_id:
-            try:
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=edit_msg_id, message=msg_text, attachment=att, keyboard=kb_json)
-                return
-            except Exception as e:
-                logger.exception(f"Error editing message: {e}, falling back to send.")
+        title_trimmed = svc['title'][:80]
+        desc_trimmed = svc['desc'][:80] + "..." if len(svc['desc']) > 80 else svc['desc']
+
+        element = {
+            "title": title_trimmed,
+            "description": f"Цена: {svc['price_text']}\n{desc_trimmed}",
+            "action": {"type": "open_photo"},
+            "buttons": [
+                {
+                    "action": {
+                        "type": "callback",
+                        "payload": json.dumps({"cmd": "buy", "type": "tariff", "key": svc['key']}),
+                        "label": "КУПИТЬ"
+                    },
+                    "color": "positive"
+                }
+            ]
+        }
 
         if att:
-            try:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, keyboard=kb_json, random_id=0)
-            except Exception as e:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=att, random_id=0)
-        else:
-            try:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
-            except Exception as e:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+            photo_id = att.replace("photo", "")
+            if "_" in photo_id:
+                element["photo_id"] = photo_id
+
+        elements.append(element)
+
+    template = {
+        "type": "carousel",
+        "elements": elements
+    }
+
+    template_json = json.dumps(template, ensure_ascii=False)
+    msg_text = "🛰 ТАРИФЫ 🛰\nВыберите тариф и нажмите 'КУПИТЬ'."
+
+    try:
+        await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
     except Exception as e:
-        logger.exception(f"Error sending tariff block {svc['title']}: {e}")
+        logger.exception(f"Error sending tariff carousel: {e}")
         try:
             await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
         except Exception as e:
