@@ -129,8 +129,8 @@ async def extract_birth_data(text: str) -> dict | None:
     if not res:
         return None
     try:
-        clean_res = re.sub(r'```json\n|\n
-```|```', '', res).strip()
+        clean_res = res.replace('```json', '').replace('
+```', '').strip()
         data = json.loads(clean_res)
         return data
     except json.JSONDecodeError:
