@@ -1,4 +1,5 @@
 from cache import acquire_lock, release_lock
+from modules.states import MyStates
 import asyncio
 import json
 import random
@@ -147,7 +148,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
                 keyboard=kb_json,
                 random_id=0
             )
-        except Exception:
+        except Exception as e:
             await bot.api.messages.send(
                 peer_id=vk_id,
                 message=result_text,
@@ -214,7 +215,7 @@ async def card_of_day_handler(message: Message):
                     "Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу.",
                     keyboard=kb_json
                 )
-            except Exception:
+            except Exception as e:
                 await message.answer(
                     "Твой лимит на сегодня исчерпан. Карта дня на то и карта дня что выдается один раз в день. Потоки энергии требуют времени для восстановления. Если тебе нужен срочный ответ, обратись к Оракулу."
                 )
@@ -327,12 +328,12 @@ async def card_of_day_handler(message: Message):
             await asyncio.sleep(4)
             try:
                 await message.answer(main_part, keyboard=kb_json)
-            except Exception:
+            except Exception as e:
                 await message.answer(main_part)
         else:
             try:
                 await message.answer(display_text, keyboard=kb_json)
-            except Exception:
+            except Exception as e:
                 await message.answer(display_text)
 
         if photo_attachment:
@@ -344,7 +345,7 @@ async def card_of_day_handler(message: Message):
 
             try:
                 await message.answer(f"🎴 Значение карты:\n{caption}", attachment=photo_attachment)
-            except Exception:
+            except Exception as e:
                 await message.answer("", attachment=photo_attachment)
 
         if visit_streak >= 7:
@@ -376,15 +377,7 @@ async def card_of_day_handler(message: Message):
     finally:
         await release_lock(vk_id)
 
-async def is_waiting_oracle_question(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"):
-        return False
-    if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "waiting_oracle_question"
-
-@labeler.message(func=is_waiting_oracle_question)
+@labeler.message(state=MyStates.WAITING_ORACLE_QUESTION)
 async def process_oracle_question(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -402,7 +395,7 @@ async def process_oracle_question(message: Message):
                 "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду",
                 keyboard=kb.get_json()
             )
-        except Exception:
+        except Exception as e:
             await message.answer("ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду")
     finally:
         await release_lock(vk_id)

@@ -143,7 +143,7 @@ async def settings_choose_character(message: Message):
 
             try:
                 photo = await upload_local_photo(bot.api, filename)
-            except Exception:
+            except Exception as e:
                 photo = None
 
             style_desc = styles.get(skin_name, "мистицизм")
@@ -161,7 +161,7 @@ async def settings_choose_character(message: Message):
             if photo:
                 try:
                     await message.answer(text, attachment=photo, keyboard=kb.get_json())
-                except Exception:
+                except Exception as e:
                     await message.answer(text, keyboard=kb.get_json())
             else:
                 await message.answer(text, keyboard=kb.get_json())
@@ -264,7 +264,7 @@ async def show_profile(message: Message):
                 transit_status = "Активен"
                 transit_timer = exp_date.strftime("%d.%m.%Y")
         except ValueError:
-            pass
+            logger.exception("Ignored Exception")
 
     profile_text = (
         f"✦ ЛИЧНАЯ КАРТА ✦\n"
@@ -307,8 +307,8 @@ async def show_profile(message: Message):
                   await message.answer(profile_text, attachment=photo)
              else:
                   await message.answer(profile_text)
-        except:
-             pass
+        except Exception as e:
+             logger.exception("Ignored Exception")
 
 @labeler.message(text=["🎴 МОЙ ГРИМУАР"])
 async def show_grimoire(message: Message):
@@ -474,7 +474,7 @@ async def god_mode_handler(message: Message):
                 "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ .",
                 keyboard=kb_json
             )
-        except Exception:
+        except Exception as e:
             await message.answer(
                 "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ  ."
             )
@@ -523,8 +523,8 @@ async def apply_promo_handler(message: Message):
 
     try:
         await bot.api.messages.send(peer_id=referrer_id, message=f"Твой друг активировал промокод! Тебе начислено 500 Энергии звезд. Твой баланс: {referrer_balance} Энергии звезд", random_id=0)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception("Ignored Exception")
 
 
 @labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 Путеводитель"])

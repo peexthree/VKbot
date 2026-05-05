@@ -37,6 +37,9 @@ async def main():
     import modules.tarot as tarot
     import modules.payments as payments
 
+    from modules.middlewares import ThrottleMiddleware
+    bot.labeler.message_view.register_middleware(ThrottleMiddleware)
+
     bot.labeler.load(registration.labeler)
     bot.labeler.load(profile.labeler)
     bot.labeler.load(services.labeler)

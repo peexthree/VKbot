@@ -152,8 +152,41 @@ async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str,
         return None
 
 async def get_user_state(vk_id: int) -> Optional[str]:
+    from modules.bot_init import bot
+    state_rec = await bot.state_dispenser.get(vk_id)
+    if state_rec:
+        return state_rec.payload.get("raw_json") if state_rec.payload else None
     return await get_fsm_state(vk_id)
 
 async def set_user_state(vk_id: int, state: str) -> bool:
-    await set_fsm_state(vk_id, state)
+    from modules.bot_init import bot
+    from modules.states import MyStates
+    import json
+    if not state:
+        await bot.state_dispenser.delete(vk_id)
+        await set_fsm_state(vk_id, state)
+        return True
+
+    try:
+        data = json.loads(state)
+        step = data.get("step", "")
+        # Map steps to actual MyStates
+        state_map = {
+            "date": MyStates.WAITING_FOR_DATE,
+            "time": MyStates.WAITING_FOR_TIME,
+            "city": MyStates.WAITING_FOR_CITY,
+            "confirm_data": MyStates.WAITING_CONFIRM_DATA,
+            "waiting_synastry_date": MyStates.WAITING_SYNASTRY_DATE,
+            "waiting_oracle_question": MyStates.WAITING_ORACLE_QUESTION,
+            "oracle_draw": MyStates.ORACLE_DRAW,
+            "global_cut": MyStates.GLOBAL_CUT
+        }
+        target_state = state_map.get(step)
+        if target_state:
+            await bot.state_dispenser.set(vk_id, target_state, raw_json=state)
+        else:
+            await set_fsm_state(vk_id, state)
+    except Exception:
+        await set_fsm_state(vk_id, state)
+
     return True
