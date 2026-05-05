@@ -48,14 +48,14 @@ async def test_money_transfer_handler_idempotency():
     # We need to mock cache.acquire_lock, not modules.payments.acquire_lock
     with patch('modules.utils.bot.api.messages.send') as mock_send:
         # First call - simulate successful lock acquisition and then returning early
-        with patch('cache.acquire_lock', return_value=True) as mock_lock:
+        with patch('modules.payments.acquire_lock', return_value=True) as mock_lock:
             with patch('modules.payments.get_user', return_value=None) as mock_get_user:
                 await money_transfer_handler(event_payload)
                 mock_lock.assert_called_once_with("tx_vkpay_123456789_100_test_event_123", ttl=3600)
                 mock_get_user.assert_called_once_with(123456789)
 
         # Second call - simulate lock acquisition failure (duplicate)
-        with patch('cache.acquire_lock', return_value=False) as mock_lock:
+        with patch('modules.payments.acquire_lock', return_value=False) as mock_lock:
             with patch('modules.payments.get_user') as mock_get_user:
                 await money_transfer_handler(event_payload)
                 mock_lock.assert_called_once_with("tx_vkpay_123456789_100_test_event_123", ttl=3600)

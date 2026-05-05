@@ -1,7 +1,9 @@
+import os
+import json
 import math
 from cache import acquire_lock, release_lock
 import asyncio
-import json
+
 import random
 import re
 import datetime
@@ -9,7 +11,7 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, generate_premium_pdf, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from modules.utils import bot, generate_premium_pdf, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache, SKIN_ASSETS
 
 labeler = BotLabeler()
 
@@ -18,8 +20,8 @@ async def show_services_handler(message: Message):
     await show_services(message.from_id, message.peer_id, 0)
 
 async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
-    import json
-    from database import set_user_state
+
+
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
@@ -117,8 +119,8 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
     try:
-        from modules.utils import upload_local_photo
-        from modules.bot_init import bot
+
+
         att = await upload_local_photo(bot.api, svc['image_name']) if svc['image_name'] else None
 
         if edit_msg_id:
@@ -145,17 +147,62 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         except Exception:
             pass
 
-@labeler.message(text=["✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)", "👄 СЕКС", "💰 ДЕНЬГИ", "🌘 ТЕНЬ", "🏁 ФИНАЛ"])
+
+@labeler.message(text=[
+    "✦ СЕКС (РАЗОВАЯ)", "✦ ДЕНЬГИ (РАЗОВАЯ)", "✦ ТЕНЬ (РАЗОВАЯ)", "✦ ФИНАЛ (РАЗОВАЯ)",
+    "👄 СЕКС", "💰 ДЕНЬГИ", "🌘 ТЕНЬ", "🏁 ФИНАЛ",
+    "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ", "💰 КОД ТВОЕГО БОГАТСТВА",
+    "🌘 ТВОИ СКРЫТЫЕ ГРАНИ", "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ", "АНТИТАРО", "👨‍❤️‍👨 СИНАСТРИЯ", "Синастрия (Совместимость)", "✦ Синастрия (Совместимость)", "👨‍❤️‍👨 СИНАСТРИЯ (СОВМЕСТИМОСТЬ)"
+])
 async def handle_section_request(message: Message):
-    # Эта функция больше не используется для покупок, так как покупка идет напрямую через Callback в payments.py. 
-    # Оставляем пустой обработчик на случай старых текстовых кнопок, чтобы бот не падал.
-    pass
+    vk_id = message.from_id
+    peer_id = message.peer_id
+    user = await get_user(vk_id)
+    if not user:
+        return
 
-@labeler.message(text=["Синастрия (Совместимость)", "✦ Синастрия (Совместимость)", "👨‍❤️‍👨 СИНАСТРИЯ (СОВМЕСТИМОСТЬ)", "👨‍❤️‍👨 СИНАСТРИЯ"])
-async def synastry_handler(message: Message):
-    # Эта функция также заменена прямым вызовом через payments.py
-    pass
+    text = message.text.upper()
 
+    # Маппинг текстов кнопок в ключи разделов и индексы товаров
+    section_map = {
+        "СЕКС": ("sex", 0),
+        "СЕКСУАЛЬНАЯ ЭНЕРГИЯ": ("sex", 0),
+        "ДЕНЬГИ": ("money", 1),
+        "БОГАТСТВА": ("money", 1),
+        "ТЕНЬ": ("shadow", 2),
+        "ГРАНИ": ("shadow", 2),
+        "ФИНАЛ": ("final", 3),
+        "ИСТИННЫЙ ПУТЬ": ("final", 3),
+        "СИНАСТРИЯ": ("synastry", 4),
+        "СОВМЕСТИМОСТЬ": ("synastry", 4),
+        "АНТИТАРО": ("antitaro", 6),
+    }
+
+    target_key = None
+    target_idx = 0
+
+    for k, v in section_map.items():
+        if k in text:
+            target_key, target_idx = v
+            break
+
+    if not target_key:
+        return
+
+    purchased = user.get("purchased_sections", {})
+
+    if purchased.get(target_key) or purchased.get("all") or user.get("has_full_chart"):
+        # Если раздел уже куплен, запускаем FSM глобальной обрезки
+        import json
+        await set_user_state(vk_id, json.dumps({
+            "step": "global_cut", "target_section": target_key
+        }))
+        kb = Keyboard(inline=True)
+        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
+        await bot.api.messages.send(peer_id=peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+    else:
+        # Если не куплен, выводим карточку товара
+        await show_services(vk_id, peer_id, target_idx)
 async def is_waiting_synastry_name(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
         return False
@@ -171,7 +218,7 @@ async def process_synastry_name(message: Message):
         return
 
     try:
-        import json
+
         partner_name = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_date", "partner_name": partner_name}))
         await message.answer(f"Имя {partner_name} принято. Теперь введите ДАТУ РОЖДЕНИЯ партнера (например, 15.04.1990):")
@@ -211,7 +258,7 @@ async def process_synastry_date(message: Message):
         ]
         for msg in messages:
             await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
-            import asyncio
+
             await asyncio.sleep(2)
 
         date = user.get("birth_date", "неизвестно")
@@ -222,7 +269,7 @@ async def process_synastry_date(message: Message):
         sex_val = purchased.get("sex_val", 0)
         core_profile = user.get("core_profile", "")
 
-        from ai_service import generate_section
+
 
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
@@ -236,8 +283,8 @@ async def process_synastry_date(message: Message):
 
         kb_json = await get_sections_keyboard(vk_id, user)
 
-        import re
-        import random
+
+
         match = re.search(r"ID_?ТАРО:\s*(\d+)", result_text)
         if match:
             num = int(match.group(1))
@@ -255,7 +302,7 @@ async def process_synastry_date(message: Message):
                 unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
 
             if card_id not in unlocked_cards:
-                from ai_service import generate_text
+
                 grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
                 signature = await generate_text(grimoire_prompt, skin=active_skin)
                 unlocked_cards[card_id] = signature if signature else "Первое касание"
@@ -265,7 +312,7 @@ async def process_synastry_date(message: Message):
 
         photo_attachment = None
         try:
-            from vkbottle import PhotoMessageUploader
+
             photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg")
         except Exception as e:
             print(f"Failed to upload tarot card {card_id}: {e}")
@@ -282,11 +329,11 @@ async def process_synastry_date(message: Message):
             partner_name = state_dict.get("partner_name", "Партнер")
 
             generate_premium_pdf(partner_name, birth_info, "СИНАСТРИЯ", display_text, pdf_filename, card_id)
-            from vkbottle import DocMessagesUploader
+
             doc_uploader = DocMessagesUploader(bot.api)
             doc_attachment = await doc_uploader.upload(title="Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)
             await bot.api.messages.send(peer_id=vk_id, message="Твой персональный архив. Скачай, чтобы не потерять.", attachment=doc_attachment, random_id=0)
-            import os
+
             if os.path.exists(pdf_filename):
                 os.remove(pdf_filename)
         except Exception as e:
@@ -300,7 +347,7 @@ async def process_synastry_date(message: Message):
             intro = parts[0].strip()
             main_part = f"СИНАСТРИЯ\n" + parts[1].strip()
 
-        from modules.utils import SKIN_ASSETS
+
         skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
         if skin_att:
             await message.answer(attachment=skin_att)
@@ -340,8 +387,8 @@ async def show_tariffs_handler(message: Message):
     await show_tariffs(message.from_id, message.peer_id, 0)
 
 async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
-    import json
-    from database import set_user_state
+
+
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
@@ -404,8 +451,8 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
 
     try:
-        from modules.utils import upload_local_photo
-        from modules.bot_init import bot
+
+
         att = await upload_local_photo(bot.api, svc['image_name']) if svc['image_name'] else None
 
         if edit_msg_id:
