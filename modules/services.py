@@ -31,64 +31,56 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         try:
             await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
         except Exception as e:
-            logger.exception("Ignored Exception")
+            logger.error(f"Ignored Exception: {str(e)}")
         return
 
     services = [
         {
             "key": "sex",
             "title": "Твоя сексуальная энергия",
-            "desc": "Что это даст: Глубокое понимание своих истинных желаний и блоков в интимной сфере.\nКак это работает: Расклад на картах с анализом твоей матрицы страсти.\nВремя подготовки: 1 минута.\n\nСделай шаг навстречу себе. Нажми 'Купить', выбери карту из моей колоды, и через минуту я пришлю тебе личный разбор.",
-            "price_text": "1000 Энергии звезд",
+            "desc": "1000 Энергии. Снимет блоки и раскроет матрицу страсти.",
             "image_name": "sex1.jpg"
         },
         {
             "key": "money",
             "title": "Код твоего богатства",
-            "desc": "Что это даст: Понимание, как пробить финансовый потолок и привлечь деньги в свою жизнь.\nКак это работает: Анализ финансового потока и твоих скрытых возможностей.\nВремя подготовки: 1 минута.\n\nСделай шаг навстречу себе. Нажми 'Купить', выбери карту из моей колоды, и через минуту я пришлю тебе личный разбор.",
-            "price_text": "900 Энергии звезд",
+            "desc": "900 Энергии. Пробьет финансовый потолок и привлечет деньги.",
             "image_name": "money1.jpg"
         },
         {
             "key": "shadow",
             "title": "Твои скрытые грани",
-            "desc": "Что это даст: Раскрытие подавленных эмоций и теневых сторон личности, мешающих росту.\nКак это работает: Работа с подсознанием через темные арканы.\nВремя подготовки: 1 минута.\n\nСделай шаг навстречу себе. Нажми 'Купить', выбери карту из моей колоды, и через минуту я пришлю тебе личный разбор.",
-            "price_text": "700 Энергии звезд",
+            "desc": "700 Энергии. Раскроет подавленные эмоции и теневые стороны.",
             "image_name": "demon1.jpg"
         },
         {
             "key": "final",
             "title": "Твой истинный путь",
-            "desc": "Что это даст: Осознание своего предназначения и глобального вектора развития.\nКак это работает: Полный расклад на жизненный путь и кармические задачи.\nВремя подготовки: 1 минута.\n\nСделай шаг навстречу себе. Нажми 'Купить', выбери карту из моей колоды, и через минуту я пришлю тебе личный разбор.",
-            "price_text": "1200 Энергии звезд",
+            "desc": "1200 Энергии. Осознание предназначения и вектора развития.",
             "image_name": "way1.jpg"
         },
         {
             "key": "synastry",
             "title": "Тайна ваших отношений",
-            "desc": "Что это даст: Полный разбор совместимости с партнером, сильные и слабые стороны союза.\nКак это работает: Жесткий разбор мэтча с партнером.\nВремя подготовки: 1 минута.\n\nСделай шаг навстречу себе. Нажми 'Купить', выбери карту из моей колоды, и через минуту я пришлю тебе личный разбор.",
-            "price_text": "1500 Энергии звезд",
+            "desc": "1500 Энергии. Жесткий разбор мэтча и совместимости.",
             "image_name": "sin.jpeg"
         },
         {
             "key": "oracle",
             "title": "Вопрос судьбе (Оракул)",
-            "desc": "Что это даст: Мгновенный ответ на твой вопрос от мироздания.\nКак это работает: Интеллектуальный анализ подсознания через символику. Без воды.\nВремя подготовки: 1 минута.\n\nСделай шаг навстречу себе. Нажми 'Купить', чтобы открыть диалог с судьбой.",
-            "price_text": "500 Энергии звезд",
+            "desc": "500 Энергии. Мгновенный ответ судьбы без воды.",
             "image_name": "ora1.jpg"
         },
         {
             "key": "antitaro",
             "title": "Антитаро (Разрыв иллюзий)",
-            "desc": "Что это даст: Жесткий разбор иллюзий и самообмана. Раздел для тех, кто готов услышать неприятную правду.\nКак это работает: Снятие розовых очков.\nВремя подготовки: 1 минута.\n\nСделай шаг навстречу себе. Нажми 'Купить', выбери карту из моей колоды, и через минуту я пришлю тебе личный разбор.",
-            "price_text": "500 Энергии звезд",
+            "desc": "500 Энергии. Жесткий разбор иллюзий и снятие розовых очков.",
             "image_name": "demon1.jpg"
         },
         {
             "key": "all",
             "title": "Золотой архив всех откровений",
-            "desc": "Что это даст: Полный доступ ко всем тайнам твоей матрицы (Сексуальная энергия, Деньги, Скрытые грани, Истинный путь).\nКак это работает: Комплексный анализ всех сфер жизни.\nВремя подготовки: 1 минута.\n\nСделай шаг навстречу себе. Нажми 'Купить', выбери карту из моей колоды, и через минуту я пришлю тебе личный разбор.",
-            "price_text": "3000 Энергии звезд",
+            "desc": "3000 Энергии. Полный доступ ко всем тайнам твоей матрицы.",
             "image_name": "full1.jpg"
         }
     ]
@@ -105,7 +97,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         # We need a valid action URL or action for the element itself. Usually "open_photo" or "open_link"
         element = {
             "title": title_trimmed,
-            "description": f"Цена: {svc['price_text']}\n{desc_trimmed}",
+            "description": desc_trimmed,
             "action": {"type": "open_photo"},
             "buttons": [
                 {
@@ -138,11 +130,11 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     try:
         await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
     except Exception as e:
-        logger.exception(f"Error sending service carousel: {e}")
+        logger.error(f"Error sending service carousel: {str(e)}")
         try:
             await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
         except Exception as e:
-            logger.exception("Ignored Exception")
+            logger.error(f"Ignored Exception: {str(e)}")
 
 
 async def is_waiting_synastry_name(message: Message) -> bool:
@@ -252,7 +244,7 @@ async def process_synastry_date(message: Message):
 
             photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg")
         except Exception as e:
-            logger.exception(f"Failed to upload tarot card {card_id}: {e}")
+            logger.error(f"Failed to upload tarot card {card_id}: {str(e)}")
 
         display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
 
@@ -275,7 +267,7 @@ async def process_synastry_date(message: Message):
             if os.path.exists(pdf_filename):
                 await asyncio.to_thread(os.remove, pdf_filename)
         except Exception as e:
-            logger.exception(f"Failed to process pdf for synastry: {e}")
+            logger.error(f"Failed to process pdf for synastry: {str(e)}")
 
         parts = re.split(rf"(?i)\bСИНАСТРИЯ\b", display_text, maxsplit=1)
         intro = ""
@@ -333,29 +325,26 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         try:
             await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
         except Exception as e:
-            logger.exception("Ignored Exception")
+            logger.error(f"Ignored Exception: {str(e)}")
         return
 
     tariffs = [
         {
             "key": "tariff_1",
             "title": "Спутник 7 дней",
-            "desc": "Что это даст: Ежедневные транзиты и прогнозы на 7 дней.\nКак это работает: Автоматическая рассылка каждое утро.\nВремя подготовки: Мгновенная активация.\n\nИнструкция: Нажми кнопку Купить. Система настроится на твои вибрации.",
-            "price_text": "990 Энергии звезд",
+            "desc": "990 Энергии. Ежедневные прогнозы и транзиты на 7 дней.",
             "image_name": "full1.jpg"
         },
         {
             "key": "tariff_2",
             "title": "Оракул 30 дней",
-            "desc": "Что это даст: Ежедневные транзиты и прогнозы на 30 дней.\nКак это работает: Автоматическая рассылка каждое утро.\nВремя подготовки: Мгновенная активация.\n\nИнструкция: Нажми кнопку Купить. Система настроится на твои вибрации.",
-            "price_text": "2900 Энергии звезд",
+            "desc": "2900 Энергии. Ежедневные прогнозы и транзиты на 30 дней.",
             "image_name": "full1.jpg"
         },
         {
             "key": "tariff_vip",
             "title": "VIP Архив",
-            "desc": "Что это даст: Полный доступ ко всем тайнам (Золотой архив) + месяц ежедневных транзитов.\nКак это работает: Полная разблокировка функционала.\nВремя подготовки: Мгновенная активация.\n\nИнструкция: Нажми кнопку Купить. Система настроится на твои вибрации.",
-            "price_text": "5900 Энергии звезд",
+            "desc": "5900 Энергии. Золотой архив тайн + месяц транзитов.",
             "image_name": "full1.jpg"
         }
     ]
@@ -369,7 +358,7 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
 
         element = {
             "title": title_trimmed,
-            "description": f"Цена: {svc['price_text']}\n{desc_trimmed}",
+            "description": desc_trimmed,
             "action": {"type": "open_photo"},
             "buttons": [
                 {
@@ -401,8 +390,8 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     try:
         await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
     except Exception as e:
-        logger.exception(f"Error sending tariff carousel: {e}")
+        logger.error(f"Error sending tariff carousel: {str(e)}")
         try:
             await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
         except Exception as e:
-            logger.exception("Ignored Exception")
+            logger.error(f"Ignored Exception: {str(e)}")
