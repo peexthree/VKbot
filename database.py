@@ -31,7 +31,16 @@ async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
             if r.status == 200:
                 data = await r.json()
                 if data:
-                    return data[0]
+                    user = data[0]
+                    if "bonuses" in user and user["bonuses"] is not None:
+                        # Migrate on the fly
+                        new_balance = (user.get("balance", 0) * 10) + user["bonuses"]
+                        user["balance"] = new_balance
+                        del user["bonuses"]
+                        # Optional: fire-and-forget update in DB
+                        import asyncio
+                        asyncio.create_task(update_user(vk_id, {"balance": new_balance, "bonuses": None}))
+                    return user
             else:
                 print(f"Supabase error in get_user: {r.status} {await r.text()}")
             return None
