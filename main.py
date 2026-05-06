@@ -25,8 +25,11 @@ async def handle_ping(request):
 async def main():
     from modules.bot_init import bot
     from database import get_all_users, update_user, init_db
-    from ai_service import generate_text
+    from ai_service import generate_text, init_session, close_session
     
+    # Инициализация глобальной сессии aiohttp
+    init_session()
+
     # Инициализация базы данных
     await init_db()
 
@@ -163,8 +166,11 @@ async def main():
     
     logger.info(f"Сервер запущен на порту {port}. Бот слушает сообщения...")
     
-    while True:
-        await asyncio.sleep(3600)
+    try:
+        while True:
+            await asyncio.sleep(3600)
+    finally:
+        await close_session()
 
 if __name__ == "__main__":
     try:

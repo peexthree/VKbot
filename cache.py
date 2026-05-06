@@ -1,5 +1,6 @@
 import os
 import json
+import aiofiles
 from upstash_redis.asyncio import Redis
 
 redis_client = Redis(
@@ -63,8 +64,9 @@ async def get_tarot_names() -> dict:
         logger.error(f"Ошибка получения имен таро из кэша: {str(e)}")
 
     try:
-        with open("tarot_ids.json", "r", encoding="utf-8") as f:
-            names = json.load(f)
+        async with aiofiles.open("tarot_ids.json", "r", encoding="utf-8") as f:
+            content = await f.read()
+            names = json.loads(content)
             TAROT_NAMES_CACHE = names
             try:
                 await redis_client.set("system:tarot_names", json.dumps(names, ensure_ascii=False))
