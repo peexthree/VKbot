@@ -37,14 +37,17 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
         logger.error("No API keys provided")
         return None
 
-    # Обновленный список моделей.
-    # ВНИМАНИЕ: Google часто меняет доступность моделей.
-    # Модели gemini-1.5 и gemma-3-27b могут отдавать 404, если они выведены из эксплуатации.
-    # Используем новые версии (2.5 и 4) согласно ответу API ListModels.
+    # Приоритетный список моделей Gemma 3 и Gemma 4 для обхода лимитов Gemini 2.5
     models = [
+        ("models/gemma-3-27b-it", "v1beta"),
+        ("models/gemma-4-26b-a4b-it", "v1beta"),
+        ("models/gemma-4-31b-it", "v1beta"),
+        ("models/gemma-3-1b-it", "v1beta"),
+        ("models/gemma-3-4b-it", "v1beta"),
+        ("models/gemma-3-12b-it", "v1beta"),
+        ("models/gemma-3-2b-it", "v1beta"),
         ("models/gemini-2.5-flash", "v1"),
         ("models/gemini-2.0-flash", "v1"),
-        ("models/gemma-4-31b-it", "v1beta"), # Gemma 4 требует v1beta
         ("models/gemini-2.5-flash-lite", "v1")
     ]
     last_exception = Exception("Unknown error")
@@ -105,7 +108,20 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                         if resp.status == 200:
                             res_data = await resp.json()
                             try:
-                                text = res_data['candidates'][0]['content']['parts'][0]['text']
+                                # Gemma 4 and some others might have multiple parts, where the first is "thought"
+                                parts = res_data['candidates'][0]['content']['parts']
+                                text = ""
+                                for part in parts:
+                                    if "text" in part:
+                                        # If there's a "thought" field, we skip it unless it's the only one?
+                                        # Actually, thinking is usually its own part.
+                                        if part.get("thought"):
+                                            continue
+                                        text += part["text"]
+
+                                if not text and parts:
+                                    text = parts[-1].get("text", "")
+
                                 if not json_mode:
                                     text = text.replace('*', '').replace('#', '').replace('_', '').replace('—', '-')
                                 return text
@@ -122,7 +138,16 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                                     if retry_resp.status == 200:
                                         res_data = await retry_resp.json()
                                         try:
-                                            text = res_data['candidates'][0]['content']['parts'][0]['text']
+                                            parts = res_data['candidates'][0]['content']['parts']
+                                            text = ""
+                                            for part in parts:
+                                                if "text" in part:
+                                                    if part.get("thought"):
+                                                        continue
+                                                    text += part["text"]
+                                            if not text and parts:
+                                                text = parts[-1].get("text", "")
+
                                             if not json_mode:
                                                 text = text.replace('*', '').replace('#', '').replace('_', '').replace('—', '-')
                                             return text
