@@ -22,9 +22,75 @@ with warnings.catch_warnings():
 async def handle_ping(request):
     return web.Response(text="Bot is alive")
 
+async def process_user_transit(bot, user, now) -> dict | None:
+    from ai_service import generate_text
+    vk_id = user.get("vk_id")
+    if not vk_id or not user.get("birth_city"):
+        return None
+
+    expires_str = user.get("transit_sub_expires_at")
+    has_sub = False
+
+    if expires_str:
+        try:
+            exp_date = datetime.datetime.fromisoformat(expires_str)
+            if exp_date > now:
+                has_sub = True
+        except ValueError:
+            pass
+
+    trial_days = user.get("transit_trial_days", 0)
+
+    if has_sub or trial_days < 3:
+        core_profile = user.get("core_profile", "")
+        active_skin = user.get("active_skin", "olesya")
+        prompt = (
+            f"Сгенерируй геймифицированный прогноз на день. "
+            f"В начале добавь шкалу энергии: 'Энергия [Случайное число 1-10]/10'. "
+            f"Укажи 'Фокус:' и 'Уязвимость:'. Опирайся на этот профиль: {core_profile}. "
+            f"Коротко, жестко. "
+            f"КРИТИЧЕСКОЕ ПРАВИЛО: Строгий запрет на выделение текста маркерами. Никаких звездочек. Никакого жирного шрифта. Используй только короткие тире (-) для создания списков и структуры."
+        )
+        forecast = await generate_text(prompt, skin=active_skin)
+        if forecast:
+            try:
+                await bot.api.messages.send(
+                    peer_id=vk_id,
+                    message=f"✦ ЕЖЕДНЕВНЫЙ ТРАНЗИТ ✦\n-----------------\n{forecast}\n-----------------",
+                    random_id=0
+                )
+                if not has_sub:
+                    return {"vk_id": vk_id, "transit_trial_days": trial_days + 1}
+            except Exception as e:
+                logger.error(f"Ошибка: {str(e)}")
+
+    elif trial_days == 3:
+        try:
+            keyboard_obj = {
+                "inline": True,
+                "buttons": [
+                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 0}), "label": "Спутник 7 дней"}, "color": "secondary"}],
+                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 1}), "label": "Оракул 30 дней"}, "color": "primary"}],
+                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 2}), "label": "VIP Архив"}, "color": "positive"}]
+                ]
+            }
+            kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
+            msg = "Твои карты на сегодня разложены. Виден сильный энергетический сдвиг, но... ТРИАЛ ОКОНЧЕН. Канал связи с Оракулом закрыт. Матрица требует энергообмена."
+
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message=msg,
+                keyboard=kb_json,
+                random_id=0
+            )
+            return {"vk_id": vk_id, "transit_trial_days": 4}
+        except Exception as e:
+            logger.error(f"Ошибка: {str(e)}")
+    return None
+
 async def main():
     from modules.bot_init import bot
-    from database import get_all_users, update_user, init_db
+    from database import get_all_users, update_user, bulk_update_transit_trial, init_db
     from ai_service import generate_text, init_session, close_session
     
     # Инициализация глобальной сессии aiohttp
@@ -71,79 +137,17 @@ async def main():
             now = datetime.datetime.now(datetime.timezone.utc)
             if now.hour == 12 and now.minute == 0:
                 users = await get_all_users()
-
-                async def process_user_transit(user):
-                    vk_id = user.get("vk_id")
-                    if not vk_id or not user.get("birth_city"): 
-                        return
-
-                    expires_str = user.get("transit_sub_expires_at")
-                    has_sub = False
-
-                    if expires_str:
-                        try:
-                            exp_date = datetime.datetime.fromisoformat(expires_str)
-                            if exp_date > now:
-                                has_sub = True
-                        except ValueError:
-                            pass
-
-                    trial_days = user.get("transit_trial_days", 0)
-
-                    if has_sub or trial_days < 3:
-                        core_profile = user.get("core_profile", "")
-                        active_skin = user.get("active_skin", "olesya")
-                        prompt = (
-                            f"Сгенерируй геймифицированный прогноз на день. "
-                            f"В начале добавь шкалу энергии: 'Энергия [Случайное число 1-10]/10'. "
-                            f"Укажи 'Фокус:' и 'Уязвимость:'. Опирайся на этот профиль: {core_profile}. "
-                            f"Коротко, жестко. "
-                            f"КРИТИЧЕСКОЕ ПРАВИЛО: Строгий запрет на выделение текста маркерами. Никаких звездочек. Никакого жирного шрифта. Используй только короткие тире (-) для создания списков и структуры."
-                        )
-                        forecast = await generate_text(prompt, skin=active_skin)
-                        if forecast:
-                            try:
-                                await bot.api.messages.send(
-                                    peer_id=vk_id,
-                                    message=f"✦ ЕЖЕДНЕВНЫЙ ТРАНЗИТ ✦\n-----------------\n{forecast}\n-----------------",
-                                    random_id=0
-                                )
-                                if not has_sub:
-                                    await update_user(vk_id, {"transit_trial_days": trial_days + 1})
-                            except Exception as e:
-                                import hashlib
-                                logger.error(f"Ошибка: {str(e)}")
-                    
-                    elif trial_days == 3:
-                        try:
-                            keyboard_obj = {
-                                "inline": True,
-                                "buttons": [
-                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 0}), "label": "Спутник 7 дней"}, "color": "secondary"}],
-                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 1}), "label": "Оракул 30 дней"}, "color": "primary"}],
-                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 2}), "label": "VIP Архив"}, "color": "positive"}]
-                                ]
-                            }
-                            kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
-                            msg = "Твои карты на сегодня разложены. Виден сильный энергетический сдвиг, но... ТРИАЛ ОКОНЧЕН. Канал связи с Оракулом закрыт. Матрица требует энергообмена."
-
-                            await bot.api.messages.send(
-                                peer_id=vk_id,
-                                message=msg,
-                                keyboard=kb_json,
-                                random_id=0
-                            )
-                            await update_user(vk_id, {"transit_trial_days": 4})
-                        except Exception as e:
-                            import hashlib
-                            logger.error(f"Ошибка: {str(e)}")
-
                 sem = asyncio.Semaphore(5)
+
                 async def sem_process_user(u):
                     async with sem:
-                        await process_user_transit(u)
+                        return await process_user_transit(bot, u, now)
 
-                await asyncio.gather(*(sem_process_user(u) for u in users))
+                results = await asyncio.gather(*(sem_process_user(u) for u in users))
+                updates = [r for r in results if r is not None]
+                if updates:
+                    await bulk_update_transit_trial(updates)
+
                 await asyncio.sleep(3660)
             else:
                 await asyncio.sleep(60)
