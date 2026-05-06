@@ -58,9 +58,9 @@ async def main():
                 "sin.jpeg", "ora1.jpg", "full1.jpg",
                 "o.png", "as.jpeg", "ol.jpeg", "2o.jpeg", "v.jpeg", "a.jpeg", "ba.jpeg", "r.jpeg"
             ]
-            logger.info("Запуск предзагрузки (Warmup) картинок...")
-            for cover in covers:
-                await upload_local_photo(bot.api, cover)
+            logger.info("Запуск параллельной предзагрузки (Warmup) картинок...")
+            # Optimization: Use asyncio.gather to upload in parallel
+            await asyncio.gather(*(upload_local_photo(bot.api, cover) for cover in covers))
             logger.info("Предзагрузка (Warmup) картинок успешно завершена.")
         except Exception as e:
             logger.error(f"Ошибка при предзагрузке (Warmup) картинок: {str(e)}")
