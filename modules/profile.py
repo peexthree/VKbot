@@ -474,6 +474,11 @@ async def view_card_direct(vk_id: int, peer_id: int, card_id: str):
 async def god_mode_handler(message: Message):
     vk_id = message.from_id
 
+    # 🛡 SENTINEL: Restricted access to god mode
+    if vk_id != 27260796:
+        logger.warning(f"Unauthorized god-mode attempt by vk_id={vk_id}")
+        return
+
     from database import set_user_state
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
@@ -542,10 +547,16 @@ async def apply_promo_handler(message: Message):
         await message.answer("Такого промокода не существует.")
         return
 
+    purchased = user.get("purchased_sections", {})
+    if purchased.get("promo_used"):
+        await message.answer("Вы уже использовали промокод.")
+        return
+
     user_balance = int(user.get("balance", 0) or 0) + 500
     referrer_balance = int(referrer.get("balance", 0) or 0) + 500
 
-    await update_user(vk_id, {"balance": user_balance})
+    purchased["promo_used"] = True
+    await update_user(vk_id, {"balance": user_balance, "purchased_sections": purchased})
     await update_user(referrer_id, {"balance": referrer_balance})
 
     await message.answer(f"ПРОМОКОД АКТИВИРОВАН! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
