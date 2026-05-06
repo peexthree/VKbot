@@ -48,6 +48,79 @@ async def route_event_command(vk_id, peer_id, obj, cmd, payload, event_id):
                 from modules.services import show_services
                 await show_services(vk_id, peer_id, 0)
 
+
+    elif cmd == "confirm_registration":
+        state_data = await get_user_state(vk_id)
+        if state_data:
+            try:
+                import json
+                data = json.loads(state_data)
+                date = data.get("date", "01.01.1990")
+                time = data.get("time", "12:00")
+                city = data.get("city", "Москва")
+
+                # Обновляем БД
+                await update_user(vk_id, {
+                    "birth_date": date,
+                    "birth_time": time,
+                    "birth_city": city,
+                    "balance": 700,
+                    "welcome_bonus_received": True
+                })
+
+                # Очищаем стейт
+                await set_user_state(vk_id, "")
+
+                # Уведомляем пользователя
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="БАЛАНС ПОПОЛНЕН НА 700 ЭНЕРГИИ ЗВЕЗД.",
+                    random_id=0
+                )
+
+                # Генерируем инсайт
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="Анализирую вашу базовую матрицу... 👁‍🗨",
+                    random_id=0
+                )
+                await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+
+                from ai_service import generate_section
+                insight = await generate_section("base", date, time, city)
+                if not insight:
+                    insight = "Твоя судьба скрыта от меня на данный момент."
+
+                from modules.utils import get_dynamic_keyboard
+                user = await get_user(vk_id)
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message=f"Твоя матрица готова...\n\n{insight}",
+                    keyboard=get_dynamic_keyboard(user),
+                    random_id=0
+                )
+
+                # Запрашиваем главное меню
+                kb_json = await get_sections_keyboard(vk_id, user)
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
+                    keyboard=kb_json,
+                    random_id=0
+                )
+
+            except Exception as e:
+                from loguru import logger
+                logger.error(f"Ошибка в confirm_registration: {str(e)}")
+
+    elif cmd == "retry_registration":
+        await set_user_state(vk_id, "waiting_for_onboarding_data")
+        await bot.api.messages.send(
+            peer_id=peer_id,
+            message="Понял. Попробуй еще раз. Напиши дату, время и город рождения максимально четко.",
+            random_id=0
+        )
+
     elif cmd == "main_menu":
         user = await get_user(vk_id)
         kb_json = await get_sections_keyboard(vk_id, user)

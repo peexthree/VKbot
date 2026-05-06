@@ -9,7 +9,7 @@ import datetime
 from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
-from ai_service import generate_text, generate_section
+from ai_service import generate_text, generate_section, extract_birth_data
 from modules.utils import get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
 
 labeler = BotLabeler()
@@ -78,7 +78,9 @@ async def start_handler(message: Message):
             purchased["sex_val"] = sex 
             await update_user(vk_id, {"purchased_sections": purchased})
 
+        # Устанавливаем стейт и отправляем анти-тар приветствие
         await set_user_state(vk_id, "waiting_for_onboarding_data")
+        await bot.state_dispenser.set(vk_id, MyStates.WAITING_FOR_ONBOARDING_DATA)
         await message.answer(
             "✦ СИСТЕМА АНТИ-ТАР АКТИВИРОВАНА ✦ 😈\n\n"
             "Забудь о ванильных гороскопах. Здесь тебя ждет жесткий разбор без прикрас.\n"
@@ -88,40 +90,6 @@ async def start_handler(message: Message):
         await release_lock(vk_id)
 
 
-async def parse_and_save_onboarding(vk_id: int, user_text: str):
-    prompt = (
-        "Извлеки из текста дату рождения, время рождения и город. "
-        "Ответь строго в формате JSON: {\"date\": \"ДД.ММ.ГГГГ\", \"time\": \"ЧЧ:ММ\", \"city\": \"Город\"}. "
-        f"Текст пользователя: {user_text}"
-    )
-
-    response = await generate_text("Ты - парсер данных. Выдавай только валидный JSON.\n" + prompt)
-
-    try:
-        if not response:
-            raise ValueError("Empty response from AI")
-        cleaned_response = response.replace("```json", "").replace("```", "").strip()
-        data = json.loads(cleaned_response)
-        date = data.get("date", "01.01.1990")
-        time = data.get("time", "12:00")
-        city = data.get("city", "Москва")
-    except (json.JSONDecodeError, ValueError, Exception):
-        date = "01.01.1990"
-        time = "12:00"
-        city = "Москва"
-
-    insight_prompt = f"Пользователь родился {date} в {time} в городе {city}. Напиши 2 жестких, дерзких и мистических предложения (инсайт) про его матрицу судьбы или влияние планет. Без приветствий, сразу к делу."
-    insight = await generate_text("Ты - темный таролог.\n" + insight_prompt)
-
-    user = await update_user(vk_id, {
-        "birth_date": date,
-        "birth_time": time,
-        "birth_city": city,
-        "balance": 700,
-        "welcome_bonus_received": True
-    })
-    return user, insight
-
 @labeler.message(state=MyStates.WAITING_FOR_ONBOARDING_DATA)
 async def process_onboarding_data(message: Message):
     vk_id = message.from_id
@@ -130,21 +98,45 @@ async def process_onboarding_data(message: Message):
 
     try:
         user_text = message.text.strip()
-        await message.answer("Анализирую ваши данные... 👁‍🗨")
+        await message.answer("Анализирую ваши координаты... 👁‍🗨")
         await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
 
-        user, insight = await parse_and_save_onboarding(vk_id, user_text)
+        data = await extract_birth_data(user_text)
 
-        await set_user_state(vk_id, "")
+        if not data or not data.get("date") or not data.get("city"):
+            await message.answer("Не удалось считать координаты. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город")
+            return
 
-        await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+        date = data.get("date")
+        time = data.get("time", "12:00")
+        city = data.get("city")
 
-        from modules.utils import get_dynamic_keyboard
+        # Сохраняем временные данные в стейт и переводим в состояние подтверждения
+        state_payload = {
+            "step": "confirm_data",
+            "date": date,
+            "time": time,
+            "city": city
+        }
+        await set_user_state(vk_id, json.dumps(state_payload))
 
-        await message.answer(
-            f"ДАННЫЕ ПРИНЯТЫ 🪐\nТебе начислено 700 Энергии звезд.\nТвоя базовая матрица загружена: {insight}",
-            keyboard=get_dynamic_keyboard(user)
+        # Устанавливаем стейт явно для FSM маршрутизации, если set_user_state не сделал этого для данного шага
+        await bot.state_dispenser.set(vk_id, MyStates.WAITING_CONFIRM_DATA, raw_json=json.dumps(state_payload))
+
+        kb = Keyboard(inline=True)
+        kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+        kb.row()
+        kb.add(Callback("🔄 ОШИБКА. ИСПРАВИТЬ", payload={"cmd": "retry_registration"}), color=KeyboardButtonColor.SECONDARY)
+
+        verification_text = (
+            f"🪐 Данные рождения распознаны:\n"
+            f"Дата: {date}\n"
+            f"Время: {time}\n"
+            f"Город: {city}\n\n"
+            f"Проверь точность. Алгоритм не прощает ошибок во времени и месте."
         )
+
+        await message.answer(verification_text, keyboard=kb.get_json())
 
     finally:
         await release_lock(vk_id)

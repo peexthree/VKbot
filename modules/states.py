@@ -7,3 +7,7 @@ class MyStates(BaseStateGroup):
     ORACLE_DRAW = "oracle_draw"
     GLOBAL_CUT = "global_cut"
     WAITING_RESET_CONFIRM = "waiting_reset_confirm"
+    WAITING_CONFIRM_DATA = "waiting_confirm_data"
+    WAITING_FOR_DATE = "waiting_for_date"
+    WAITING_FOR_TIME = "waiting_for_time"
+    WAITING_FOR_CITY = "waiting_for_city"
