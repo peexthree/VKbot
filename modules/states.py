@@ -9,3 +9,4 @@ class MyStates(BaseStateGroup):
     WAITING_ORACLE_QUESTION = "waiting_oracle_question"
     ORACLE_DRAW = "oracle_draw"
     GLOBAL_CUT = "global_cut"
+    WAITING_RESET_CONFIRM = "waiting_reset_confirm"
