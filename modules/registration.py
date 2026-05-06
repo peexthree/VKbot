@@ -30,6 +30,25 @@ async def reset_user_handler(message: Message):
 
     await message.answer("СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для теста с нуля.")
 
+async def fetch_user_vk_data(vk_id: int):
+    first_name = ""
+    sex = 0
+    bdate = ""
+    city = ""
+    try:
+        users_info = await bot.api.users.get(user_ids=[vk_id], fields=["sex", "bdate", "city"])
+        if users_info:
+            info = users_info[0]
+            first_name = info.first_name
+            sex = info.sex
+            bdate = info.bdate if info.bdate else ""
+            if info.city:
+                city = info.city.title
+    except Exception as e:
+        from loguru import logger
+        logger.error(f"Ошибка: {str(e)}")
+    return first_name, sex, bdate, city
+
 @labeler.message(text=["Начать", "start", "/start"])
 async def start_handler(message: Message):
     vk_id = message.from_id
@@ -48,21 +67,7 @@ async def start_handler(message: Message):
             await message.answer(f"СИСТЕМА АНАЛИЗА СУДЬБЫ АКТИВИРОВАНА.\n\n{greeting}", keyboard=get_dynamic_keyboard(user))
             return
 
-        first_name = ""
-        sex = 0
-        bdate = ""
-        city = ""
-        try:
-            users_info = await bot.api.users.get(user_ids=[vk_id], fields=["sex", "bdate", "city"])
-            if users_info:
-                info = users_info[0]
-                first_name = info.first_name
-                sex = info.sex
-                bdate = info.bdate if info.bdate else ""
-                if info.city:
-                    city = info.city.title
-        except Exception as e:
-            logger.error(f"Ошибка: {str(e)}")
+        first_name, sex, bdate, city = await fetch_user_vk_data(vk_id)
 
         if not user:
             user = await create_user(vk_id, "", "", "")
@@ -83,6 +88,40 @@ async def start_handler(message: Message):
         await release_lock(vk_id)
 
 
+async def parse_and_save_onboarding(vk_id: int, user_text: str):
+    prompt = (
+        "Извлеки из текста дату рождения, время рождения и город. "
+        "Ответь строго в формате JSON: {\"date\": \"ДД.ММ.ГГГГ\", \"time\": \"ЧЧ:ММ\", \"city\": \"Город\"}. "
+        f"Текст пользователя: {user_text}"
+    )
+
+    response = await generate_text("Ты - парсер данных. Выдавай только валидный JSON.\n" + prompt)
+
+    try:
+        if not response:
+            raise ValueError("Empty response from AI")
+        cleaned_response = response.replace("```json", "").replace("```", "").strip()
+        data = json.loads(cleaned_response)
+        date = data.get("date", "01.01.1990")
+        time = data.get("time", "12:00")
+        city = data.get("city", "Москва")
+    except (json.JSONDecodeError, ValueError, Exception):
+        date = "01.01.1990"
+        time = "12:00"
+        city = "Москва"
+
+    insight_prompt = f"Пользователь родился {date} в {time} в городе {city}. Напиши 2 жестких, дерзких и мистических предложения (инсайт) про его матрицу судьбы или влияние планет. Без приветствий, сразу к делу."
+    insight = await generate_text("Ты - темный таролог.\n" + insight_prompt)
+
+    user = await update_user(vk_id, {
+        "birth_date": date,
+        "birth_time": time,
+        "birth_city": city,
+        "balance": 700,
+        "welcome_bonus_received": True
+    })
+    return user, insight
+
 @labeler.message(state=MyStates.WAITING_FOR_ONBOARDING_DATA)
 async def process_onboarding_data(message: Message):
     vk_id = message.from_id
@@ -94,37 +133,7 @@ async def process_onboarding_data(message: Message):
         await message.answer("Анализирую ваши данные... 👁‍🗨")
         await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
 
-        prompt = (
-            "Извлеки из текста дату рождения, время рождения и город. "
-            "Ответь строго в формате JSON: {\"date\": \"ДД.ММ.ГГГГ\", \"time\": \"ЧЧ:ММ\", \"city\": \"Город\"}. "
-            f"Текст пользователя: {user_text}"
-        )
-
-        response = await generate_text("Ты - парсер данных. Выдавай только валидный JSON.\n" + prompt)
-
-        try:
-            if not response:
-                raise ValueError("Empty response from AI")
-            cleaned_response = response.replace("```json", "").replace("```", "").strip()
-            data = json.loads(cleaned_response)
-            date = data.get("date", "01.01.1990")
-            time = data.get("time", "12:00")
-            city = data.get("city", "Москва")
-        except (json.JSONDecodeError, ValueError, Exception):
-            date = "01.01.1990"
-            time = "12:00"
-            city = "Москва"
-
-        insight_prompt = f"Пользователь родился {date} в {time} в городе {city}. Напиши 2 жестких, дерзких и мистических предложения (инсайт) про его матрицу судьбы или влияние планет. Без приветствий, сразу к делу."
-        insight = await generate_text("Ты - темный таролог.\n" + insight_prompt)
-
-        user = await update_user(vk_id, {
-            "birth_date": date,
-            "birth_time": time,
-            "birth_city": city,
-            "balance": 700,
-            "welcome_bonus_received": True
-        })
+        user, insight = await parse_and_save_onboarding(vk_id, user_text)
 
         await set_user_state(vk_id, "")
 
@@ -166,5 +175,110 @@ async def back_to_main_menu(message: Message):
             )
     except Exception as e:
         logger.error(f"Ошибка: {str(e)}")
+    finally:
+        await release_lock(vk_id)
+
+async def parse_time(user_text: str) -> str | None:
+    import re
+    from ai_service import generate_text
+    match = re.search(r"(\d{1,2})[\.:\-](\d{2})", user_text)
+    if match:
+        h, m = int(match.group(1)), int(match.group(2))
+        if 0 <= h <= 23 and 0 <= m <= 59:
+            return f"{h:02d}:{m:02d}"
+
+    if re.search(r"(?i)не\s*знаю|без|хз|нет", user_text):
+        return "12:00"
+
+    prompt = (
+        f"Пользователь ответил: '{user_text}'. "
+        f"Определи время рождения. "
+        f"Верни строго в формате ЧЧ:ММ (например: 14:30). "
+        f"Если время определить невозможно, верни 'None'."
+    )
+    res = await generate_text(prompt)
+
+    if res and "None" not in res:
+        m = re.search(r"(\d{1,2}:\d{2})", res)
+        if m: return m.group(1)
+
+    return None
+
+async def finalize_city_and_register(vk_id: int, date_str: str, time_str: str, city_str: str) -> tuple:
+    from database import get_user, create_user, update_user
+    from ai_service import generate_text
+    user = await get_user(vk_id)
+    if not user:
+        user = await create_user(vk_id, date_str, time_str, city_str)
+    else:
+        updates = {"birth_date": date_str, "birth_time": time_str, "birth_city": city_str}
+        if not user.get("welcome_bonus_received"):
+            updates["balance"] = user.get("balance", 0) + 700
+            updates["welcome_bonus_received"] = True
+        user = await update_user(vk_id, updates)
+
+    insight_prompt = f"Пользователь родился {date_str} в {time_str} в городе {city_str}. Напиши 2 жестких, дерзких и мистических предложения (инсайт) про его матрицу судьбы или влияние планет. Без приветствий, сразу к делу."
+    insight = await generate_text("Ты - темный таролог.\n" + insight_prompt)
+    return user, insight
+
+@labeler.message(state=MyStates.WAITING_FOR_TIME)
+async def process_time(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id):
+        return
+
+    try:
+        user_text = message.text.strip()
+        state_dict = await get_fsm_step(vk_id)
+
+        if not state_dict or state_dict.get("step") != "time":
+            await set_user_state(vk_id, "")
+            return
+
+        date_str = state_dict.get("date", "")
+        await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+
+        time_str = await parse_time(user_text)
+
+        if time_str:
+            state_dict["step"] = "city"
+            state_dict["time"] = time_str
+            await set_user_state(vk_id, json.dumps(state_dict))
+            await message.answer("Укажите ГОРОД вашего рождения (например: Москва):")
+        else:
+            await message.answer("Формат времени не распознан. Пожалуйста, напишите в формате ЧЧ:ММ (например: 14:30), либо напишите 'не знаю'.")
+
+    finally:
+        await release_lock(vk_id)
+
+@labeler.message(state=MyStates.WAITING_FOR_CITY)
+async def process_city(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id):
+        return
+
+    try:
+        user_text = message.text.strip().title()
+        state_dict = await get_fsm_step(vk_id)
+
+        if not state_dict or state_dict.get("step") != "city":
+            await set_user_state(vk_id, "")
+            return
+
+        date_str = state_dict.get("date", "")
+        time_str = state_dict.get("time", "")
+        city_str = user_text
+
+        await set_user_state(vk_id, "")
+        await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
+
+        user, insight = await finalize_city_and_register(vk_id, date_str, time_str, city_str)
+
+        from modules.utils import get_dynamic_keyboard
+        await message.answer(
+            f"ДАННЫЕ ПРИНЯТЫ 🪐\nТебе начислено 700 Энергии звезд.\nТвоя базовая матрица загружена: {insight}",
+            keyboard=get_dynamic_keyboard(user)
+        )
+
     finally:
         await release_lock(vk_id)
