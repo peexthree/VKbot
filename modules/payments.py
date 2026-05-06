@@ -147,13 +147,42 @@ async def message_event_handler(event: dict):
             else:
                 diff_energy = amount_needed - balance
                 diff_rubles = math.ceil(diff_energy / 10)
+
+                # VK Pay strictly adheres to API (type: vkpay, hash)
+                # referral button payload calls referral logic (assumed "profile_ref" or similar, we'll use a direct link logic or just command)
                 kb = Keyboard(inline=True)
                 kb.add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}"))
+                kb.row()
+                kb.add(Text("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
+
+                msg_text = (
+                    f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\n"
+                    f"Твой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\n"
+                    f"Система не может вскрыть этот слой матрицы.\n\n"
+                    f"Оплати недостающие {diff_energy} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно."
+                )
+
                 await bot.api.messages.send(
                     peer_id=peer_id, 
-                    message=f"Не хватает {diff_energy} Энергии звезд.\n\nПополни свой поток на {diff_rubles} РУБ, чтобы открыть этот раздел.",
+                    message=msg_text,
                     keyboard=kb.get_json(), random_id=0
                 )
+
+        elif cmd == "get_referral":
+            bot_domain = "anti_taro_bot" # Fallback if you don't query it dynamically
+            try:
+                groups_info = await bot.api.groups.get_by_id()
+                if groups_info:
+                    bot_domain = groups_info[0].screen_name
+            except Exception:
+                pass
+
+            ref_link = f"https://vk.com/write-{groups_info[0].id}?ref={vk_id}" if 'groups_info' in locals() and groups_info else f"https://vk.com/im?sel=-219181948&ref={vk_id}"
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message=f"🎁 Твоя реферальная ссылка:\n{ref_link}\n\nОтправь её друзьям. Когда друг перейдет по ссылке и начнет работу с ботом, вы оба получите +500 Энергии звезд.",
+                random_id=0
+            )
 
         elif cmd == "grimoire_page":
             page = payload.get("page", 0)
