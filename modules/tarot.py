@@ -230,7 +230,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
             return
 
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="Тяну карту дня...")
+        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="Тяну карту из колоды... 🎴")
         import asyncio
         await asyncio.sleep(2)
 
@@ -303,12 +303,14 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         user = await get_user(vk_id)
         if user:
             current_total = user.get("total_cards_received", 0)
+            balance = user.get("balance", 0)
             await update_user(vk_id, {
                 "total_cards_received": current_total + 1,
                 "purchased_sections": purchased,
                 "unlocked_cards": unlocked_cards,
                 "weekly_log": weekly_log,
-                "visit_streak": visit_streak
+                "visit_streak": visit_streak,
+                "balance": balance + 100
             })
 
         photo_attachment = None
@@ -319,6 +321,12 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
             logger.error(f"Ошибка: {str(e)}")
 
         display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
+
+        # Add streak reward text
+        streak_msg = f"\n\n> ⚡ Ритуал завершен. Тебе начислено +100 Энергии звезд за визит.\nВозвращайся завтра."
+        if visit_streak < 7:
+            streak_msg += f" (Серия: {visit_streak}/7. Заходи 7 дней подряд для бесплатного синтез-разбора недели)."
+        display_text += streak_msg
 
         parts = re.split(rf"(?i)\bКАРТА ДНЯ\b", display_text, maxsplit=1)
         intro = ""

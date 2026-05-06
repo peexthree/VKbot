@@ -17,7 +17,7 @@ from loguru import logger
 
 labeler = BotLabeler()
 
-@labeler.message(text=["✦ Услуги", "Услуги", "✦ УСЛУГИ 🛒"])
+@labeler.message(text=["🔮 ГЛУБОКИЕ РАЗБОРЫ", "ГЛУБОКИЕ РАЗБОРЫ", "✦ Услуги", "Услуги", "✦ УСЛУГИ 🛒"])
 async def show_services_handler(message: Message):
     logger.info(f"show_services_handler triggered by from_id={message.from_id}")
     await show_services(message.from_id, message.peer_id, 0)
@@ -38,43 +38,43 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         {
             "key": "sex",
             "title": "Твоя сексуальная энергия",
-            "desc": "1000 Энергии. Снимет блоки и раскроет матрицу страсти.",
+            "desc": "1000 Энергии. Раскроет матрицу страсти.",
             "image_name": "uslugi/sex.jpg"
         },
         {
             "key": "money",
             "title": "Код твоего богатства",
-            "desc": "900 Энергии. Пробьет финансовый потолок и привлечет деньги.",
+            "desc": "900 Энергии. Пробьет финансовый потолок.",
             "image_name": "uslugi/Money.jpg"
         },
         {
             "key": "shadow",
             "title": "Твои скрытые грани",
-            "desc": "700 Энергии. Раскроет подавленные эмоции и теневые стороны.",
+            "desc": "700 Энергии. Раскроет подавленные эмоции.",
             "image_name": "uslugi/DEMONS.jpg"
         },
         {
             "key": "final",
             "title": "Твой истинный путь",
-            "desc": "1200 Энергии. Осознание предназначения и вектора развития.",
+            "desc": "1200 Энергии. Вектор развития.",
             "image_name": "uslugi/WAYLIFE.jpg"
         },
         {
             "key": "synastry",
             "title": "Тайна ваших отношений",
-            "desc": "1500 Энергии. Жесткий разбор мэтча и совместимости.",
+            "desc": "1500 Энергии. Жесткий разбор совместимости.",
             "image_name": "uslugi/SINISTRY.jpg"
         },
         {
             "key": "oracle",
             "title": "Вопрос судьбе (Оракул)",
-            "desc": "500 Энергии. Мгновенный ответ судьбы без воды.",
+            "desc": "500 Энергии. Ответ судьбы без воды.",
             "image_name": "uslugi/QUEST.jpg"
         },
         {
             "key": "antitaro",
             "title": "Антитаро (Разрыв иллюзий)",
-            "desc": "500 Энергии. Жесткий разбор иллюзий и снятие розовых очков.",
+            "desc": "500 Энергии. Разбор иллюзий.",
             "image_name": "uslugi/ANTITARO.jpg"
         },
         {

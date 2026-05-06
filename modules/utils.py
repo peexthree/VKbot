@@ -96,15 +96,12 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную (нижнюю) клавиатуру с Картой дня и Путеводителем"""
     keyboard = Keyboard(inline=False)
     
-    keyboard.add(Text("✦ Услуги"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("🛰 ТАРИФЫ"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("🃏 КАРТА ДНЯ"), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text("🔮 ГЛУБОКИЕ РАЗБОРЫ"), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
     
-    keyboard.add(Text("🃏 Карта дня"), color=KeyboardButtonColor.PRIMARY)
-    keyboard.add(Text("✦ Мой профиль"), color=KeyboardButtonColor.PRIMARY)
-    keyboard.row()
-    
-    keyboard.add(Text("📖 Путеводитель"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("💳 МОЙ ПРОФИЛЬ"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("⚙ НАСТРОЙКИ"), color=KeyboardButtonColor.SECONDARY)
     
     return keyboard.get_json()
 
