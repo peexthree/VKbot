@@ -13,7 +13,7 @@ def init_session():
     global _session
     if _session is None or _session.closed:
         _session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=30),
+            timeout=aiohttp.ClientTimeout(total=90),
             connector=aiohttp.TCPConnector(limit=100)
         )
     return _session
@@ -37,17 +37,18 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
         logger.error("No API keys provided")
         return None
 
-    # Приоритетный список моделей Gemma 3 и Gemma 4 для обхода лимитов Gemini 2.5
+    # Приоритетный список моделей для обхода лимитов.
+    # Включает Gemma 4 и новые превью-модели Gemini 3/3.1.
     models = [
-        ("models/gemma-3-27b-it", "v1beta"),
         ("models/gemma-4-26b-a4b-it", "v1beta"),
         ("models/gemma-4-31b-it", "v1beta"),
-        ("models/gemma-3-1b-it", "v1beta"),
-        ("models/gemma-3-4b-it", "v1beta"),
-        ("models/gemma-3-12b-it", "v1beta"),
-        ("models/gemma-3-2b-it", "v1beta"),
+        ("models/gemini-3.1-flash-lite-preview", "v1beta"),
+        ("models/gemini-3-flash-preview", "v1beta"),
+        ("models/gemini-3-pro-preview", "v1beta"),
+        ("models/gemini-2.5-flash", "v1beta"),
         ("models/gemini-2.5-flash", "v1"),
         ("models/gemini-2.0-flash", "v1"),
+        ("models/gemini-2.5-flash-lite", "v1beta"),
         ("models/gemini-2.5-flash-lite", "v1")
     ]
     last_exception = Exception("Unknown error")
@@ -163,7 +164,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                             continue
                 except asyncio.TimeoutError:
                     logger.warning(f"Timeout on {model}. Trying next.")
-                    return "Сервис временно перегружен, пожалуйста, подождите немного и повторите запрос."
+                    continue
                 except Exception as e:
                     last_exception = e
                     logger.error(f"Ошибка: {str(e)}")
