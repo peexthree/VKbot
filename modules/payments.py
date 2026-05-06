@@ -1,3 +1,4 @@
+from modules.bot_init import bot
 import math
 import asyncio
 import json
@@ -14,7 +15,7 @@ from vkbottle.tools.dev.keyboard.action import VKPay
 from database import get_user, update_user, set_user_state, get_user_state, create_user, check_and_save_transaction
 from ai_service import generate_text, generate_section
 from modules.utils import (
-    bot, generate_premium_pdf, get_fsm_step, upload_local_photo, 
+    generate_premium_pdf, get_fsm_step, upload_local_photo,
     get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore
 )
 from cache import acquire_lock, release_lock
