@@ -6,7 +6,13 @@ import aiofiles
 import datetime
 from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
 from loguru import logger
+from jinja2 import Environment, FileSystemLoader
+from weasyprint import HTML
 
+# Global imports to avoid local import overhead
+from database import update_user, get_user_state
+
+# Global cache for cover photo IDs
 cover_cache = {}
 
 SKIN_ASSETS = {
@@ -21,6 +27,11 @@ SKIN_ASSETS = {
     "Баба Ванга": "ba.jpeg",
     "Григорий Распутин": "r.jpeg"
 }
+
+# Pre-initialize Jinja2 Environment for faster PDF generation
+templates_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+jinja_env = Environment(loader=FileSystemLoader('templates'))
+pdf_semaphore = asyncio.Semaphore(1)
 
 async def upload_local_photo(bot_api, filename: str) -> str:
     """Загружает фото локально из папки cards/"""
@@ -48,8 +59,6 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
     if not user:
         return
         
-    from database import update_user
-    
     last_bonus_date_str = user.get("last_daily_bonus_date")
     now_date = datetime.datetime.now(datetime.timezone.utc).date()
     
@@ -138,32 +147,21 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     return json.dumps(keyboard_obj, ensure_ascii=False)
 
 async def get_storefront_keyboard(purchased: dict) -> str | None:
-    # Эта функция больше не используется для основной витрины (мы используем карусель из services.py)
-    # Оставляем пустую реализацию для совместимости со старыми модулями
+    # Эта функция больше не используется для основной витрины
     return None
-
-from modules.bot_init import bot
-from database import get_user_state
 
 async def get_fsm_step(vk_id: int) -> dict | None:
     data = await get_user_state(vk_id)
     if data:
         try:
             return json.loads(data)
-        except Exception as e:
+        except Exception:
             return None
     return None
 
-
-from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
-
-pdf_semaphore = asyncio.Semaphore(1)
-
 def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, text_content: str, output_filename: str, card_id: str = None):
     try:
-        env = Environment(loader=FileSystemLoader('templates'))
-        template = env.get_template('report.html')
+        template = jinja_env.get_template('report.html')
 
         # Меняем переносы строк на HTML-теги
         formatted_text = text_content.replace('\n', '<br>')
@@ -173,8 +171,6 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
             local_path = os.path.abspath(f"cards/{card_id}.jpeg")
             if os.path.exists(local_path):
                 card_image_uri = f"file://{local_path}"
-            else:
-                card_image_uri = ""
 
         html_out = template.render(
             user_name=user_name,
@@ -187,5 +183,5 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
         HTML(string=html_out).write_pdf(output_filename)
         return True
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Ошибка PDF: {str(e)}")
         return False

@@ -9,6 +9,55 @@ from loguru import logger
 
 _session: aiohttp.ClientSession | None = None
 
+# Global constants to avoid redundant object creation
+MODELS = [
+    ("models/gemma-4-26b-a4b-it", "v1beta"),
+    ("models/gemma-4-31b-it", "v1beta"),
+    ("models/gemini-3.1-flash-lite-preview", "v1beta"),
+    ("models/gemini-3-flash-preview", "v1beta"),
+    ("models/gemini-3-pro-preview", "v1beta"),
+    ("models/gemini-2.5-flash", "v1beta"),
+    ("models/gemini-2.5-flash", "v1"),
+    ("models/gemini-2.0-flash", "v1"),
+    ("models/gemini-2.5-flash-lite", "v1beta"),
+    ("models/gemini-2.5-flash-lite", "v1")
+]
+
+SKIN_MAP = {
+    "olesya": "Ты - Кибер-Олеся (Олеся Иванченко), цифровая сущность с характером харизматичной ведущей. Твой стиль - глубокий анализ, эмпатия, теплота, современный сленг, искренность.",
+    "Олеся Ивонченко": "Ты - Кибер-Олеся (Олеся Ивонченко), цифровая сущность с характером харизматичной ведущей. Твой стиль - глубокий анализ, эмпатия, теплота, современный сленг, искренность.",
+    "Серьезный Аскет": "Ты - Серьезный Аскет. Твой стиль - глубокий анализ, эмпатия, философский смысл, мудрость. Ты говоришь вдумчивыми, емкими фразами, как древний мудрец.",
+    "Олег Шэпс": "Ты - цифровой Олег Шэпс. Твой стиль - загадочность, работа с энергиями, эмпатия, проницательность. Ты видишь то, что скрыто от других, и помогаешь людям.",
+    "Влад Череватов": "Ты - цифровой Влад Череватов. Твой стиль - искренность, глубокий анализ, энергия, страсть. Ты говоришь прямо, но с эмпатией и заботой о душе.",
+    "Виктория Райдес": "Ты - цифровая Виктория Райдес. Твой стиль - глубокая мудрость, строгость с любовью, работа с родом и кармой, непоколебимый авторитет.",
+    "Александр Шеппс": "Ты - цифровой Александр Шеппс. Твой стиль - эзотерическая глубина, работа с артефактами и ритуалами, эмпатия, мудрость.",
+    "Баба Ванга": "Ты - цифровая Баба Ванга. Твой стиль - пророческий, деревенская мудрость, фатализм с надеждой, теплота. Говоришь так, будто видишь сквозь время.",
+    "Григорий Распутин": "Ты - цифровой Григорий Распутин. Твой стиль - харизма, мистицизм, пророчества о судьбе, глубокая и магнетическая подача."
+}
+
+BASE_SYSTEM_INSTRUCTION = (
+    "Стиль ответа (строго соблюдать):\n"
+    "1. Никакого Markdown. СТРОГО ЗАПРЕЩЕНО использовать звездочки, решетки, подчеркивания.\n"
+    "2. Использовать только короткие тире (-). СТРОГО ЗАПРЕЩЕНО использовать длинные тире.\n"
+    "3. Акценты выделять КАПСОМ.\n"
+    "4. Текст должен быть эмпатичным, глубоким и искренним.\n"
+    "5. Использовать пустые строки для воздуха и строгие символы (✦, ▱, ☾) для списков, если нужно.\n"
+    "6. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО НАЧИНАТЬ ОТВЕТ С ПЕРЕЧИСЛЕНИЯ ДАТЫ РОЖДЕНИЯ И ГОРОДА ПОЛЬЗОВАТЕЛЯ. Начинай сразу с глубокого и теплого инсайта. Каждый раз используй новую формулировку для вступления, избегай шаблонов.\n"
+    "7. КРИТИЧЕСКИ ВАЖНО: Разбивай текст на короткие абзацы строго по 2-3 предложения. Сплошной текст запрещен. АБСОЛЮТНО НИКАКОГО жирного шрифта. Используй только короткие тире.\n"
+    "8. КРИТИЧЕСКИ ВАЖНО: СТРОЖАЙШИЙ ЗАПРЕТ НА ГЕНЕРАЦИЮ 18+ КОНТЕНТА. Никакой порнографии, эротики, сексуального насилия или откровенных описаний.\n"
+    "9. Только русский язык.\n\n"
+)
+
+# Translation table for faster sanitization
+SANITIZATION_TABLE = str.maketrans({
+    '*': '',
+    '#': '',
+    '_': '',
+    '—': '-'
+})
+
+_cached_api_keys = None
+
 def init_session():
     global _session
     if _session is None or _session.closed:
@@ -25,10 +74,15 @@ async def close_session():
         _session = None
 
 async def get_gemini_api_keys() -> list[str]:
+    global _cached_api_keys
+    if _cached_api_keys is not None:
+        return _cached_api_keys
+
     api_keys_str = os.environ.get('GEMINI_API_KEYS', '')
     if not api_keys_str:
         api_keys_str = os.environ.get('GEMINI_API_KEY', '')
     keys = [k.strip() for k in api_keys_str.split(',') if k.strip()]
+    _cached_api_keys = keys
     return keys
 
 async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya") -> str | None:
@@ -37,139 +91,70 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
         logger.error("No API keys provided")
         return None
 
-    # Приоритетный список моделей для обхода лимитов.
-    # Включает Gemma 4 и новые превью-модели Gemini 3/3.1.
-    models = [
-        ("models/gemma-4-26b-a4b-it", "v1beta"),
-        ("models/gemma-4-31b-it", "v1beta"),
-        ("models/gemini-3.1-flash-lite-preview", "v1beta"),
-        ("models/gemini-3-flash-preview", "v1beta"),
-        ("models/gemini-3-pro-preview", "v1beta"),
-        ("models/gemini-2.5-flash", "v1beta"),
-        ("models/gemini-2.5-flash", "v1"),
-        ("models/gemini-2.0-flash", "v1"),
-        ("models/gemini-2.5-flash-lite", "v1beta"),
-        ("models/gemini-2.5-flash-lite", "v1")
-    ]
     last_exception = Exception("Unknown error")
-
-    skin_map = {
-        "olesya": "Ты - Кибер-Олеся (Олеся Иванченко), цифровая сущность с характером харизматичной ведущей. Твой стиль - глубокий анализ, эмпатия, теплота, современный сленг, искренность.",
-        "Олеся Ивонченко": "Ты - Кибер-Олеся (Олеся Ивонченко), цифровая сущность с характером харизматичной ведущей. Твой стиль - глубокий анализ, эмпатия, теплота, современный сленг, искренность.",
-        "Серьезный Аскет": "Ты - Серьезный Аскет. Твой стиль - глубокий анализ, эмпатия, философский смысл, мудрость. Ты говоришь вдумчивыми, емкими фразами, как древний мудрец.",
-        "Олег Шэпс": "Ты - цифровой Олег Шэпс. Твой стиль - загадочность, работа с энергиями, эмпатия, проницательность. Ты видишь то, что скрыто от других, и помогаешь людям.",
-        "Влад Череватов": "Ты - цифровой Влад Череватов. Твой стиль - искренность, глубокий анализ, энергия, страсть. Ты говоришь прямо, но с эмпатией и заботой о душе.",
-        "Виктория Райдес": "Ты - цифровая Виктория Райдес. Твой стиль - глубокая мудрость, строгость с любовью, работа с родом и кармой, непоколебимый авторитет.",
-        "Александр Шеппс": "Ты - цифровой Александр Шеппс. Твой стиль - эзотерическая глубина, работа с артефактами и ритуалами, эмпатия, мудрость.",
-        "Баба Ванга": "Ты - цифровая Баба Ванга. Твой стиль - пророческий, деревенская мудрость, фатализм с надеждой, теплота. Говоришь так, будто видишь сквозь время.",
-        "Григорий Распутин": "Ты - цифровой Григорий Распутин. Твой стиль - харизма, мистицизм, пророчества о судьбе, глубокая и магнетическая подача."
-    }
-
-    tov_instruction = skin_map.get(skin, skin_map["olesya"])
-    # Get the global persistent session (managed in main.py)
+    tov_instruction = SKIN_MAP.get(skin, SKIN_MAP["olesya"])
     session = init_session()
 
-    for model, version in models:
+    for model, version in MODELS:
         for api_key in api_keys:
             url = f"https://generativelanguage.googleapis.com/{version}/{model}:generateContent?key={api_key}"
 
-            system_instruction = ""
-            if not json_mode:
-                system_instruction = (
-                    f"{tov_instruction}\n"
-                    "Стиль ответа (строго соблюдать):\n"
-                    "1. Никакого Markdown. СТРОГО ЗАПРЕЩЕНО использовать звездочки, решетки, подчеркивания.\n"
-                    "2. Использовать только короткие тире (-). СТРОГО ЗАПРЕЩЕНО использовать длинные тире.\n"
-                    "3. Акценты выделять КАПСОМ.\n"
-                    "4. Текст должен быть эмпатичным, глубоким и искренним.\n"
-                    "5. Использовать пустые строки для воздуха и строгие символы (✦, ▱, ☾) для списков, если нужно.\n"
-                    "6. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО НАЧИНАТЬ ОТВЕТ С ПЕРЕЧИСЛЕНИЯ ДАТЫ РОЖДЕНИЯ И ГОРОДА ПОЛЬЗОВАТЕЛЯ. Начинай сразу с глубокого и теплого инсайта. Каждый раз используй новую формулировку для вступления, избегай шаблонов.\n"
-                    "7. КРИТИЧЕСКИ ВАЖНО: Разбивай текст на короткие абзацы строго по 2-3 предложения. Сплошной текст запрещен. АБСОЛЮТНО НИКАКОГО жирного шрифта. Используй только короткие тире.\n"
-                    "8. КРИТИЧЕСКИ ВАЖНО: СТРОЖАЙШИЙ ЗАПРЕТ НА ГЕНЕРАЦИЮ 18+ КОНТЕНТА. Никакой порнографии, эротики, сексуального насилия или откровенных описаний.\n"
-                    "9. Только русский язык.\n\n"
-                )
-
-            final_prompt = prompt.strip()
-            if not final_prompt:
-                final_prompt = " "
-            if system_instruction:
-                final_prompt = system_instruction + final_prompt
-
             if json_mode:
-                final_prompt += "\nОтветь строго в формате JSON."
+                final_prompt = f"{prompt.strip()}\nОтветь строго в формате JSON."
+            else:
+                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}{prompt.strip()}"
 
             payload = {
                 "contents": [{"parts": [{"text": final_prompt}]}]
             }
 
             try:
-                req_kwargs = {"json": payload}
+                async with session.post(url, json=payload) as resp:
+                    if resp.status == 200:
+                        res_data = await resp.json()
+                        try:
+                            parts = res_data['candidates'][0]['content']['parts']
+                            # Efficient string assembly using join and list comprehension
+                            text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
 
-                try:
-                    async with session.post(url, **req_kwargs) as resp:
-                        if resp.status == 200:
-                            res_data = await resp.json()
-                            try:
-                                # Gemma 4 and some others might have multiple parts, where the first is "thought"
-                                parts = res_data['candidates'][0]['content']['parts']
-                                text = ""
-                                for part in parts:
-                                    if "text" in part:
-                                        # If there's a "thought" field, we skip it unless it's the only one?
-                                        # Actually, thinking is usually its own part.
-                                        if part.get("thought"):
-                                            continue
-                                        text += part["text"]
+                            if not text and parts:
+                                text = parts[-1].get("text", "")
 
-                                if not text and parts:
-                                    text = parts[-1].get("text", "")
-
-                                if not json_mode:
-                                    text = text.replace('*', '').replace('#', '').replace('_', '').replace('—', '-')
-                                return text
-                            except (KeyError, IndexError):
-                                continue
-                        elif resp.status == 429:
-                            logger.warning(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
-                            retry_count = 0
-                            success = False
-                            while retry_count < 3 and not success:
-                                retry_count += 1
-                                await asyncio.sleep(2 ** retry_count)
-                                async with session.post(url, **req_kwargs) as retry_resp:
-                                    if retry_resp.status == 200:
-                                        res_data = await retry_resp.json()
-                                        try:
-                                            parts = res_data['candidates'][0]['content']['parts']
-                                            text = ""
-                                            for part in parts:
-                                                if "text" in part:
-                                                    if part.get("thought"):
-                                                        continue
-                                                    text += part["text"]
-                                            if not text and parts:
-                                                text = parts[-1].get("text", "")
-
-                                            if not json_mode:
-                                                text = text.replace('*', '').replace('#', '').replace('_', '').replace('—', '-')
-                                            return text
-                                        except (KeyError, IndexError):
-                                            pass
-                                    elif retry_resp.status != 429:
-                                        break
+                            if not json_mode:
+                                # Faster sanitization using translate
+                                text = text.translate(SANITIZATION_TABLE)
+                            return text
+                        except (KeyError, IndexError):
                             continue
-                        else:
-                            error_text = await resp.text()
-                            logger.error(f"Text API Error status {resp.status} on {model}. Trying next key. Error details: {error_text}")
-                            continue
-                except asyncio.TimeoutError:
-                    logger.warning(f"Timeout on {model}. Trying next.")
-                    continue
-                except Exception as e:
-                    last_exception = e
-                    logger.error(f"Ошибка: {str(e)}")
-                    continue
+                    elif resp.status == 429:
+                        logger.warning(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
+                        for i in range(1, 4):
+                            await asyncio.sleep(2 ** i)
+                            async with session.post(url, json=payload) as retry_resp:
+                                if retry_resp.status == 200:
+                                    res_data = await retry_resp.json()
+                                    try:
+                                        parts = res_data['candidates'][0]['content']['parts']
+                                        text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
+                                        if not text and parts:
+                                            text = parts[-1].get("text", "")
+                                        if not json_mode:
+                                            text = text.translate(SANITIZATION_TABLE)
+                                        return text
+                                    except (KeyError, IndexError):
+                                        pass
+                                elif retry_resp.status != 429:
+                                    break
+                        continue
+                    else:
+                        error_text = await resp.text()
+                        logger.error(f"Text API Error status {resp.status} on {model}. Error details: {error_text}")
+                        continue
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout on {model}. Trying next.")
+                continue
             except Exception as e:
+                last_exception = e
                 logger.error(f"Ошибка: {str(e)}")
                 continue
 
@@ -185,10 +170,7 @@ async def extract_birth_data(text: str) -> dict | None:
     res = await generate_text(prompt, json_mode=True)
     if not res: return None
     try:
-        # Безопасная очистка в несколько этапов
-        res = res.replace('```json', '')
-        res = res.replace('```', '')
-        clean_res = res.strip()
+        clean_res = re.sub(r"```(?:json)?\s*|\s*```", "", res).strip()
         return json.loads(clean_res)
     except Exception as e:
         logger.error(f"Ошибка: {str(e)}")
@@ -201,7 +183,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     if first_name:
         base_info += f" ИМЯ - {first_name}."
 
-    base_info += " ОБРАЩАЙСЯ СТРОГО В ПРАВИЛЬНОМ РОДЕ."
+    base_info += " ОБРАЩАЙСЯ СТРОГО В ПРАВИЛЬНОМ РОДЕ. ОБЯЗАТЕЛЬНО используй слово ВСТУПЛЕНИЕ на отдельной строке перед вступительной частью."
 
     if core_profile:
         base_info += f" Прошлый анализ (учитывай это, чтобы показать, что ты знаешь пользователя): {core_profile}."
@@ -214,60 +196,28 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     )
 
     if section == "base":
-        prompt = (
-            f"{base_info} Составь Вступление (короткий панч) и БАЗУ (разбор Солнца, Луны и Асцендента). "
-            f"ОБЯЗАТЕЛЬНО используй слово ВСТУПЛЕНИЕ на отдельной строке перед вступительной частью, а слово БАЗА на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и БАЗА КАПСОМ.{style_instruction}"
-        )
+        prompt = f"{base_info} Составь Вступление (короткий панч) и БАЗА (разбор Солнца, Луны и Асцендента). ОБЯЗАТЕЛЬНО используй слово БАЗА на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и БАЗА КАПСОМ.{style_instruction}"
     elif section == "sex":
-        card_id = random.choice(list(range(22, 36)) + list(range(36, 50))) 
-        prompt = (
-            f"{base_info} Сделай Вступление (короткий панч) и разбор СЕКС (анализ Венеры и Марса, отношение к любви и страсти). "
-            f"ОБЯЗАТЕЛЬНО используй слово ВСТУПЛЕНИЕ на отдельной строке перед вступительной частью, а слово СЕКС на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и СЕКС КАПСОМ. "
-            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-        )
+        card_id = random.choice(list(range(22, 50)))
+        prompt = f"{base_info} Сделай Вступление (короткий панч) и разбор СЕКС (анализ Венеры и Марса, отношение к любви и страсти). ОБЯЗАТЕЛЬНО используй слово СЕКС на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и СЕКС КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
     elif section == "money":
-        card_id = random.randint(64, 77) 
-        prompt = (
-            f"{base_info} Сделай Вступление (короткий панч) и разбор ДЕНЬГИ (анализ 2-го и 10-го домов, карьера и финансы). "
-            f"ОБЯЗАТЕЛЬНО используй слово ВСТУПЛЕНИЕ на отдельной строке перед вступительной частью, а слово ДЕНЬГИ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и ДЕНЬГИ КАПСОМ. "
-            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-        )
+        card_id = random.randint(64, 77)
+        prompt = f"{base_info} Сделай Вступление (короткий панч) и разбор ДЕНЬГИ (анализ 2-го и 10-го домов, карьера и финансы). ОБЯЗАТЕЛЬНО используй слово ДЕНЬГИ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и ДЕНЬГИ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
     elif section == "shadow":
-        card_id = random.randint(50, 63) 
-        prompt = (
-            f"{base_info} Сделай Вступление (короткий панч) и разбор ТЕНЬ (анализ Лилит и Селены, теневая сторона личности). "
-            f"ОБЯЗАТЕЛЬНО используй слово ВСТУПЛЕНИЕ на отдельной строке перед вступительной частью, а слово ТЕНЬ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и ТЕНЬ КАПСОМ. "
-            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-        )
+        card_id = random.randint(50, 63)
+        prompt = f"{base_info} Сделай Вступление (короткий панч) и разбор ТЕНЬ (анализ Лилит и Селены, теневая сторона личности). ОБЯЗАТЕЛЬНО используй слово ТЕНЬ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ and ТЕНЬ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
     elif section == "final":
-        prompt = (
-            f"{base_info} Сделай Вступление (короткий панч) и ФИНАЛ (Итоговый вердикт и совет в стиле 'Живи с этим'). "
-            f"ОБЯЗАТЕЛЬНО используй слово ВСТУПЛЕНИЕ на отдельной строке перед вступительной частью, а слово ФИНАЛ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и ФИНАЛ КАПСОМ. "
-            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро (случайное число от 0 до 21) в формате: ID_ТАРО: [число]. Вплети этот ID прямо в свой прогноз (например: 'Твоя карта - Аркан [число]').{style_instruction}"
-        )
+        card_id = random.randint(0, 21)
+        prompt = f"{base_info} Сделай Вступление (короткий панч) и ФИНАЛ (Итоговый вердикт и совет в стиле 'Живи с этим'). ОБЯЗАТЕЛЬНО используй слово ФИНАЛ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и ФИНАЛ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро (случайное число от 0 до 21) в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
     elif section == "synastry":
-        card_id = random.randint(0, 21) 
-        prompt = (
-            f"{base_info} Сделай разбор совместимости (СИНАСТРИЯ). "
-            f"Имя партнера: {partner_name}, дата рождения партнера: {partner_date}. "
-            f"Сделай жесткий разбор мэтча. Опиши сильные стороны и кармические узлы связи. "
-            f"ОБЯЗАТЕЛЬНО используй слово СИНАСТРИЯ на отдельной строке перед основным разбором. Выдели заголовок СИНАСТРИЯ КАПСОМ. "
-            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-        )
+        card_id = random.randint(0, 21)
+        prompt = f"{base_info} Сделай разбор совместимости (СИНАСТРИЯ). Имя партнера: {partner_name}, дата рождения партнера: {partner_date}. Сделай жесткий разбор мэтча. Опиши сильные стороны и кармические узлы связи. ОБЯЗАТЕЛЬНО используй слово СИНАСТРИЯ на отдельной строке перед основным разбором. Выдели заголовок СИНАСТРИЯ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
     elif section == "antitaro":
         card_id = random.randint(0, 77)
-        prompt = (
-            f"{base_info} Сделай Вступление (короткий панч) и разбор АНТИТАРО (максимально циничный, деструктивный и жесткий совет наоборот, снятие розовых очков). "
-            f"ОБЯЗАТЕЛЬНО используй слово ВСТУПЛЕНИЕ на отдельной строке перед вступительной частью, а слово АНТИТАРО на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и АНТИТАРО КАПСОМ. "
-            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-        )
+        prompt = f"{base_info} Сделай Вступление (короткий панч) и разбор АНТИТАРО (максимально циничный, деструктивный и жесткий совет наоборот, снятие розовых очков). ОБЯЗАТЕЛЬНО используй слово АНТИТАРО на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и АНТИТАРО КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
     elif section == "card_of_day":
         card_id = random.randint(0, 77)
-        prompt = (
-            f"{base_info} Выдай карту дня (как ежедневный гороскоп, но в стиле Таро). "
-            f"ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ. "
-            f"В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-        )
+        prompt = f"{base_info} Выдай карту дня (как ежедневный гороскоп, но в стиле Таро). ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
     else:
         return None
 
