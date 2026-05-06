@@ -1,16 +1,22 @@
 from modules.bot_init import bot
+import math
 import asyncio
 import json
-from vkbottle.bot import BotLabeler
-from vkbottle import DocMessagesUploader, Keyboard, KeyboardButtonColor, Callback, GroupEventType
+from loguru import logger
+import random
+import re
+import datetime
+import os
+from vkbottle.bot import BotLabeler, Message
+from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from vkbottle.tools.dev.keyboard.action import VKPay
 
 # Все импорты базы и сервисов — строго здесь
-from database import get_user, update_user, set_user_state, check_and_save_transaction
+from database import get_user, update_user, set_user_state, get_user_state, create_user, check_and_save_transaction
 from ai_service import generate_text, generate_section
 from modules.utils import (
-    generate_premium_pdf, get_fsm_step,
-    get_sections_keyboard, pdf_semaphore
+    generate_premium_pdf, get_fsm_step, upload_local_photo,
+    get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore
 )
 from cache import acquire_lock, release_lock
 
@@ -25,140 +31,6 @@ from loguru import logger
 labeler = BotLabeler()
 
 @labeler.raw_event(GroupEventType.MESSAGE_EVENT, dataclass=dict)
-
-async def route_event_command(vk_id, peer_id, obj, cmd, payload, event_id):
-    if cmd == "use_section":
-        target_section = payload.get("key")
-        user = await get_user(vk_id)
-        if user and target_section:
-            purchased = user.get("purchased_sections", {})
-            has_access = purchased.get(target_section)
-            if target_section in ["sex", "money", "shadow", "final"]:
-                if purchased.get("all") or user.get("has_full_chart"):
-                    has_access = True
-
-            if has_access:
-                await set_user_state(vk_id, json.dumps({
-                    "step": "global_cut", "target_section": target_section
-                }))
-                kb = Keyboard(inline=True)
-                kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-                await bot.api.messages.send(peer_id=peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
-            else:
-                from modules.services import show_services
-                await show_services(vk_id, peer_id, 0)
-
-    elif cmd == "main_menu":
-        user = await get_user(vk_id)
-        kb_json = await get_sections_keyboard(vk_id, user)
-        await bot.api.messages.send(peer_id=peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, random_id=0)
-
-    elif cmd == "service_page":
-        idx = payload.get("idx", 0)
-        from modules.services import show_services
-        await show_services(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
-
-    elif cmd == "tariff_page":
-        idx = payload.get("idx", 0)
-        from modules.services import show_tariffs
-        await show_tariffs(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
-
-    elif cmd == "card_of_day":
-        from modules.tarot import card_of_day_logic
-        await card_of_day_logic(vk_id, peer_id)
-
-    elif cmd == "buy":
-        buy_type = payload.get("type")
-        key = payload.get("key")
-        await process_buy_command(vk_id, peer_id, buy_type, key)
-
-    elif cmd == "get_referral":
-        bot_domain = "anti_taro_bot"
-        try:
-            groups_info = await bot.api.groups.get_by_id()
-            if groups_info:
-                bot_domain = groups_info[0].screen_name
-        except Exception:
-            pass
-
-        ref_link = f"https://vk.com/write-{groups_info[0].id}?ref={vk_id}" if 'groups_info' in locals() and groups_info else f"https://vk.com/im?sel=-219181948&ref={vk_id}"
-        await bot.api.messages.send(
-            peer_id=peer_id,
-            message=f"🎁 Твоя реферальная ссылка:\n{ref_link}\n\nОтправь её друзьям. Когда друг перейдет по ссылке и начнет работу с ботом, вы оба получите +500 Энергии звезд.",
-            random_id=0
-        )
-
-    elif cmd == "grimoire_page":
-        page = payload.get("page", 0)
-        from modules.profile import show_grimoire_page
-        await show_grimoire_page(vk_id, peer_id, page)
-
-    elif cmd == "view_card":
-        card_id = str(payload.get("id"))
-        from modules.profile import view_card_direct
-        await view_card_direct(vk_id, peer_id, card_id)
-
-    elif cmd == "global_cut":
-        target = payload.get("target")
-        if target:
-             await set_user_state(vk_id, json.dumps({
-                "step": "global_cut",
-                "target_section": target
-             }))
-
-        await bot.api.messages.edit(
-            peer_id=peer_id,
-            message="СИНХРОНИЗАЦИЯ...",
-            conversation_message_id=obj.get("conversation_message_id")
-        )
-        kb = Keyboard(inline=True)
-        for i in range(10):
-            if i > 0 and i % 5 == 0: kb.row()
-            kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
-        await bot.api.messages.send(peer_id=peer_id, message="Выбери карту из разложенных:", keyboard=kb.get_json(), random_id=0)
-
-    elif cmd == "global_draw":
-        state_dict = await get_fsm_step(vk_id)
-        if not state_dict: return
-        target_section = state_dict.get("target_section", "")
-        partner_name = state_dict.get("partner_name", "")
-        partner_date = state_dict.get("partner_date", "")
-        await set_user_state(vk_id, "")
-        await bot.api.messages.send(peer_id=peer_id, message="Считываю поток...", random_id=0)
-        if target_section:
-            await execute_generation(vk_id, peer_id, target_section, partner_name, partner_date)
-
-    elif "oracle_card" in payload:
-        card_id = payload["oracle_card"]
-        state_dict = await get_fsm_step(vk_id)
-        if not state_dict or state_dict.get("step") != "oracle_draw": return
-        drawn_cards = state_dict.get("drawn_cards", [])
-        pool = state_dict.get("pool", [])
-        if card_id not in drawn_cards: drawn_cards.append(card_id)
-
-        if len(drawn_cards) < 3:
-            state_dict["drawn_cards"] = drawn_cards
-            await set_user_state(vk_id, json.dumps(state_dict))
-            kb = Keyboard(inline=True)
-            btn_count = 0
-            for c_id in pool:
-                if c_id not in drawn_cards:
-                    if btn_count > 0 and btn_count % 5 == 0: kb.row()
-                    kb.add(Callback("🎴", payload={"oracle_card": c_id}))
-                    btn_count += 1
-            await bot.api.messages.edit(
-                peer_id=peer_id, message=f"Выбрано: {len(drawn_cards)}/3...",
-                conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json()
-            )
-        else:
-            await set_user_state(vk_id, "")
-            await bot.api.messages.edit(
-                peer_id=peer_id, message="Выбрано: 3/3. Карты собраны.",
-                conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json()
-            )
-            from modules.tarot import process_oracle_final
-            asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn_cards))
-
 async def message_event_handler(event: dict):
     obj = event.get("object", {})
     vk_id = obj.get("user_id")
@@ -188,7 +60,200 @@ async def message_event_handler(event: dict):
         except Exception as e:
             logger.error(f"Ошибка: {str(e)}")
             
-        await route_event_command(vk_id, peer_id, obj, cmd, payload, event_id)
+        # 2. Обработка команд (CALLBACK)
+        if cmd == "use_section":
+            target_section = payload.get("key")
+            user = await get_user(vk_id)
+            if user and target_section:
+                purchased = user.get("purchased_sections", {})
+                has_access = purchased.get(target_section)
+                if target_section in ["sex", "money", "shadow", "final"]:
+                    if purchased.get("all") or user.get("has_full_chart"):
+                        has_access = True
+
+                if has_access:
+                    await set_user_state(vk_id, json.dumps({
+                        "step": "global_cut", "target_section": target_section
+                    }))
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
+                    await bot.api.messages.send(peer_id=peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+                else:
+                    await show_services(vk_id, peer_id, 0) # Fallback if they don't own it
+
+        elif cmd == "main_menu":
+            user = await get_user(vk_id)
+            kb_json = await get_sections_keyboard(vk_id, user)
+            await bot.api.messages.send(peer_id=peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, random_id=0)
+
+        elif cmd == "service_page":
+            idx = payload.get("idx", 0)
+            await show_services(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
+
+        elif cmd == "tariff_page":
+            idx = payload.get("idx", 0)
+            await show_tariffs(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
+
+        elif cmd == "card_of_day":
+            from modules.tarot import card_of_day_logic
+            await card_of_day_logic(vk_id, peer_id)
+            return
+
+        elif cmd == "buy":
+            buy_type = payload.get("type")
+            key = payload.get("key")
+            
+            prices = {
+                "sex": 1000, "money": 900, "shadow": 700, "final": 1200, 
+                "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
+                "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
+            }
+            
+            amount_needed = prices.get(key)
+            if not amount_needed: return
+
+            user = await get_user(vk_id)
+            if not user: return
+            
+            balance = int(user.get("balance", 0) or 0)
+            
+            # Миграция старых бонусов в баланс (если остались)
+            bonuses = int(user.get("bonuses", 0) or 0)
+            if bonuses > 0:
+                balance = (balance * 10) + bonuses
+                await update_user(vk_id, {"balance": balance, "bonuses": 0})
+
+            if balance >= amount_needed:
+                new_balance = balance - amount_needed
+                await update_user(vk_id, {"balance": new_balance})
+                
+                if buy_type == "service":
+                    await process_payment_and_generate(vk_id, key)
+                elif buy_type == "tariff":
+                    days = 7 if key == "tariff_1" else 30
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    new_expires = now + datetime.timedelta(days=days)
+                    updates = {"transit_sub_expires_at": new_expires.isoformat()}
+                    if key == "tariff_vip":
+                        purchased = user.get("purchased_sections", {})
+                        for s in ["sex", "money", "shadow", "final"]: purchased[s] = True
+                        updates["purchased_sections"] = purchased
+                        updates["has_full_chart"] = True
+                    await update_user(vk_id, updates)
+                    await bot.api.messages.send(
+                        peer_id=peer_id, 
+                        message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", 
+                        random_id=0
+                    )
+            else:
+                diff_energy = amount_needed - balance
+                diff_rubles = math.ceil(diff_energy / 10)
+
+                # VK Pay strictly adheres to API (type: vkpay, hash)
+                # referral button payload calls referral logic (assumed "profile_ref" or similar, we'll use a direct link logic or just command)
+                kb = Keyboard(inline=True)
+                kb.add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}"))
+                kb.row()
+                kb.add(Text("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
+
+                msg_text = (
+                    f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\n"
+                    f"Твой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\n"
+                    f"Система не может вскрыть этот слой матрицы.\n\n"
+                    f"Оплати недостающие {diff_energy} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно."
+                )
+
+                await bot.api.messages.send(
+                    peer_id=peer_id, 
+                    message=msg_text,
+                    keyboard=kb.get_json(), random_id=0
+                )
+
+        elif cmd == "get_referral":
+            bot_domain = "anti_taro_bot" # Fallback if you don't query it dynamically
+            try:
+                groups_info = await bot.api.groups.get_by_id()
+                if groups_info:
+                    bot_domain = groups_info[0].screen_name
+            except Exception:
+                pass
+
+            ref_link = f"https://vk.com/write-{groups_info[0].id}?ref={vk_id}" if 'groups_info' in locals() and groups_info else f"https://vk.com/im?sel=-219181948&ref={vk_id}"
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message=f"🎁 Твоя реферальная ссылка:\n{ref_link}\n\nОтправь её друзьям. Когда друг перейдет по ссылке и начнет работу с ботом, вы оба получите +500 Энергии звезд.",
+                random_id=0
+            )
+
+        elif cmd == "grimoire_page":
+            page = payload.get("page", 0)
+            await show_grimoire_page(vk_id, peer_id, page)
+
+        elif cmd == "view_card":
+            card_id = str(payload.get("id"))
+            await view_card_direct(vk_id, peer_id, card_id)
+
+        elif cmd == "global_cut":
+            # Если в payload передан target (например, "welcome" для первого разбора), сохраняем его в стейт
+            target = payload.get("target")
+            if target:
+                 await set_user_state(vk_id, json.dumps({
+                    "step": "global_cut",
+                    "target_section": target
+                 }))
+
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message="СИНХРОНИЗАЦИЯ...",
+                conversation_message_id=obj.get("conversation_message_id")
+            )
+            kb = Keyboard(inline=True)
+            for i in range(10):
+                if i > 0 and i % 5 == 0: kb.row()
+                kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
+            await bot.api.messages.send(peer_id=peer_id, message="Выбери карту из разложенных:", keyboard=kb.get_json(), random_id=0)
+
+        elif cmd == "global_draw":
+            state_dict = await get_fsm_step(vk_id)
+            if not state_dict: return
+            target_section = state_dict.get("target_section", "")
+            partner_name = state_dict.get("partner_name", "")
+            partner_date = state_dict.get("partner_date", "")
+            await set_user_state(vk_id, "")
+            await bot.api.messages.send(peer_id=peer_id, message="Считываю поток...", random_id=0)
+            if target_section:
+                await execute_generation(vk_id, peer_id, target_section, partner_name, partner_date)
+
+        elif "oracle_card" in payload:
+            card_id = payload["oracle_card"]
+            state_dict = await get_fsm_step(vk_id)
+            if not state_dict or state_dict.get("step") != "oracle_draw": return
+            drawn_cards = state_dict.get("drawn_cards", [])
+            pool = state_dict.get("pool", [])
+            if card_id not in drawn_cards: drawn_cards.append(card_id)
+
+            if len(drawn_cards) < 3:
+                state_dict["drawn_cards"] = drawn_cards
+                await set_user_state(vk_id, json.dumps(state_dict))
+                kb = Keyboard(inline=True)
+                btn_count = 0
+                for c_id in pool:
+                    if c_id not in drawn_cards:
+                        if btn_count > 0 and btn_count % 5 == 0: kb.row()
+                        kb.add(Callback("🎴", payload={"oracle_card": c_id}))
+                        btn_count += 1
+                await bot.api.messages.edit(
+                    peer_id=peer_id, message=f"Выбрано: {len(drawn_cards)}/3...",
+                    conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json()
+                )
+            else:
+                await set_user_state(vk_id, "") 
+                await bot.api.messages.edit(
+                    peer_id=peer_id, message="Выбрано: 3/3. Карты собраны.",
+                    conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json()
+                )
+                asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn_cards))
+
     finally:
         await release_lock(vk_id)
 
@@ -234,77 +299,6 @@ async def money_transfer_handler(event: dict):
     except Exception as e:
         logger.error(f"Ошибка: {str(e)}")
 
-async def process_buy_command(vk_id: int, peer_id: int, buy_type: str, key: str):
-    import math
-    import datetime
-    from vkbottle import Text
-    prices = {
-        "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
-        "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
-        "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
-    }
-
-    amount_needed = prices.get(key)
-    if not amount_needed: return
-
-    user = await get_user(vk_id)
-    if not user: return
-
-    balance = int(user.get("balance", 0) or 0)
-
-    # Миграция старых бонусов в баланс (если остались)
-    bonuses = int(user.get("bonuses", 0) or 0)
-    if bonuses > 0:
-        balance = (balance * 10) + bonuses
-        await update_user(vk_id, {"balance": balance, "bonuses": 0})
-
-    if balance >= amount_needed:
-        new_balance = balance - amount_needed
-        await update_user(vk_id, {"balance": new_balance})
-
-        if buy_type == "service":
-            await process_payment_and_generate(vk_id, key)
-        elif buy_type == "tariff":
-            days = 7 if key == "tariff_1" else 30
-            now = datetime.datetime.now(datetime.timezone.utc)
-            new_expires = now + datetime.timedelta(days=days)
-            updates = {"transit_sub_expires_at": new_expires.isoformat()}
-            if key == "tariff_vip":
-                purchased = user.get("purchased_sections", {})
-                for s in ["sex", "money", "shadow", "final"]: purchased[s] = True
-                updates["purchased_sections"] = purchased
-                updates["has_full_chart"] = True
-            await update_user(vk_id, updates)
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.",
-                random_id=0
-            )
-    else:
-        diff_energy = amount_needed - balance
-        diff_rubles = math.ceil(diff_energy / 10)
-
-        # VK Pay strictly adheres to API (type: vkpay, hash)
-        # referral button payload calls referral logic (assumed "profile_ref" or similar, we'll use a direct link logic or just command)
-        kb = Keyboard(inline=True)
-        kb.add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}"))
-        kb.row()
-        kb.add(Text("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
-
-        msg_text = (
-            f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\n"
-            f"Твой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\n"
-            f"Система не может вскрыть этот слой матрицы.\n\n"
-            f"Оплати недостающие {diff_energy} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно."
-        )
-
-        await bot.api.messages.send(
-            peer_id=peer_id,
-            message=msg_text,
-            keyboard=kb.get_json(), random_id=0
-        )
-
-
 async def process_payment_and_generate(vk_id: int, section: str):
     if not await acquire_lock(vk_id): return
     user = await get_user(vk_id)
@@ -338,32 +332,20 @@ async def process_payment_and_generate(vk_id: int, section: str):
     finally:
         await release_lock(vk_id)
 
-
-async def process_generation_success(vk_id: int, peer_id: int, user: dict, target_section: str, display_text: str):
-    p = user.get("purchased_sections", {})
-    pdf_name = f"report_{vk_id}_{target_section}.pdf"
-    b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
-
-    async with pdf_semaphore:
-        await asyncio.to_thread(generate_premium_pdf, p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name)
-
-    doc = await DocMessagesUploader(bot.api).upload(title=f"{target_section}.pdf", file_source=pdf_name, peer_id=peer_id)
-    kb = await get_sections_keyboard(vk_id, user)
-    await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=doc, keyboard=kb, random_id=0)
-
-    if os.path.exists(pdf_name):
-        await asyncio.to_thread(os.remove, pdf_name)
-
 async def execute_generation(vk_id: int, peer_id: int, target_section: str, partner_name: str, partner_date: str):
+    """ПОЛНАЯ ЛОГИКА ГЕНЕРАЦИИ"""
     try:
         user = await get_user(vk_id)
         if not user: return
 
+        # 1. Показываем прогресс
         await bot.api.messages.send(peer_id=peer_id, message="🔮 Начинаю таинство разбора. Это займет около минуты...", random_id=0)
 
+        # 2. Формируем данные
         p = user.get("purchased_sections", {})
         active_skin = user.get("active_skin", "olesya")
 
+        # 3. Генерация текста
         await bot.api.messages.send(peer_id=peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
@@ -374,12 +356,25 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         )
 
         if res_text:
+            # Очищаем текст от тех. тегов ID_ТАРО
             display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
-            await process_generation_success(vk_id, peer_id, user, target_section, display_text)
+
+            # 4. Генерация PDF (через asyncio.to_thread чтобы не блокировать event loop)
+            pdf_name = f"report_{vk_id}_{target_section}.pdf"
+            b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
+            async with pdf_semaphore:
+                await asyncio.to_thread(generate_premium_pdf, p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name)
+
+            # 5. Отправка
+            doc = await DocMessagesUploader(bot.api).upload(title=f"{target_section}.pdf", file_source=pdf_name, peer_id=peer_id)
+            kb = await get_sections_keyboard(vk_id, user)
+            await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=doc, keyboard=kb, random_id=0)
+
+            if os.path.exists(pdf_name):
+                await asyncio.to_thread(os.remove, pdf_name)
         else:
             await handle_generation_failure(vk_id, peer_id, target_section)
     except Exception as e:
-        from loguru import logger
         logger.error(f"Ошибка: {str(e)}")
         await handle_generation_failure(vk_id, peer_id, target_section)
 

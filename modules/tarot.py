@@ -130,19 +130,13 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             if not unlocked_cards or isinstance(unlocked_cards, list):
                 unlocked_cards = {}
 
-            from ai_service import generate_text
-            async def fetch_signature(cid_int):
+            for cid_int in card_ids:
                 cid = str(cid_int)
                 if cid not in unlocked_cards:
+                    from ai_service import generate_text
                     grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
                     signature = await generate_text(grimoire_prompt, skin=active_skin)
-                    return cid, signature if signature else "Первое касание"
-                return cid, None
-
-            results = await asyncio.gather(*(fetch_signature(cid) for cid in card_ids))
-            for cid, signature in results:
-                if signature is not None:
-                    unlocked_cards[cid] = signature
+                    unlocked_cards[cid] = signature if signature else "Первое касание"
 
             current_total = user.get("total_cards_received", 0)
             await update_user(vk_id, {"purchased_sections": purchased, "total_cards_received": current_total + 3, "unlocked_cards": unlocked_cards})

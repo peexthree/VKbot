@@ -49,21 +49,6 @@ async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
         logger.error(f"Ошибка: {str(e)}")
         return None
 
-async def bulk_update_transit_trial(updates: list[Dict[str, Any]]) -> bool:
-    """Осуществляет массовое обновление пользователей в БД."""
-    if not URL or not KEY or session is None or not updates:
-        return False
-    try:
-        async with session.post(f"{URL}/rest/v1/{TABLE_NAME}", headers={**HEADERS, "Prefer": "resolution=merge-duplicates"}, json=updates) as r:
-            if r.status in (200, 201, 204):
-                return True
-            else:
-                logger.error(f"Supabase error in bulk_update_transit_trial: {r.status} {await r.text()}")
-                return False
-    except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
-        return False
-
 async def get_all_subscribed_users() -> list[Dict[str, Any]]:
     """Получает список всех подписанных пользователей для утренних прогнозов"""
     if not URL or not KEY or session is None:
