@@ -46,7 +46,7 @@ async def test_money_transfer_handler_idempotency():
 
     # In money_transfer_handler there's an import inside the function: `from cache import acquire_lock`
     # We need to mock cache.acquire_lock, not modules.payments.acquire_lock
-    with patch('modules.utils.bot.api.messages.send') as mock_send:
+    with patch('modules.bot_init.bot.api.messages.send') as mock_send:
         # First call - simulate successful lock acquisition and then returning early
         with patch('modules.payments.acquire_lock', return_value=True) as mock_lock:
             with patch('modules.payments.check_and_save_transaction', return_value=True) as mock_check:
