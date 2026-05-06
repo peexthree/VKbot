@@ -37,7 +37,16 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
         logger.error("No API keys provided")
         return None
 
-    models = ["models/gemini-2.0-flash", "models/gemini-1.5-flash", "models/gemini-1.5-flash-8b", "models/gemma-3-27b-it"]
+    # Обновленный список моделей.
+    # ВНИМАНИЕ: Google часто меняет доступность моделей.
+    # Модели gemini-1.5 и gemma-3-27b могут отдавать 404, если они выведены из эксплуатации.
+    # Используем новые версии (2.5 и 4) согласно ответу API ListModels.
+    models = [
+        ("models/gemini-2.5-flash", "v1"),
+        ("models/gemini-2.0-flash", "v1"),
+        ("models/gemma-4-31b-it", "v1beta"), # Gemma 4 требует v1beta
+        ("models/gemini-2.5-flash-lite", "v1")
+    ]
     last_exception = Exception("Unknown error")
 
     skin_map = {
@@ -54,9 +63,9 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
 
     tov_instruction = skin_map.get(skin, skin_map["olesya"])
 
-    for model in models:
+    for model, version in models:
         for api_key in api_keys:
-            url = f"https://generativelanguage.googleapis.com/v1/{model}:generateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/{version}/{model}:generateContent?key={api_key}"
 
             system_instruction = ""
             if not json_mode:
