@@ -9,7 +9,8 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
-from modules.utils import bot, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from modules.bot_init import bot
+from modules.utils import  get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
 
 labeler = BotLabeler()
 
@@ -72,7 +73,7 @@ async def start_handler(message: Message):
             purchased["sex_val"] = sex 
             await update_user(vk_id, {"purchased_sections": purchased})
 
-        await set_user_state(vk_id, "waiting_for_onboarding_data")
+        await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data"}))
         await message.answer(
             "✦ СИСТЕМА АНТИ-ТАР АКТИВИРОВАНА ✦ 😈\n\n"
             "Забудь о ванильных гороскопах. Здесь тебя ждет жесткий разбор без прикрас.\n"
@@ -90,50 +91,41 @@ async def process_onboarding_data(message: Message):
 
     try:
         user_text = message.text.strip()
-        await message.answer("Анализирую ваши данные... 👁‍🗨")
+        await message.answer("Анализирую ваши координаты... 👁‍🗨")
         await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
 
-        prompt = (
-            "Извлеки из текста дату рождения, время рождения и город. "
-            "Ответь строго в формате JSON: {\"date\": \"ДД.ММ.ГГГГ\", \"time\": \"ЧЧ:ММ\", \"city\": \"Город\"}. "
-            f"Текст пользователя: {user_text}"
-        )
+        from ai_service import extract_birth_data
+        data = await extract_birth_data(user_text)
 
-        response = await generate_text("Ты - парсер данных. Выдавай только валидный JSON.\n" + prompt)
+        if not data:
+            await message.answer(
+                "Не удалось считать координаты. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город"
+            )
+            return
 
-        try:
-            if not response:
-                raise ValueError("Empty response from AI")
-            cleaned_response = response.replace("```json", "").replace("```", "").strip()
-            data = json.loads(cleaned_response)
-            date = data.get("date", "01.01.1990")
-            time = data.get("time", "12:00")
-            city = data.get("city", "Москва")
-        except (json.JSONDecodeError, ValueError, Exception):
-            date = "01.01.1990"
-            time = "12:00"
-            city = "Москва"
+        date = data.get("date", "01.01.1990")
+        time = data.get("time", "12:00")
+        city = data.get("city", "Москва")
 
-        insight_prompt = f"Пользователь родился {date} в {time} в городе {city}. Напиши 2 жестких, дерзких и мистических предложения (инсайт) про его матрицу судьбы или влияние планет. Без приветствий, сразу к делу."
-        insight = await generate_text("Ты - темный таролог.\n" + insight_prompt)
+        await set_user_state(vk_id, json.dumps({
+            "step": "confirm_data",
+            "date": date,
+            "time": time,
+            "city": city
+        }))
 
-        user = await update_user(vk_id, {
-            "birth_date": date,
-            "birth_time": time,
-            "birth_city": city,
-            "balance": 700,
-            "welcome_bonus_received": True
-        })
-
-        await set_user_state(vk_id, "")
-
-        await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
-
-        from modules.utils import get_dynamic_keyboard
+        kb = Keyboard(inline=True)
+        kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+        kb.row()
+        kb.add(Callback("🔄 ОШИБКА. ИСПРАВИТЬ", payload={"cmd": "retry_registration"}), color=KeyboardButtonColor.NEGATIVE)
 
         await message.answer(
-            f"ДАННЫЕ ПРИНЯТЫ 🪐\nТебе начислено 700 Энергии звезд.\nТвоя базовая матрица загружена: {insight}",
-            keyboard=get_dynamic_keyboard(user)
+            f"🪐 Данные рождения распознаны:\n"
+            f"Дата: {date}\n"
+            f"Время: {time}\n"
+            f"Город: {city}\n\n"
+            f"Проверь точность. Алгоритм не прощает ошибок во времени и месте.",
+            keyboard=kb.get_json()
         )
 
     finally:

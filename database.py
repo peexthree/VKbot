@@ -210,6 +210,7 @@ async def set_user_state(vk_id: int, state: str) -> bool:
             "date": MyStates.WAITING_FOR_DATE,
             "time": MyStates.WAITING_FOR_TIME,
             "city": MyStates.WAITING_FOR_CITY,
+            "waiting_for_onboarding_data": MyStates.WAITING_FOR_ONBOARDING_DATA,
             "confirm_data": MyStates.WAITING_CONFIRM_DATA,
             "waiting_synastry_date": MyStates.WAITING_SYNASTRY_DATE,
             "waiting_oracle_question": MyStates.WAITING_ORACLE_QUESTION,

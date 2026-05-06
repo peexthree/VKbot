@@ -13,8 +13,9 @@ from vkbottle.tools.dev.keyboard.action import VKPay
 # Все импорты базы и сервисов — строго здесь
 from database import get_user, update_user, set_user_state, get_user_state, create_user, check_and_save_transaction
 from ai_service import generate_text, generate_section
+from modules.bot_init import bot
 from modules.utils import (
-    bot, generate_premium_pdf, get_fsm_step, upload_local_photo, 
+    generate_premium_pdf, get_fsm_step, upload_local_photo,
     get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore
 )
 from cache import acquire_lock, release_lock
@@ -79,6 +80,56 @@ async def message_event_handler(event: dict):
                     await bot.api.messages.send(peer_id=peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
                 else:
                     await show_services(vk_id, peer_id, 0) # Fallback if they don't own it
+
+        elif cmd == "retry_registration":
+            await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data"}))
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message="Понял. Попробуй еще раз. Напиши дату, время и город рождения максимально четко.",
+                conversation_message_id=obj.get("conversation_message_id")
+            )
+
+        elif cmd == "confirm_registration":
+            state_dict = await get_fsm_step(vk_id)
+            if not state_dict or state_dict.get("step") != "confirm_data":
+                return
+
+            date = state_dict.get("date", "01.01.1990")
+            time = state_dict.get("time", "12:00")
+            city = state_dict.get("city", "Москва")
+
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message="Сохраняю данные...",
+                conversation_message_id=obj.get("conversation_message_id")
+            )
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+
+            user = await update_user(vk_id, {
+                "birth_date": date,
+                "birth_time": time,
+                "birth_city": city,
+                "balance": 700,
+                "welcome_bonus_received": True
+            })
+
+            insight = await generate_section("base", date, time, city, skin=user.get("active_skin", "olesya"))
+
+            await set_user_state(vk_id, "")
+
+            kb_json = await get_sections_keyboard(vk_id, user)
+
+            # Clean up the insight format matching standard output
+            display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", insight or "").strip()
+            if not display_text:
+                 display_text = "Твоя матрица готова, но духи сейчас молчат..."
+
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message=f"Твоя матрица готова...\n\n{display_text}",
+                keyboard=kb_json,
+                random_id=0
+            )
 
         elif cmd == "main_menu":
             user = await get_user(vk_id)
