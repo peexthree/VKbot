@@ -33,6 +33,9 @@ async def upload_local_photo(bot_api, filename: str) -> str:
 
         async with aiofiles.open(filepath, 'rb') as f:
             data = await f.read()
+            if len(data) < 100:
+                logger.warning(f"Файл {filename} слишком мал ({len(data)} байт), пропуск загрузки.")
+                return ""
             raw_photo_id = await uploader.upload(file_source=data, peer_id=0)
             cover_cache[filename] = raw_photo_id
             return raw_photo_id
