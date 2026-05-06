@@ -160,11 +160,13 @@ from weasyprint import HTML
 
 pdf_semaphore = asyncio.Semaphore(1)
 
+# ⚡ Bolt: Initialize Jinja2 environment and load template once at module level
+# This prevents expensive disk I/O and template compilation on every PDF generation
+_jinja_env = Environment(loader=FileSystemLoader('templates'))
+_report_template = _jinja_env.get_template('report.html')
+
 def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, text_content: str, output_filename: str, card_id: str = None):
     try:
-        env = Environment(loader=FileSystemLoader('templates'))
-        template = env.get_template('report.html')
-
         # Меняем переносы строк на HTML-теги
         formatted_text = text_content.replace('\n', '<br>')
 
@@ -176,7 +178,7 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
             else:
                 card_image_uri = ""
 
-        html_out = template.render(
+        html_out = _report_template.render(
             user_name=user_name,
             birth_info=birth_info,
             section_name=section_name,
