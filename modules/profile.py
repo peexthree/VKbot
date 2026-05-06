@@ -7,6 +7,7 @@ import datetime
 from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
+from modules.states import MyStates
 from ai_service import generate_text, generate_section
 from modules.utils import bot, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache
 from loguru import logger
@@ -87,6 +88,26 @@ async def settings_reset_account(message: Message):
         return
 
     try:
+        await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
+        kb = Keyboard(inline=True)
+        kb.add(Text("ПОДТВЕРДИТЬ СБРОС"), color=KeyboardButtonColor.NEGATIVE)
+        kb.row()
+        kb.add(Text("Назад в профиль"), color=KeyboardButtonColor.PRIMARY)
+
+        await message.answer(
+            "⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?",
+            keyboard=kb.get_json()
+        )
+    finally:
+        await release_lock(vk_id)
+
+@labeler.message(state=MyStates.WAITING_RESET_CONFIRM, text="ПОДТВЕРДИТЬ СБРОС")
+async def confirm_reset_account(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id):
+        return
+
+    try:
         await update_user(vk_id, {
             "birth_date": "",
             "birth_time": "",
@@ -95,9 +116,15 @@ async def settings_reset_account(message: Message):
             "core_profile": ""
         })
         await set_user_state(vk_id, "")
-        await message.answer("Система обнулена")
+        await message.answer("Система обнулена. Напишите 'Начать', чтобы заново войти в матрицу.")
     finally:
         await release_lock(vk_id)
+
+@labeler.message(state=MyStates.WAITING_RESET_CONFIRM, text="Назад в профиль")
+async def cancel_reset_account(message: Message):
+    vk_id = message.from_id
+    await set_user_state(vk_id, "")
+    await show_profile(message)
 
 @labeler.message(text="Назад в профиль")
 async def settings_back_to_profile(message: Message):
