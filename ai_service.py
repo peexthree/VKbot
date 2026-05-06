@@ -112,14 +112,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                             try:
                                 # Gemma 4 and some others might have multiple parts, where the first is "thought"
                                 parts = res_data['candidates'][0]['content']['parts']
-                                text = ""
-                                for part in parts:
-                                    if "text" in part:
-                                        # If there's a "thought" field, we skip it unless it's the only one?
-                                        # Actually, thinking is usually its own part.
-                                        if part.get("thought"):
-                                            continue
-                                        text += part["text"]
+                                text = "".join([part["text"] for part in parts if "text" in part and not part.get("thought")])
 
                                 if not text and parts:
                                     text = parts[-1].get("text", "")
@@ -141,12 +134,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                                         res_data = await retry_resp.json()
                                         try:
                                             parts = res_data['candidates'][0]['content']['parts']
-                                            text = ""
-                                            for part in parts:
-                                                if "text" in part:
-                                                    if part.get("thought"):
-                                                        continue
-                                                    text += part["text"]
+                                            text = "".join([part["text"] for part in parts if "text" in part and not part.get("thought")])
                                             if not text and parts:
                                                 text = parts[-1].get("text", "")
 
