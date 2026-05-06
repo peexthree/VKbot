@@ -65,6 +65,8 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
     }
 
     tov_instruction = skin_map.get(skin, skin_map["olesya"])
+    # Get the global persistent session (managed in main.py)
+    session = init_session()
 
     for model, version in models:
         for api_key in api_keys:
@@ -100,7 +102,6 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
             }
 
             try:
-                session = init_session()
                 req_kwargs = {"json": payload}
 
                 try:
