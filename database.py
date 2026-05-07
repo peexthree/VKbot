@@ -242,6 +242,10 @@ async def set_user_state(vk_id: int, state: str) -> bool:
     if target_state:
         await bot.state_dispenser.set(vk_id, target_state, raw_json=state)
     else:
+        try:
+            await bot.state_dispenser.delete(vk_id)
+        except KeyError:
+            pass
         await set_fsm_state(vk_id, state)
 
     return True

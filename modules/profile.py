@@ -557,7 +557,7 @@ async def apply_promo_handler(message: Message):
         logger.error(f"Ignored Exception: {str(e)}")
 
 
-@labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 Путеводитель"])
+@labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 ПУТЕВОДИТЕЛЬ", "📖 Путеводитель"])
 async def show_guide(message: Message):
     vk_id = message.from_id
     text = (

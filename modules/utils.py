@@ -101,7 +101,7 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     keyboard.row()
     
     keyboard.add(Text("💳 МОЙ ПРОФИЛЬ"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("⚙ НАСТРОЙКИ"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("📖 ПУТЕВОДИТЕЛЬ"), color=KeyboardButtonColor.SECONDARY)
     
     return keyboard.get_json()
 
