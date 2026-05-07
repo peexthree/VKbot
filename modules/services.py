@@ -209,7 +209,7 @@ async def process_synastry_date(message: Message):
 
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
-        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
+        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Анализирую состояние звезд...", random_id=0)
         await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
 
         result_text = await generate_section("synastry", date, time, city, core_profile, first_name, sex_val, partner_name=partner_name, partner_date=partner_date, skin=active_skin)
@@ -243,6 +243,8 @@ async def process_synastry_date(message: Message):
             if card_id not in unlocked_cards:
 
                 grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
+                await bot.api.messages.send(peer_id=vk_id, message="Раскладываю карты...", random_id=0)
+                await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
                 signature = await generate_text(grimoire_prompt, skin=active_skin)
                 unlocked_cards[card_id] = signature if signature else "Первое касание"
 

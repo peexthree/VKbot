@@ -113,7 +113,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             "Сначала выведи: Карта [N]: [Название] - [Краткий смысл]. Только потом делай общий синтез."
         )
 
-        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
+        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...", random_id=0)
         await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
 
         result_text = await generate_text(prompt, skin=active_skin)
@@ -135,6 +135,8 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
                 if cid not in unlocked_cards:
                     from ai_service import generate_text
                     grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
+                    await bot.api.messages.send(peer_id=vk_id, message="Раскладываю карты...", random_id=0)
+                    await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
                     signature = await generate_text(grimoire_prompt, skin=active_skin)
                     unlocked_cards[cid] = signature if signature else "Первое касание"
 
@@ -267,7 +269,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         from ai_service import generate_section
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
-        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...")
+        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...")
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
         result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin)
@@ -296,6 +298,8 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         if card_id not in unlocked_cards:
             from ai_service import generate_text
             grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
+            await bot.api.messages.send(peer_id=peer_id, message="Раскладываю карты...", random_id=0)
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
             signature = await generate_text(grimoire_prompt, skin=active_skin)
             unlocked_cards[card_id] = signature if signature else "Первое касание"
 
@@ -386,7 +390,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
                 "Что преобладало, какие тенденции, и куда это ведет."
             )
 
-            await bot.api.messages.send(peer_id=peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Анализирую состояние звезд...", random_id=0)
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
             synthesis_result = await generate_text(synthesis_prompt, skin=active_skin)
