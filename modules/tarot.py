@@ -232,8 +232,12 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
                 )
             return
 
+        import random
+        from modules.utils import THEATRICAL_PHRASES
+        loading_text = random.choice(THEATRICAL_PHRASES)
+
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="Тяну карту из колоды... 🎴")
+        await bot.api.messages.send(peer_id=peer_id, random_id=0, message=loading_text)
         import asyncio
         await asyncio.sleep(2)
 
