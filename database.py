@@ -205,24 +205,27 @@ async def set_user_state(vk_id: int, state: str) -> bool:
     try:
         data = json.loads(state)
         step = data.get("step", "")
-        # Map steps to actual MyStates
-        state_map = {
-            "date": MyStates.WAITING_FOR_DATE,
-            "time": MyStates.WAITING_FOR_TIME,
-            "city": MyStates.WAITING_FOR_CITY,
-            "confirm_data": MyStates.WAITING_CONFIRM_DATA,
-            "waiting_synastry_date": MyStates.WAITING_SYNASTRY_DATE,
-            "waiting_oracle_question": MyStates.WAITING_ORACLE_QUESTION,
-            "oracle_draw": MyStates.ORACLE_DRAW,
-            "global_cut": MyStates.GLOBAL_CUT,
-            "waiting_reset_confirm": MyStates.WAITING_RESET_CONFIRM
-        }
-        target_state = state_map.get(step)
-        if target_state:
-            await bot.state_dispenser.set(vk_id, target_state, raw_json=state)
-        else:
-            await set_fsm_state(vk_id, state)
     except Exception:
+        step = state
+
+    # Map steps to actual MyStates
+    state_map = {
+        "waiting_for_onboarding_data": MyStates.WAITING_FOR_ONBOARDING_DATA,
+        "date": MyStates.WAITING_FOR_DATE,
+        "time": MyStates.WAITING_FOR_TIME,
+        "city": MyStates.WAITING_FOR_CITY,
+        "confirm_data": MyStates.WAITING_CONFIRM_DATA,
+        "waiting_synastry_date": MyStates.WAITING_SYNASTRY_DATE,
+        "waiting_oracle_question": MyStates.WAITING_ORACLE_QUESTION,
+        "oracle_draw": MyStates.ORACLE_DRAW,
+        "global_cut": MyStates.GLOBAL_CUT,
+        "waiting_reset_confirm": MyStates.WAITING_RESET_CONFIRM
+    }
+
+    target_state = state_map.get(step)
+    if target_state:
+        await bot.state_dispenser.set(vk_id, target_state, raw_json=state)
+    else:
         await set_fsm_state(vk_id, state)
 
     return True
