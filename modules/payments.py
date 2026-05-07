@@ -320,10 +320,15 @@ async def message_event_handler(event: dict):
                 await update_user(vk_id, {"total_cards_received": current_total + 1, "unlocked_cards": unlocked_cards})
 
             # Remove previous inline keyboard msg immediately to prevent double-clicks
+            import random
+            from modules.utils import THEATRICAL_PHRASES
+            loading_text = random.choice(THEATRICAL_PHRASES)
+
             await bot.api.messages.edit(
-                peer_id=peer_id, message="Вытягиваю карту...",
+                peer_id=peer_id, message=loading_text,
                 conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json()
             )
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
             # 4. Instant Output for the user (Persona + Card Image + Details)
             from modules.utils import SKIN_ASSETS
