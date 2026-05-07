@@ -168,7 +168,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
     except Exception as e:
         logger.error(f"Ошибка: {str(e)}")
 
-@labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня"])
+@labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня", "🃏 КАРТА ДНЯ"])
 async def card_of_day_handler(message: Message):
     text = message.text.strip()
     if not text or text.lower() in ["начать", "start", "/start", "лайн голос"] or (text.startswith("✦") and "Карта дня" not in text):
@@ -266,42 +266,16 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         sex_val = purchased.get("sex_val", 0)
         core_profile = user.get("core_profile", "")
 
-        from ai_service import generate_section
+        from ai_service import generate_section, generate_text
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
-        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...")
-        await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-
-        result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin)
-
-        if not result_text:
-            result_text = "Энергетический сбой. Не удалось вытянуть карту."
-
-        if first_name:
-            result_text = f"{first_name},\n\n" + result_text
-
-        kb_json = await get_sections_keyboard(vk_id, user)
-
-        match = re.search(r"ID_?ТАРО:\s*(\d+)", result_text)
-        if match:
-            num = int(match.group(1))
-            if 0 <= num <= 77:
-                card_id = str(num)
-            else:
-                card_id = str(random.randint(0, 77))
-        else:
-            card_id = str(random.randint(0, 77))
+        card_id = str(random.randint(0, 77))
 
         if not unlocked_cards or isinstance(unlocked_cards, list):
             unlocked_cards = {}
 
         if card_id not in unlocked_cards:
-            from ai_service import generate_text
-            grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
-            await bot.api.messages.send(peer_id=peer_id, message="Раскладываю карты...", random_id=0)
-            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-            signature = await generate_text(grimoire_prompt, skin=active_skin)
-            unlocked_cards[card_id] = signature if signature else "Первое касание"
+            unlocked_cards[card_id] = "Первое касание"
 
         weekly_log.append(card_id)
 
@@ -325,6 +299,56 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         except Exception as e:
             logger.error(f"Ошибка: {str(e)}")
 
+        from cache import get_tarot_names
+        tarot_names = await get_tarot_names()
+        card_name = tarot_names.get(card_id, f"Карта {card_id}")
+
+        await bot.api.messages.send(peer_id=peer_id, random_id=0, message=f"Твоя карта на сегодня: {card_name}", attachment=photo_attachment)
+
+        from modules.utils import SKIN_ASSETS
+        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+        if skin_att:
+            await bot.api.messages.send(peer_id=peer_id, random_id=0, message="", attachment=skin_att)
+
+        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...")
+        await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+
+        async def send_typing_indicator():
+            while True:
+                await asyncio.sleep(5)
+                try:
+                    await bot.api.messages.send(peer_id=peer_id, random_id=0, message="Ожидайте, идет генерация ответа...")
+                    await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+                except Exception:
+                    pass
+
+        typing_task = asyncio.create_task(send_typing_indicator())
+
+        try:
+            result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin, card_id=card_id)
+        finally:
+            typing_task.cancel()
+
+        kb_json = await get_sections_keyboard(vk_id, user)
+
+        if not result_text:
+            result_text = "🔮 Произошла ошибка на стороне Оракула при вытягивании карты. Серверы перегружены, пожалуйста, попробуй позже."
+            try:
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=result_text, keyboard=kb_json)
+            except Exception:
+                pass
+            return
+
+        if card_id in unlocked_cards and unlocked_cards[card_id] == "Первое касание":
+            grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
+            signature = await generate_text(grimoire_prompt, skin=active_skin)
+            if signature:
+                unlocked_cards[card_id] = signature
+                await update_user(vk_id, {"unlocked_cards": unlocked_cards})
+
+        if first_name:
+            result_text = f"{first_name},\n\n" + result_text
+
         display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
 
         # Add streak reward text
@@ -341,12 +365,6 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
             intro = parts[0].strip()
             main_part = f"КАРТА ДНЯ\n" + parts[1].strip()
 
-        from modules.utils import SKIN_ASSETS
-        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
-        if skin_att:
-            await bot.api.messages.send(peer_id=peer_id, random_id=0, message="", attachment=skin_att)
-            await asyncio.sleep(0.5)
-
         if intro:
             await bot.api.messages.send(peer_id=peer_id, random_id=0, message=intro)
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
@@ -360,18 +378,6 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
                 await bot.api.messages.send(peer_id=peer_id, random_id=0, message=display_text, keyboard=kb_json)
             except Exception as e:
                 await bot.api.messages.send(peer_id=peer_id, random_id=0, message=display_text)
-
-        if photo_attachment:
-            caption = ""
-            if user:
-                unlocked_cards = user.get("unlocked_cards", {})
-                if isinstance(unlocked_cards, dict):
-                    caption = unlocked_cards.get(card_id, "Новая карта добавлена в твой Гримуар.")
-
-            try:
-                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=f"🎴 Значение карты:\n{caption}", attachment=photo_attachment)
-            except Exception as e:
-                await bot.api.messages.send(peer_id=peer_id, random_id=0, message="", attachment=photo_attachment)
 
         if visit_streak >= 7:
             await asyncio.sleep(2)

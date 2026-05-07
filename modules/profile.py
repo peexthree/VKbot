@@ -248,7 +248,7 @@ async def process_skin_action(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(text=["✦ Мой профиль", "Мой профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ"])
+@labeler.message(text=["✦ Мой профиль", "Мой профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ", "💳 МОЙ ПРОФИЛЬ"])
 async def show_profile(message: Message):
 
 
