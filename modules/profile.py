@@ -2,13 +2,18 @@ from modules.bot_init import bot
 from cache import acquire_lock, release_lock
 import asyncio
 import json
+import datetime
+
 import random
 import re
-import datetime
+
 from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from modules.states import MyStates
+from cache import get_tarot_names
+from modules.utils import SKIN_ASSETS
+import datetime
 from ai_service import generate_text, generate_section
 from modules.utils import get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache
 from loguru import logger
@@ -18,7 +23,7 @@ labeler = BotLabeler()
 @labeler.message(text=["✦ Баланс", "Баланс", "💳 БАЛАНС"])
 async def show_balance(message: Message):
     vk_id = message.from_id
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
@@ -32,7 +37,7 @@ async def show_balance(message: Message):
 @labeler.message(text=["✦ Настройки ⚙", "Настройки", "⚙ НАСТРОЙКИ"])
 async def settings_handler(message: Message):
     vk_id = message.from_id
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
@@ -58,7 +63,7 @@ async def settings_handler(message: Message):
 @labeler.message(text="Изменить свои данные")
 async def settings_change_data(message: Message):
     vk_id = message.from_id
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
@@ -72,7 +77,7 @@ async def settings_change_data(message: Message):
 @labeler.message(text="Отменить подписку")
 async def settings_cancel_subscription(message: Message):
     vk_id = message.from_id
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
@@ -134,7 +139,7 @@ async def settings_back_to_profile(message: Message):
 @labeler.message(text="Выбрать персонажа")
 async def settings_choose_character(message: Message):
     vk_id = message.from_id
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
@@ -146,7 +151,7 @@ async def settings_choose_character(message: Message):
             return
 
         purchased_skins = user.get("purchased_skins", [])
-        from modules.utils import SKIN_ASSETS
+
 
         styles = {
             "olesya": "сарказм",
@@ -177,8 +182,8 @@ async def settings_choose_character(message: Message):
             style_desc = styles.get(skin_name, "мистицизм")
             text = f"✦ ПЕРСОНАЖ: {skin_name}\nСтиль: {style_desc}\nЦена: 1500 Энергии звезд."
 
-            from vkbottle import Keyboard, KeyboardButtonColor, Text
-            import json
+
+
 
             kb = Keyboard(inline=True)
             if skin_name in purchased_skins or skin_name in free_skins:
@@ -207,7 +212,7 @@ async def process_skin_action(message: Message):
         return
 
     try:
-        import json
+
         payload = json.loads(message.payload)
         action = payload.get("cmd")
         target_skin = payload.get("skin")
@@ -245,11 +250,11 @@ async def process_skin_action(message: Message):
 
 @labeler.message(text=["✦ Мой профиль", "Мой профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ"])
 async def show_profile(message: Message):
-    import json
-    import datetime
-    from modules.utils import SKIN_ASSETS
+
+
+
     vk_id = message.from_id
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
@@ -343,12 +348,12 @@ async def show_profile(message: Message):
 @labeler.message(text=["🎴 МОЙ ГРИМУАР"])
 async def show_grimoire(message: Message):
     vk_id = message.from_id
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     await show_grimoire_page(vk_id, message.peer_id, 0)
 
 async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
-    import json
+
     user = await get_user(vk_id)
     if not user:
         return
@@ -357,7 +362,7 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
     if isinstance(unlocked_cards, list):
          unlocked_cards = {}
 
-    from cache import get_tarot_names
+
     tarot_names = await get_tarot_names()
 
     unlocked_items = []
@@ -458,7 +463,7 @@ async def view_card_direct(vk_id: int, peer_id: int, card_id: str):
         await bot.api.messages.send(peer_id=peer_id, message="Эта карта еще не открыта.", random_id=0)
         return
 
-    from modules.utils import SKIN_ASSETS
+
     active_skin = user.get("active_skin", "olesya")
     skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
     if skin_att:
@@ -480,7 +485,7 @@ async def god_mode_handler(message: Message):
         logger.warning(f"Unauthorized god-mode attempt by vk_id={vk_id}")
         return
 
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
@@ -521,7 +526,7 @@ async def god_mode_handler(message: Message):
 async def referral_handler(message: Message):
     vk_id = message.from_id
     logger.info(f"referral_handler triggered by vk_id={vk_id}")
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     await message.answer(f"✦ РЕФЕРАЛЬНАЯ СИСТЕМА ✦\n\nТвой промокод: ПРОМО-{vk_id}\n\nОтправь этот код другу. Если он напишет его мне, вы оба получите по 500 Энергии звезд!")
 

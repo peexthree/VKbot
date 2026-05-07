@@ -18,14 +18,14 @@ from modules.utils import (
     generate_premium_pdf, get_fsm_step, upload_local_photo,
     get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore
 )
-from cache import acquire_lock, release_lock
+from cache import acquire_lock, release_lock, check_throttle
 
 # Локальные импорты, перенесенные наверх
 from modules.services import show_services
 from modules.services import show_tariffs
 from modules.profile import show_grimoire_page
 from modules.profile import view_card_direct
-from modules.tarot import process_oracle_final
+from modules.tarot import process_oracle_final, card_of_day_logic
 from loguru import logger
 
 labeler = BotLabeler()
@@ -39,7 +39,7 @@ async def message_event_handler(event: dict):
     payload = obj.get("payload", {})
 
     # Throttling is very important for inline callbacks (MESSAGE_EVENT) as well.
-    from cache import check_throttle
+
     if vk_id and await check_throttle(vk_id): return
 
     if not await acquire_lock(vk_id, ttl=2): return
@@ -89,7 +89,7 @@ async def message_event_handler(event: dict):
             )
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
-            from database import update_user
+
             user = await update_user(vk_id, {
                 "birth_date": date,
                 "birth_time": time,
@@ -105,7 +105,9 @@ async def message_event_handler(event: dict):
                 random_id=0
             )
 
-            from ai_service import generate_section
+            await bot.api.messages.send(peer_id=peer_id, message="Анализирую состояние звезд...", random_id=0)
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+
             insight = await generate_section(
                 "base",
                 date,
@@ -116,7 +118,7 @@ async def message_event_handler(event: dict):
                 user.get("purchased_sections", {}).get("sex_val", 0)
             )
 
-            from modules.utils import get_dynamic_keyboard
+
             await bot.api.messages.send(
                 peer_id=peer_id,
                 message=f"Твоя матрица готова...\n\n{insight}",
@@ -159,7 +161,7 @@ async def message_event_handler(event: dict):
             await show_tariffs(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
 
         elif cmd == "card_of_day":
-            from modules.tarot import card_of_day_logic
+
             await card_of_day_logic(vk_id, peer_id)
             return
 
@@ -410,7 +412,7 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         active_skin = user.get("active_skin", "olesya")
 
         # 3. Генерация текста
-        await bot.api.messages.send(peer_id=peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ...", random_id=0)
+        await bot.api.messages.send(peer_id=peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...", random_id=0)
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
         res_text = await generate_section(

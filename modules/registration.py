@@ -10,6 +10,7 @@ from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from database import get_user, update_user, set_user_state, get_user_state, create_user
 from ai_service import generate_text, generate_section
+from ai_service import extract_birth_data
 from modules.utils import get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
 
 labeler = BotLabeler()
@@ -33,7 +34,7 @@ async def reset_user_handler(message: Message):
 @labeler.message(text=["Начать", "start", "/start"])
 async def start_handler(message: Message):
     vk_id = message.from_id
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
@@ -84,10 +85,10 @@ async def process_onboarding_data(message: Message):
 
     try:
         user_text = message.text.strip()
-        await message.answer("Анализирую ваши координаты... 👁‍🗨")
+        await message.answer("Анализирую ваши координаты... 👁‍🗨 Анализирую состояние звезд...")
         await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
 
-        from ai_service import extract_birth_data
+
         data = await extract_birth_data(user_text)
 
         if not data:
@@ -130,7 +131,7 @@ async def process_onboarding_data(message: Message):
 @labeler.message(text=["✦ Главное меню", "Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД", "✦ ГЛАВНОЕ МЕНЮ 🏠"])
 async def back_to_main_menu(message: Message):
     vk_id = message.from_id
-    from database import set_user_state
+
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
