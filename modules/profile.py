@@ -9,7 +9,7 @@ import re
 
 from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
-from database import get_user, update_user, set_user_state, get_user_state, create_user
+from database import get_user, update_user, set_user_state, get_user_state, create_user, delete_user
 from modules.states import MyStates
 from cache import get_tarot_names
 from modules.utils import SKIN_ASSETS
@@ -114,13 +114,7 @@ async def confirm_reset_account(message: Message):
         return
 
     try:
-        await update_user(vk_id, {
-            "birth_date": "",
-            "birth_time": "",
-            "birth_city": "",
-            "purchased_sections": {},
-            "core_profile": ""
-        })
+        await delete_user(vk_id)
         await set_user_state(vk_id, "")
         await message.answer("Система обнулена. Напишите 'Начать', чтобы заново войти в матрицу.")
     finally:
@@ -480,12 +474,6 @@ async def view_card_direct(vk_id: int, peer_id: int, card_id: str):
 async def god_mode_handler(message: Message):
     vk_id = message.from_id
 
-    # 🛡 SENTINEL: Restricted access to god mode
-    if vk_id != 27260796:
-        logger.warning(f"Unauthorized god-mode attempt by vk_id={vk_id}")
-        return
-
-
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
@@ -496,27 +484,22 @@ async def god_mode_handler(message: Message):
             await message.answer("Сначала напиши 'Начать'")
             return
 
-        purchased = user.get("purchased_sections", {})
-        purchased["sex"] = True
-        purchased["money"] = True
-        purchased["shadow"] = True
-        purchased["final"] = True
-        if "oracle_last_used" in purchased:
-            del purchased["oracle_last_used"]
+        balance = user.get("balance", 0)
+        new_balance = balance + 100000
 
-        await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
+        await update_user(vk_id, {"balance": new_balance})
 
         user = await get_user(vk_id)
         kb_json = await get_sections_keyboard(vk_id, user)
 
         try:
             await message.answer(
-                "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ .",
+                "ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.",
                 keyboard=kb_json
             )
         except Exception as e:
             await message.answer(
-                "ЛАЙН ПОДАЛ ГОЛОС. СИСТЕМА УЗНАЛА СВОЕГО СОЗДАТЕЛЯ. ВСЕ ОГРАНИЧЕНИЯ СНЯТЫ. ПРИЯТНОГО АНАЛИЗА, МОЙ ПОВЕЛИТЕЛЬ  ."
+                "ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД."
             )
     finally:
         await release_lock(vk_id)

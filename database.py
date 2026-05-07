@@ -134,6 +134,22 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         logger.error(f"Ошибка: {str(e)}")
         return None
 
+
+async def delete_user(vk_id: int) -> bool:
+    if not URL or not KEY or session is None:
+        return False
+    try:
+        async with session.delete(f"{URL}/rest/v1/{TABLE_NAME}?vk_id=eq.{vk_id}", headers=HEADERS) as r:
+            if r.status in (200, 204):
+                logger.info(f"Удален из Users: vk_id={vk_id}")
+                return True
+            else:
+                logger.error(f"Supabase error in delete_user: {r.status} {await r.text()}")
+            return False
+    except Exception as e:
+        logger.error(f"Ошибка в delete_user: {str(e)}")
+        return False
+
 async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if not URL or not KEY or session is None:
         return None
