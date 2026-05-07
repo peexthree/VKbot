@@ -162,6 +162,26 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
     logger.error(f"All keys and models exhausted or failed for text generation. Last error: {last_exception}")
     return None
 
+async def extract_tags(text: str) -> list[str]:
+    prompt = (
+        f"Проанализируй следующий эзотерический разбор или ответ: '{text}'. "
+        f"Выдели 1-3 главных жестких тега (болей/фокусов), которые описывают текущую ситуацию пользователя. "
+        f"Примеры тегов: 'фокус-на-деньгах', 'кризис-отношений', 'выгорание', 'поиск-себя', 'карьерный-тупик', 'одиночество'. "
+        f"Верни строго JSON-список строк, например: [\"фокус-на-деньгах\", \"кризис-отношений\"]."
+    )
+    res = await generate_text(prompt, json_mode=True)
+    if not res:
+        return []
+    try:
+        clean_res = re.sub(r"```(?:json)?\s*|\s*```", "", res).strip()
+        tags = json.loads(clean_res)
+        if isinstance(tags, list):
+            return tags
+        return []
+    except Exception as e:
+        logger.error(f"Ошибка парсинга тегов: {str(e)}")
+        return []
+
 async def extract_birth_data(text: str) -> dict | None:
     prompt = (
         f"Пользователь написал: '{text}'. "
@@ -179,7 +199,7 @@ async def extract_birth_data(text: str) -> dict | None:
         return None
 
 
-async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None) -> str | None:
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None) -> str | None:
 
     gender_str = "МУЖЧИНА" if sex == 2 else "ЖЕНЩИНА" if sex == 1 else "НЕИЗВЕСТНО"
 
@@ -191,6 +211,10 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
 
     if core_profile:
         base_info += f" Прошлый анализ (учитывай это, чтобы показать, что ты знаешь пользователя): {core_profile}."
+
+    if tags:
+        tags_str = ", ".join(tags)
+        base_info += f" ВАЖНО: Вижу, что прошлый раз был фокус на следующих темах/болях: [{tags_str}]. Давай посмотрим, как новая энергия решит эти проблемы. Начни текст с тонкой отсылки к этим темам, чтобы показать, что ты помнишь пользователя."
 
     if card_data:
         base_info += f" ВАЖНО: Пользователь вытянул карту: '{card_data.get('name')}'. Ее базовое значение: '{card_data.get('description')}'. Построй весь свой персонализированный разбор ИСКЛЮЧИТЕЛЬНО вокруг энергии и символизма этой карты."

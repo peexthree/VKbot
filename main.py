@@ -93,15 +93,25 @@ async def main():
                     if has_sub or trial_days < 3:
                         core_profile = user.get("core_profile", "")
                         active_skin = user.get("active_skin", "olesya")
+                        tags = user.get("tags", [])
+                        tags_str = ", ".join(tags) if tags else "отсутствует"
                         prompt = (
                             f"Сгенерируй геймифицированный прогноз на день. "
                             f"В начале добавь шкалу энергии: 'Энергия [Случайное число 1-10]/10'. "
                             f"Укажи 'Фокус:' и 'Уязвимость:'. Опирайся на этот профиль: {core_profile}. "
-                            f"Коротко, жестко. "
+                            f"Учитывай текущие теги пользователя (его главные боли/запросы): {tags_str}. "
+                            f"Сделай к ним тонкую отсылку. Коротко, жестко. "
                             f"КРИТИЧЕСКОЕ ПРАВИЛО: Строгий запрет на выделение текста маркерами. Никаких звездочек. Никакого жирного шрифта. Используй только короткие тире (-) для создания списков и структуры."
                         )
                         forecast = await generate_text(prompt, skin=active_skin)
                         if forecast:
+                            from ai_service import extract_tags
+                            async def extract_and_save_tags(v_id: int, text: str):
+                                new_tags = await extract_tags(text)
+                                if new_tags:
+                                    from database import update_user
+                                    await update_user(v_id, {"tags": new_tags})
+                            asyncio.create_task(extract_and_save_tags(vk_id, forecast))
                             try:
                                 await bot.api.messages.send(
                                     peer_id=vk_id,

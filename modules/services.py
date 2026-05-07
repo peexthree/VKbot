@@ -204,15 +204,24 @@ async def process_synastry_date(message: Message):
         first_name = purchased.get("first_name", "")
         sex_val = purchased.get("sex_val", 0)
         core_profile = user.get("core_profile", "")
-
-
+        tags = user.get("tags", [])
 
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
         await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Анализирую состояние звезд...", random_id=0)
         await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
 
-        result_text = await generate_section("synastry", date, time, city, core_profile, first_name, sex_val, partner_name=partner_name, partner_date=partner_date, skin=active_skin)
+        result_text = await generate_section("synastry", date, time, city, core_profile, first_name, sex_val, partner_name=partner_name, partner_date=partner_date, skin=active_skin, tags=tags)
+
+        from ai_service import extract_tags
+        async def extract_and_save_tags(v_id: int, text: str):
+            new_tags = await extract_tags(text)
+            if new_tags:
+                await update_user(v_id, {"tags": new_tags})
+
+        if result_text:
+            import asyncio
+            asyncio.create_task(extract_and_save_tags(vk_id, result_text))
 
         if not result_text:
             result_text = "Система не смогла рассчитать совместимость."

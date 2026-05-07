@@ -118,7 +118,8 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "last_active_date": None,
         "unlocked_cards": {},
         "weekly_log": [],
-        "visit_streak": 0
+        "visit_streak": 0,
+        "tags": []
     }
     try:
         async with session.post(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS, json=payload) as r:
