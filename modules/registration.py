@@ -8,7 +8,7 @@ import re
 import datetime
 from vkbottle.bot import BotLabeler, Message
 from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
-from database import get_user, update_user, set_user_state, get_user_state, create_user
+from database import get_user, update_user, set_user_state, get_user_state, create_user, delete_user
 from ai_service import generate_text, generate_section
 from ai_service import extract_birth_data
 from modules.utils import get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
@@ -19,13 +19,7 @@ labeler = BotLabeler()
 async def reset_user_handler(message: Message):
     vk_id = message.from_id
 
-    await update_user(vk_id, {
-        "birth_date": "",
-        "birth_time": "",
-        "birth_city": "",
-        "purchased_sections": {},
-        "core_profile": ""
-    })
+    await delete_user(vk_id)
 
     await set_user_state(vk_id, "")
 
