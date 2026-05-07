@@ -212,7 +212,17 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     if core_profile:
         base_info += f" Прошлый анализ (учитывай это, чтобы показать, что ты знаешь пользователя): {core_profile}."
 
-    if tags:
+
+    from cache import redis_client
+    tag_memory_active = True
+    try:
+        mem_val = await redis_client.get("system_config:tag_memory_active")
+        if mem_val is not None and int(mem_val) == 0:
+            tag_memory_active = False
+    except:
+        pass
+
+    if tags and tag_memory_active:
         tags_str = ", ".join(tags)
         base_info += f" ВАЖНО: Вижу, что прошлый раз был фокус на следующих темах/болях: [{tags_str}]. Давай посмотрим, как новая энергия решит эти проблемы. Начни текст с тонкой отсылки к этим темам, чтобы показать, что ты помнишь пользователя."
 

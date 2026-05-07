@@ -11,6 +11,22 @@ class ThrottleMiddleware(BaseMiddleware[Message]):
         # Check if the message contains payload (inline keyboards often send text+payload or just payload)
         # Or if it starts with heavy commands (we use ✦ prefix for heavy menu buttons or emojis like 🃏)
         # Standard texts might just be chat
+
+        from cache import redis_client
+        from modules.utils import ADMIN_ID
+
+        try:
+            maintenance_mode = await redis_client.get("system_config:maintenance_mode")
+            if maintenance_mode and int(maintenance_mode) == 1 and vk_id != ADMIN_ID:
+                try:
+                    await self.event.answer("Синдикат в тени. Идет калибровка матрицы.")
+                except:
+                    pass
+                self.stop("Maintenance")
+                return
+        except Exception as e:
+            logger.error(f"Maintenance check error: {str(e)}")
+
         is_heavy = False
         if self.event.payload:
             try:

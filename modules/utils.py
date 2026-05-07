@@ -71,17 +71,31 @@ async def get_cached_photo(filename: str) -> str | None:
 
     return None
 
-async def _anchor_photo_and_cache(bot_api, filename: str, photo_id: str):
-    # Якорим фото скрытым сообщением в Service Chat
+
+# Batch anchor logic
+ANCHOR_BATCH_SIZE = 10
+_anchor_batch = []
+
+async def flush_anchors(bot_api):
+    global _anchor_batch
+    if not _anchor_batch:
+        return
+
     try:
+        attachments_str = ",".join(_anchor_batch)
         await bot_api.messages.send(
             peer_id=ADMIN_ID,
-            message=f"System Anchor: {filename}",
-            attachment=photo_id,
+            message=f"System Anchor Batch ({len(_anchor_batch)} files)",
+            attachment=attachments_str,
             random_id=0
         )
     except Exception as e:
-        logger.error(f"Ошибка якорения фото {filename}: {str(e)}")
+        logger.error(f"Ошибка массового якорения фото: {str(e)}")
+
+    _anchor_batch.clear()
+
+async def _anchor_photo_and_cache(bot_api, filename: str, photo_id: str):
+    global _anchor_batch
 
     # Сохраняем в локальный кэш и Redis
     cover_cache[filename] = photo_id
@@ -89,6 +103,91 @@ async def _anchor_photo_and_cache(bot_api, filename: str, photo_id: str):
         await redis_client.set(f"photo:{filename}", photo_id)
     except Exception as e:
         logger.error(f"Ошибка сохранения фото в Redis: {str(e)}")
+
+    _anchor_batch.append(photo_id)
+    if len(_anchor_batch) >= ANCHOR_BATCH_SIZE:
+        await flush_anchors(bot_api)
+
+async def clear_photo_cache():
+    try:
+        keys = await redis_client.keys("photo:*")
+        if keys:
+            await redis_client.delete(*keys)
+        cover_cache.clear()
+    except Exception as e:
+        logger.error(f"Ошибка при очистке кэша фото: {str(e)}")
+
+async def warmup_task():
+    try:
+        from modules.bot_init import bot
+        import os
+        import random
+        from pathlib import Path
+
+        # Check if manual sync is active
+        warmup_active = await redis_client.get("system_config:warmup_active")
+        if not warmup_active or int(warmup_active) != 1:
+            logger.info("Синхронизация ассетов ожидала ручного запуска. Режим тишины активен.")
+            return
+
+        covers = []
+        cards_dir = Path("cards")
+
+        # Программно сканируем всю папку cards и ее подпапки (например, uslugi)
+        if cards_dir.exists():
+            for root, _, files in os.walk(cards_dir):
+                for file in files:
+                    if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                        full_path = Path(root) / file
+                        rel_path = full_path.relative_to(cards_dir)
+                        covers.append(str(rel_path).replace("\\", "/"))
+
+        # Для надежности гарантируем наличие списка от 0 до 77, если они существуют
+        for i in range(78):
+            name = f"{i}.jpeg"
+            if name not in covers and (cards_dir / name).exists():
+                covers.append(name)
+
+        # Убираем дубликаты и сортируем для предсказуемого порядка
+        covers = sorted(list(set(covers)))
+
+        # Audit cache
+        missing_covers = []
+        for cover in covers:
+            if not await get_cached_photo(cover):
+                missing_covers.append(cover)
+
+        if not missing_covers:
+            logger.info("Предзагрузка (Warmup) отменена: все картинки уже в кэше.")
+            await flush_anchors(bot.api)
+            # Reset warmup flag after completion
+            await redis_client.set("system_config:warmup_active", "0")
+            return
+
+        logger.info(f"Запуск умной загрузки (Warmup) для {len(missing_covers)} картинок...")
+
+        # Умная прогрузка: последовательная загрузка с плавающим интервалом для предотвращения блокировок VK
+        for cover in missing_covers:
+            # Re-check flag to allow mid-way cancellation
+            is_active = await redis_client.get("system_config:warmup_active")
+            if not is_active or int(is_active) != 1:
+                logger.info("Синхронизация ассетов прервана вручную.")
+                await flush_anchors(bot.api)
+                return
+
+            await upload_local_photo(bot.api, cover)
+            # Рандомная пауза от 4 до 7 секунд
+            await asyncio.sleep(random.uniform(4.0, 7.0))
+
+        # Сбрасываем оставшиеся якоря
+        await flush_anchors(bot.api)
+
+        # Reset warmup flag after completion
+        await redis_client.set("system_config:warmup_active", "0")
+
+        logger.info("Предзагрузка (Warmup) картинок успешно завершена.")
+    except Exception as e:
+        logger.error(f"Ошибка при предзагрузке (Warmup) картинок: {str(e)}")
 
 async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None) -> str:
     """Загружает фото локально из папки cards/"""

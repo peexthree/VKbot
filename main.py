@@ -48,57 +48,8 @@ async def main():
     bot.labeler.load(services.labeler)
     bot.labeler.load(tarot.labeler)
     bot.labeler.load(payments.labeler)
-
-    # Фоновая задача: Предзагрузка (Warmup)
-    async def warmup_task():
-        try:
-            from modules.utils import get_cached_photo, upload_local_photo
-            import os
-            import random
-            from pathlib import Path
-
-            covers = []
-            cards_dir = Path("cards")
-
-            # Программно сканируем всю папку cards и ее подпапки (например, uslugi)
-            if cards_dir.exists():
-                for root, _, files in os.walk(cards_dir):
-                    for file in files:
-                        if file.lower().endswith(('.jpg', '.jpeg', '.png')):
-                            full_path = Path(root) / file
-                            rel_path = full_path.relative_to(cards_dir)
-                            covers.append(str(rel_path).replace("\\", "/"))
-
-            # Для надежности гарантируем наличие списка от 0 до 77, если они существуют
-            for i in range(78):
-                name = f"{i}.jpeg"
-                if name not in covers and (cards_dir / name).exists():
-                    covers.append(name)
-
-            # Убираем дубликаты и сортируем для предсказуемого порядка
-            covers = sorted(list(set(covers)))
-
-            # Audit cache
-            missing_covers = []
-            for cover in covers:
-                if not await get_cached_photo(cover):
-                    missing_covers.append(cover)
-
-            if not missing_covers:
-                logger.info("Предзагрузка (Warmup) отменена: все картинки уже в кэше.")
-                return
-
-            logger.info(f"Запуск умной загрузки (Warmup) для {len(missing_covers)} картинок...")
-
-            # Умная прогрузка: последовательная загрузка с плавающим интервалом для предотвращения блокировок VK
-            for cover in missing_covers:
-                await upload_local_photo(bot.api, cover)
-                # Рандомная пауза от 4 до 7 секунд
-                await asyncio.sleep(random.uniform(4.0, 7.0))
-
-            logger.info("Предзагрузка (Warmup) картинок успешно завершена.")
-        except Exception as e:
-            logger.error(f"Ошибка при предзагрузке (Warmup) картинок: {str(e)}")
+    import modules.admin as admin
+    bot.labeler.load(admin.labeler)
 
     # Фоновая задача для ежедневных прогнозов
     async def daily_forecast_cron():
@@ -196,6 +147,7 @@ async def main():
     # Запуск
     bot.loop_wrapper._running = True
     asyncio.create_task(bot.run_polling())
+    from modules.utils import warmup_task
     asyncio.create_task(warmup_task())
     asyncio.create_task(daily_forecast_cron())
     
