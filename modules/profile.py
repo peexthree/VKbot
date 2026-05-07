@@ -319,6 +319,7 @@ async def show_profile(message: Message):
     kb.add(Text("Позвать друга 👥"), color=KeyboardButtonColor.SECONDARY)
     kb.row()
     kb.add(Text("🎴 МОЙ ГРИМУАР"), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Text("🛰 ТАРИФЫ"), color=KeyboardButtonColor.PRIMARY)
 
     active_skin = user.get("active_skin", "olesya")
     skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
@@ -505,7 +506,7 @@ async def god_mode_handler(message: Message):
         await release_lock(vk_id)
 
 
-@labeler.message(text=["Слить друга", "✦ Слить друга", "Позвать друга 👥", "✦ Позвать друга 👥"])
+@labeler.message(text=["Слить друга", "✦ Слить друга", "Позвать друга 👥", "✦ Позвать друга 👥", "🎁 ПОЗВАТЬ ДРУГА (+500 ✨)"])
 async def referral_handler(message: Message):
     vk_id = message.from_id
     logger.info(f"referral_handler triggered by vk_id={vk_id}")

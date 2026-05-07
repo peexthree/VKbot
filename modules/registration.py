@@ -61,11 +61,33 @@ async def start_handler(message: Message):
             purchased["sex_val"] = sex 
             await update_user(vk_id, {"purchased_sections": purchased})
 
-        await set_user_state(vk_id, "waiting_for_onboarding_data")
+        # Ensure we have fallback values if API returns None or empty
+        if not bdate:
+            bdate = "Не указана"
+        if not city:
+            city = "Не указан"
+
+        await set_user_state(vk_id, json.dumps({
+            "step": "confirm_data",
+            "date": bdate,
+            "time": "12:00",
+            "city": city
+        }))
+
+        kb = Keyboard(inline=True)
+        kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+        kb.row()
+        kb.add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+
         await message.answer(
-            "✦ СИСТЕМА АНТИ-ТАР АКТИВИРОВАНА ✦ 😈\n\n"
-            "Забудь о ванильных гороскопах. Здесь тебя ждет жесткий разбор без прикрас.\n"
-            "Для калибровки профиля и начисления 700 Энергии звезд напиши свою дату, время и город рождения одним текстом (например: 15 мая 1990, 14:30, Казань)."
+            "✦ ДОБРО ПОЖАЛОВАТЬ В ЦИФРОВОЙ ГРИМУАР ✦ 🔮\n\n"
+            "Я твой проводник в мир глубокого самопознания. Здесь нет ванильных гороскопов — только жесткий, честный разбор твоей матрицы судьбы.\n\n"
+            "Мы вскроем твои теневые стороны, финансовый потенциал и скрытую энергию. Никакой воды, только факты, которые изменят твое восприятие себя.\n\n"
+            "Для инициализации профиля и получения приветственного дара в 700 Энергии звезд я считал твои данные из профиля:\n"
+            f"Дата рождения: {bdate}\n"
+            f"Город: {city}\n\n"
+            "Эти данные верны?",
+            keyboard=kb.get_json()
         )
     finally:
         await release_lock(vk_id)
@@ -115,7 +137,7 @@ async def process_onboarding_data(message: Message):
         kb = Keyboard(inline=True)
         kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
-        kb.add(Callback("🔄 ОШИБКА. ИСПРАВИТЬ", payload={"cmd": "retry_registration"}), color=KeyboardButtonColor.NEGATIVE)
+        kb.add(Callback("🔄 ОШИБКА. ИСПРАВИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
 
         await message.answer(verification_text, keyboard=kb.get_json())
 
