@@ -70,6 +70,18 @@ async def message_event_handler(event: dict):
             )
             return
 
+        elif cmd == "edit_onboarding_data":
+            await set_user_state(vk_id, "waiting_for_onboarding_data")
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message=(
+                    "Для калибровки профиля и начисления 700 Энергии звезд напиши свою дату, "
+                    "время и город рождения одним текстом (например: 15 мая 1990, 14:30, Казань)."
+                ),
+                conversation_message_id=obj.get("conversation_message_id")
+            )
+            return
+
         elif cmd == "confirm_registration":
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "confirm_data":
@@ -307,6 +319,12 @@ async def message_event_handler(event: dict):
                 current_total = user.get("total_cards_received", 0)
                 await update_user(vk_id, {"total_cards_received": current_total + 1, "unlocked_cards": unlocked_cards})
 
+            # Remove previous inline keyboard msg immediately to prevent double-clicks
+            await bot.api.messages.edit(
+                peer_id=peer_id, message="Вытягиваю карту...",
+                conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json()
+            )
+
             # 4. Instant Output for the user (Persona + Card Image + Details)
             from modules.utils import SKIN_ASSETS
             active_skin = user.get("active_skin", "olesya") if user else "olesya"
@@ -314,12 +332,6 @@ async def message_event_handler(event: dict):
             # Upload Skin Image and Card Image
             skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
             card_att = await upload_local_photo(bot.api, f"{card_id}.jpeg")
-
-            # Remove previous inline keyboard msg
-            await bot.api.messages.edit(
-                peer_id=peer_id, message="Вытягиваю карту...",
-                conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json()
-            )
 
             # Send Persona first
             if skin_att:
@@ -438,6 +450,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
         await update_user(vk_id, {"purchased_sections": purchased})
         await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
         await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0)
+        return
     else:
         purchased[section] = True
         await update_user(vk_id, {"purchased_sections": purchased})
