@@ -286,9 +286,67 @@ async def message_event_handler(event: dict):
             partner_name = state_dict.get("partner_name", "")
             partner_date = state_dict.get("partner_date", "")
             await set_user_state(vk_id, "")
-            await bot.api.messages.send(peer_id=peer_id, message="Считываю поток...", random_id=0)
+
+            # 1. Pick a random card
+            import random
+            card_id = str(random.randint(0, 77))
+
+            # 2. Get Card Data
+            from cards_data import get_card_data
+            card_data = get_card_data(card_id)
+
+            # 3. Add to user DB synchronously
+            user = await get_user(vk_id)
+            if user:
+                unlocked_cards = user.get("unlocked_cards", {})
+                if isinstance(unlocked_cards, list):
+                    unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+                if card_id not in unlocked_cards:
+                    unlocked_cards[card_id] = f"{card_data.get('name', 'Карта')} - {card_data.get('subtitle', 'Новое знание')}"
+
+                current_total = user.get("total_cards_received", 0)
+                await update_user(vk_id, {"total_cards_received": current_total + 1, "unlocked_cards": unlocked_cards})
+
+            # 4. Instant Output for the user (Persona + Card Image + Details)
+            from modules.utils import SKIN_ASSETS
+            active_skin = user.get("active_skin", "olesya") if user else "olesya"
+
+            # Upload Skin Image and Card Image
+            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+            card_att = await upload_local_photo(bot.api, f"{card_id}.jpeg")
+
+            # Remove previous inline keyboard msg
+            await bot.api.messages.edit(
+                peer_id=peer_id, message="Вытягиваю карту...",
+                conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json()
+            )
+
+            # Send Persona first
+            if skin_att:
+                await bot.api.messages.send(peer_id=peer_id, message="", attachment=skin_att, random_id=0)
+
+            # Define persona display name based on skin
+            persona_name_display = "Проводник"
+            for k, v in SKIN_ASSETS.items():
+                if v == SKIN_ASSETS.get(active_skin, "o.png") and k != active_skin:
+                    persona_name_display = k
+                    break
+
+            msg_text = (
+                f"🔮 Проводник: {persona_name_display}\n"
+                f"🃏 Твоя карта: {card_data.get('name')} — {card_data.get('subtitle')}\n"
+                f"📖 Значение: {card_data.get('description')}"
+            )
+
+            if card_att:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=card_att, random_id=0)
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+
+            await bot.api.messages.send(peer_id=peer_id, message="Считываю поток для персонализированного разбора...", random_id=0)
+
             if target_section:
-                await execute_generation(vk_id, peer_id, target_section, partner_name, partner_date)
+                asyncio.create_task(execute_generation(vk_id, peer_id, target_section, partner_name, partner_date, card_id, card_data))
 
         elif "oracle_card" in payload:
             card_id = payload["oracle_card"]
@@ -394,7 +452,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
     await bot.api.messages.send(peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
 
 
-async def execute_generation(vk_id: int, peer_id: int, target_section: str, partner_name: str, partner_date: str):
+async def execute_generation(vk_id: int, peer_id: int, target_section: str, partner_name: str, partner_date: str, card_id: str = None, card_data: dict = None):
     """ПОЛНАЯ ЛОГИКА ГЕНЕРАЦИИ"""
     try:
         user = await get_user(vk_id)
@@ -408,13 +466,14 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         active_skin = user.get("active_skin", "olesya")
 
         # 3. Генерация текста
-        await bot.api.messages.send(peer_id=peer_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...", random_id=0)
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
         res_text = await generate_section(
             target_section, user.get("birth_date"), user.get("birth_time"),
             user.get("birth_city"), user.get("core_profile", ""),
-            p.get("first_name", ""), p.get("sex_val", 0), skin=active_skin
+            p.get("first_name", ""), p.get("sex_val", 0),
+            partner_name=partner_name, partner_date=partner_date, skin=active_skin,
+            card_id=card_id, card_data=card_data
         )
 
         if res_text:
@@ -425,7 +484,7 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
             pdf_name = f"report_{vk_id}_{target_section}.pdf"
             b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
             async with pdf_semaphore:
-                await asyncio.to_thread(generate_premium_pdf, p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name)
+                await asyncio.to_thread(generate_premium_pdf, p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name, card_id)
 
             # 5. Отправка
             doc = await DocMessagesUploader(bot.api).upload(title=f"{target_section}.pdf", file_source=pdf_name, peer_id=peer_id)
