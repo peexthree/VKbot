@@ -48,6 +48,28 @@ async def message_event_handler(event: dict):
             return
 
         cmd = payload.get("cmd")
+
+        if cmd == "admin_cmd":
+            from modules.admin import process_admin_cmd
+            await process_admin_cmd(vk_id, peer_id, payload)
+            # Acknowledge the event
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id,
+                user_id=vk_id,
+                peer_id=peer_id
+            )
+            return
+        elif cmd == "admin_cmd_cancel":
+            from cache import set_fsm_state
+            await set_fsm_state(vk_id, "")
+            from modules.admin import show_admin_console
+            await show_admin_console(peer_id)
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id,
+                user_id=vk_id,
+                peer_id=peer_id
+            )
+            return
         logger.info(f"message_event_handler triggered by vk_id={vk_id}, cmd={cmd}")
 
         # 1. Сразу отвечаем ВК, чтобы убрать «часики» на кнопке

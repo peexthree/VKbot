@@ -316,6 +316,11 @@ async def show_profile(message: Message):
 
     kb = Keyboard(inline=True)
     kb.add(Text("✦ Настройки ⚙"), color=KeyboardButtonColor.SECONDARY)
+
+    from modules.utils import ADMIN_ID
+    if vk_id == ADMIN_ID:
+        kb.row()
+        kb.add(Text("⚙️ КОНСОЛЬ МАГИСТРА"), color=KeyboardButtonColor.PRIMARY)
     kb.add(Text("Мой Синдикат 🕸"), color=KeyboardButtonColor.SECONDARY)
     kb.row()
     kb.add(Text("🎴 МОЙ ГРИМУАР"), color=KeyboardButtonColor.PRIMARY)
