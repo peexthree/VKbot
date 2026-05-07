@@ -487,6 +487,7 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         # 2. Формируем данные
         p = user.get("purchased_sections", {})
         active_skin = user.get("active_skin", "olesya")
+        tags = user.get("tags", [])
 
         # 3. Генерация текста
         try:
@@ -495,7 +496,7 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
             user.get("birth_city"), user.get("core_profile", ""),
             p.get("first_name", ""), p.get("sex_val", 0),
             partner_name=partner_name, partner_date=partner_date, skin=active_skin,
-            card_id=card_id, card_data=card_data
+            card_id=card_id, card_data=card_data, tags=tags
         )
 
         finally:
@@ -517,6 +518,15 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
 
             # 5. Отправка
             doc = await DocMessagesUploader(bot.api).upload(title=f"{target_section}.pdf", file_source=pdf_name, peer_id=peer_id)
+
+            from ai_service import extract_tags
+            async def extract_and_save_tags(v_id: int, text: str):
+                new_tags = await extract_tags(text)
+                if new_tags:
+                    await update_user(v_id, {"tags": new_tags})
+
+            asyncio.create_task(extract_and_save_tags(vk_id, res_text))
+
             kb = await get_sections_keyboard(vk_id, user)
             await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=doc, keyboard=kb, random_id=0)
 
