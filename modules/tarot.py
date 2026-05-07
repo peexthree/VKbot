@@ -73,7 +73,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
     try:
         attachments = []
         for cid in card_ids:
-            photo = await upload_local_photo(bot.api, f"{cid}.jpeg")
+            photo = await upload_local_photo(bot.api, f"{cid}.jpeg", peer_id=vk_id)
             if photo:
                 attachments.append(photo)
 
@@ -98,7 +98,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
         from modules.utils import SKIN_ASSETS
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
-        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
         if skin_att:
             await bot.api.messages.send(peer_id=vk_id, message="", attachment=skin_att, random_id=0)
 
@@ -299,7 +299,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         photo_attachment = None
         try:
             from vkbottle import PhotoMessageUploader
-            photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg")
+            photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
         except Exception as e:
             logger.error(f"Ошибка: {str(e)}")
 
@@ -310,7 +310,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         await bot.api.messages.send(peer_id=peer_id, random_id=0, message=f"Твоя карта на сегодня: {card_name}", attachment=photo_attachment)
 
         from modules.utils import SKIN_ASSETS
-        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
         if skin_att:
             await bot.api.messages.send(peer_id=peer_id, random_id=0, message="", attachment=skin_att)
 

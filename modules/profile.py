@@ -169,7 +169,7 @@ async def settings_choose_character(message: Message):
             await asyncio.sleep(0.5)
 
             try:
-                photo = await upload_local_photo(bot.api, filename)
+                photo = await upload_local_photo(bot.api, filename, peer_id=vk_id)
             except Exception as e:
                 photo = None
 
@@ -323,7 +323,7 @@ async def show_profile(message: Message):
 
     active_skin = user.get("active_skin", "olesya")
     skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
-    photo = await upload_local_photo(bot.api, skin_filename)
+    photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
 
     try:
         if photo:
@@ -460,14 +460,14 @@ async def view_card_direct(vk_id: int, peer_id: int, card_id: str):
 
 
     active_skin = user.get("active_skin", "olesya")
-    skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+    skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
     if skin_att:
         await bot.api.messages.send(peer_id=peer_id, message="", attachment=skin_att, random_id=0)
 
     signature = unlocked_cards[str(card_id)]
     await bot.api.messages.send(peer_id=peer_id, message=f"Твое первое касание с этой картой: {signature}", random_id=0)
 
-    photo_att = await upload_local_photo(bot.api, f"{card_id}.jpeg")
+    photo_att = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
     if photo_att:
         await bot.api.messages.send(peer_id=peer_id, message="", attachment=photo_att, random_id=0)
 

@@ -335,8 +335,8 @@ async def message_event_handler(event: dict):
             active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
             # Upload Skin Image and Card Image
-            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
-            card_att = await upload_local_photo(bot.api, f"{card_id}.jpeg")
+            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
+            card_att = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
 
             # Send Persona first
             if skin_att:
