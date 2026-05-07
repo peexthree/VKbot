@@ -401,7 +401,16 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
                 "visit_streak": 0,
                 "weekly_log": []
             })
-
+    except Exception as e:
+        logger.error(f"Global error in card_of_day_logic for vk_id={vk_id}: {str(e)}")
+        try:
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message="🔮 Произошла ошибка на стороне Оракула при вытягивании карты. Связь с потоком временно потеряна. Пожалуйста, попробуй позже.",
+                random_id=0
+            )
+        except Exception:
+            pass
     finally:
         await release_lock(vk_id)
 

@@ -109,7 +109,8 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
             }
 
             try:
-                async with session.post(url, json=payload) as resp:
+                # Provide a per-request explicit timeout shorter than the session default (e.g. 25s)
+                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=25)) as resp:
                     if resp.status == 200:
                         res_data = await resp.json()
                         try:
@@ -130,7 +131,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                         logger.warning(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
                         for i in range(1, 4):
                             await asyncio.sleep(2 ** i)
-                            async with session.post(url, json=payload) as retry_resp:
+                            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=25)) as retry_resp:
                                 if retry_resp.status == 200:
                                     res_data = await retry_resp.json()
                                     try:
