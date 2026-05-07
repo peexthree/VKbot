@@ -270,8 +270,9 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         sex_val = purchased.get("sex_val", 0)
         core_profile = user.get("core_profile", "")
 
-        from ai_service import generate_section, generate_text
+        from ai_service import generate_section, generate_text, extract_tags
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
+        tags = user.get("tags", [])
 
         card_id = str(random.randint(0, 77))
 
@@ -329,9 +330,16 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         typing_task = asyncio.create_task(send_typing_indicator())
 
         try:
-            result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin, card_id=card_id)
+            result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin, card_id=card_id, tags=tags)
         finally:
             typing_task.cancel()
+
+        async def extract_and_save_tags(vk_id: int, text: str):
+            new_tags = await extract_tags(text)
+            if new_tags:
+                await update_user(vk_id, {"tags": new_tags})
+
+        asyncio.create_task(extract_and_save_tags(vk_id, result_text))
 
         kb_json = await get_sections_keyboard(vk_id, user)
 
