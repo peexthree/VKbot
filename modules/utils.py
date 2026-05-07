@@ -33,10 +33,73 @@ templates_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templ
 jinja_env = Environment(loader=FileSystemLoader('templates'))
 pdf_semaphore = asyncio.Semaphore(1)
 
-async def upload_local_photo(bot_api, filename: str) -> str:
-    """Загружает фото локально из папки cards/"""
+from cache import redis_client, acquire_lock, release_lock
+
+ADMIN_ID = int(os.environ.get("ADMIN_ID", 27260796))
+
+async def get_cached_photo(filename: str) -> str | None:
+    # 1. Проверяем локальный кэш
     if filename in cover_cache:
         return cover_cache[filename]
+
+    # 2. Проверяем Redis
+    try:
+        cached_id = await redis_client.get(f"photo:{filename}")
+        if cached_id:
+            cover_cache[filename] = cached_id
+            return cached_id
+    except Exception as e:
+        logger.error(f"Ошибка чтения фото из Redis: {str(e)}")
+
+    return None
+
+async def _anchor_photo_and_cache(bot_api, filename: str, photo_id: str):
+    # Якорим фото скрытым сообщением в Service Chat
+    try:
+        await bot_api.messages.send(
+            peer_id=ADMIN_ID,
+            message=f"System Anchor: {filename}",
+            attachment=photo_id,
+            random_id=0
+        )
+    except Exception as e:
+        logger.error(f"Ошибка якорения фото {filename}: {str(e)}")
+
+    # Сохраняем в локальный кэш и Redis
+    cover_cache[filename] = photo_id
+    try:
+        await redis_client.set(f"photo:{filename}", photo_id)
+    except Exception as e:
+        logger.error(f"Ошибка сохранения фото в Redis: {str(e)}")
+
+async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None) -> str:
+    """Загружает фото локально из папки cards/"""
+    cached = await get_cached_photo(filename)
+    if cached:
+        return cached
+
+    lock_key = f"upload_lock:{filename}"
+    locked = await acquire_lock(lock_key, ttl=30)
+
+    if not locked:
+        # Если кто-то уже грузит эту карту
+        if peer_id:
+            try:
+                await bot_api.messages.send(
+                    peer_id=peer_id,
+                    message="Открываю гримуар...",
+                    random_id=0
+                )
+            except Exception:
+                pass
+
+        # Ждем пока загрузится (поллинг)
+        for _ in range(15):
+            await asyncio.sleep(2)
+            cached = await get_cached_photo(filename)
+            if cached:
+                return cached
+        return "" # Таймаут
 
     try:
         uploader = PhotoMessageUploader(bot_api)
@@ -48,11 +111,13 @@ async def upload_local_photo(bot_api, filename: str) -> str:
                 logger.warning(f"Файл {filename} слишком мал ({len(data)} байт), пропуск загрузки.")
                 return ""
             raw_photo_id = await uploader.upload(file_source=data, peer_id=0)
-            cover_cache[filename] = raw_photo_id
+            await _anchor_photo_and_cache(bot_api, filename, raw_photo_id)
             return raw_photo_id
     except Exception as e:
         logger.error(f"Ошибка: {str(e)}")
         return ""
+    finally:
+        await release_lock(lock_key)
 
 async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int):
     """Проверяет и выдает ежедневный бонус (100 Энергии звезд) при отрисовке меню"""

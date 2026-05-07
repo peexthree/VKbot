@@ -52,15 +52,30 @@ async def main():
     # Фоновая задача: Предзагрузка (Warmup)
     async def warmup_task():
         try:
-            from modules.utils import upload_local_photo
+            from modules.utils import get_cached_photo, upload_local_photo
             covers = [
                 "sex1.jpg", "money1.jpg", "demon1.jpg", "way1.jpg",
                 "sin.jpeg", "ora1.jpg", "full1.jpg",
                 "o.png", "as.jpeg", "ol.jpeg", "2o.jpeg", "v.jpeg", "a.jpeg", "ba.jpeg", "r.jpeg"
             ]
-            logger.info("Запуск параллельной предзагрузки (Warmup) картинок...")
-            # Optimization: Use asyncio.gather to upload in parallel
-            await asyncio.gather(*(upload_local_photo(bot.api, cover) for cover in covers))
+
+            # Audit cache
+            missing_covers = []
+            for cover in covers:
+                if not await get_cached_photo(cover):
+                    missing_covers.append(cover)
+
+            if not missing_covers:
+                logger.info("Предзагрузка (Warmup) отменена: все картинки уже в кэше.")
+                return
+
+            logger.info(f"Запуск медленной загрузки (Warmup) для {len(missing_covers)} картинок...")
+
+            # Sequential loading with 5-second hard pause
+            for cover in missing_covers:
+                await upload_local_photo(bot.api, cover)
+                await asyncio.sleep(5)
+
             logger.info("Предзагрузка (Warmup) картинок успешно завершена.")
         except Exception as e:
             logger.error(f"Ошибка при предзагрузке (Warmup) картинок: {str(e)}")

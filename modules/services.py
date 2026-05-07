@@ -94,7 +94,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
 
     elements = []
     for svc in services:
-        att = await upload_local_photo(bot.api, svc['image_name']) if svc['image_name'] else None
+        att = await upload_local_photo(bot.api, svc['image_name'], peer_id=vk_id) if svc['image_name'] else None
 
         # Trim description to fit VK Carousel limits (approx 80 chars for title, 80 chars for description in carousel)
         # However, for carousel description max length is 80, title is 80.
@@ -254,7 +254,7 @@ async def process_synastry_date(message: Message):
         photo_attachment = None
         try:
 
-            photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg")
+            photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
         except Exception as e:
             logger.error(f"Failed to upload tarot card {card_id}: {str(e)}")
 
@@ -290,7 +290,7 @@ async def process_synastry_date(message: Message):
             main_part = f"СИНАСТРИЯ\n" + parts[1].strip()
 
 
-        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"))
+        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
         if skin_att:
             await message.answer(attachment=skin_att)
             await asyncio.sleep(0.5)
@@ -363,7 +363,7 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
 
     elements = []
     for svc in tariffs:
-        att = await upload_local_photo(bot.api, svc['image_name']) if svc['image_name'] else None
+        att = await upload_local_photo(bot.api, svc['image_name'], peer_id=vk_id) if svc['image_name'] else None
 
         title_trimmed = svc['title'][:80]
         desc_trimmed = svc['desc'][:80] + "..." if len(svc['desc']) > 80 else svc['desc']
