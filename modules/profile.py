@@ -316,7 +316,7 @@ async def show_profile(message: Message):
 
     kb = Keyboard(inline=True)
     kb.add(Text("✦ Настройки ⚙"), color=KeyboardButtonColor.SECONDARY)
-    kb.add(Text("Позвать друга 👥"), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Text("Мой Синдикат 🕸"), color=KeyboardButtonColor.SECONDARY)
     kb.row()
     kb.add(Text("🎴 МОЙ ГРИМУАР"), color=KeyboardButtonColor.PRIMARY)
     kb.add(Text("🛰 ТАРИФЫ"), color=KeyboardButtonColor.PRIMARY)
@@ -506,40 +506,134 @@ async def god_mode_handler(message: Message):
         await release_lock(vk_id)
 
 
-@labeler.message(text=["Слить друга", "✦ Слить друга", "Позвать друга 👥", "✦ Позвать друга 👥", "🎁 ПОЗВАТЬ ДРУГА (+500 ✨)"])
-async def referral_handler(message: Message):
+@labeler.message(text=["Мой Синдикат 🕸", "Мой Синдикат", "Мой синдикат"])
+async def syndicate_dashboard_handler(message: Message):
     vk_id = message.from_id
-    logger.info(f"referral_handler triggered by vk_id={vk_id}")
+    logger.info(f"syndicate_dashboard_handler triggered by vk_id={vk_id}")
 
     await set_user_state(vk_id, "")
-    await message.answer(f"✦ РЕФЕРАЛЬНАЯ СИСТЕМА ✦\n\nТвой промокод: ПРОМО-{vk_id}\n\nОтправь этот код другу. Если он напишет его мне, вы оба получите по 500 Энергии звезд!")
+    user = await get_user(vk_id)
+    if not user:
+        return
 
-@labeler.message(func=lambda m: m.text and re.match(r"^ПРОМО-\d+$", m.text.strip()))
-async def apply_promo_handler(message: Message):
+    purchased = user.get("purchased_sections", {})
+    syndicate_count = purchased.get("syndicate_count", 0)
+    syndicate_energy = purchased.get("syndicate_energy", 0)
+
+    if syndicate_count >= 5:
+        rank = "Теневой Кардинал"
+    elif syndicate_count >= 1:
+        rank = "Вербовщик"
+    else:
+        rank = "Одиночка"
+
+    text = (
+        "🕸 СИНДИКАТ АНТИ-ТАР 🕸\n\n"
+        f"Твой текущий ранг: {rank}\n"
+        f"Завербовано адептов: {syndicate_count}\n"
+        f"Сгенерировано энергии: {syndicate_energy} ✨\n\n"
+        "Расширяй свою матрицу. За каждого нового адепта ты получаешь 500 чистой Энергии звезд."
+    )
+
+    is_veteran = False
+    created_at_str = user.get("created_at")
+    if created_at_str:
+        import datetime
+        created_at = datetime.datetime.fromisoformat(created_at_str)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        hours_since_creation = (now - created_at).total_seconds() / 3600
+        if hours_since_creation > 24:
+            is_veteran = True
+
+    if purchased.get("promo_used"):
+        is_veteran = True
+
+    kb = Keyboard(inline=True)
+    kb.add(Text("Получить Печать 📜"), color=KeyboardButtonColor.PRIMARY)
+    if not is_veteran:
+        kb.row()
+        kb.add(Text("Ввести Печать ✒"), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+    kb.add(Text("Назад в профиль 👤"), color=KeyboardButtonColor.SECONDARY)
+
+    await message.answer(text, keyboard=kb.get_json())
+
+@labeler.message(text=["Назад в профиль 👤"])
+async def back_to_profile(message: Message):
+    from modules.profile import show_profile
+    await show_profile(message)
+
+@labeler.message(text=["Получить Печать 📜"])
+async def get_seal_handler(message: Message):
     vk_id = message.from_id
-    text = message.text.strip()
-    match = re.match(r"^ПРОМО-(\d+)$", text)
+    await set_user_state(vk_id, "")
+    text = (
+        "📜 ТВОЯ ПЕЧАТЬ ПРИЗЫВА\n\n"
+        f"Код твоей Печати: ПЕЧАТЬ-{vk_id}\n\n"
+        "Отправь этот код новому адепту, или скинь ему прямую ссылку: "
+        f"https://vk.com/im?sel=-225575503&text=ПЕЧАТЬ-{vk_id}\n\n"
+        "Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд."
+    )
+    await message.answer(text)
+
+@labeler.message(text=["Ввести Печать ✒"])
+async def enter_seal_handler(message: Message):
+    vk_id = message.from_id
+    from modules.states import MyStates
+    from modules.bot_init import bot
+    await set_user_state(vk_id, "waiting_for_seal")
+    # Actually wait for the seal via basic state dispatcher approach
+    kb = Keyboard(inline=True)
+    kb.add(Text("Отмена"), color=KeyboardButtonColor.NEGATIVE)
+    await message.answer("Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
+
+@labeler.message(text=["Отмена"])
+async def cancel_seal_handler(message: Message):
+    vk_id = message.from_id
+    await set_user_state(vk_id, "")
+    await syndicate_dashboard_handler(message)
+
+
+@labeler.message(func=lambda m: m.text and re.match(r"(?i)^(ПРОМО|ПЕЧАТЬ)-\d+$", m.text.strip()))
+async def apply_promo_handler(message: Message):
+    await set_user_state(message.from_id, "")
+    vk_id = message.from_id
+    text = message.text.strip().upper()
+    match = re.match(r"^(ПРОМО|ПЕЧАТЬ)-(\d+)$", text)
     if not match:
         return
 
-    referrer_id = int(match.group(1))
-    if referrer_id == vk_id:
-        await message.answer("Ты не можешь использовать свой собственный промокод.")
-        return
+    referrer_id = int(match.group(2))
 
     user = await get_user(vk_id)
     if not user:
         await message.answer("Сначала зарегистрируйся в системе (напиши Начать).")
         return
 
-    referrer = await get_user(referrer_id)
-    if not referrer:
-        await message.answer("Такого промокода не существует.")
-        return
+    is_veteran = False
+    created_at_str = user.get("created_at")
+    if created_at_str:
+        import datetime
+        created_at = datetime.datetime.fromisoformat(created_at_str)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if (now - created_at).total_seconds() / 3600 > 24:
+            is_veteran = True
 
     purchased = user.get("purchased_sections", {})
     if purchased.get("promo_used"):
-        await message.answer("Вы уже использовали промокод.")
+        is_veteran = True
+
+    if is_veteran:
+        await message.answer("Доступ отклонен. Твоя матрица уже давно интегрирована в систему. Печать призыва работает только для новых адептов. Выстраивай свой личный Синдикат.")
+        return
+
+    if referrer_id == vk_id:
+        await message.answer("Ты не можешь использовать свою собственную Печать.")
+        return
+
+    referrer = await get_user(referrer_id)
+    if not referrer:
+        await message.answer("Такой Печати не существует.")
         return
 
     user_balance = int(user.get("balance", 0) or 0) + 500
@@ -547,14 +641,31 @@ async def apply_promo_handler(message: Message):
 
     purchased["promo_used"] = True
     await update_user(vk_id, {"balance": user_balance, "purchased_sections": purchased})
-    await update_user(referrer_id, {"balance": referrer_balance})
 
-    await message.answer(f"ПРОМОКОД АКТИВИРОВАН! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
+    ref_purchased = referrer.get("purchased_sections", {})
+    ref_purchased["syndicate_count"] = ref_purchased.get("syndicate_count", 0) + 1
+    ref_purchased["syndicate_energy"] = ref_purchased.get("syndicate_energy", 0) + 500
+    await update_user(referrer_id, {"balance": referrer_balance, "purchased_sections": ref_purchased})
+
+    await message.answer(f"ПЕЧАТЬ АКТИВИРОВАНА! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
 
     try:
-        await bot.api.messages.send(peer_id=referrer_id, message=f"Твой друг активировал промокод! Тебе начислено 500 Энергии звезд. Твой баланс: {referrer_balance} Энергии звезд", random_id=0)
+        # Get first name from user DB or use "Пользователь"
+        first_name = purchased.get("first_name")
+        if not first_name:
+            user_info = await bot.api.users.get(user_ids=[vk_id])
+            if user_info:
+                first_name = user_info[0].first_name
+            else:
+                first_name = "Адепт"
+
+        push_msg = f"Твой Синдикат растет! Пользователь {first_name} подключился к твоей сети. Зачислено 500 Энергии звезд."
+        if ref_purchased["syndicate_count"] == 5:
+            push_msg += "\n\nТвой ранг повышен до: Теневой Кардинал! Теперь тебе открыты скрытые возможности."
+        await bot.api.messages.send(peer_id=referrer_id, message=push_msg, random_id=0)
     except Exception as e:
         logger.error(f"Ignored Exception: {str(e)}")
+
 
 
 @labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 ПУТЕВОДИТЕЛЬ", "📖 Путеводитель"])
@@ -567,7 +678,7 @@ async def show_guide(message: Message):
         "Как получать энергию в дар:\n\n"
         "Ежедневный дар: Заходи ко мне каждый день и открывай Главное меню. Я буду начислять тебе 100 Энергии звезд.\n\n"
         "Приветственный дар: Ты получаешь 700 Энергии звезд при регистрации.\n\n"
-        "Зови друзей: В разделе Мой профиль есть кнопка Позвать друга с твоим промокодом. Если подруга отправит его мне, вы обе получите по 500 Энергии звезд.\n\n"
+        "Мой Синдикат: В разделе Мой профиль есть кнопка Мой Синдикат. Передай Печать призыва новому адепту, и вы оба получите по 500 Энергии звезд.\n\n"
         "Как открывать тайны: Перейди в Услуги, листай карточки и жми Купить. Если энергии не хватит, система сама рассчитает доплату. После покупки я выдам тебе личный PDF-файл.\n\n"
         "Карты и Гримуар: После каждой покупки ты вытягиваешь новую карту. Она навсегда сохранится в твоем Гримуаре в профиле."
     )
