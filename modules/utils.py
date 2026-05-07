@@ -175,6 +175,42 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
             logger.error(f"Ошибка: {str(e)}")
 
 
+async def start_dynamic_typing(bot_api, peer_id: int, message_id: int | None, conversation_message_id: int | None = None):
+    import random
+    import asyncio
+    from loguru import logger
+
+    async def loop():
+        try:
+            while True:
+                await asyncio.sleep(10)
+                new_text = random.choice(THEATRICAL_PHRASES)
+                try:
+                    if conversation_message_id:
+                        await bot_api.messages.edit(
+                            peer_id=peer_id,
+                            message=new_text,
+                            conversation_message_id=conversation_message_id
+                        )
+                    elif message_id:
+                        await bot_api.messages.edit(
+                            peer_id=peer_id,
+                            message=new_text,
+                            message_id=message_id
+                        )
+                except Exception as e:
+                    # Ignore API errors like message too old or identical text
+                    pass
+
+                try:
+                    await bot_api.messages.set_activity(peer_id=peer_id, type="typing")
+                except Exception:
+                    pass
+        except asyncio.CancelledError:
+            pass
+
+    return asyncio.create_task(loop())
+
 def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную (нижнюю) клавиатуру с Картой дня и Путеводителем"""
     keyboard = Keyboard(inline=False)

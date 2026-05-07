@@ -477,22 +477,33 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         if not user: return
 
         # 1. Показываем прогресс
-        await bot.api.messages.send(peer_id=peer_id, message="🔮 Начинаю таинство разбора. Это займет около минуты...", random_id=0)
+        import random
+        from modules.utils import THEATRICAL_PHRASES, start_dynamic_typing
+        init_msg = random.choice(THEATRICAL_PHRASES)
+        sent_msg = await bot.api.messages.send(peer_id=peer_id, message=init_msg, random_id=0)
+        await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+        typing_task = await start_dynamic_typing(bot.api, peer_id, message_id=sent_msg)
 
         # 2. Формируем данные
         p = user.get("purchased_sections", {})
         active_skin = user.get("active_skin", "olesya")
 
         # 3. Генерация текста
-        await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-
-        res_text = await generate_section(
+        try:
+            res_text = await generate_section(
             target_section, user.get("birth_date"), user.get("birth_time"),
             user.get("birth_city"), user.get("core_profile", ""),
             p.get("first_name", ""), p.get("sex_val", 0),
             partner_name=partner_name, partner_date=partner_date, skin=active_skin,
             card_id=card_id, card_data=card_data
         )
+
+        finally:
+            typing_task.cancel()
+            try:
+                await bot.api.messages.delete(message_ids=[sent_msg], peer_id=peer_id, delete_for_all=True)
+            except Exception:
+                pass
 
         if res_text:
             # Очищаем текст от тех. тегов ID_ТАРО

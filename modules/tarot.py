@@ -82,21 +82,18 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
         c_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in card_ids]
 
-        messages = ["Настраиваюсь на вашу энергию...", "Раскладываю карты...", "Формирую ваш ответ..."]
-        delays = [1, 1, 2]
+        from modules.utils import SKIN_ASSETS, THEATRICAL_PHRASES, start_dynamic_typing
+        import random
 
-        for i in range(3):
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message=messages[i],
-                random_id=0
-            )
-            await asyncio.sleep(delays[i])
-
+        init_msg = random.choice(THEATRICAL_PHRASES)
+        sent_msg = await bot.api.messages.send(
+            peer_id=vk_id,
+            message=init_msg,
+            random_id=0
+        )
         await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-        await asyncio.sleep(4)
+        typing_task = await start_dynamic_typing(bot.api, vk_id, message_id=sent_msg)
 
-        from modules.utils import SKIN_ASSETS
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
         skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
         if skin_att:
@@ -113,10 +110,14 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             "Сначала выведи: Карта [N]: [Название] - [Краткий смысл]. Только потом делай общий синтез."
         )
 
-        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...", random_id=0)
-        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-
-        result_text = await generate_text(prompt, skin=active_skin)
+        try:
+            result_text = await generate_text(prompt, skin=active_skin)
+        finally:
+            typing_task.cancel()
+            try:
+                await bot.api.messages.delete(message_ids=[sent_msg], peer_id=vk_id, delete_for_all=True)
+            except Exception:
+                pass
         if not result_text:
             result_text = "Оракул молчит. Попробуй позже."
 
@@ -135,8 +136,6 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
                 if cid not in unlocked_cards:
                     from ai_service import generate_text
                     grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
-                    await bot.api.messages.send(peer_id=vk_id, message="Раскладываю карты...", random_id=0)
-                    await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
                     signature = await generate_text(grimoire_prompt, skin=active_skin)
                     unlocked_cards[cid] = signature if signature else "Первое касание"
 
@@ -314,24 +313,22 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         if skin_att:
             await bot.api.messages.send(peer_id=peer_id, random_id=0, message="", attachment=skin_att)
 
-        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...")
+        import random
+        from modules.utils import THEATRICAL_PHRASES, start_dynamic_typing
+        init_msg = random.choice(THEATRICAL_PHRASES)
+        sent_msg = await bot.api.messages.send(peer_id=peer_id, random_id=0, message=init_msg)
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
-        async def send_typing_indicator():
-            while True:
-                await asyncio.sleep(5)
-                try:
-                    await bot.api.messages.send(peer_id=peer_id, random_id=0, message="Ожидайте, идет генерация ответа...")
-                    await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-                except Exception:
-                    pass
-
-        typing_task = asyncio.create_task(send_typing_indicator())
+        typing_task = await start_dynamic_typing(bot.api, peer_id, message_id=sent_msg)
 
         try:
             result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin, card_id=card_id)
         finally:
             typing_task.cancel()
+            try:
+                await bot.api.messages.delete(message_ids=[sent_msg], peer_id=peer_id, delete_for_all=True)
+            except Exception:
+                pass
 
         kb_json = await get_sections_keyboard(vk_id, user)
 
