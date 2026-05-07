@@ -165,6 +165,7 @@ async def extract_birth_data(text: str) -> dict | None:
     prompt = (
         f"Пользователь написал: '{text}'. "
         f"Вытащи дату рождения (DD.MM.YYYY), время (HH:MM) и город. "
+        f"Если пользователь не указал время, по умолчанию ставь 12:00. Время всегда приводи к формату HH:MM. "
         f"Верни строго JSON: {{\"date\": \"15.04.1990\", \"time\": \"14:30\", \"city\": \"Москва\"}}."
     )
     res = await generate_text(prompt, json_mode=True)

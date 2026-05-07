@@ -61,7 +61,71 @@ async def message_event_handler(event: dict):
             logger.error(f"Ошибка: {str(e)}")
             
         # 2. Обработка команд (CALLBACK)
-        if cmd == "use_section":
+        if cmd == "retry_registration":
+            await set_user_state(vk_id, "waiting_for_onboarding_data")
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message="Понял. Попробуй еще раз. Напиши дату, время и город рождения максимально четко.",
+                conversation_message_id=obj.get("conversation_message_id")
+            )
+            return
+
+        elif cmd == "confirm_registration":
+            state_dict = await get_fsm_step(vk_id)
+            if not state_dict or state_dict.get("step") != "confirm_data":
+                return
+
+            date = state_dict.get("date")
+            time = state_dict.get("time")
+            city = state_dict.get("city")
+
+            await set_user_state(vk_id, "")
+
+            # Provide immediate feedback while processing
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message="СИНХРОНИЗАЦИЯ ДАННЫХ...",
+                conversation_message_id=obj.get("conversation_message_id")
+            )
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+
+            from database import update_user
+            user = await update_user(vk_id, {
+                "birth_date": date,
+                "birth_time": time,
+                "birth_city": city,
+                "balance": 700,
+                "welcome_bonus_received": True
+            })
+
+            # Notify user of balance top-up immediately
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message="БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: 700 Энергии звезд.",
+                random_id=0
+            )
+
+            from ai_service import generate_section
+            insight = await generate_section(
+                "base",
+                date,
+                time,
+                city,
+                "",
+                user.get("purchased_sections", {}).get("first_name", ""),
+                user.get("purchased_sections", {}).get("sex_val", 0)
+            )
+
+            from modules.utils import get_dynamic_keyboard
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message=f"Твоя матрица готова...\n\n{insight}",
+                keyboard=get_dynamic_keyboard(user),
+                random_id=0
+            )
+            return
+
+        elif cmd == "use_section":
             target_section = payload.get("key")
             user = await get_user(vk_id)
             if user and target_section:
