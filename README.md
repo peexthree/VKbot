@@ -1,46 +1,96 @@
-# Mindsee Bot
+# ANTI-TAR — Эзотерический бот ВКонтакте
 
-A premium esoteric Telegram/VK bot providing deep personality analysis, tarot readings, and psychological insights.
+**Премиум-эзотерический помощник** с ИИ, Таро, астрологией и глубоким персональным анализом.
 
-## Features
-- **Tarot Readings:** Daily cards, multi-card spreads, and Grimoire collection.
-- **Personality Analysis:** Deep dives into user personas based on birth details.
-- **AI-Powered Insights:** Uses advanced LLMs (Gemini/Gemma) for personalized responses.
-- **Premium UX:** High-quality image rendering, clean typography, and PDF reports.
-- **Roleplay Personas:** Interact with different esoteric characters (e.g., Cyber-Olesya, Ascetic, Oracle).
+Бот помогает пользователям лучше понимать себя, свои отношения, предназначение и текущие энергии через современные технологии и древние практики.
 
-## Setup
+---
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository_url>
-   cd mindsee_bot
-   ```
+## ✨ Основные возможности
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+- **Натальная карта и астрологические разборы**
+- **Таро**: карта дня, расклады, сбор коллекции в Гримуаре
+- **ИИ-ментор** с памятью (Gemini) — помнит твои запросы и теги
+- **Синестрия** (совместимость с партнёром)
+- **Ежедневные персональные прогнозы и транзиты**
+- **Геймификация**: энергия, уровни, скины наставника
+- **Syndicate** — закрытые сообщества/гильдии
+- **Реферальная система**
+- **Master Console** и продвинутая админка
+- **Красивые PDF-отчёты** и изображения
+- **Managed Onboarding** с персональным приветствием
 
-3. **Environment Variables:**
-   Copy `.env.example` to `.env` and fill in your credentials.
-   ```bash
-   cp .env.example .env
-   ```
+---
 
-4. **Run the bot:**
-   ```bash
-   python main.py
-   ```
+## 🚀 Установка и запуск
 
-## Architecture
-- `main.py`: Entry point and task initialization.
-- `ai_service.py`: Core AI generation and parsing logic.
-- `database.py`: Supabase database interactions.
-- `cache.py`: Upstash Redis integration for FSM and caching.
-- `modules/`: Organized features (registration, profile, tarot, services, payments, etc.).
+### 1. Клонирование проекта
+```bash
+git clone https://github.com/peexthree/vkbot.git
+cd vkbot
+2. Установка зависимостей
+Bashpython -m venv venv
+source venv/bin/activate    # для Windows: venv\Scripts\activate
+pip install -r requirements.txt
+3. Настройка переменных окружения
+Bashcp .env.example .env
+Открой файл .env и заполни все необходимые ключи.
+4. Запуск бота
+Bashpython main.py
 
-## Development
-- Uses `vkbottle` for VK API interactions.
-- Relies on `loguru` for advanced logging.
-- PDF generation via `WeasyPrint` and `Jinja2`.
+📋 Переменные окружения (.env)
+ПеременнаяОписаниеVK_TOKENТокен сообщества ВКонтактеADMIN_IDID администратораSUPABASE_URLURL проекта SupabaseSUPABASE_KEYКлюч Supabase (service_role или anon)GEMINI_API_KEYSКлючи Gemini через запятуюUPSTASH_REDIS_REST_URLURL Upstash RedisUPSTASH_REDIS_REST_TOKENТокен Upstash RedisSENTRY_DSNDSN для мониторинга ошибок (опционально)PORTПорт (по умолчанию 10000)
+
+🏗 Архитектура проекта
+
+main.py — точка входа, запуск бота и фоновых задач
+ai_service.py — работа с ИИ, промпты, память
+database.py — взаимодействие с Supabase
+cache.py — Redis (состояния, кэш)
+configs/ — конфигурации и модели
+prompts/ — все системные промпты
+modules/ — обработчики (регистрация, профиль, таро, платежи и т.д.)
+templates/ — шаблоны для PDF и сообщений
+
+
+🛠 Разработка
+Основные технологии
+
+Python 3.11+
+vkbottle — фреймворк для VK
+Gemini (Google) — основной ИИ
+Supabase (PostgreSQL)
+Upstash Redis
+loguru — логирование
+WeasyPrint + Jinja2 — генерация PDF
+
+Полезные команды
+Bash# Линтинг
+ruff check .
+
+# Проверка типов
+mypy .
+
+# Запуск тестов
+pytest
+
+🎯 Целевая аудитория
+Основная: Девушки и женщины 20–40 лет
+Дополнительно: Мужчины, интересующиеся саморазвитием и эзотерикой
+Бот поддерживает два режима общения (женский тёплый и мужской прямой).
+
+📈 Планы развития
+
+Улучшение AI-памяти
+Расширение геймификации
+Больше раскладов Таро
+Личные ритуалы и практики
+Улучшение мобильного опыта
+Система достижений и прогресса
+
+
+🤝 Вклад в проект
+Буду рад Pull Request'ам!
+Перед отправкой изменений убедитесь, что проходят все тесты и линтер.
+
+Сделано с ❤️ для тех, кто ищет ответы внутри себя.

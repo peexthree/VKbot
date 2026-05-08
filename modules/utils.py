@@ -4,7 +4,7 @@ import os
 import aiohttp
 import aiofiles
 import datetime
-from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
+from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback, PhotoMessageUploader
 from loguru import logger
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML

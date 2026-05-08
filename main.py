@@ -17,7 +17,8 @@ if sentry_dsn:
     )
 
 # Настройка логирования loguru
-logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=True, backtrace=True, diagnose=True)
+is_prod = os.environ.get("ENV") == "production"
+logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=True, backtrace=not is_prod, diagnose=not is_prod)
 
 # КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+ 
 # Возвращаем удаленные атрибуты в модуль ast, чтобы vkbottle не падал
