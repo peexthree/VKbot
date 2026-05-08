@@ -15,6 +15,7 @@ from vkbottle.tools.dev.keyboard.action import VKPay
 from database import get_user, update_user, set_user_state, get_user_state, create_user, check_and_save_transaction
 from ai_service import generate_text, generate_section
 from modules.utils import MockMsg
+from cards_data import get_card_data
 from modules.utils import (
 
     generate_premium_pdf, get_fsm_step, upload_local_photo,
@@ -558,6 +559,12 @@ async def process_payment_and_generate(vk_id: int, section: str):
         await update_user(vk_id, {"purchased_sections": purchased})
         await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
         await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0)
+        return
+    elif section == "synastry":
+        purchased[section] = True
+        await update_user(vk_id, {"purchased_sections": purchased})
+        await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
+        await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0)
         return
     else:
         purchased[section] = True
