@@ -174,162 +174,71 @@ async def process_synastry_date(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
         return
-
-    user = await get_user(vk_id)
-    if not user:
-        return
-
     try:
         partner_date = message.text.strip()
         state_dict = await get_fsm_step(vk_id)
         partner_name = state_dict.get("partner_name", "Партнер")
 
-        await set_user_state(vk_id, "")
+        await set_user_state(vk_id, json.dumps({
+            "step": "waiting_synastry_time",
+            "partner_name": partner_name,
+            "partner_date": partner_date
+        }))
+        await message.answer(f"Дата {partner_date} принята. Теперь введите ВРЕМЯ РОЖДЕНИЯ партнера (например, 14:30 или 'не знаю'):")
+    finally:
+        await release_lock(vk_id)
 
-        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-        messages = [
-            "Соединяюсь с космосом...",
-            "Раскладываю карты. Надеюсь, ты сегодня не грешил...",
-            "Анализирую твою карму (и сообщения бывшим)..."
-        ]
-        for msg in messages:
-            await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
+@labeler.message(state=MyStates.WAITING_SYNASTRY_TIME)
+async def process_synastry_time(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id):
+        return
+    try:
+        partner_time = message.text.strip()
+        state_dict = await get_fsm_step(vk_id)
+        partner_name = state_dict.get("partner_name", "Партнер")
+        partner_date = state_dict.get("partner_date", "")
 
-            await asyncio.sleep(2)
+        await set_user_state(vk_id, json.dumps({
+            "step": "waiting_synastry_city",
+            "partner_name": partner_name,
+            "partner_date": partner_date,
+            "partner_time": partner_time
+        }))
+        await message.answer(f"Время {partner_time} принято. Теперь введите ГОРОД РОЖДЕНИЯ партнера (например, Москва или 'не знаю'):")
+    finally:
+        await release_lock(vk_id)
 
-        date = user.get("birth_date", "неизвестно")
-        time = user.get("birth_time", "неизвестно")
-        city = user.get("birth_city", "неизвестно")
-        purchased = user.get("purchased_sections", {})
-        first_name = purchased.get("first_name", "")
-        sex_val = purchased.get("sex_val", 0)
-        core_profile = user.get("core_profile", "")
-        tags = user.get("tags", [])
+@labeler.message(state=MyStates.WAITING_SYNASTRY_CITY)
+async def process_synastry_city(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id):
+        return
 
-        active_skin = user.get("active_skin", "olesya") if user else "olesya"
+    try:
+        partner_city = message.text.strip()
+        state_dict = await get_fsm_step(vk_id)
+        partner_name = state_dict.get("partner_name", "Партнер")
+        partner_date = state_dict.get("partner_date", "")
+        partner_time = state_dict.get("partner_time", "")
 
-        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Анализирую состояние звезд...", random_id=0)
-        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+        partner_full_info = f"{partner_date} {partner_time} {partner_city}"
 
-        result_text = await generate_section("synastry", date, time, city, core_profile, first_name, sex_val, partner_name=partner_name, partner_date=partner_date, skin=active_skin, tags=tags)
+        await set_user_state(vk_id, json.dumps({
+            "step": "global_cut",
+            "target_section": "synastry",
+            "partner_name": partner_name,
+            "partner_date": partner_full_info
+        }))
 
-        from ai_service import extract_tags
-        async def extract_and_save_tags(v_id: int, text: str):
-            new_tags = await extract_tags(text)
-            if new_tags:
-                await update_user(v_id, {"tags": new_tags})
-
-        if result_text:
-            import asyncio
-            asyncio.create_task(extract_and_save_tags(vk_id, result_text))
-
-        if not result_text:
-            result_text = "Система не смогла рассчитать совместимость."
-        else:
-            if first_name:
-                result_text = f"{first_name},\n\n" + result_text
-
-        kb_json = await get_sections_keyboard(vk_id, user)
-
-
-
-        match = re.search(r"ID_?ТАРО:\s*(\d+)", result_text)
-        if match:
-            num = int(match.group(1))
-            if 0 <= num <= 77:
-                card_id = str(num)
-            else:
-                card_id = str(random.randint(0, 77))
-        else:
-            card_id = str(random.randint(0, 77))
-
-        user = await get_user(vk_id)
-        if user:
-            unlocked_cards = user.get("unlocked_cards", {})
-            if isinstance(unlocked_cards, list):
-                unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
-
-            if card_id not in unlocked_cards:
-
-                grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
-                await bot.api.messages.send(peer_id=vk_id, message="Раскладываю карты...", random_id=0)
-                await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-                signature = await generate_text(grimoire_prompt, skin=active_skin)
-                unlocked_cards[card_id] = signature if signature else "Первое касание"
-
-            current_total = user.get("total_cards_received", 0)
-            await update_user(vk_id, {"total_cards_received": current_total + 1, "unlocked_cards": unlocked_cards})
-
-        photo_attachment = None
-        try:
-
-            photo_attachment = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
-        except Exception as e:
-            logger.error(f"Failed to upload tarot card {card_id}: {str(e)}")
-
-        display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", result_text).strip()
-
-        try:
-            pdf_filename = f"archive_{vk_id}_synastry.pdf"
-
-            date = user.get("birth_date", "неизвестно")
-            time = user.get("birth_time", "неизвестно")
-            city = user.get("birth_city", "неизвестно")
-            birth_info = f"{date} {time} {city}"
-            partner_name = state_dict.get("partner_name", "Партнер")
-
-            async with pdf_semaphore:
-                await asyncio.to_thread(generate_premium_pdf, partner_name, birth_info, "СИНАСТРИЯ", display_text, pdf_filename, card_id)
-
-            doc_uploader = DocMessagesUploader(bot.api)
-            doc_attachment = await doc_uploader.upload(title="Твой_архив.pdf", file_source=pdf_filename, peer_id=vk_id)
-            await bot.api.messages.send(peer_id=vk_id, message="Твой персональный архив. Скачай, чтобы не потерять.", attachment=doc_attachment, random_id=0)
-
-            if os.path.exists(pdf_filename):
-                await asyncio.to_thread(os.remove, pdf_filename)
-        except Exception as e:
-            logger.error(f"Failed to process pdf for synastry: {str(e)}")
-
-        parts = re.split(rf"(?i)\bСИНАСТРИЯ\b", display_text, maxsplit=1)
-        intro = ""
-        main_part = display_text
-
-        if len(parts) > 1:
-            intro = parts[0].strip()
-            main_part = f"СИНАСТРИЯ\n" + parts[1].strip()
-
-
-        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
-        if skin_att:
-            await message.answer(attachment=skin_att)
-            await asyncio.sleep(0.5)
-
-        if intro:
-            await message.answer(intro)
-            await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
-            await asyncio.sleep(4)
-            try:
-                await message.answer(main_part, keyboard=kb_json)
-            except Exception as e:
-                await message.answer(main_part)
-        else:
-            try:
-                await message.answer(display_text, keyboard=kb_json)
-            except Exception as e:
-                await message.answer(display_text)
-
-        if photo_attachment:
-            caption = ""
-            if user:
-                unlocked_cards = user.get("unlocked_cards", {})
-                if isinstance(unlocked_cards, dict):
-                    caption = unlocked_cards.get(card_id, "Новая карта добавлена в твой Гримуар.")
-
-            try:
-                await message.answer(f"🎴 Значение карты:\n{caption}", attachment=photo_attachment)
-            except Exception as e:
-                await message.answer("", attachment=photo_attachment)
-
+        kb = Keyboard(inline=True)
+        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
+        await message.answer(
+            "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.",
+            keyboard=kb.get_json()
+        )
+    except Exception as e:
+        loguru.logger.error(f"Ошибка в процессе синастрии: {str(e)}")
     finally:
         await release_lock(vk_id)
 

@@ -364,3 +364,23 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
     except Exception as e:
         logger.error(f"Ошибка PDF: {str(e)}")
         return False
+
+async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
+    import random
+
+    async def _typing_loop():
+        # Keep track of the last phrase to avoid visual duplication
+        last_phrase = None
+        while True:
+            try:
+                available_phrases = [p for p in THEATRICAL_PHRASES if p != last_phrase]
+                phrase = random.choice(available_phrases) if available_phrases else random.choice(THEATRICAL_PHRASES)
+                last_phrase = phrase
+
+                await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
+                await bot_api.messages.set_activity(peer_id=peer_id, type="typing")
+            except Exception:
+                pass
+            await asyncio.sleep(10)
+
+    return asyncio.create_task(_typing_loop())

@@ -199,6 +199,33 @@ async def message_event_handler(event: dict):
             await card_of_day_logic(vk_id, peer_id)
             return
 
+        elif cmd == "gen_pdf":
+            section = payload.get("section", "report")
+            card_id = payload.get("card", "")
+            user = await get_user(vk_id)
+            if not user: return
+
+            latest_text = user.get("latest_reading_text", "")
+            if not latest_text:
+                await bot.api.messages.send(peer_id=peer_id, message="Текст разбора не найден. Сгенерируйте разбор заново.", random_id=0)
+                return
+
+            await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=0)
+
+            pdf_name = f"report_{vk_id}_{section}.pdf"
+            b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
+            first_name = user.get("purchased_sections", {}).get("first_name", "Странник")
+
+            async with pdf_semaphore:
+                await asyncio.to_thread(generate_premium_pdf, first_name, b_info, section.upper(), latest_text, pdf_name, card_id)
+
+            # Отправка
+            doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
+            await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0)
+
+            if os.path.exists(pdf_name):
+                await asyncio.to_thread(os.remove, pdf_name)
+
         elif cmd == "buy":
             buy_type = payload.get("type")
             key = payload.get("key")
@@ -322,11 +349,9 @@ async def message_event_handler(event: dict):
             await set_user_state(vk_id, "")
 
             # 1. Pick a random card
-            import random
             card_id = str(random.randint(0, 77))
 
             # 2. Get Card Data
-            from cards_data import get_card_data
             card_data = get_card_data(card_id)
 
             # 3. Add to user DB synchronously
@@ -342,8 +367,7 @@ async def message_event_handler(event: dict):
                 await update_user(vk_id, {"total_cards_received": current_total + 1, "unlocked_cards": unlocked_cards})
 
             # Remove previous inline keyboard msg immediately to prevent double-clicks
-            import random
-            from modules.utils import THEATRICAL_PHRASES
+                from modules.utils import THEATRICAL_PHRASES
             loading_text = random.choice(THEATRICAL_PHRASES)
 
             await bot.api.messages.edit(
@@ -353,7 +377,6 @@ async def message_event_handler(event: dict):
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
             # 4. Instant Output for the user (Persona + Card Image + Details)
-            from modules.utils import SKIN_ASSETS
             active_skin = user.get("active_skin", "olesya") if user else "olesya"
 
             # Upload Skin Image and Card Image
@@ -499,7 +522,8 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         if not user: return
 
         # 1. Показываем прогресс
-        await bot.api.messages.send(peer_id=peer_id, message="🔮 Начинаю таинство разбора. Это займет около минуты...", random_id=0)
+        from modules.utils import start_dynamic_typing
+        typing_task = await start_dynamic_typing(peer_id, bot.api)
 
         # 2. Формируем данные
         p = user.get("purchased_sections", {})
@@ -509,26 +533,26 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         # 3. Генерация текста
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
-        res_text = await generate_section(
-            target_section, user.get("birth_date"), user.get("birth_time"),
-            user.get("birth_city"), user.get("core_profile", ""),
-            p.get("first_name", ""), p.get("sex_val", 0),
-            partner_name=partner_name, partner_date=partner_date, skin=active_skin,
-            card_id=card_id, card_data=card_data, tags=tags
-        )
+        try:
+            res_text = await generate_section(
+                target_section, user.get("birth_date"), user.get("birth_time"),
+                user.get("birth_city"), user.get("core_profile", ""),
+                p.get("first_name", ""), p.get("sex_val", 0),
+                partner_name=partner_name, partner_date=partner_date, skin=active_skin,
+                card_id=card_id, card_data=card_data, tags=tags
+            )
+        finally:
+            typing_task.cancel()
 
         if res_text:
             # Очищаем текст от тех. тегов ID_ТАРО
             display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
 
-            # 4. Генерация PDF (через asyncio.to_thread чтобы не блокировать event loop)
-            pdf_name = f"report_{vk_id}_{target_section}.pdf"
-            b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
-            async with pdf_semaphore:
-                await asyncio.to_thread(generate_premium_pdf, p.get("first_name", "Странник"), b_info, target_section.upper(), display_text, pdf_name, card_id)
+            # PDF On-Demand: Do not generate it here automatically
+            # Instead, we will add a button to the keyboard to generate it
 
-            # 5. Отправка
-            doc = await DocMessagesUploader(bot.api).upload(title=f"{target_section}.pdf", file_source=pdf_name, peer_id=peer_id)
+            # Save the latest reading text to user's db to use later for PDF generation
+            await update_user(vk_id, {"latest_reading_text": display_text})
 
             from ai_service import extract_tags
             async def extract_and_save_tags(v_id: int, text: str):
@@ -538,11 +562,33 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
 
             asyncio.create_task(extract_and_save_tags(vk_id, res_text))
 
-            kb = await get_sections_keyboard(vk_id, user)
-            await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=doc, keyboard=kb, random_id=0)
+            # Ensure the get_sections_keyboard dict has the structure to add an extra button
+            kb_str = await get_sections_keyboard(vk_id, user)
+            kb_dict = json.loads(kb_str)
+            if "buttons" in kb_dict:
+                kb_dict["buttons"].append([{
+                    "action": {
+                        "type": "callback",
+                        "payload": json.dumps({"cmd": "gen_pdf", "section": target_section, "card": card_id}),
+                        "label": "СГЕНЕРИРОВАТЬ PDF"
+                    },
+                    "color": "secondary"
+                }])
+            kb_str = json.dumps(kb_dict, ensure_ascii=False)
 
-            if os.path.exists(pdf_name):
-                await asyncio.to_thread(os.remove, pdf_name)
+            try:
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message=display_text,
+                    keyboard=kb_str,
+                    random_id=0
+                )
+            except Exception as e:
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message=display_text,
+                    random_id=0
+                )
         else:
             await handle_generation_failure(vk_id, peer_id, target_section)
     except Exception as e:
