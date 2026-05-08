@@ -43,7 +43,8 @@ SKIN_ASSETS = {
     "Виктория Райдес": "v.jpeg",
     "Александр Шеппс": "a.jpeg",
     "Баба Ванга": "ba.jpeg",
-    "Григорий Распутин": "r.jpeg"
+    "Григорий Распутин": "r.jpeg",
+    "Магистр": "magistr.jpeg"
 }
 
 # Pre-initialize Jinja2 Environment for faster PDF generation
@@ -384,3 +385,15 @@ async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
             await asyncio.sleep(10)
 
     return asyncio.create_task(_typing_loop())
+
+class MockMsg:
+    def __init__(self, from_id, peer_id):
+        self.from_id = from_id
+        self.peer_id = peer_id
+    async def answer(self, message: str = None, **kwargs):
+        from modules.bot_init import bot
+        # extract attachment, keyboard, etc from kwargs
+        if 'attachment' in kwargs:
+            await bot.api.messages.send(peer_id=self.peer_id, random_id=0, message=message, attachment=kwargs['attachment'], keyboard=kwargs.get('keyboard'))
+        else:
+            await bot.api.messages.send(peer_id=self.peer_id, random_id=0, message=message, keyboard=kwargs.get('keyboard'))

@@ -126,6 +126,20 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
             current_total = user.get("total_cards_received", 0)
             await update_user(vk_id, {"purchased_sections": purchased, "total_cards_received": current_total + 3, "unlocked_cards": unlocked_cards})
+            major_arcana = [str(i) for i in range(22)]
+            if all(arc in unlocked_cards for arc in major_arcana):
+                purchased_skins = user.get("purchased_skins", [])
+                if "Магистр" not in purchased_skins:
+                    purchased_skins.append("Магистр")
+                    await update_user(vk_id, {"purchased_skins": purchased_skins})
+                    try:
+                        await bot.api.messages.send(
+                            peer_id=vk_id,
+                            message="👁‍🗨 ИНИЦИАЦИЯ ПРОЙДЕНА 👁‍🗨\n\nТы собрал все 22 Старших Аркана в своем Гримуаре. Тебе открыт уникальный аватар-проводник: МАГИСТР.\n\nЗайди в Мой профиль -> Настройки -> Выбрать персонажа.",
+                            random_id=0
+                        )
+                    except Exception:
+                        pass
         else:
             await update_user(vk_id, {"purchased_sections": purchased})
 
@@ -322,6 +336,24 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
             if signature:
                 unlocked_cards[card_id] = signature
                 await update_user(vk_id, {"unlocked_cards": unlocked_cards})
+
+        user = await get_user(vk_id)
+        if user:
+            major_arcana = [str(i) for i in range(22)]
+            unlocked = user.get("unlocked_cards", {})
+            if isinstance(unlocked, dict) and all(arc in unlocked for arc in major_arcana):
+                purchased_skins = user.get("purchased_skins", [])
+                if "Магистр" not in purchased_skins:
+                    purchased_skins.append("Магистр")
+                    await update_user(vk_id, {"purchased_skins": purchased_skins})
+                    try:
+                        await bot.api.messages.send(
+                            peer_id=peer_id,
+                            message="👁‍🗨 ИНИЦИАЦИЯ ПРОЙДЕНА 👁‍🗨\n\nТы собрал все 22 Старших Аркана в своем Гримуаре. Тебе открыт уникальный аватар-проводник: МАГИСТР.\n\nЗайди в Мой профиль -> Настройки -> Выбрать персонажа.",
+                            random_id=0
+                        )
+                    except Exception:
+                        pass
 
         if first_name:
             result_text = f"{first_name},\n\n" + result_text

@@ -46,15 +46,15 @@ async def settings_handler(message: Message):
         text = "✦ НАСТРОЙКИ И ЮРИДИЧЕСКИЙ ЩИТ ✦"
 
         kb = Keyboard(inline=True)
-        kb.add(Text("Изменить свои данные"), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("Изменить свои данные", payload={"cmd": "profile_action", "action": "change_data"}), color=KeyboardButtonColor.SECONDARY)
         kb.row()
-        kb.add(Text("Выбрать персонажа"), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("Выбрать персонажа", payload={"cmd": "profile_action", "action": "change_skin"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
-        kb.add(Text("Отменить подписку"), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("Отменить подписку", payload={"cmd": "profile_action", "action": "cancel_sub"}), color=KeyboardButtonColor.SECONDARY)
         kb.row()
-        kb.add(Text("СБРОС АККАУНТА"), color=KeyboardButtonColor.NEGATIVE)
+        kb.add(Callback("СБРОС АККАУНТА", payload={"cmd": "profile_action", "action": "reset_account"}), color=KeyboardButtonColor.NEGATIVE)
         kb.row()
-        kb.add(Text("Назад в профиль"), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
 
         await message.answer(text, keyboard=kb.get_json())
     finally:
@@ -96,9 +96,9 @@ async def settings_reset_account(message: Message):
     try:
         await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
         kb = Keyboard(inline=True)
-        kb.add(Text("ПОДТВЕРДИТЬ СБРОС"), color=KeyboardButtonColor.NEGATIVE)
+        kb.add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE)
         kb.row()
-        kb.add(Text("Назад в профиль"), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
 
         await message.answer(
             "⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?",
@@ -157,7 +157,8 @@ async def settings_choose_character(message: Message):
             "Олег Шэпс": "загадочность",
             "Александр Шеппс": "мистицизм",
             "Баба Ванга": "пророчества",
-            "Григорий Распутин": "безумие"
+            "Григорий Распутин": "безумие",
+            "Магистр": "высшее знание"
         }
 
         free_skins = ["Олеся Ивонченко", "Серьезный Аскет", "olesya", "asket"]
@@ -181,9 +182,9 @@ async def settings_choose_character(message: Message):
 
             kb = Keyboard(inline=True)
             if skin_name in purchased_skins or skin_name in free_skins:
-                kb.add(Text("ВЫБРАТЬ", payload=json.dumps({"cmd": "set_skin", "skin": skin_name})), color=KeyboardButtonColor.POSITIVE)
+                kb.add(Callback("ВЫБРАТЬ", payload=json.dumps({"cmd": "set_skin", "skin": skin_name})), color=KeyboardButtonColor.POSITIVE)
             else:
-                kb.add(Text("КУПИТЬ 1500 Энергии", payload=json.dumps({"cmd": "buy_skin", "skin": skin_name})), color=KeyboardButtonColor.PRIMARY)
+                kb.add(Callback("КУПИТЬ 1500 Энергии", payload=json.dumps({"cmd": "buy_skin", "skin": skin_name})), color=KeyboardButtonColor.PRIMARY)
 
             if photo:
                 try:
@@ -315,16 +316,16 @@ async def show_profile(message: Message):
     profile_text += f"Оплачивая услуги, вы принимаете условия Публичной оферты: https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
 
     kb = Keyboard(inline=True)
-    kb.add(Text("✦ Настройки ⚙"), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("✦ Настройки ⚙", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.SECONDARY)
 
     from modules.utils import ADMIN_ID
     if vk_id == ADMIN_ID:
         kb.row()
-        kb.add(Text("⚙️ КОНСОЛЬ МАГИСТРА"), color=KeyboardButtonColor.PRIMARY)
-    kb.add(Text("Мой Синдикат 🕸"), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("⚙️ КОНСОЛЬ МАГИСТРА", payload={"cmd": "profile_action", "action": "admin_console"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("Мой Синдикат 🕸", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
-    kb.add(Text("🎴 МОЙ ГРИМУАР"), color=KeyboardButtonColor.PRIMARY)
-    kb.add(Text("🛰 ТАРИФЫ"), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🎴 МОЙ ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🛰 ТАРИФЫ", payload={"cmd": "profile_action", "action": "tariffs"}), color=KeyboardButtonColor.PRIMARY)
 
     active_skin = user.get("active_skin", "olesya")
     skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
@@ -525,18 +526,24 @@ async def syndicate_dashboard_handler(message: Message):
     syndicate_count = purchased.get("syndicate_count", 0)
     syndicate_energy = purchased.get("syndicate_energy", 0)
 
+    progress_text = ""
     if syndicate_count >= 5:
         rank = "Теневой Кардинал"
+        progress_text = "Ты достиг вершины синдиката."
     elif syndicate_count >= 1:
         rank = "Вербовщик"
+        left = 5 - syndicate_count
+        progress_text = f"До статуса Теневой Кардинал осталось {left} адепт(а)."
     else:
         rank = "Одиночка"
+        progress_text = "До статуса Вербовщик остался 1 адепт."
 
     text = (
         "🕸 СИНДИКАТ АНТИ-ТАР 🕸\n\n"
         f"Твой текущий ранг: {rank}\n"
         f"Завербовано адептов: {syndicate_count}\n"
         f"Сгенерировано энергии: {syndicate_energy} ✨\n\n"
+        f"{progress_text}\n\n"
         "Расширяй свою матрицу. За каждого нового адепта ты получаешь 500 чистой Энергии звезд."
     )
 
@@ -554,12 +561,12 @@ async def syndicate_dashboard_handler(message: Message):
         is_veteran = True
 
     kb = Keyboard(inline=True)
-    kb.add(Text("Получить Печать 📜"), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("Получить Печать 📜", payload={"cmd": "profile_action", "action": "get_seal"}), color=KeyboardButtonColor.PRIMARY)
     if not is_veteran:
         kb.row()
-        kb.add(Text("Ввести Печать ✒"), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("Ввести Печать ✒", payload={"cmd": "profile_action", "action": "enter_seal"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
-    kb.add(Text("Назад в профиль 👤"), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("Назад в профиль 👤", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.SECONDARY)
 
     await message.answer(text, keyboard=kb.get_json())
 
@@ -589,7 +596,7 @@ async def enter_seal_handler(message: Message):
     await set_user_state(vk_id, "waiting_for_seal")
     # Actually wait for the seal via basic state dispatcher approach
     kb = Keyboard(inline=True)
-    kb.add(Text("Отмена"), color=KeyboardButtonColor.NEGATIVE)
+    kb.add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
     await message.answer("Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
 
 @labeler.message(text=["Отмена"])

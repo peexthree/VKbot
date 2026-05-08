@@ -14,7 +14,9 @@ from vkbottle.tools.dev.keyboard.action import VKPay
 # Все импорты базы и сервисов — строго здесь
 from database import get_user, update_user, set_user_state, get_user_state, create_user, check_and_save_transaction
 from ai_service import generate_text, generate_section
+from modules.utils import MockMsg
 from modules.utils import (
+
     generate_premium_pdf, get_fsm_step, upload_local_photo,
     get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore
 )
@@ -226,6 +228,69 @@ async def message_event_handler(event: dict):
             if os.path.exists(pdf_name):
                 await asyncio.to_thread(os.remove, pdf_name)
 
+        elif cmd == "profile_action":
+            action = payload.get("action")
+            if action == "settings":
+                from modules.profile import settings_handler
+                # Mock a message object
+                await settings_handler(MockMsg(vk_id, peer_id))
+            elif action == "change_data":
+                await set_user_state(vk_id, "waiting_for_onboarding_data")
+                kb = Keyboard(inline=True)
+                kb.add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json())
+            elif action == "change_skin":
+                from modules.profile import settings_choose_character
+                await settings_choose_character(MockMsg(vk_id, peer_id))
+            elif action == "cancel_sub":
+                await update_user(vk_id, {"transit_sub_expires_at": None})
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Транзит (Подписка) успешно отменен.")
+            elif action == "reset_account":
+                await set_user_state(vk_id, "waiting_reset_confirm")
+                kb = Keyboard(inline=True)
+                kb.add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE)
+                kb.row()
+                kb.add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?", keyboard=kb.get_json())
+            elif action == "confirm_reset":
+                from database import delete_user
+                await delete_user(vk_id)
+                await set_user_state(vk_id, "")
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
+            elif action == "back_to_profile":
+                from modules.profile import show_profile
+                await show_profile(MockMsg(vk_id, peer_id))
+            elif action == "admin_console":
+                from modules.admin import show_admin_console
+                await show_admin_console(peer_id)
+            elif action == "syndicate":
+                from modules.profile import syndicate_dashboard_handler
+                await syndicate_dashboard_handler(MockMsg(vk_id, peer_id))
+            elif action == "grimoire":
+                from modules.profile import show_grimoire_page
+                await show_grimoire_page(vk_id, peer_id, 0)
+            elif action == "tariffs":
+                from modules.services import show_tariffs
+                await show_tariffs(vk_id, peer_id, 0)
+            elif action == "get_seal":
+                await set_user_state(vk_id, "")
+                text = (
+                    "📜 ТВОЯ ПЕЧАТЬ ПРИЗЫВА\n\n"
+                    f"Код твоей Печати: ПЕЧАТЬ-{vk_id}\n\n"
+                    "Отправь этот код новому адепту, или скинь ему прямую ссылку: "
+                    f"https://vk.com/im?sel=-219181948&text=ПЕЧАТЬ-{vk_id}\n\n"
+                    "Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд."
+                )
+                await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
+            elif action == "enter_seal":
+                await set_user_state(vk_id, "waiting_for_seal")
+                kb = Keyboard(inline=True)
+                kb.add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
+            elif action == "cancel_seal":
+                await set_user_state(vk_id, "")
+                from modules.profile import syndicate_dashboard_handler
+                await syndicate_dashboard_handler(MockMsg(vk_id, peer_id))
         elif cmd == "buy":
             buy_type = payload.get("type")
             key = payload.get("key")
@@ -297,18 +362,11 @@ async def message_event_handler(event: dict):
                 )
 
         elif cmd == "get_referral":
-            bot_domain = "anti_taro_bot" # Fallback if you don't query it dynamically
-            try:
-                groups_info = await bot.api.groups.get_by_id()
-                if groups_info:
-                    bot_domain = groups_info[0].screen_name
-            except Exception:
-                pass
-
-            ref_link = f"https://vk.com/write-{groups_info[0].id}?ref={vk_id}" if 'groups_info' in locals() and groups_info else f"https://vk.com/im?sel=-219181948&ref={vk_id}"
+            # Direct link to group 219181948 sending text ПЕЧАТЬ-{vk_id}
+            ref_link = f"https://vk.com/im?sel=-219181948&text=ПЕЧАТЬ-{vk_id}"
             await bot.api.messages.send(
                 peer_id=peer_id,
-                message=f"🎁 Твоя реферальная ссылка:\n{ref_link}\n\nОтправь её друзьям. Когда друг перейдет по ссылке и начнет работу с ботом, вы оба получите +500 Энергии звезд.",
+                message=f"Твоя персональная ссылка для друзей:\n{ref_link}\n\nОтправь этот код/ссылку новому адепту. Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд.",
                 random_id=0
             )
 
@@ -573,6 +631,14 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
                         "label": "СГЕНЕРИРОВАТЬ PDF"
                     },
                     "color": "secondary"
+                }])
+                kb_dict["buttons"].append([{
+                    "action": {
+                        "type": "callback",
+                        "payload": json.dumps({"cmd": "service_page", "idx": 0}),
+                        "label": "Вернуться в услуги"
+                    },
+                    "color": "primary"
                 }])
             kb_str = json.dumps(kb_dict, ensure_ascii=False)
 
