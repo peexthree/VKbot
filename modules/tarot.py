@@ -1,5 +1,5 @@
 from modules.bot_init import bot
-from cache import acquire_lock, release_lock
+from cache import acquire_lock, release_lock, get_tarot_names
 from modules.states import MyStates
 import asyncio
 import json
