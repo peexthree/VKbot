@@ -8,8 +8,6 @@ import warnings
 import sentry_sdk
 from aiohttp import web
 from loguru import logger
-<<<<<<< Updated upstream
-=======
 
 sentry_dsn = os.environ.get("SENTRY_DSN", "")
 if sentry_dsn:
@@ -18,7 +16,6 @@ if sentry_dsn:
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
     )
->>>>>>> Stashed changes
 
 # Настройка логирования loguru
 logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=True, backtrace=True, diagnose=True)
