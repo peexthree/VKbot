@@ -429,6 +429,15 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
     if nav_row:
         buttons.append(nav_row)
 
+    buttons.append([{
+        "action": {
+            "type": "callback",
+            "payload": json.dumps({"cmd": "services_menu"}),
+            "label": "🔮 ГЛУБОКИЕ РАЗБОРЫ (УСЛУГИ)"
+        },
+        "color": "positive"
+    }])
+
     kb = {"inline": True, "buttons": buttons}
 
     try:
@@ -497,6 +506,7 @@ async def god_mode_handler(message: Message):
         await update_user(vk_id, {"balance": new_balance})
 
         user = await get_user(vk_id)
+        if not user: return
         kb_json = await get_sections_keyboard(vk_id, user)
 
         try:

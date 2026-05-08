@@ -35,6 +35,7 @@ async def start_handler(message: Message):
 
     try:
         user = await get_user(vk_id)
+        if not user: return
 
         first_name = ""
         sex = 0
