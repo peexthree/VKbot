@@ -156,10 +156,13 @@ async def message_event_handler(event: dict):
             )
 
 
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🃏 ПРИНЯТЬ ПЕРВУЮ КАРТУ ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
+
             await bot.api.messages.send(
                 peer_id=peer_id,
                 message=f"Твоя матрица готова...\n\n{insight}",
-                keyboard=get_dynamic_keyboard(user),
+                keyboard=kb.get_json(),
                 random_id=0
             )
             return
@@ -186,8 +189,23 @@ async def message_event_handler(event: dict):
 
         elif cmd == "main_menu":
             user = await get_user(vk_id)
+            if not user: return
             kb_json = await get_sections_keyboard(vk_id, user)
             await bot.api.messages.send(peer_id=peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, random_id=0)
+
+        elif cmd == "card_of_day_menu":
+            await card_of_day_logic(vk_id, peer_id)
+
+        elif cmd == "services_menu":
+            await show_services(vk_id, peer_id, 0)
+
+        elif cmd == "profile_menu":
+            from modules.profile import show_profile
+            await show_profile(vk_id, peer_id)
+
+        elif cmd == "guide_menu":
+            from modules.profile import show_guide
+            await show_guide(vk_id, peer_id)
 
         elif cmd == "service_page":
             idx = payload.get("idx", 0)

@@ -374,17 +374,26 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
             intro = parts[0].strip()
             main_part = f"КАРТА ДНЯ\n" + parts[1].strip()
 
+        final_keyboard = kb_json
+
+        user_after_update = await get_user(vk_id)
+        if user_after_update and user_after_update.get("total_cards_received", 0) == 1:
+            main_part += "\n\nЭта карта — твой первый цифровой отпечаток. Я занесла её в твой личный Гримуар. Там она будет копить силу."
+            kb = Keyboard(inline=True)
+            kb.add(Callback("📖 ОТКРЫТЬ ГРИМУАР", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.POSITIVE)
+            final_keyboard = kb.get_json()
+
         if intro:
             await bot.api.messages.send(peer_id=peer_id, random_id=0, message=intro)
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
             await asyncio.sleep(4)
             try:
-                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=main_part, keyboard=kb_json)
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=main_part, keyboard=final_keyboard)
             except Exception as e:
                 await bot.api.messages.send(peer_id=peer_id, random_id=0, message=main_part)
         else:
             try:
-                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=display_text, keyboard=kb_json)
+                await bot.api.messages.send(peer_id=peer_id, random_id=0, message=display_text, keyboard=final_keyboard)
             except Exception as e:
                 await bot.api.messages.send(peer_id=peer_id, random_id=0, message=display_text)
 
