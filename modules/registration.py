@@ -1,19 +1,12 @@
+from loguru import logger
 from modules.bot_init import bot
 from cache import acquire_lock, release_lock
-from modules.states import MyStates
-import asyncio
 import json
-from loguru import logger
-import random
-import re
-import datetime
 from vkbottle.bot import BotLabeler, Message
-from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
+from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from database import get_user, update_user, set_user_state, get_user_state, create_user, delete_user
-from ai_service import generate_text, generate_section
 from ai_service import extract_birth_data
-from loguru import logger
-from modules.utils import get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from modules.utils import get_sections_keyboard
 
 labeler = BotLabeler()
 
@@ -180,7 +173,7 @@ async def back_to_main_menu(message: Message):
                 "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
                 keyboard=kb_json
             )
-        except Exception as e:
+        except Exception:
             await message.answer(
                 "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?"
             )

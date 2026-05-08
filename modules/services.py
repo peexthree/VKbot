@@ -1,19 +1,12 @@
 from modules.bot_init import bot
-import os
 import json
-import math
 from cache import acquire_lock, release_lock
 from modules.states import MyStates
-import asyncio
 
-import random
-import re
-import datetime
 from vkbottle.bot import BotLabeler, Message
-from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
-from database import get_user, update_user, set_user_state, get_user_state, create_user
-from ai_service import generate_text, generate_section
-from modules.utils import generate_premium_pdf, get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache, SKIN_ASSETS, pdf_semaphore
+from vkbottle import Keyboard, KeyboardButtonColor, Callback
+from database import get_user, set_user_state
+from modules.utils import get_fsm_step, upload_local_photo
 from loguru import logger
 
 labeler = BotLabeler()

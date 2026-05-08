@@ -231,7 +231,7 @@ async def admin_fsm_handler(message: Message):
                 )
                 success += 1
                 await asyncio.sleep(0.1) # prevent flood
-            except Exception as e:
+            except Exception:
                 pass
 
         await message.answer(f"Рассылка завершена. Успешно доставлено: {success}/{len(users)}")

@@ -7,29 +7,27 @@ import random
 import re
 import datetime
 import os
-from vkbottle.bot import BotLabeler, Message
-from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
+from vkbottle.bot import BotLabeler
+from vkbottle import DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
 from vkbottle.tools.dev.keyboard.action import VKPay
 
 # Все импорты базы и сервисов — строго здесь
-from database import get_user, update_user, set_user_state, get_user_state, create_user, check_and_save_transaction
-from ai_service import generate_text, generate_section
+from database import get_user, update_user, set_user_state, check_and_save_transaction
+from ai_service import generate_section
 from modules.utils import MockMsg
 from cards_data import get_card_data
 from modules.utils import (
 
     generate_premium_pdf, get_fsm_step, upload_local_photo,
-    get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore, SKIN_ASSETS
+    get_sections_keyboard, pdf_semaphore
 )
 from cache import acquire_lock, release_lock, check_throttle
 
 # Локальные импорты, перенесенные наверх
 from modules.services import show_services
 from modules.services import show_tariffs
-from modules.profile import show_grimoire_page
 from modules.profile import view_card_direct
 from modules.tarot import process_oracle_final, card_of_day_logic
-from loguru import logger
 
 labeler = BotLabeler()
 
@@ -675,7 +673,7 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
                         keyboard=kb_str,
                         random_id=0
                     )
-                except Exception as e:
+                except Exception:
                     await bot.api.messages.send(
                         peer_id=peer_id,
                         message=display_text,
