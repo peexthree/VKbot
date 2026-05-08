@@ -64,15 +64,16 @@ async def process_oracle_cut(message: Message):
         await release_lock(vk_id)
 
 async def process_oracle_final(vk_id: int, text: str, card_ids: list):
-    logger.info(f"process_oracle_final triggered for vk_id={vk_id}")
-    user = await get_user(vk_id)
-    if not user:
-        return
-
-    # Запускаем динамический набор текста
-    await start_dynamic_typing(vk_id, bot.api)
-
+    if not await acquire_lock(vk_id): return
     try:
+        logger.info(f"process_oracle_final triggered for vk_id={vk_id}")
+        user = await get_user(vk_id)
+        if not user:
+            return
+
+        # Запускаем динамический набор текста
+        await start_dynamic_typing(vk_id, bot.api)
+
         attachments = []
         for cid in card_ids:
             photo = await upload_local_photo(bot.api, f"{cid}.jpeg", peer_id=vk_id)
@@ -129,6 +130,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             pass
     finally:
         stop_dynamic_typing(vk_id)
+        await release_lock(vk_id)
 
 @labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня", "🃏 КАРТА ДНЯ"])
 async def card_of_day_handler(message: Message):

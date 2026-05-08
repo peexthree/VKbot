@@ -201,7 +201,12 @@ async def message_event_handler(event: dict):
                     }))
                     kb = Keyboard(inline=True)
                     kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-                    await bot.api.messages.send(peer_id=peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+                    await bot.api.messages.edit(
+                        peer_id=peer_id,
+                        conversation_message_id=obj.get("conversation_message_id"),
+                        message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.",
+                        keyboard=kb.get_json()
+                    )
                 else:
                     await show_services(vk_id, peer_id, 0) # Fallback if they don't own it
 
@@ -424,18 +429,26 @@ async def message_event_handler(event: dict):
                     "target_section": target
                  }))
 
-            await bot.api.messages.edit(
-                peer_id=peer_id,
-                message="СИНХРОНИЗАЦИЯ...",
-                conversation_message_id=obj.get("conversation_message_id")
-            )
             kb = Keyboard(inline=True)
             for i in range(10):
                 if i > 0 and i % 5 == 0: kb.row()
                 kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
-            await bot.api.messages.send(peer_id=peer_id, message="Выбери карту из разложенных:", keyboard=kb.get_json(), random_id=0)
+
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message="Выбери карту из разложенных:",
+                conversation_message_id=obj.get("conversation_message_id"),
+                keyboard=kb.get_json()
+            )
 
         elif cmd == "global_draw":
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                conversation_message_id=obj.get("conversation_message_id"),
+                message="Карта выбрана. Читаю линии вероятности...",
+                keyboard=Keyboard(inline=True).get_json()
+            )
+
             state_dict = await get_fsm_step(vk_id)
             if not state_dict: return
             target_section = state_dict.get("target_section", "")
@@ -581,43 +594,50 @@ async def money_transfer_handler(event: dict):
         logger.error(f"Ошибка: {str(e)}")
 
 async def process_payment_and_generate(vk_id: int, section: str):
-    user = await get_user(vk_id)
-    if not user: return
+    lock_key = f"process_payment_and_generate:{vk_id}"
+    if not await acquire_lock(lock_key, ttl=300): return
+    try:
+        user = await get_user(vk_id)
+        if not user: return
 
-    purchased = user.get("purchased_sections", {})
-    if section == "all":
-        purchased.update({"sex": True, "money": True, "shadow": True, "final": True})
-        await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-        await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0)
-        # Тут вызываем логику формирования бандла...
-    elif section == "oracle":
-        purchased["oracle_access"] = True
-        await update_user(vk_id, {"purchased_sections": purchased})
-        await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
-        await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0)
-        return
-    elif section == "synastry":
-        purchased[section] = True
-        await update_user(vk_id, {"purchased_sections": purchased})
-        await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
-        await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0)
-        return
-    else:
-        purchased[section] = True
-        await update_user(vk_id, {"purchased_sections": purchased})
-        await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0)
+        purchased = user.get("purchased_sections", {})
+        if section == "all":
+            purchased.update({"sex": True, "money": True, "shadow": True, "final": True})
+            await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0)
+            # Тут вызываем логику формирования бандла...
+        elif section == "oracle":
+            purchased["oracle_access"] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0)
+            return
+        elif section == "synastry":
+            purchased[section] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0)
+            return
+        else:
+            purchased[section] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0)
 
-    # Стартуем FSM для обрезания колоды
-    await set_user_state(vk_id, json.dumps({
-        "step": "global_cut", "target_section": section
-    }))
-    kb = Keyboard(inline=True)
-    kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-    await bot.api.messages.send(peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+        # Стартуем FSM для обрезания колоды
+        await set_user_state(vk_id, json.dumps({
+            "step": "global_cut", "target_section": section
+        }))
+        kb = Keyboard(inline=True)
+        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
+        await bot.api.messages.send(peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+    finally:
+        await release_lock(lock_key)
 
 
 async def execute_generation(vk_id: int, peer_id: int, target_section: str, partner_name: str, partner_date: str, card_id: str = None, card_data: dict = None):
     """ПОЛНАЯ ЛОГИКА ГЕНЕРАЦИИ"""
+    lock_key = f"execute_generation:{vk_id}"
+    if not await acquire_lock(lock_key, ttl=300): return
     try:
         user = await get_user(vk_id)
         if not user: return
@@ -705,6 +725,8 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         stop_dynamic_typing(peer_id)
         logger.error(f"Ошибка: {str(e)}")
         await handle_generation_failure(vk_id, peer_id, target_section)
+    finally:
+        await release_lock(lock_key)
 
 async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str):
     """Возвращает деньги при сбое генерации"""
