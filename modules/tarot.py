@@ -2,7 +2,18 @@ import asyncio
 import datetime
 import json
 import random
+<<<<<<< Updated upstream
+import datetime
+from vkbottle.bot import BotLabeler, Message
+from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback
+from database import get_user, update_user, set_user_state
+from ai_service import generate_text, generate_section, extract_tags
+from modules.utils import (
+    get_fsm_step, upload_local_photo, get_sections_keyboard, start_dynamic_typing, stop_dynamic_typing
+)
+=======
 
+>>>>>>> Stashed changes
 from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
 from vkbottle.bot import BotLabeler, Message
@@ -123,6 +134,10 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
     except Exception as e:
         logger.error(f"Ошибка в Оракуле: {e}")
+        try:
+            await bot.api.messages.send(peer_id=vk_id, message="Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже.", random_id=0)
+        except Exception as e:
+            pass
     finally:
         stop_dynamic_typing(vk_id)
 
@@ -146,7 +161,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         if last_used_str:
             last_time = datetime.datetime.fromisoformat(last_used_str)
             if (datetime.datetime.now(datetime.timezone.utc) - last_time).total_seconds() < 24 * 3600:
-                await bot.api.messages.send(peer_id=peer_id, message="Твой лимит на сегодня исчерпан. Попробуй завтра или спроси Оракула.", random_id=0)
+                await bot.api.messages.send(peer_id=vk_id, message="Твой лимит на сегодня исчерпан. Попробуй завтра или спроси Оракула.", random_id=0)
                 return
 
         await start_dynamic_typing(peer_id, bot.api)
@@ -189,10 +204,14 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         else:
             final_kb = await get_sections_keyboard(vk_id, user)
 
-        await bot.api.messages.send(peer_id=peer_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+        await bot.api.messages.send(peer_id=vk_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
 
     except Exception as e:
         logger.error(f"Ошибка в Карте Дня: {e}")
+        try:
+            await bot.api.messages.send(peer_id=vk_id, message="Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже.", random_id=0)
+        except Exception as e:
+            pass
     finally:
         stop_dynamic_typing(peer_id)
         await release_lock(vk_id)

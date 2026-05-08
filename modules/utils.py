@@ -2,16 +2,27 @@ import asyncio
 import datetime
 import json
 import os
+<<<<<<< Updated upstream
+import aiofiles
+import datetime
+from vkbottle import Keyboard, KeyboardButtonColor, Callback, PhotoMessageUploader
+from loguru import logger
+=======
 
 import aiofiles
+>>>>>>> Stashed changes
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
 # Global imports to avoid local import overhead
+<<<<<<< Updated upstream
+from database import update_user, get_user_state
+=======
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader
 from weasyprint import HTML
 
 from database import get_user_state, update_user
+>>>>>>> Stashed changes
 
 # Global cache for cover photo IDs
 cover_cache: dict[str, str] = {}
@@ -31,7 +42,12 @@ THEATRICAL_PHRASES = [
     "Вслушиваюсь в шепот звезд...",
     "Приподнимаю завесу тайны...",
     "Сканирую энергетический фон...",
-    "Анализирую кармические узлы..."
+    "Анализирую кармические узлы...",
+    "Шарф перемешивается...",
+    "Звёзды выстраиваются...",
+    "Спрашиваю у духов...",
+    "Нити судьбы переплетаются...",
+    "Открываю портал в астрал..."
 ]
 
 SKIN_ASSETS = {
@@ -79,7 +95,7 @@ ANCHOR_BATCH_SIZE = 10
 _anchor_batch: list[str] = []
 
 async def flush_anchors(bot_api):
-
+    global _anchor_batch
     if not _anchor_batch:
         return
 
@@ -97,7 +113,7 @@ async def flush_anchors(bot_api):
     _anchor_batch.clear()
 
 async def _anchor_photo_and_cache(bot_api, filename: str, photo_id: str):
-
+    global _anchor_batch
 
     # Сохраняем в локальный кэш и Redis
     cover_cache[filename] = photo_id
@@ -261,10 +277,30 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
 
     if should_give:
         current_balance = int(user.get("balance", 0) or 0)
+        visit_streak = user.get("visit_streak", 0)
+
+        if last_bonus_date_str:
+            try:
+                last_bonus_date = datetime.date.fromisoformat(last_bonus_date_str)
+                if (now_date - last_bonus_date).days == 1:
+                    visit_streak += 1
+                else:
+                    visit_streak = 1
+            except ValueError:
+                visit_streak = 1
+        else:
+            visit_streak = 1
+
         new_balance = current_balance + 100
         await update_user(vk_id, {
+<<<<<<< Updated upstream
+            "balance": new_balance,
+            "last_daily_bonus_date": now_date.isoformat(),
+            "visit_streak": visit_streak
+=======
             "balance": new_balance,
             "last_daily_bonus_date": now_date.isoformat()
+>>>>>>> Stashed changes
         })
         try:
             from modules.bot_init import bot
@@ -280,6 +316,22 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
 def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную инлайн клавиатуру с Картой дня и Путеводителем"""
     keyboard = Keyboard(inline=True)
+<<<<<<< Updated upstream
+
+    # Главное
+    keyboard.add(Callback("🃏 СЕГОДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Callback("💳 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.row()
+    keyboard.add(Callback("📖 ГРИМУАР", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Callback("🔮 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Callback("👥 СООБЩЕСТВО", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.SECONDARY)
+
+    # Быстрые действия
+    keyboard.row()
+    keyboard.add(Callback("🃏 Карта дня", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Callback("🌌 Синестрия", payload={"cmd": "buy_service", "service": "synastry"}), color=KeyboardButtonColor.SECONDARY)
+
+=======
 
     keyboard.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
     keyboard.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
@@ -288,6 +340,7 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     keyboard.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     keyboard.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
 
+>>>>>>> Stashed changes
     return keyboard.get_json()
 
 async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:

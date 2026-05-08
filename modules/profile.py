@@ -1,8 +1,21 @@
 import asyncio
 import datetime
+<<<<<<< Updated upstream
+
+import re
+
+from vkbottle.bot import BotLabeler, Message
+from vkbottle import Keyboard, KeyboardButtonColor, Callback
+from database import get_user, update_user, set_user_state, delete_user
+from modules.states import MyStates
+from cache import get_tarot_names
+from modules.utils import SKIN_ASSETS
+from modules.utils import upload_local_photo, get_sections_keyboard
+=======
 import json
 import re
 
+>>>>>>> Stashed changes
 from loguru import logger
 from vkbottle import (
     Callback,
@@ -278,6 +291,9 @@ async def show_profile(message: Message):
          unlocked_cards = {}
     cards_count = len(unlocked_cards)
     total_cards_received = cards_count
+
+    # streak calculation
+    visit_streak = user.get("visit_streak", 0)
 
     bars = min(10, int((cards_count / 78) * 10))
     progress_bar = ("|" * bars) + ("." * (10 - bars))
