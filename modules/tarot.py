@@ -30,8 +30,6 @@ async def process_oracle_cut(message: Message):
         return
 
     try:
-        import json
-        import random
         state_dict = await get_fsm_step(vk_id)
         question = state_dict.get("question", "")
 
@@ -77,26 +75,13 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             if photo:
                 attachments.append(photo)
 
-        from cache import get_tarot_names
         tarot_names = await get_tarot_names()
 
         c_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in card_ids]
 
-        messages = ["Настраиваюсь на вашу энергию...", "Раскладываю карты...", "Формирую ваш ответ..."]
-        delays = [1, 1, 2]
+        from modules.utils import start_dynamic_typing
+        typing_task = await start_dynamic_typing(vk_id, bot.api)
 
-        for i in range(3):
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message=messages[i],
-                random_id=0
-            )
-            await asyncio.sleep(delays[i])
-
-        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-        await asyncio.sleep(4)
-
-        from modules.utils import SKIN_ASSETS
         active_skin = user.get("active_skin", "olesya") if user else "olesya"
         skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
         if skin_att:
@@ -113,10 +98,10 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             "Сначала выведи: Карта [N]: [Название] - [Краткий смысл]. Только потом делай общий синтез."
         )
 
-        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...", random_id=0)
-        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-
-        result_text = await generate_text(prompt, skin=active_skin)
+        try:
+            result_text = await generate_text(prompt, skin=active_skin)
+        finally:
+            typing_task.cancel()
         if not result_text:
             result_text = "Оракул молчит. Попробуй позже."
 
@@ -133,9 +118,8 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
             for cid_int in card_ids:
                 cid = str(cid_int)
                 if cid not in unlocked_cards:
-                    from ai_service import generate_text
                     grimoire_prompt = "Сформулируй краткую суть этой карты для личного Гримуара пользователя. Мистично, четко, без воды."
-                    await bot.api.messages.send(peer_id=vk_id, message="Раскладываю карты...", random_id=0)
+
                     await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
                     signature = await generate_text(grimoire_prompt, skin=active_skin)
                     unlocked_cards[cid] = signature if signature else "Первое касание"
@@ -232,14 +216,8 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
                 )
             return
 
-        import random
-        from modules.utils import THEATRICAL_PHRASES
-        loading_text = random.choice(THEATRICAL_PHRASES)
-
-        await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-        await bot.api.messages.send(peer_id=peer_id, random_id=0, message=loading_text)
-        import asyncio
-        await asyncio.sleep(2)
+        from modules.utils import start_dynamic_typing
+        typing_task_cod = await start_dynamic_typing(peer_id, bot.api)
 
         visit_streak = user.get("visit_streak", 0)
         weekly_log = user.get("weekly_log", [])
@@ -304,35 +282,22 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         except Exception as e:
             logger.error(f"Ошибка: {str(e)}")
 
-        from cache import get_tarot_names
         tarot_names = await get_tarot_names()
         card_name = tarot_names.get(card_id, f"Карта {card_id}")
 
         await bot.api.messages.send(peer_id=peer_id, random_id=0, message=f"Твоя карта на сегодня: {card_name}", attachment=photo_attachment)
 
-        from modules.utils import SKIN_ASSETS
         skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
         if skin_att:
             await bot.api.messages.send(peer_id=peer_id, random_id=0, message="", attachment=skin_att)
 
-        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...")
+
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-
-        async def send_typing_indicator():
-            while True:
-                await asyncio.sleep(5)
-                try:
-                    await bot.api.messages.send(peer_id=peer_id, random_id=0, message="Ожидайте, идет генерация ответа...")
-                    await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-                except Exception:
-                    pass
-
-        typing_task = asyncio.create_task(send_typing_indicator())
 
         try:
             result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin, card_id=card_id, tags=tags)
         finally:
-            typing_task.cancel()
+            typing_task_cod.cancel()
 
         async def extract_and_save_tags(vk_id: int, text: str):
             new_tags = await extract_tags(text)
@@ -439,7 +404,6 @@ async def process_oracle_question(message: Message):
         return
 
     try:
-        import json
         text = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": text}))
         from vkbottle import Keyboard, KeyboardButtonColor, Text
