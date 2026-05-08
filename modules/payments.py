@@ -605,18 +605,18 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         if not user: return
 
         # 1. Показываем прогресс
-        from modules.utils import start_dynamic_typing
+        from modules.utils import start_dynamic_typing, stop_dynamic_typing
         typing_task = await start_dynamic_typing(peer_id, bot.api)
 
-        # 2. Формируем данные
-        p = user.get("purchased_sections", {})
-        active_skin = user.get("active_skin", "olesya")
-        tags = user.get("tags", [])
-
-        # 3. Генерация текста
-        await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-
         try:
+            # 2. Формируем данные
+            p = user.get("purchased_sections", {})
+            active_skin = user.get("active_skin", "olesya")
+            tags = user.get("tags", [])
+
+            # 3. Генерация текста
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+
             res_text = await generate_section(
                 target_section, user.get("birth_date"), user.get("birth_time"),
                 user.get("birth_city"), user.get("core_profile", ""),
@@ -624,65 +624,67 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
                 partner_name=partner_name, partner_date=partner_date, skin=active_skin,
                 card_id=card_id, card_data=card_data, tags=tags
             )
+
+            if res_text:
+                # Очищаем текст от тех. тегов ID_ТАРО
+                display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
+
+                # PDF On-Demand: Do not generate it here automatically
+                # Instead, we will add a button to the keyboard to generate it
+
+                # Save the latest reading text to user's db to use later for PDF generation
+                await update_user(vk_id, {"latest_reading_text": display_text})
+
+                from ai_service import extract_tags
+                async def extract_and_save_tags(v_id: int, text: str):
+                    new_tags = await extract_tags(text)
+                    if new_tags:
+                        await update_user(v_id, {"tags": new_tags})
+
+                asyncio.create_task(extract_and_save_tags(vk_id, res_text))
+
+                # Ensure the get_sections_keyboard dict has the structure to add an extra button
+                kb_str = await get_sections_keyboard(vk_id, user)
+                kb_dict = json.loads(kb_str)
+                if "buttons" in kb_dict:
+                    kb_dict["buttons"].append([{
+                        "action": {
+                            "type": "callback",
+                            "payload": json.dumps({"cmd": "gen_pdf", "section": target_section, "card": card_id}),
+                            "label": "СГЕНЕРИРОВАТЬ PDF"
+                        },
+                        "color": "secondary"
+                    }])
+                    kb_dict["buttons"].append([{
+                        "action": {
+                            "type": "callback",
+                            "payload": json.dumps({"cmd": "service_page", "idx": 0}),
+                            "label": "Вернуться в услуги"
+                        },
+                        "color": "primary"
+                    }])
+                kb_str = json.dumps(kb_dict, ensure_ascii=False)
+
+                try:
+                    await bot.api.messages.send(
+                        peer_id=peer_id,
+                        message=display_text,
+                        keyboard=kb_str,
+                        random_id=0
+                    )
+                except Exception as e:
+                    await bot.api.messages.send(
+                        peer_id=peer_id,
+                        message=display_text,
+                        random_id=0
+                    )
+            else:
+                await handle_generation_failure(vk_id, peer_id, target_section)
         finally:
-            typing_task.cancel()
-
-        if res_text:
-            # Очищаем текст от тех. тегов ID_ТАРО
-            display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
-
-            # PDF On-Demand: Do not generate it here automatically
-            # Instead, we will add a button to the keyboard to generate it
-
-            # Save the latest reading text to user's db to use later for PDF generation
-            await update_user(vk_id, {"latest_reading_text": display_text})
-
-            from ai_service import extract_tags
-            async def extract_and_save_tags(v_id: int, text: str):
-                new_tags = await extract_tags(text)
-                if new_tags:
-                    await update_user(v_id, {"tags": new_tags})
-
-            asyncio.create_task(extract_and_save_tags(vk_id, res_text))
-
-            # Ensure the get_sections_keyboard dict has the structure to add an extra button
-            kb_str = await get_sections_keyboard(vk_id, user)
-            kb_dict = json.loads(kb_str)
-            if "buttons" in kb_dict:
-                kb_dict["buttons"].append([{
-                    "action": {
-                        "type": "callback",
-                        "payload": json.dumps({"cmd": "gen_pdf", "section": target_section, "card": card_id}),
-                        "label": "СГЕНЕРИРОВАТЬ PDF"
-                    },
-                    "color": "secondary"
-                }])
-                kb_dict["buttons"].append([{
-                    "action": {
-                        "type": "callback",
-                        "payload": json.dumps({"cmd": "service_page", "idx": 0}),
-                        "label": "Вернуться в услуги"
-                    },
-                    "color": "primary"
-                }])
-            kb_str = json.dumps(kb_dict, ensure_ascii=False)
-
-            try:
-                await bot.api.messages.send(
-                    peer_id=peer_id,
-                    message=display_text,
-                    keyboard=kb_str,
-                    random_id=0
-                )
-            except Exception as e:
-                await bot.api.messages.send(
-                    peer_id=peer_id,
-                    message=display_text,
-                    random_id=0
-                )
-        else:
-            await handle_generation_failure(vk_id, peer_id, target_section)
+            stop_dynamic_typing(peer_id)
     except Exception as e:
+        from modules.utils import stop_dynamic_typing
+        stop_dynamic_typing(peer_id)
         logger.error(f"Ошибка: {str(e)}")
         await handle_generation_failure(vk_id, peer_id, target_section)
 

@@ -23,7 +23,7 @@ async def reset_user_handler(message: Message):
 
     await set_user_state(vk_id, "")
 
-    await message.answer("СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для теста с нуля.")
+    await message.answer("СИСТЕМА ОБНУЛЕНА.  Напиши 'Начать' для теста с нуля.")
 
 @labeler.message(text=["Начать", "start", "/start"])
 async def start_handler(message: Message):
@@ -82,11 +82,12 @@ async def start_handler(message: Message):
 
         await message.answer(
             "✦ ДОБРО ПОЖАЛОВАТЬ В ЦИФРОВОЙ ГРИМУАР ✦ 🔮\n\n"
-            "Я твой проводник в мир глубокого самопознания. Здесь нет ванильных гороскопов — только жесткий, честный разбор твоей матрицы судьбы.\n\n"
+            
+            "Я АНТИ-ТАР - твой проводник в мир глубокого самопознания. Здесь нет ванильных гороскопов - только жесткий, честный разбор твоей матрицы судьбы.\n\n"
             "Мы вскроем твои теневые стороны, финансовый потенциал и скрытую энергию. Никакой воды, только факты, которые изменят твое восприятие себя.\n\n"
             "Для инициализации профиля и получения приветственного дара в 700 Энергии звезд я считал твои данные из профиля:\n"
             f"Дата рождения: {bdate}\n"
-            f"Город: {city}\n\n"
+            f"Город рождения: {city}\n\n"
             "Эти данные верны?",
             keyboard=kb.get_json()
         )
@@ -94,7 +95,20 @@ async def start_handler(message: Message):
         await release_lock(vk_id)
 
 
-@labeler.message(state=MyStates.WAITING_FOR_ONBOARDING_DATA)
+async def is_waiting_for_onboarding_data(message: Message) -> bool:
+    if message.text and message.text.lower() in ["начать", "start", "/start", "сброс"]:
+        return False
+    state = await get_user_state(message.from_id)
+    if not state:
+        return False
+    try:
+        data = json.loads(state)
+        step = data.get("step", "")
+    except Exception:
+        step = state
+    return step == "waiting_for_onboarding_data"
+
+@labeler.message(func=is_waiting_for_onboarding_data)
 async def process_onboarding_data(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -102,14 +116,14 @@ async def process_onboarding_data(message: Message):
 
     try:
         user_text = message.text.strip()
-        await message.answer("Анализирую ваши координаты... 👁‍🗨 Анализирую состояние звезд...")
+        await message.answer("👁‍🗨 Анализирую состояние звезд...")
         await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
 
 
         data = await extract_birth_data(user_text)
 
         if not data:
-            await message.answer("Не удалось считать координаты. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.")
+            await message.answer("Не удалось считать координаты Ваших звёзд. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.")
             return
 
         date = data.get("date", "")

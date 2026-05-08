@@ -366,8 +366,19 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
         logger.error(f"Ошибка PDF: {str(e)}")
         return False
 
+_typing_tasks = {}
+
+def stop_dynamic_typing(peer_id: int):
+    """Cancels the typing task for a given peer_id if it exists."""
+    if peer_id in _typing_tasks:
+        task = _typing_tasks.pop(peer_id)
+        if not task.done():
+            task.cancel()
+
 async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
     import random
+
+    stop_dynamic_typing(peer_id)
 
     async def _typing_loop():
         # Keep track of the last phrase to avoid visual duplication
@@ -391,7 +402,9 @@ async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
                 pass
             await asyncio.sleep(10)
 
-    return asyncio.create_task(_typing_loop())
+    task = asyncio.create_task(_typing_loop())
+    _typing_tasks[peer_id] = task
+    return task
 
 class MockMsg:
     def __init__(self, from_id, peer_id):
