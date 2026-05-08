@@ -249,33 +249,47 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         "Текст должен разбиваться на абзацы по 2-3 предложения."
     )
 
-    if section == "base":
-        prompt = f"{base_info} Составь Вступление (короткий панч) и БАЗА (разбор Солнца, Луны и Асцендента). ОБЯЗАТЕЛЬНО используй слово БАЗА на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и БАЗА КАПСОМ.{style_instruction}"
-    elif section == "sex":
-        cid = card_id if card_id else random.choice(list(range(22, 50)))
-        prompt = f"{base_info} Сделай Вступление (короткий панч) и разбор СЕКС (анализ Венеры и Марса, отношение к любви и страсти). ОБЯЗАТЕЛЬНО используй слово СЕКС на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и СЕКС КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-    elif section == "money":
-        cid = card_id if card_id else random.randint(64, 77)
-        prompt = f"{base_info} Сделай Вступление (короткий панч) и разбор ДЕНЬГИ (анализ 2-го и 10-го домов, карьера и финансы). ОБЯЗАТЕЛЬНО используй слово ДЕНЬГИ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и ДЕНЬГИ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-    elif section == "shadow":
-        cid = card_id if card_id else random.randint(50, 63)
-        prompt = f"{base_info} Сделай Вступление (короткий панч) и разбор ТЕНЬ (анализ Лилит и Селены, теневая сторона личности). ОБЯЗАТЕЛЬНО используй слово ТЕНЬ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ and ТЕНЬ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-    elif section == "final":
-        cid = card_id if card_id else random.randint(0, 21)
-        prompt = f"{base_info} Сделай Вступление (короткий панч) и ФИНАЛ (Итоговый вердикт и совет в стиле 'Живи с этим'). ОБЯЗАТЕЛЬНО используй слово ФИНАЛ на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и ФИНАЛ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-    elif section == "synastry":
-        cid = card_id if card_id else random.randint(0, 21)
-        prompt = f"{base_info} Сделай разбор совместимости (СИНАСТРИЯ). Имя партнера: {partner_name}, дата рождения партнера: {partner_date}. Сделай жесткий разбор мэтча. Опиши сильные стороны и кармические узлы связи. ОБЯЗАТЕЛЬНО используй слово СИНАСТРИЯ на отдельной строке перед основным разбором. Выдели заголовок СИНАСТРИЯ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-    elif section == "antitaro":
-        cid = card_id if card_id else random.randint(0, 77)
-        prompt = f"{base_info} Сделай Вступление (короткий панч) и разбор АНТИТАРО (максимально циничный, деструктивный и жесткий совет наоборот, снятие розовых очков). ОБЯЗАТЕЛЬНО используй слово АНТИТАРО на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и АНТИТАРО КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
-    elif section == "card_of_day":
+    import os
+    import json
+    import random
 
-        if card_id is None:
-            card_id = str(random.randint(0, 77))
-        prompt = f"{base_info} Выдай карту дня (как ежедневный гороскоп, но в стиле Таро). ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
+    # Загружаем промпты из файла (кэширование можно добавить на уровне модуля, но для простоты читаем тут)
+    # В реальном проде лучше вынести загрузку в глобальную переменную
+    global PROMPTS_CACHE
+    if 'PROMPTS_CACHE' not in globals():
+        try:
+            with open('templates/prompts.json', 'r', encoding='utf-8') as f:
+                PROMPTS_CACHE = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load prompts.json: {e}")
+            PROMPTS_CACHE = {}
 
-    else:
+    if section not in PROMPTS_CACHE:
         return None
+
+    prompt_template = PROMPTS_CACHE[section]
+
+    # Подготовка cid в зависимости от секции
+    cid = card_id
+    if not cid:
+        if section == "sex":
+            cid = str(random.choice(list(range(22, 50))))
+        elif section == "money":
+            cid = str(random.randint(64, 77))
+        elif section == "shadow":
+            cid = str(random.randint(50, 63))
+        elif section in ["final", "synastry"]:
+            cid = str(random.randint(0, 21))
+        elif section in ["antitaro", "card_of_day"]:
+            cid = str(random.randint(0, 77))
+
+    prompt = prompt_template.format(
+        base_info=base_info,
+        style_instruction=style_instruction,
+        cid=cid,
+        partner_name=partner_name,
+        partner_date=partner_date,
+        card_id=card_id if card_id else cid
+    )
 
     return await generate_text(prompt, skin=skin)
