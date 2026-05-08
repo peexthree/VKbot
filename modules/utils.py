@@ -124,6 +124,10 @@ async def clear_photo_cache():
         logger.error(f"Ошибка при очистке кэша фото: {str(e)}")
 
 async def warmup_task():
+    if not await acquire_lock("warmup_lock", ttl=3600):
+        logger.info("Warmup task already running (lock active).")
+        return
+
     try:
         import os
         import random
@@ -195,6 +199,8 @@ async def warmup_task():
         logger.info("Предзагрузка (Warmup) картинок успешно завершена.")
     except Exception as e:
         logger.error(f"Ошибка при предзагрузке (Warmup) картинок: {str(e)}")
+    finally:
+        await release_lock("warmup_lock")
 
 async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None) -> str:
     """Загружает фото локально из папки cards/"""

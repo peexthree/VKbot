@@ -13,6 +13,8 @@ sentry_dsn = os.environ.get("SENTRY_DSN", "")
 if sentry_dsn:
     sentry_sdk.init(
         dsn=sentry_dsn,
+        environment=os.environ.get("SENTRY_ENV", "production"),
+        release=os.environ.get("SENTRY_RELEASE", "1.0.0"),
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
     )
@@ -173,7 +175,15 @@ async def main():
     try:
         while True:
             await asyncio.sleep(3600)
+    except Exception as e:
+        logger.error(f"Global unhandled error: {str(e)}")
     finally:
+        try:
+            from modules.utils import _typing_tasks, stop_dynamic_typing
+            for peer_id in list(_typing_tasks.keys()):
+                stop_dynamic_typing(peer_id)
+        except Exception as e:
+            logger.error(f"Error cleaning up typing tasks: {str(e)}")
         await close_session()
 
 if __name__ == "__main__":
