@@ -156,12 +156,15 @@ async def message_event_handler(event: dict):
             )
 
 
+            first_name = user.get("purchased_sections", {}).get("first_name", "")
+            intro = f"Привет, {first_name}! Твоя натальная карта — это не просто звезды, это код твоего потенциала." if first_name else "Твоя натальная карта — это не просто звезды, это код твоего потенциала."
+
             kb = Keyboard(inline=True)
             kb.add(Callback("🃏 ПРИНЯТЬ ПЕРВУЮ КАРТУ ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
 
             await bot.api.messages.send(
                 peer_id=peer_id,
-                message=f"Твоя матрица готова...\n\n{insight}",
+                message=f"Твоя матрица готова...\n\n{intro}\n\n{insight}\n\nПервый шаг: открой Карту Дня.",
                 keyboard=kb.get_json(),
                 random_id=0
             )
@@ -703,6 +706,6 @@ async def handle_generation_failure(vk_id: int, peer_id: int, target_section: st
 
     await bot.api.messages.send(
         peer_id=peer_id,
-        message="К сожалению, связь с духами прервалась. Твоя Энергия звезд возвращена на баланс. Попробуй еще раз через минуту.",
+        message="Кажется, сегодня звёзды немного запутались. Связь прервалась, но твоя Энергия звезд возвращена на баланс. Попробуй ещё раз?",
         random_id=0
     )

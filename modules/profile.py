@@ -275,6 +275,9 @@ async def show_profile(message: Message):
     cards_count = len(unlocked_cards)
     total_cards_received = cards_count
 
+    # streak calculation
+    visit_streak = user.get("visit_streak", 0)
+
     bars = min(10, int((cards_count / 78) * 10))
     progress_bar = ("|" * bars) + ("." * (10 - bars))
 

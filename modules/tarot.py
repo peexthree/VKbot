@@ -119,6 +119,10 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
     except Exception as e:
         logger.error(f"Ошибка в Оракуле: {e}")
+        try:
+            await bot.api.messages.send(peer_id=peer_id, message="Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже.", random_id=0)
+        except:
+            pass
     finally:
         stop_dynamic_typing(vk_id)
 
@@ -189,6 +193,10 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
 
     except Exception as e:
         logger.error(f"Ошибка в Карте Дня: {e}")
+        try:
+            await bot.api.messages.send(peer_id=peer_id, message="Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже.", random_id=0)
+        except:
+            pass
     finally:
         stop_dynamic_typing(peer_id)
         await release_lock(vk_id)

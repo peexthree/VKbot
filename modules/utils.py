@@ -30,7 +30,12 @@ THEATRICAL_PHRASES = [
     "Вслушиваюсь в шепот звезд...",
     "Приподнимаю завесу тайны...",
     "Сканирую энергетический фон...",
-    "Анализирую кармические узлы..."
+    "Анализирую кармические узлы...",
+    "Шарф перемешивается...",
+    "Звёзды выстраиваются...",
+    "Спрашиваю у духов...",
+    "Нити судьбы переплетаются...",
+    "Открываю портал в астрал..."
 ]
 
 SKIN_ASSETS = {
@@ -259,10 +264,25 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
             
     if should_give:
         current_balance = int(user.get("balance", 0) or 0)
+        visit_streak = user.get("visit_streak", 0)
+
+        if last_bonus_date_str:
+            try:
+                last_bonus_date = datetime.date.fromisoformat(last_bonus_date_str)
+                if (now_date - last_bonus_date).days == 1:
+                    visit_streak += 1
+                else:
+                    visit_streak = 1
+            except ValueError:
+                visit_streak = 1
+        else:
+            visit_streak = 1
+
         new_balance = current_balance + 100
         await update_user(vk_id, {
             "balance": new_balance, 
-            "last_daily_bonus_date": now_date.isoformat()
+            "last_daily_bonus_date": now_date.isoformat(),
+            "visit_streak": visit_streak
         })
         try:
             from modules.bot_init import bot
@@ -279,12 +299,18 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную инлайн клавиатуру с Картой дня и Путеводителем"""
     keyboard = Keyboard(inline=True)
     
-    keyboard.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
-    keyboard.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+    # Главное
+    keyboard.add(Callback("🃏 СЕГОДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Callback("💳 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     keyboard.row()
+    keyboard.add(Callback("📖 ГРИМУАР", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Callback("🔮 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Callback("👥 СООБЩЕСТВО", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.SECONDARY)
     
-    keyboard.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
+    # Быстрые действия
+    keyboard.row()
+    keyboard.add(Callback("🃏 Карта дня", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Callback("🌌 Синестрия", payload={"cmd": "buy_service", "service": "synastry"}), color=KeyboardButtonColor.SECONDARY)
     
     return keyboard.get_json()
 
