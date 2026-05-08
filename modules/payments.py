@@ -19,7 +19,7 @@ from cards_data import get_card_data
 from modules.utils import (
 
     generate_premium_pdf, get_fsm_step, upload_local_photo,
-    get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore
+    get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore, SKIN_ASSETS
 )
 from cache import acquire_lock, release_lock, check_throttle
 

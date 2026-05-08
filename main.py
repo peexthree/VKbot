@@ -6,9 +6,19 @@ import json
 import datetime
 from aiohttp import web
 from loguru import logger
+import sentry_sdk
+
+sentry_dsn = os.environ.get("SENTRY_DSN", "")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
 
 # Настройка логирования loguru
-logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=True, backtrace=True, diagnose=True)
+is_prod = os.environ.get("ENV") == "production"
+logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=True, backtrace=not is_prod, diagnose=not is_prod)
 
 # КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+ 
 # Возвращаем удаленные атрибуты в модуль ast, чтобы vkbottle не падал

@@ -4,12 +4,14 @@ import os
 import aiohttp
 import aiofiles
 import datetime
-from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
+from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback, PhotoMessageUploader
 from loguru import logger
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 # Global imports to avoid local import overhead
+from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback, PhotoMessageUploader
+
 from database import update_user, get_user_state
 
 # Global cache for cover photo IDs
@@ -83,7 +85,7 @@ ANCHOR_BATCH_SIZE = 10
 _anchor_batch = []
 
 async def flush_anchors(bot_api):
-    global _anchor_batch
+
     if not _anchor_batch:
         return
 
@@ -101,7 +103,7 @@ async def flush_anchors(bot_api):
     _anchor_batch.clear()
 
 async def _anchor_photo_and_cache(bot_api, filename: str, photo_id: str):
-    global _anchor_batch
+
 
     # Сохраняем в локальный кэш и Redis
     cover_cache[filename] = photo_id
