@@ -6,3 +6,4 @@ Jinja2
 WeasyPrint
 upstash-redis
 loguru
+sentry-sdk

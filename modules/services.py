@@ -238,7 +238,7 @@ async def process_synastry_city(message: Message):
             keyboard=kb.get_json()
         )
     except Exception as e:
-        loguru.logger.error(f"Ошибка в процессе синастрии: {str(e)}")
+        logger.error(f"Ошибка в процессе синастрии: {str(e)}")
     finally:
         await release_lock(vk_id)
 
