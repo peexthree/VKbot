@@ -1,18 +1,27 @@
-from modules.bot_init import bot
-from cache import acquire_lock, release_lock
-from modules.states import MyStates
-import asyncio
 import json
-import random
-import re
-import datetime
-from vkbottle.bot import BotLabeler, Message
-from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
-from database import get_user, update_user, set_user_state, get_user_state, create_user, delete_user
-from ai_service import generate_text, generate_section
-from ai_service import extract_birth_data
+
 from loguru import logger
-from modules.utils import get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
+from vkbottle import (
+    Callback,
+    Keyboard,
+    KeyboardButtonColor,
+)
+from vkbottle.bot import BotLabeler, Message
+
+from ai_service import extract_birth_data
+from cache import acquire_lock, release_lock
+from database import (
+    create_user,
+    delete_user,
+    get_user,
+    get_user_state,
+    set_user_state,
+    update_user,
+)
+from modules.bot_init import bot
+from modules.utils import (
+    get_sections_keyboard,
+)
 
 labeler = BotLabeler()
 
@@ -60,7 +69,7 @@ async def start_handler(message: Message):
         if user:
             purchased = user.get("purchased_sections", {})
             purchased["first_name"] = first_name
-            purchased["sex_val"] = sex 
+            purchased["sex_val"] = sex
             await update_user(vk_id, {"purchased_sections": purchased})
 
         # Ensure we have fallback values if API returns None or empty
@@ -83,7 +92,7 @@ async def start_handler(message: Message):
 
         await message.answer(
             "✦ ДОБРО ПОЖАЛОВАТЬ В ЦИФРОВОЙ ГРИМУАР ✦ 🔮\n\n"
-            
+
             "Я АНТИ-ТАР - твой проводник в мир глубокого самопознания. Здесь нет ванильных гороскопов - только жесткий, честный разбор твоей матрицы судьбы.\n\n"
             "Мы вскроем твои теневые стороны, финансовый потенциал и скрытую энергию. Никакой воды, только факты, которые изменят твое восприятие себя.\n\n"
             "Для инициализации профиля и получения приветственного дара в 700 Энергии звезд я считал твои данные из профиля:\n"
@@ -180,7 +189,7 @@ async def back_to_main_menu(message: Message):
                 "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
                 keyboard=kb_json
             )
-        except Exception as e:
+        except Exception:
             await message.answer(
                 "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?"
             )

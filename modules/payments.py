@@ -1,35 +1,50 @@
-from modules.bot_init import bot
-import math
 import asyncio
+import datetime
+from typing import Any
 import json
-from loguru import logger
+import math
+import os
 import random
 import re
-import datetime
-import os
-from vkbottle.bot import BotLabeler, Message
-from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
+
+from loguru import logger
+from vkbottle import (
+    Callback,
+    DocMessagesUploader,
+    GroupEventType,
+    Keyboard,
+    KeyboardButtonColor,
+    Text,
+)
+from vkbottle.bot import BotLabeler
 from vkbottle.tools.dev.keyboard.action import VKPay
 
-# Все импорты базы и сервисов — строго здесь
-from database import get_user, update_user, set_user_state, get_user_state, create_user, check_and_save_transaction
-from ai_service import generate_text, generate_section
-from modules.utils import MockMsg
+from ai_service import generate_section
+from cache import acquire_lock, check_throttle, release_lock
 from cards_data import get_card_data
-from modules.utils import (
 
-    generate_premium_pdf, get_fsm_step, upload_local_photo,
-    get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache, pdf_semaphore, SKIN_ASSETS
+# Все импорты базы и сервисов — строго здесь
+from database import (
+    check_and_save_transaction,
+    get_user,
+    set_user_state,
+    update_user,
 )
-from cache import acquire_lock, release_lock, check_throttle
+from modules.bot_init import bot
+from modules.profile import view_card_direct
 
 # Локальные импорты, перенесенные наверх
-from modules.services import show_services
-from modules.services import show_tariffs
-from modules.profile import show_grimoire_page
-from modules.profile import view_card_direct
-from modules.tarot import process_oracle_final, card_of_day_logic
-from loguru import logger
+from modules.services import show_services, show_tariffs
+from modules.tarot import card_of_day_logic, process_oracle_final
+from modules.utils import (
+    SKIN_ASSETS,
+    MockMsg,
+    generate_premium_pdf,
+    get_fsm_step,
+    get_sections_keyboard,
+    pdf_semaphore,
+    upload_local_photo,
+)
 
 labeler = BotLabeler()
 
@@ -84,7 +99,7 @@ async def message_event_handler(event: dict):
             )
         except Exception as e:
             logger.error(f"Ошибка: {str(e)}")
-            
+
         # 2. Обработка команд (CALLBACK)
         if cmd == "retry_registration":
             await set_user_state(vk_id, "waiting_for_onboarding_data")
@@ -313,21 +328,21 @@ async def message_event_handler(event: dict):
         elif cmd == "buy":
             buy_type = payload.get("type")
             key = payload.get("key")
-            
+
             prices = {
-                "sex": 1000, "money": 900, "shadow": 700, "final": 1200, 
+                "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
                 "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
                 "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
             }
-            
+
             amount_needed = prices.get(key)
             if not amount_needed: return
 
             user = await get_user(vk_id)
             if not user: return
-            
+
             balance = int(user.get("balance", 0) or 0)
-            
+
             # Миграция старых бонусов в баланс (если остались)
             bonuses = int(user.get("bonuses", 0) or 0)
             if bonuses > 0:
@@ -337,14 +352,14 @@ async def message_event_handler(event: dict):
             if balance >= amount_needed:
                 new_balance = balance - amount_needed
                 await update_user(vk_id, {"balance": new_balance})
-                
+
                 if buy_type == "service":
                     await process_payment_and_generate(vk_id, key)
                 elif buy_type == "tariff":
                     days = 7 if key == "tariff_1" else 30
                     now = datetime.datetime.now(datetime.timezone.utc)
                     new_expires = now + datetime.timedelta(days=days)
-                    updates = {"transit_sub_expires_at": new_expires.isoformat()}
+                    updates: dict[str, str | bool | dict[str, Any]] = {"transit_sub_expires_at": new_expires.isoformat()}
                     if key == "tariff_vip":
                         purchased = user.get("purchased_sections", {})
                         for s in ["sex", "money", "shadow", "final"]: purchased[s] = True
@@ -352,8 +367,8 @@ async def message_event_handler(event: dict):
                         updates["has_full_chart"] = True
                     await update_user(vk_id, updates)
                     await bot.api.messages.send(
-                        peer_id=peer_id, 
-                        message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", 
+                        peer_id=peer_id,
+                        message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.",
                         random_id=0
                     )
             else:
@@ -375,7 +390,7 @@ async def message_event_handler(event: dict):
                 )
 
                 await bot.api.messages.send(
-                    peer_id=peer_id, 
+                    peer_id=peer_id,
                     message=msg_text,
                     keyboard=kb.get_json(), random_id=0
                 )
@@ -436,7 +451,7 @@ async def message_event_handler(event: dict):
             if user:
                 unlocked_cards = user.get("unlocked_cards", {})
                 if isinstance(unlocked_cards, list):
-                    unlocked_cards = {k: "Первое касание" for k in unlocked_cards}
+                    unlocked_cards = dict.fromkeys(unlocked_cards, "Первое касание")
                 if card_id not in unlocked_cards:
                     unlocked_cards[card_id] = f"{card_data.get('name', 'Карта')} - {card_data.get('subtitle', 'Новое знание')}"
 
@@ -510,7 +525,7 @@ async def message_event_handler(event: dict):
                     conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json()
                 )
             else:
-                await set_user_state(vk_id, "") 
+                await set_user_state(vk_id, "")
                 await bot.api.messages.edit(
                     peer_id=peer_id, message="Выбрано: 3/3. Карты собраны.",
                     conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json()
@@ -672,7 +687,7 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
                         keyboard=kb_str,
                         random_id=0
                     )
-                except Exception as e:
+                except Exception:
                     await bot.api.messages.send(
                         peer_id=peer_id,
                         message=display_text,

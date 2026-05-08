@@ -1,20 +1,24 @@
-from modules.bot_init import bot
-from cache import acquire_lock, release_lock, get_tarot_names
-from modules.states import MyStates
 import asyncio
+import datetime
 import json
 import random
-import re
-import datetime
-from vkbottle.bot import BotLabeler, Message
-from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
-from database import get_user, update_user, set_user_state, get_user_state
-from ai_service import generate_text, generate_section, extract_tags
-from modules.utils import (
-    get_fsm_step, upload_local_photo, get_dynamic_keyboard, 
-    get_sections_keyboard, SKIN_ASSETS, start_dynamic_typing, stop_dynamic_typing
-)
+
 from loguru import logger
+from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
+from vkbottle.bot import BotLabeler, Message
+
+from ai_service import extract_tags, generate_section, generate_text
+from cache import acquire_lock, get_tarot_names, release_lock
+from database import get_user, set_user_state, update_user
+from modules.bot_init import bot
+from modules.states import MyStates
+from modules.utils import (
+    get_fsm_step,
+    get_sections_keyboard,
+    start_dynamic_typing,
+    stop_dynamic_typing,
+    upload_local_photo,
+)
 
 labeler = BotLabeler()
 
@@ -99,7 +103,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
         # Обновляем состояние Оракула и личный Гримуар
         unlocked_cards = user.get("unlocked_cards", {})
         if not isinstance(unlocked_cards, dict): unlocked_cards = {}
-        
+
         for cid_int in card_ids:
             cid = str(cid_int)
             if cid not in unlocked_cards:
@@ -176,7 +180,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
 
         # Отправка результата
         photo = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
-        
+
         # ЛОГИКА ОНБОРДИНГА: Если это первая карта в жизни юзера
         if user.get("total_cards_received", 0) == 0:
             result_text += "\n\nЭта карта — твой первый цифровой отпечаток. Я занесла её в твой личный Гримуар. Там она будет копить силу."

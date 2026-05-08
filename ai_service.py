@@ -1,17 +1,17 @@
 import asyncio
-import os
-import aiohttp
-import base64
 import json
-import re
+import os
 import random
+import re
+
+import aiohttp
 from loguru import logger
 
 _session: aiohttp.ClientSession | None = None
 
 from configs.models import MODELS
-from prompts.personas import SKIN_MAP
 from prompts.base import BASE_SYSTEM_INSTRUCTION
+from prompts.personas import SKIN_MAP
 
 # Translation table for faster sanitization
 SANITIZATION_TABLE = str.maketrans({

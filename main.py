@@ -1,12 +1,13 @@
 import ast
-import warnings
-import os
 import asyncio
-import json
 import datetime
+import json
+import os
+import warnings
+
+import sentry_sdk
 from aiohttp import web
 from loguru import logger
-import sentry_sdk
 
 sentry_dsn = os.environ.get("SENTRY_DSN", "")
 if sentry_dsn:
@@ -19,7 +20,7 @@ if sentry_dsn:
 # Настройка логирования loguru
 logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=True, backtrace=True, diagnose=True)
 
-# КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+ 
+# КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+
 # Возвращаем удаленные атрибуты в модуль ast, чтобы vkbottle не падал
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -32,10 +33,10 @@ async def handle_ping(request):
     return web.Response(text="Bot is alive")
 
 async def main():
+    from ai_service import close_session, generate_text, init_session
+    from database import get_all_users, init_db, update_user
     from modules.bot_init import bot
-    from database import get_all_users, update_user, init_db
-    from ai_service import generate_text, init_session, close_session
-    
+
     # Инициализация глобальной сессии aiohttp
     init_session()
 
@@ -43,12 +44,11 @@ async def main():
     await init_db()
 
     # Импорт и регистрация обработчиков модулей
-    import modules.registration as registration
+    import modules.payments as payments
     import modules.profile as profile
+    import modules.registration as registration
     import modules.services as services
     import modules.tarot as tarot
-    import modules.payments as payments
-
     from modules.middlewares import ThrottleMiddleware
     bot.labeler.message_view.register_middleware(ThrottleMiddleware)
 
@@ -69,7 +69,7 @@ async def main():
 
                 async def process_user_transit(user):
                     vk_id = user.get("vk_id")
-                    if not vk_id or not user.get("birth_city"): 
+                    if not vk_id or not user.get("birth_city"):
                         return
 
                     expires_str = user.get("transit_sub_expires_at")
@@ -116,9 +116,8 @@ async def main():
                                 if not has_sub:
                                     await update_user(vk_id, {"transit_trial_days": trial_days + 1})
                             except Exception as e:
-                                import hashlib
                                 logger.error(f"Ошибка: {str(e)}")
-                    
+
                     elif trial_days == 3:
                         try:
                             keyboard_obj = {
@@ -140,7 +139,6 @@ async def main():
                             )
                             await update_user(vk_id, {"transit_trial_days": 4})
                         except Exception as e:
-                            import hashlib
                             logger.error(f"Ошибка: {str(e)}")
 
                 sem = asyncio.Semaphore(5)
@@ -159,19 +157,19 @@ async def main():
     from modules.utils import warmup_task
     asyncio.create_task(warmup_task())
     asyncio.create_task(daily_forecast_cron())
-    
+
     app = web.Application()
     app.router.add_get('/', handle_ping)
-    
+
     runner = web.AppRunner(app)
     await runner.setup()
-    
+
     port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    
+
     logger.info(f"Сервер запущен на порту {port}. Бот слушает сообщения...")
-    
+
     try:
         while True:
             await asyncio.sleep(3600)

@@ -1,5 +1,6 @@
 from vkbottle import BaseStateGroup
 
+
 class MyStates(BaseStateGroup):
     WAITING_FOR_ONBOARDING_DATA = "waiting_for_onboarding_data"
     WAITING_CONFIRM_DATA = "waiting_confirm_data"

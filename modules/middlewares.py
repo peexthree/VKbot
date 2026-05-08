@@ -1,8 +1,11 @@
+import json
+
+from loguru import logger
 from vkbottle import BaseMiddleware
 from vkbottle.bot import Message
-from cache import check_throttle, check_and_set_throttle_warning
-from loguru import logger
-import json
+
+from cache import check_and_set_throttle_warning, check_throttle
+
 
 class ThrottleMiddleware(BaseMiddleware[Message]):
     async def pre(self):

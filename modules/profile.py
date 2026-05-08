@@ -1,22 +1,26 @@
-from modules.bot_init import bot
-from cache import acquire_lock, release_lock
 import asyncio
-import json
 import datetime
-
-import random
+import json
 import re
 
-from vkbottle.bot import BotLabeler, Message
-from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
-from database import get_user, update_user, set_user_state, get_user_state, create_user, delete_user
-from modules.states import MyStates
-from cache import get_tarot_names
-from modules.utils import SKIN_ASSETS
-import datetime
-from ai_service import generate_text, generate_section
-from modules.utils import get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard, cover_cache
 from loguru import logger
+from vkbottle import (
+    Callback,
+    Keyboard,
+    KeyboardButtonColor,
+)
+from vkbottle.bot import BotLabeler, Message
+
+from cache import acquire_lock, get_tarot_names, release_lock
+from database import (
+    delete_user,
+    get_user,
+    set_user_state,
+    update_user,
+)
+from modules.bot_init import bot
+from modules.states import MyStates
+from modules.utils import SKIN_ASSETS, get_sections_keyboard, upload_local_photo
 
 labeler = BotLabeler()
 
@@ -171,7 +175,7 @@ async def settings_choose_character(message: Message):
 
             try:
                 photo = await upload_local_photo(bot.api, filename, peer_id=vk_id)
-            except Exception as e:
+            except Exception:
                 photo = None
 
             style_desc = styles.get(skin_name, "мистицизм")
@@ -189,7 +193,7 @@ async def settings_choose_character(message: Message):
             if photo:
                 try:
                     await message.answer(text, attachment=photo, keyboard=kb.get_json())
-                except Exception as e:
+                except Exception:
                     await message.answer(text, keyboard=kb.get_json())
             else:
                 await message.answer(text, keyboard=kb.get_json())
@@ -313,7 +317,7 @@ async def show_profile(message: Message):
     elif purchased.get("sex") and not purchased.get("money"):
         profile_text += "✨ Рекомендуем продолжить погружение с разделом 'Код твоего богатства'\n\n"
 
-    profile_text += f"Оплачивая услуги, вы принимаете условия Публичной оферты: https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
+    profile_text += "Оплачивая услуги, вы принимаете условия Публичной оферты: https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
 
     kb = Keyboard(inline=True)
     kb.add(Callback("✦ Настройки ⚙", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.SECONDARY)
@@ -514,7 +518,7 @@ async def god_mode_handler(message: Message):
                 "ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.",
                 keyboard=kb_json
             )
-        except Exception as e:
+        except Exception:
             await message.answer(
                 "ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД."
             )
@@ -601,8 +605,6 @@ async def get_seal_handler(message: Message):
 @labeler.message(text=["Ввести Печать ✒"])
 async def enter_seal_handler(message: Message):
     vk_id = message.from_id
-    from modules.states import MyStates
-    from modules.bot_init import bot
     await set_user_state(vk_id, "waiting_for_seal")
     # Actually wait for the seal via basic state dispatcher approach
     kb = Keyboard(inline=True)

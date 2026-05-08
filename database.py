@@ -1,10 +1,11 @@
-from cache import set_fsm_state, get_fsm_state
 import json
 import os
+from typing import Any, Dict, Optional
+
 import aiohttp
-from typing import Optional, Dict, Any
-import traceback
 from loguru import logger
+
+from cache import get_fsm_state, set_fsm_state
 
 URL = os.environ.get("SUPABASE_URL", "")
 KEY = os.environ.get("SUPABASE_KEY", "")
@@ -113,7 +114,7 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "purchased_skins": [],
         "transit_trial_days": 0,
         "transit_sub_expires_at": None,
-        "bonuses": None, 
+        "bonuses": None,
         "last_daily_bonus_date": None,
         "last_active_date": None,
         "unlocked_cards": {},
@@ -210,7 +211,6 @@ async def get_user_state(vk_id: int) -> Optional[str]:
 async def set_user_state(vk_id: int, state: str) -> bool:
     from modules.bot_init import bot
     from modules.states import MyStates
-    import json
     if not state:
         try:
             await bot.state_dispenser.delete(vk_id)

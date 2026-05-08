@@ -1,0 +1,41 @@
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "C901",
+    "E402",
+    "E701",
+    "F841",
+    "W291",
+    "W293",
+    "E722",
+    "B023",
+    "F823",
+    "C414",
+    "I001"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "F401"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+no_strict_optional = true
+warn_return_any = false
+warn_unused_configs = true
+exclude = [
+    "venv",
+    ".venv",
+]

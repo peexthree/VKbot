@@ -1,10 +1,12 @@
 import json
+
 from loguru import logger
+from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
 from vkbottle.bot import BotLabeler, Message
-from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback
-from modules.utils import ADMIN_ID, warmup_task, clear_photo_cache, get_dynamic_keyboard
+
 from cache import redis_client, set_fsm_state
 from database import get_all_users
+from modules.utils import ADMIN_ID, clear_photo_cache, get_dynamic_keyboard, warmup_task
 
 labeler = BotLabeler()
 
@@ -35,7 +37,7 @@ async def show_admin_console(peer_id: int):
         keys = await redis_client.keys("photo:*")
         cache_count = len(keys)
     except:
-        cache_count = "N/A"
+        cache_count = -1
 
     text = (
         "⚙️ КОНСОЛЬ МАГИСТРА ⚙️\n\n"
@@ -86,8 +88,9 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict):
         return
 
     action = payload.get("action")
-    from modules.bot_init import bot
     import asyncio
+
+    from modules.bot_init import bot
 
     if action == "toggle_warmup":
         current = await redis_client.get("system_config:warmup_active")
@@ -217,8 +220,9 @@ async def admin_fsm_handler(message: Message):
 
         users = await get_all_users()
         success = 0
-        from modules.bot_init import bot
         import asyncio
+
+        from modules.bot_init import bot
 
         await message.answer(f"Начинаю рассылку для {len(users)} пользователей...")
 
@@ -231,7 +235,7 @@ async def admin_fsm_handler(message: Message):
                 )
                 success += 1
                 await asyncio.sleep(0.1) # prevent flood
-            except Exception as e:
+            except Exception:
                 pass
 
         await message.answer(f"Рассылка завершена. Успешно доставлено: {success}/{len(users)}")

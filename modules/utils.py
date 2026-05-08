@@ -1,21 +1,20 @@
 import asyncio
+import datetime
 import json
 import os
-import aiohttp
+
 import aiofiles
-import datetime
-from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
-from loguru import logger
 from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
+from loguru import logger
 
 # Global imports to avoid local import overhead
-from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback, PhotoMessageUploader
+from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader
+from weasyprint import HTML
 
-from database import update_user, get_user_state
+from database import get_user_state, update_user
 
 # Global cache for cover photo IDs
-cover_cache = {}
+cover_cache: dict[str, str] = {}
 
 THEATRICAL_PHRASES = [
     "Считываю цифровой след...",
@@ -54,7 +53,7 @@ templates_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templ
 jinja_env = Environment(loader=FileSystemLoader('templates'))
 pdf_semaphore = asyncio.Semaphore(1)
 
-from cache import redis_client, acquire_lock, release_lock
+from cache import acquire_lock, redis_client, release_lock
 
 ADMIN_ID = int(os.environ.get("ADMIN_ID", 27260796))
 
@@ -77,7 +76,7 @@ async def get_cached_photo(filename: str) -> str | None:
 
 # Batch anchor logic
 ANCHOR_BATCH_SIZE = 10
-_anchor_batch = []
+_anchor_batch: list[str] = []
 
 async def flush_anchors(bot_api):
 
@@ -122,10 +121,11 @@ async def clear_photo_cache():
 
 async def warmup_task():
     try:
-        from modules.bot_init import bot
         import os
         import random
         from pathlib import Path
+
+        from modules.bot_init import bot
 
         # Check if manual sync is active
         warmup_active = await redis_client.get("system_config:warmup_active")
@@ -243,12 +243,12 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
     """Проверяет и выдает ежедневный бонус (100 Энергии звезд) при отрисовке меню"""
     if not user:
         return
-        
+
     last_bonus_date_str = user.get("last_daily_bonus_date")
     now_date = datetime.datetime.now(datetime.timezone.utc).date()
-    
+
     should_give = False
-    
+
     if not last_bonus_date_str:
         should_give = True
     else:
@@ -258,19 +258,19 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
                 should_give = True
         except ValueError:
             should_give = True
-            
+
     if should_give:
         current_balance = int(user.get("balance", 0) or 0)
         new_balance = current_balance + 100
         await update_user(vk_id, {
-            "balance": new_balance, 
+            "balance": new_balance,
             "last_daily_bonus_date": now_date.isoformat()
         })
         try:
             from modules.bot_init import bot
             await bot.api.messages.send(
-                peer_id=peer_id, 
-                message=f"🎁 Твой ежедневный дар: +100 Энергии звезд.\nВозвращайся завтра за новой порцией. Твой баланс: {new_balance}.", 
+                peer_id=peer_id,
+                message=f"🎁 Твой ежедневный дар: +100 Энергии звезд.\nВозвращайся завтра за новой порцией. Твой баланс: {new_balance}.",
                 random_id=0
             )
         except Exception as e:
@@ -280,21 +280,21 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
 def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную инлайн клавиатуру с Картой дня и Путеводителем"""
     keyboard = Keyboard(inline=True)
-    
+
     keyboard.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
     keyboard.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
-    
+
     keyboard.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     keyboard.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
-    
+
     return keyboard.get_json()
 
 async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     """Генерирует инлайн клавиатуру для открытых (купленных) разделов"""
     # Заодно при отрисовке инлайн-кнопок меню выдадим бонус, если наступил новый день
     await check_and_give_daily_bonus(vk_id, user, vk_id)
-    
+
     purchased = user.get("purchased_sections", {}) if user else {}
     has_all = purchased.get("all") or (user and user.get("has_full_chart"))
     buttons = []
@@ -311,10 +311,10 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
 
     if purchased.get("final") or has_all:
         buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "final"}), "label": "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ"}, "color": "positive"}])
-        
+
     if purchased.get("antitaro"):
         buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "antitaro"}), "label": "АНТИТАРО"}, "color": "positive"}])
-        
+
     if purchased.get("synastry"):
         buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "synastry"}), "label": "👨‍❤️‍👨 СИНАСТРИЯ"}, "color": "positive"}])
 
@@ -368,7 +368,7 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
         logger.error(f"Ошибка PDF: {str(e)}")
         return False
 
-_typing_tasks = {}
+_typing_tasks: dict[int, asyncio.Task] = {}
 
 def stop_dynamic_typing(peer_id: int):
     """Cancels the typing task for a given peer_id if it exists."""

@@ -1,8 +1,8 @@
-import pytest
-import asyncio
-from unittest.mock import patch, MagicMock
-
 import os
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 
 def test_generate_premium_pdf():
     from modules.utils import generate_premium_pdf
