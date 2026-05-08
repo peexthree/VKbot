@@ -2,27 +2,15 @@ import asyncio
 import datetime
 import json
 import os
-<<<<<<< Updated upstream
-import aiofiles
-import datetime
-from vkbottle import Keyboard, KeyboardButtonColor, Callback, PhotoMessageUploader
-from loguru import logger
-=======
 
 import aiofiles
->>>>>>> Stashed changes
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
 # Global imports to avoid local import overhead
-<<<<<<< Updated upstream
-from database import update_user, get_user_state
-=======
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader
 from weasyprint import HTML
-
 from database import get_user_state, update_user
->>>>>>> Stashed changes
 
 # Global cache for cover photo IDs
 cover_cache: dict[str, str] = {}
@@ -293,14 +281,9 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
 
         new_balance = current_balance + 100
         await update_user(vk_id, {
-<<<<<<< Updated upstream
             "balance": new_balance,
             "last_daily_bonus_date": now_date.isoformat(),
             "visit_streak": visit_streak
-=======
-            "balance": new_balance,
-            "last_daily_bonus_date": now_date.isoformat()
->>>>>>> Stashed changes
         })
         try:
             from modules.bot_init import bot
@@ -316,22 +299,6 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
 def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную инлайн клавиатуру с Картой дня и Путеводителем"""
     keyboard = Keyboard(inline=True)
-<<<<<<< Updated upstream
-
-    # Главное
-    keyboard.add(Callback("🃏 СЕГОДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
-    keyboard.add(Callback("💳 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
-    keyboard.row()
-    keyboard.add(Callback("📖 ГРИМУАР", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Callback("🔮 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
-    keyboard.add(Callback("👥 СООБЩЕСТВО", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.SECONDARY)
-
-    # Быстрые действия
-    keyboard.row()
-    keyboard.add(Callback("🃏 Карта дня", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Callback("🌌 Синестрия", payload={"cmd": "buy_service", "service": "synastry"}), color=KeyboardButtonColor.SECONDARY)
-
-=======
 
     keyboard.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
     keyboard.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
@@ -340,7 +307,6 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     keyboard.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     keyboard.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
 
->>>>>>> Stashed changes
     return keyboard.get_json()
 
 async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:

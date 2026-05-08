@@ -1,21 +1,8 @@
 import asyncio
 import datetime
-<<<<<<< Updated upstream
-
-import re
-
-from vkbottle.bot import BotLabeler, Message
-from vkbottle import Keyboard, KeyboardButtonColor, Callback
-from database import get_user, update_user, set_user_state, delete_user
-from modules.states import MyStates
-from cache import get_tarot_names
-from modules.utils import SKIN_ASSETS
-from modules.utils import upload_local_photo, get_sections_keyboard
-=======
 import json
 import re
 
->>>>>>> Stashed changes
 from loguru import logger
 from vkbottle import (
     Callback,

@@ -6,18 +6,6 @@ import math
 import os
 import random
 import re
-<<<<<<< Updated upstream
-import datetime
-import os
-from vkbottle.bot import BotLabeler
-from vkbottle import DocMessagesUploader, Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType
-from vkbottle.tools.dev.keyboard.action import VKPay
-
-# Все импорты базы и сервисов — строго здесь
-from database import get_user, update_user, set_user_state, check_and_save_transaction
-from ai_service import generate_section
-from modules.utils import MockMsg
-=======
 
 from loguru import logger
 from vkbottle import (
@@ -33,31 +21,19 @@ from vkbottle.tools.dev.keyboard.action import VKPay
 
 from ai_service import generate_section
 from cache import acquire_lock, check_throttle, release_lock
->>>>>>> Stashed changes
 from cards_data import get_card_data
 
-<<<<<<< Updated upstream
-    generate_premium_pdf, get_fsm_step, upload_local_photo,
-    get_sections_keyboard, pdf_semaphore
-=======
 # Все импорты базы и сервисов — строго здесь
 from database import (
     check_and_save_transaction,
     get_user,
     set_user_state,
     update_user,
->>>>>>> Stashed changes
 )
 from modules.bot_init import bot
 from modules.profile import view_card_direct
 
 # Локальные импорты, перенесенные наверх
-<<<<<<< Updated upstream
-from modules.services import show_services
-from modules.services import show_tariffs
-from modules.profile import view_card_direct
-from modules.tarot import process_oracle_final, card_of_day_logic
-=======
 from modules.services import show_services, show_tariffs
 from modules.tarot import card_of_day_logic, process_oracle_final
 from modules.utils import (
@@ -69,7 +45,6 @@ from modules.utils import (
     pdf_semaphore,
     upload_local_photo,
 )
->>>>>>> Stashed changes
 
 labeler = BotLabeler()
 

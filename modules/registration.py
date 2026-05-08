@@ -1,14 +1,3 @@
-<<<<<<< Updated upstream
-from loguru import logger
-from modules.bot_init import bot
-from cache import acquire_lock, release_lock
-import json
-from vkbottle.bot import BotLabeler, Message
-from vkbottle import Keyboard, KeyboardButtonColor, Callback
-from database import get_user, update_user, set_user_state, get_user_state, create_user, delete_user
-from ai_service import extract_birth_data
-from modules.utils import get_sections_keyboard
-=======
 import json
 
 from loguru import logger
@@ -33,7 +22,6 @@ from modules.bot_init import bot
 from modules.utils import (
     get_sections_keyboard,
 )
->>>>>>> Stashed changes
 
 labeler = BotLabeler()
 
@@ -103,12 +91,8 @@ async def start_handler(message: Message):
         kb.add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
 
         await message.answer(
-<<<<<<< Updated upstream
-            f"✦ ДОБРО ПОЖАЛОВАТЬ В ЦИФРОВОЙ ГРИМУАР, {first_name.upper() if first_name else 'ИСКАТЕЛЬ'} ✦ 🔮\n\n"
-=======
             "✦ ДОБРО ПОЖАЛОВАТЬ В ЦИФРОВОЙ ГРИМУАР ✦ 🔮\n\n"
 
->>>>>>> Stashed changes
             "Я АНТИ-ТАР - твой проводник в мир глубокого самопознания. Здесь нет ванильных гороскопов - только жесткий, честный разбор твоей матрицы судьбы.\n\n"
             "Мы вскроем твои теневые стороны, финансовый потенциал и скрытую энергию. Никакой воды, только факты, которые изменят твое восприятие себя.\n\n"
             "Для инициализации профиля и получения приветственного дара в 700 Энергии звезд я считал твои данные из профиля:\n"

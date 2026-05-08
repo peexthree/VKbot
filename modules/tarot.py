@@ -2,18 +2,7 @@ import asyncio
 import datetime
 import json
 import random
-<<<<<<< Updated upstream
-import datetime
-from vkbottle.bot import BotLabeler, Message
-from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback
-from database import get_user, update_user, set_user_state
-from ai_service import generate_text, generate_section, extract_tags
-from modules.utils import (
-    get_fsm_step, upload_local_photo, get_sections_keyboard, start_dynamic_typing, stop_dynamic_typing
-)
-=======
 
->>>>>>> Stashed changes
 from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
 from vkbottle.bot import BotLabeler, Message

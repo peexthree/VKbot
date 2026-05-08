@@ -1,17 +1,5 @@
-<<<<<<< Updated upstream
-from modules.bot_init import bot
-import json
-from cache import acquire_lock, release_lock
-from modules.states import MyStates
-
-from vkbottle.bot import BotLabeler, Message
-from vkbottle import Keyboard, KeyboardButtonColor, Callback
-from database import get_user, set_user_state
-from modules.utils import get_fsm_step, upload_local_photo
-=======
 import json
 
->>>>>>> Stashed changes
 from loguru import logger
 from vkbottle import (
     Callback,
