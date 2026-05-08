@@ -25,6 +25,7 @@ async def handle_ping(request):
 async def main():
     from modules.bot_init import bot
     from database import get_all_users, update_user, init_db
+    from cache import load_tarot_names_sync
     from ai_service import generate_text, init_session, close_session
     
     # Инициализация глобальной сессии aiohttp
@@ -32,6 +33,9 @@ async def main():
 
     # Инициализация базы данных
     await init_db()
+
+    # Инициализация кэша таро
+    load_tarot_names_sync()
 
     # Импорт и регистрация обработчиков модулей
     import modules.registration as registration
@@ -62,6 +66,14 @@ async def main():
                     vk_id = user.get("vk_id")
                     if not vk_id or not user.get("birth_city"): 
                         return
+
+                    created_at_str = user.get("created_at")
+                    if created_at_str:
+                        import datetime
+                        created_at = datetime.datetime.fromisoformat(created_at_str)
+                        if (now - created_at).total_seconds() < 24 * 3600:
+                            # Onboarding pause: no daily pushes for the first 24h
+                            return
 
                     expires_str = user.get("transit_sub_expires_at")
                     has_sub = False

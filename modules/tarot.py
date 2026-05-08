@@ -15,51 +15,6 @@ from loguru import logger
 
 labeler = BotLabeler()
 
-async def is_waiting_oracle_cut(message: Message) -> bool:
-    if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
-        return False
-    if message.text and message.text.startswith("✦") and "ОБРЕЗАТЬ КОЛОДУ" not in message.text:
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "oracle_cut"
-
-@labeler.message(func=is_waiting_oracle_cut)
-async def process_oracle_cut(message: Message):
-    vk_id = message.from_id
-    if not await acquire_lock(vk_id):
-        return
-
-    try:
-        import json
-        import random
-        state_dict = await get_fsm_step(vk_id)
-        question = state_dict.get("question", "")
-
-        pool = list(range(0, 78))
-        random.shuffle(pool)
-        pool = pool[:10]
-
-        await set_user_state(vk_id, json.dumps({
-            "step": "oracle_draw",
-            "question": question,
-            "drawn_cards": [],
-            "pool": pool
-        }))
-
-        from vkbottle import Callback
-        kb = Keyboard(inline=True)
-        for i, card_id in enumerate(pool):
-            if i > 0 and i % 5 == 0:
-                kb.row()
-            kb.add(Callback("🎴", payload={"oracle_card": card_id}))
-
-        await message.answer(
-            "ШАГ 3 ИЗ 3: ВЫБОР КАРТ. Выбери из своей стопки ровно 3 карты",
-            keyboard=kb.get_json()
-        )
-    finally:
-        await release_lock(vk_id)
-
 async def process_oracle_final(vk_id: int, text: str, card_ids: list):
     logger.info(f"process_oracle_final triggered by vk_id={vk_id}")
     user = await get_user(vk_id)
@@ -82,41 +37,36 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
         c_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in card_ids]
 
-        messages = ["Настраиваюсь на вашу энергию...", "Раскладываю карты...", "Формирую ваш ответ..."]
-        delays = [1, 1, 2]
+        from modules.utils import SKIN_ASSETS, start_dynamic_typing, stop_dynamic_typing
 
-        for i in range(3):
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message=messages[i],
-                random_id=0
-            )
-            await asyncio.sleep(delays[i])
-
-        await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
-        await asyncio.sleep(4)
-
-        from modules.utils import SKIN_ASSETS
-        active_skin = user.get("active_skin", "olesya") if user else "olesya"
-        skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
-        if skin_att:
-            await bot.api.messages.send(peer_id=vk_id, message="", attachment=skin_att, random_id=0)
-
-        purchased = user.get("purchased_sections", {})
-        sex_val = purchased.get("sex_val", 0)
-        gender_str = "ЖЕНЩИНА" if sex_val == 1 else "МУЖЧИНА"
-
-        prompt = (
-            f"КОНТЕКСТ: {gender_str}. "
-            f"Пользователь задает вопрос: {text}. "
-            f"Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. "
-            "Сначала выведи: Карта [N]: [Название] - [Краткий смысл]. Только потом делай общий синтез."
+        msg_id = await bot.api.messages.send(
+            peer_id=vk_id,
+            message="Настраиваюсь на вашу энергию...",
+            random_id=0
         )
-
-        await bot.api.messages.send(peer_id=vk_id, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...", random_id=0)
         await bot.api.messages.set_activity(peer_id=vk_id, type="typing")
+        start_dynamic_typing(vk_id, vk_id, msg_id)
 
-        result_text = await generate_text(prompt, skin=active_skin)
+        try:
+            active_skin = user.get("active_skin", "olesya") if user else "olesya"
+            skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
+            if skin_att:
+                await bot.api.messages.send(peer_id=vk_id, message="", attachment=skin_att, random_id=0)
+
+            purchased = user.get("purchased_sections", {})
+            sex_val = purchased.get("sex_val", 0)
+            gender_str = "ЖЕНЩИНА" if sex_val == 1 else "МУЖЧИНА"
+
+            prompt = (
+                f"КОНТЕКСТ: {gender_str}. "
+                f"Пользователь задает вопрос: {text}. "
+                f"Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. "
+                "Сначала выведи: Карта [N]: [Название] - [Краткий смысл]. Только потом делай общий синтез."
+            )
+
+            result_text = await generate_text(prompt, skin=active_skin)
+        finally:
+            stop_dynamic_typing(vk_id)
         if not result_text:
             result_text = "Оракул молчит. Попробуй позже."
 
@@ -145,7 +95,9 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
         else:
             await update_user(vk_id, {"purchased_sections": purchased})
 
-        kb_json = await get_sections_keyboard(vk_id, user)
+        kb_dict = json.loads(await get_sections_keyboard(vk_id, user))
+        kb_dict["buttons"].insert(0, [{"action": {"type": "callback", "payload": json.dumps({"cmd": "generate_pdf_text", "text": result_text[:500], "title": "ОРАКУЛ"}), "label": "Сгенерировать PDF"}, "color": "primary"}])
+        kb_json = json.dumps(kb_dict, ensure_ascii=False)
 
         try:
             await bot.api.messages.send(
@@ -315,24 +267,16 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         if skin_att:
             await bot.api.messages.send(peer_id=peer_id, random_id=0, message="", attachment=skin_att)
 
-        await bot.api.messages.send(peer_id=peer_id, random_id=0, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...")
+        msg_id = await bot.api.messages.send(peer_id=peer_id, random_id=0, message="ЧИТАЮ ЛИНИИ ВЕРОЯТНОСТИ... Раскладываю карты...")
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
-        async def send_typing_indicator():
-            while True:
-                await asyncio.sleep(5)
-                try:
-                    await bot.api.messages.send(peer_id=peer_id, random_id=0, message="Ожидайте, идет генерация ответа...")
-                    await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
-                except Exception:
-                    pass
-
-        typing_task = asyncio.create_task(send_typing_indicator())
+        from modules.utils import start_dynamic_typing, stop_dynamic_typing
+        typing_task = start_dynamic_typing(vk_id, peer_id, msg_id)
 
         try:
             result_text = await generate_section("card_of_day", date, time, city, core_profile, first_name, sex_val, skin=active_skin, card_id=card_id, tags=tags)
         finally:
-            typing_task.cancel()
+            stop_dynamic_typing(vk_id)
 
         async def extract_and_save_tags(vk_id: int, text: str):
             new_tags = await extract_tags(text)
@@ -441,17 +385,15 @@ async def process_oracle_question(message: Message):
     try:
         import json
         text = message.text.strip()
-        await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": text}))
-        from vkbottle import Keyboard, KeyboardButtonColor, Text
+        await set_user_state(vk_id, "")
+        from vkbottle import Keyboard, KeyboardButtonColor, Callback
         kb = Keyboard(inline=True)
-        kb.add(Text("✦ ОБРЕЗАТЬ КОЛОДУ"), color=KeyboardButtonColor.PRIMARY)
-        try:
-            await message.answer(
-                "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду",
-                keyboard=kb.get_json()
-            )
-        except Exception as e:
-            await message.answer("ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду")
+        kb.add(Callback("✦ ОПЛАТИТЬ И РАСКРЫТЬ", payload={"cmd": "pay_and_reveal", "key": "oracle", "question": text}), color=KeyboardButtonColor.POSITIVE)
+
+        await message.answer(
+            "Вопрос принят. Стоимость: 500 Энергии звезд.\n\nЖми кнопку ниже, чтобы начать таинство.",
+            keyboard=kb.get_json()
+        )
     finally:
         await release_lock(vk_id)
 

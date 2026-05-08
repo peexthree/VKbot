@@ -365,6 +365,20 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int):
 
     tarot_names = await get_tarot_names()
 
+    has_all_major = all(str(i) in unlocked_cards for i in range(22))
+    purchased_skins = user.get("purchased_skins", [])
+    if has_all_major and "Магистр" not in purchased_skins:
+        purchased_skins.append("Магистр")
+        await update_user(vk_id, {"purchased_skins": purchased_skins})
+        try:
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message="🔮 НЕВЕРОЯТНО! Ты собрал все 22 Старших Аркана.\n\nЗа твою преданность матрице тебе открыт уникальный скин «Магистр». Зайди в Настройки, чтобы активировать его.",
+                random_id=0
+            )
+        except Exception:
+            pass
+
     unlocked_items = []
     for i in range(78):
         card_id_str = str(i)
@@ -496,6 +510,8 @@ async def god_mode_handler(message: Message):
         await update_user(vk_id, {"balance": new_balance})
 
         user = await get_user(vk_id)
+        if not user:
+            return
         kb_json = await get_sections_keyboard(vk_id, user)
 
         try:
@@ -527,14 +543,20 @@ async def syndicate_dashboard_handler(message: Message):
 
     if syndicate_count >= 5:
         rank = "Теневой Кардинал"
+        next_goal = "Максимальный ранг достигнут"
     elif syndicate_count >= 1:
         rank = "Вербовщик"
+        needed = 5 - syndicate_count
+        next_goal = f"До статуса Теневой Кардинал осталось {needed} адепта"
     else:
         rank = "Одиночка"
+        needed = 1 - syndicate_count
+        next_goal = f"До статуса Вербовщик осталось {needed} адепта"
 
     text = (
         "🕸 СИНДИКАТ АНТИ-ТАР 🕸\n\n"
         f"Твой текущий ранг: {rank}\n"
+        f"{next_goal}\n\n"
         f"Завербовано адептов: {syndicate_count}\n"
         f"Сгенерировано энергии: {syndicate_energy} ✨\n\n"
         "Расширяй свою матрицу. За каждого нового адепта ты получаешь 500 чистой Энергии звезд."
@@ -576,7 +598,7 @@ async def get_seal_handler(message: Message):
         "📜 ТВОЯ ПЕЧАТЬ ПРИЗЫВА\n\n"
         f"Код твоей Печати: ПЕЧАТЬ-{vk_id}\n\n"
         "Отправь этот код новому адепту, или скинь ему прямую ссылку: "
-        f"https://vk.com/im?sel=-225575503&text=ПЕЧАТЬ-{vk_id}\n\n"
+        f"https://vk.com/im?sel=-219181948&text=ПЕЧАТЬ-{vk_id}\n\n"
         "Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд."
     )
     await message.answer(text)

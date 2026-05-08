@@ -183,6 +183,8 @@ async def message_event_handler(event: dict):
 
         elif cmd == "main_menu":
             user = await get_user(vk_id)
+            if not user:
+                return
             kb_json = await get_sections_keyboard(vk_id, user)
             await bot.api.messages.send(peer_id=peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, random_id=0)
 
@@ -199,6 +201,103 @@ async def message_event_handler(event: dict):
             await card_of_day_logic(vk_id, peer_id)
             return
 
+        elif cmd == "generate_pdf_text":
+            text_to_pdf = payload.get("text", "Разбор")
+            title = payload.get("title", "ОТВЕТ")
+            await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF...", random_id=0)
+
+            pdf_name = f"report_{vk_id}_{title}.pdf"
+            user = await get_user(vk_id)
+            if not user: return
+
+            b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
+            first_name = user.get("purchased_sections", {}).get("first_name", "Странник")
+
+            try:
+                async with pdf_semaphore:
+                    import asyncio
+                    from modules.utils import generate_premium_pdf
+                    await asyncio.to_thread(generate_premium_pdf, first_name, b_info, title, text_to_pdf, pdf_name)
+
+                doc = await DocMessagesUploader(bot.api).upload(title=f"{title}.pdf", file_source=pdf_name, peer_id=peer_id)
+                await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл:", attachment=doc, random_id=0)
+            except Exception as e:
+                logger.error(f"Error PDF: {str(e)}")
+            finally:
+                if os.path.exists(pdf_name):
+                    os.remove(pdf_name)
+            return
+
+        elif cmd == "pay_and_reveal":
+            key = payload.get("key")
+            partner_name = payload.get("partner_name", "")
+            partner_date = payload.get("partner_date", "")
+            question = payload.get("question", "")
+
+            prices = {
+                "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
+                "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500
+            }
+            amount_needed = prices.get(key)
+            if not amount_needed: return
+
+            user = await get_user(vk_id)
+            if not user: return
+
+            balance = int(user.get("balance", 0) or 0)
+            bonuses = int(user.get("bonuses", 0) or 0)
+            if bonuses > 0:
+                balance = (balance * 10) + bonuses
+                await update_user(vk_id, {"balance": balance, "bonuses": 0})
+
+            if balance >= amount_needed:
+                new_balance = balance - amount_needed
+                await update_user(vk_id, {"balance": new_balance})
+
+                # Execute purchase logic
+                purchased = user.get("purchased_sections", {})
+                if key == "all":
+                    purchased.update({"sex": True, "money": True, "shadow": True, "final": True})
+                    await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
+                    # await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0)
+                elif key == "oracle":
+                    purchased["oracle_access"] = True
+                    await update_user(vk_id, {"purchased_sections": purchased})
+                    await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": question}))
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("✦ ОБРЕЗАТЬ КОЛОДУ", payload={"cmd": "oracle_cut"}), color=KeyboardButtonColor.SECONDARY)
+                    await bot.api.messages.edit(peer_id=peer_id, message="УСЛУГА АКТИВИРОВАНА.\nШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Вопрос принят. Жми кнопку ниже, чтобы обрезать колоду", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+                    return
+                else:
+                    purchased[key] = True
+                    await update_user(vk_id, {"purchased_sections": purchased})
+
+                await set_user_state(vk_id, json.dumps({
+                    "step": "global_cut", "target_section": key,
+                    "partner_name": partner_name, "partner_date": partner_date
+                }))
+                kb = Keyboard(inline=True)
+                kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
+                await bot.api.messages.edit(peer_id=peer_id, message="УСЛУГА АКТИВИРОВАНА.\nШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+            else:
+                diff_energy = amount_needed - balance
+                diff_rubles = math.ceil(diff_energy / 10)
+
+                kb = Keyboard(inline=True)
+                kb.add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}"))
+                kb.row()
+                kb.add(Text("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
+
+                msg_text = (
+                    f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\n"
+                    f"Твой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\n"
+                    f"Пополни баланс на {diff_energy} Энергии ({diff_rubles} руб.) или пригласи друга."
+                )
+                try:
+                    await bot.api.messages.edit(peer_id=peer_id, message=msg_text, keyboard=kb.get_json(), conversation_message_id=obj.get("conversation_message_id"))
+                except Exception:
+                    await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb.get_json(), random_id=0)
+
         elif cmd == "buy":
             buy_type = payload.get("type")
             key = payload.get("key")
@@ -211,6 +310,21 @@ async def message_event_handler(event: dict):
             
             amount_needed = prices.get(key)
             if not amount_needed: return
+
+            if buy_type == "service":
+                if key == "synastry":
+                    await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name", "target_section": key}))
+                    await bot.api.messages.send(peer_id=peer_id, message="Для анализа синастрии мне нужно имя партнера. Введите ИМЯ партнера:", random_id=0)
+                    return
+                elif key == "oracle":
+                    await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question", "target_section": key}))
+                    await bot.api.messages.send(peer_id=peer_id, message="Напиши свой ВОПРОС СУДЬБЕ. Будь краток и честен:", random_id=0)
+                    return
+                else:
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("✦ ОПЛАТИТЬ И РАСКРЫТЬ", payload={"cmd": "pay_and_reveal", "key": key}), color=KeyboardButtonColor.POSITIVE)
+                    await bot.api.messages.send(peer_id=peer_id, message=f"Ритуал готов. Стоимость: {amount_needed} Энергии звезд.\n\nЖми кнопку ниже, чтобы начать таинство.", keyboard=kb.get_json(), random_id=0)
+                    return
 
             user = await get_user(vk_id)
             if not user: return
@@ -228,7 +342,9 @@ async def message_event_handler(event: dict):
                 await update_user(vk_id, {"balance": new_balance})
                 
                 if buy_type == "service":
-                    await process_payment_and_generate(vk_id, key)
+                    # This block shouldn't be executed for services anymore,
+                    # because we intercept it before deducting balance.
+                    pass
                 elif buy_type == "tariff":
                     days = 7 if key == "tariff_1" else 30
                     now = datetime.datetime.now(datetime.timezone.utc)
@@ -292,6 +408,35 @@ async def message_event_handler(event: dict):
         elif cmd == "view_card":
             card_id = str(payload.get("id"))
             await view_card_direct(vk_id, peer_id, card_id)
+
+        elif cmd == "oracle_cut":
+            state_dict = await get_fsm_step(vk_id)
+            if not state_dict or state_dict.get("step") != "oracle_cut": return
+            question = state_dict.get("question", "")
+
+            pool = list(range(0, 78))
+            random.shuffle(pool)
+            pool = pool[:10]
+
+            await set_user_state(vk_id, json.dumps({
+                "step": "oracle_draw",
+                "question": question,
+                "drawn_cards": [],
+                "pool": pool
+            }))
+
+            kb = Keyboard(inline=True)
+            for i, card_id in enumerate(pool):
+                if i > 0 and i % 5 == 0:
+                    kb.row()
+                kb.add(Callback("🎴", payload={"oracle_card": card_id}))
+
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message="ШАГ 3 ИЗ 3: ВЫБОР КАРТ. Выбери из своей стопки ровно 3 карты",
+                conversation_message_id=obj.get("conversation_message_id"),
+                keyboard=kb.get_json()
+            )
 
         elif cmd == "global_cut":
             # Если в payload передан target (например, "welcome" для первого разбора), сохраняем его в стейт
@@ -499,7 +644,7 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         if not user: return
 
         # 1. Показываем прогресс
-        await bot.api.messages.send(peer_id=peer_id, message="🔮 Начинаю таинство разбора. Это займет около минуты...", random_id=0)
+        msg_id = await bot.api.messages.send(peer_id=peer_id, message="🔮 Начинаю таинство разбора. Это займет около минуты...", random_id=0)
 
         # 2. Формируем данные
         p = user.get("purchased_sections", {})
@@ -509,13 +654,19 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         # 3. Генерация текста
         await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
-        res_text = await generate_section(
-            target_section, user.get("birth_date"), user.get("birth_time"),
-            user.get("birth_city"), user.get("core_profile", ""),
-            p.get("first_name", ""), p.get("sex_val", 0),
-            partner_name=partner_name, partner_date=partner_date, skin=active_skin,
-            card_id=card_id, card_data=card_data, tags=tags
-        )
+        from modules.utils import start_dynamic_typing, stop_dynamic_typing
+        start_dynamic_typing(vk_id, peer_id, msg_id)
+
+        try:
+            res_text = await generate_section(
+                target_section, user.get("birth_date"), user.get("birth_time"),
+                user.get("birth_city"), user.get("core_profile", ""),
+                p.get("first_name", ""), p.get("sex_val", 0),
+                partner_name=partner_name, partner_date=partner_date, skin=active_skin,
+                card_id=card_id, card_data=card_data, tags=tags
+            )
+        finally:
+            stop_dynamic_typing(vk_id)
 
         if res_text:
             # Очищаем текст от тех. тегов ID_ТАРО

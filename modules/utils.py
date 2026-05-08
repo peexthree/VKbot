@@ -43,7 +43,8 @@ SKIN_ASSETS = {
     "Виктория Райдес": "v.jpeg",
     "Александр Шеппс": "a.jpeg",
     "Баба Ванга": "ba.jpeg",
-    "Григорий Распутин": "r.jpeg"
+    "Григорий Распутин": "r.jpeg",
+    "Магистр": "as.jpeg"
 }
 
 # Pre-initialize Jinja2 Environment for faster PDF generation
@@ -317,6 +318,9 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
 
     if not buttons:
         buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": 0}), "label": "✦ УСЛУГИ 🛒"}, "color": "secondary"}])
+    else:
+        # Add 'Вернуться в услуги' to the end if there are other buttons
+        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": 0}), "label": "Вернуться в услуги"}, "color": "secondary"}])
 
     keyboard_obj = {
         "inline": True,
@@ -364,3 +368,46 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
     except Exception as e:
         logger.error(f"Ошибка PDF: {str(e)}")
         return False
+
+
+# Глобальный реестр фоновых задач (typing tasks)
+_typing_tasks = {}
+
+def start_dynamic_typing(vk_id: int, peer_id: int, msg_id: int):
+    """
+    Запускает фоновую задачу, которая каждые 10 секунд меняет текст сервисного сообщения
+    из пула THEATRICAL_PHRASES. Убивает предыдущую задачу для этого vk_id, если она была.
+    """
+    from modules.bot_init import bot
+    import asyncio
+    import random
+    from loguru import logger
+
+    if vk_id in _typing_tasks:
+        _typing_tasks[vk_id].cancel()
+        del _typing_tasks[vk_id]
+
+    async def typing_loop():
+        try:
+            while True:
+                await asyncio.sleep(10)
+                phrase = random.choice(THEATRICAL_PHRASES)
+                try:
+                    await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+                    await bot.api.messages.edit(peer_id=peer_id, message_id=msg_id, message=phrase, keep_forward_messages=1)
+                except Exception as e:
+                    pass
+        except asyncio.CancelledError:
+            try:
+                await bot.api.messages.delete(message_ids=[msg_id], peer_id=peer_id, delete_for_all=True)
+            except Exception:
+                pass
+
+    task = asyncio.create_task(typing_loop())
+    _typing_tasks[vk_id] = task
+    return task
+
+def stop_dynamic_typing(vk_id: int):
+    if vk_id in _typing_tasks:
+        _typing_tasks[vk_id].cancel()
+        del _typing_tasks[vk_id]

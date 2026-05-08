@@ -44,35 +44,21 @@ async def set_fsm_state(vk_id: int | str, state_data: str, ttl: int = 86400):
 async def get_fsm_state(vk_id: int | str):
     return await redis_client.get(f"fsm:{vk_id}")
 
-TAROT_NAMES_CACHE = None
+TAROT_NAMES_CACHE = {}
+
+def load_tarot_names_sync():
+    global TAROT_NAMES_CACHE
+    from loguru import logger
+    try:
+        with open("tarot_ids.json", "r", encoding="utf-8") as f:
+            TAROT_NAMES_CACHE = json.load(f)
+            logger.info("Tarot names loaded into global cache successfully.")
+    except Exception as e:
+        logger.error(f"Ошибка загрузки имен таро из файла: {str(e)}")
+        TAROT_NAMES_CACHE = {}
 
 async def get_tarot_names() -> dict:
     global TAROT_NAMES_CACHE
-    if TAROT_NAMES_CACHE is not None:
-        return TAROT_NAMES_CACHE
-
-    from loguru import logger
-    try:
-        cached = await redis_client.get("system:tarot_names")
-        if cached:
-            try:
-                TAROT_NAMES_CACHE = json.loads(cached)
-                return TAROT_NAMES_CACHE
-            except Exception as e:
-                logger.error(f"Ошибка декодирования имен таро из кэша: {str(e)}")
-    except Exception as e:
-        logger.error(f"Ошибка получения имен таро из кэша: {str(e)}")
-
-    try:
-        async with aiofiles.open("tarot_ids.json", "r", encoding="utf-8") as f:
-            content = await f.read()
-            names = json.loads(content)
-            TAROT_NAMES_CACHE = names
-            try:
-                await redis_client.set("system:tarot_names", json.dumps(names, ensure_ascii=False))
-            except Exception as e:
-                logger.error(f"Ошибка сохранения имен таро в кэш: {str(e)}")
-            return names
-    except Exception as e:
-        logger.error(f"Ошибка загрузки имен таро из файла: {str(e)}")
-        return {}
+    if not TAROT_NAMES_CACHE:
+        load_tarot_names_sync()
+    return TAROT_NAMES_CACHE
