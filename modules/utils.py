@@ -10,6 +10,8 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 # Global imports to avoid local import overhead
+from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback, PhotoMessageUploader
+
 from database import update_user, get_user_state
 
 # Global cache for cover photo IDs
@@ -276,15 +278,15 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
 
 
 def get_dynamic_keyboard(user: dict | None = None) -> str:
-    """Генерирует главную (нижнюю) клавиатуру с Картой дня и Путеводителем"""
-    keyboard = Keyboard(inline=False)
+    """Генерирует главную инлайн клавиатуру с Картой дня и Путеводителем"""
+    keyboard = Keyboard(inline=True)
     
-    keyboard.add(Text("🃏 КАРТА ДНЯ"), color=KeyboardButtonColor.PRIMARY)
-    keyboard.add(Text("🔮 ГЛУБОКИЕ РАЗБОРЫ"), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
     
-    keyboard.add(Text("💳 МОЙ ПРОФИЛЬ"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("📖 ПУТЕВОДИТЕЛЬ"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
     
     return keyboard.get_json()
 
@@ -383,13 +385,20 @@ async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
     async def _typing_loop():
         # Keep track of the last phrase to avoid visual duplication
         last_phrase = None
+        # We need a message to edit rather than sending new messages to prevent chat spam
+        msg_id = None
+
         while True:
             try:
                 available_phrases = [p for p in THEATRICAL_PHRASES if p != last_phrase]
                 phrase = random.choice(available_phrases) if available_phrases else random.choice(THEATRICAL_PHRASES)
                 last_phrase = phrase
 
-                await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
+                if msg_id is None:
+                    resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
+                    msg_id = resp
+                else:
+                    await bot_api.messages.edit(peer_id=peer_id, message=phrase, message_id=msg_id)
                 await bot_api.messages.set_activity(peer_id=peer_id, type="typing")
             except Exception:
                 pass

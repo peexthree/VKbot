@@ -12,6 +12,7 @@ from vkbottle import PhotoMessageUploader, VoiceMessageUploader, DocMessagesUplo
 from database import get_user, update_user, set_user_state, get_user_state, create_user, delete_user
 from ai_service import generate_text, generate_section
 from ai_service import extract_birth_data
+from loguru import logger
 from modules.utils import get_fsm_step, upload_local_photo, get_dynamic_keyboard, get_sections_keyboard, cover_cache
 
 labeler = BotLabeler()
@@ -36,6 +37,7 @@ async def start_handler(message: Message):
 
     try:
         user = await get_user(vk_id)
+        if not user: return
 
         first_name = ""
         sex = 0
