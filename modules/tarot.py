@@ -63,9 +63,27 @@ async def process_oracle_cut(message: Message):
     finally:
         await release_lock(vk_id)
 
-async def process_oracle_final(vk_id: int, text: str, card_ids: list):
+async def process_oracle_final(vk_id: int, text: str, card_ids: list, **kwargs):
     if not await acquire_lock(vk_id): return
     try:
+        event_id = kwargs.get("event_id")
+        conv_msg_id = kwargs.get("conversation_message_id")
+        message_id = kwargs.get("message_id")
+
+        if event_id:
+            try:
+                await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=vk_id)
+            except Exception: pass
+
+        if conv_msg_id:
+            try:
+                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="Раскладываю карты...", keyboard=Keyboard(inline=True).get_json())
+            except Exception: pass
+        elif message_id:
+            try:
+                await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message="Раскладываю карты...", keyboard=Keyboard(inline=True).get_json())
+            except Exception: pass
+
         logger.info(f"process_oracle_final triggered for vk_id={vk_id}")
         user = await get_user(vk_id)
         if not user:
@@ -98,7 +116,13 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
         result_text = await generate_text(prompt, skin=active_skin)
 
         if not result_text:
-            await bot.api.messages.send(peer_id=vk_id, message="Оракул молчит. Попробуй позже.", random_id=0)
+            err_msg = "Оракул молчит. Попробуй позже."
+            if conv_msg_id:
+                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=err_msg)
+            elif message_id:
+                await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message=err_msg)
+            else:
+                await bot.api.messages.send(peer_id=vk_id, message=err_msg, random_id=0)
             return
 
         # Обновляем состояние Оракула и личный Гримуар
@@ -118,15 +142,31 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
         })
 
         kb_json = await get_sections_keyboard(vk_id, user)
-        await bot.api.messages.send(
-            peer_id=vk_id, message=result_text, keyboard=kb_json, random_id=0, attachment=",".join(attachments)
-        )
+
+        if conv_msg_id:
+            try:
+                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=result_text, keyboard=kb_json, attachment=",".join(attachments))
+            except Exception:
+                await bot.api.messages.send(peer_id=vk_id, message=result_text, keyboard=kb_json, random_id=0, attachment=",".join(attachments))
+        elif message_id:
+            try:
+                await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message=result_text, keyboard=kb_json, attachment=",".join(attachments))
+            except Exception:
+                await bot.api.messages.send(peer_id=vk_id, message=result_text, keyboard=kb_json, random_id=0, attachment=",".join(attachments))
+        else:
+            await bot.api.messages.send(peer_id=vk_id, message=result_text, keyboard=kb_json, random_id=0, attachment=",".join(attachments))
 
     except Exception as e:
         logger.error(f"Ошибка в Оракуле: {e}")
         try:
-            await bot.api.messages.send(peer_id=vk_id, message="Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже.", random_id=0)
-        except Exception as e:
+            err_msg = "Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже."
+            if conv_msg_id:
+                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=err_msg)
+            elif message_id:
+                await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message=err_msg)
+            else:
+                await bot.api.messages.send(peer_id=vk_id, message=err_msg, random_id=0)
+        except Exception:
             pass
     finally:
         stop_dynamic_typing(vk_id)
@@ -134,25 +174,49 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list):
 
 @labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня", "🃏 КАРТА ДНЯ"])
 async def card_of_day_handler(message: Message):
-    await card_of_day_logic(message.from_id, message.peer_id)
+    msg_id = await message.answer("Открываю гримуар...", keyboard=Keyboard(inline=True).get_json())
+    await card_of_day_logic(message.from_id, message.peer_id, message_id=msg_id)
 
-async def card_of_day_logic(vk_id: int, peer_id: int):
+async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
     if not await acquire_lock(vk_id):
         return
 
-    user = await get_user(vk_id)
-    if not user:
-        await release_lock(vk_id)
-        return
-
     try:
+        event_id = kwargs.get("event_id")
+        conv_msg_id = kwargs.get("conversation_message_id")
+        message_id = kwargs.get("message_id")
+
+        if event_id:
+            try:
+                await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+            except Exception: pass
+
+        if conv_msg_id:
+            try:
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message="Достаю карту...", keyboard=Keyboard(inline=True).get_json())
+            except Exception: pass
+        elif message_id:
+            try:
+                await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message="Достаю карту...", keyboard=Keyboard(inline=True).get_json())
+            except Exception: pass
+
+        user = await get_user(vk_id)
+        if not user:
+            return
+
         # Проверка лимита 24 часа
         purchased = user.get("purchased_sections", {})
         last_used_str = purchased.get("card_of_day_last_used")
         if last_used_str:
             last_time = datetime.datetime.fromisoformat(last_used_str)
             if (datetime.datetime.now(datetime.timezone.utc) - last_time).total_seconds() < 24 * 3600:
-                await bot.api.messages.send(peer_id=vk_id, message="Твой лимит на сегодня исчерпан. Попробуй завтра или спроси Оракула.", random_id=0)
+                err_msg = "Твой лимит на сегодня исчерпан. Попробуй завтра или спроси Оракула."
+                if conv_msg_id:
+                    await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=err_msg)
+                elif message_id:
+                    await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message=err_msg)
+                else:
+                    await bot.api.messages.send(peer_id=vk_id, message=err_msg, random_id=0)
                 return
 
         await start_dynamic_typing(peer_id, bot.api)
@@ -195,13 +259,30 @@ async def card_of_day_logic(vk_id: int, peer_id: int):
         else:
             final_kb = await get_sections_keyboard(vk_id, user)
 
-        await bot.api.messages.send(peer_id=vk_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+        if conv_msg_id:
+            try:
+                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=result_text, attachment=photo, keyboard=final_kb)
+            except Exception:
+                await bot.api.messages.send(peer_id=vk_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+        elif message_id:
+            try:
+                await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message=result_text, attachment=photo, keyboard=final_kb)
+            except Exception:
+                await bot.api.messages.send(peer_id=vk_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+        else:
+            await bot.api.messages.send(peer_id=vk_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
 
     except Exception as e:
         logger.error(f"Ошибка в Карте Дня: {e}")
         try:
-            await bot.api.messages.send(peer_id=vk_id, message="Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже.", random_id=0)
-        except Exception as e:
+            err_msg = "Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже."
+            if conv_msg_id:
+                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=err_msg)
+            elif message_id:
+                await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message=err_msg)
+            else:
+                await bot.api.messages.send(peer_id=vk_id, message=err_msg, random_id=0)
+        except Exception:
             pass
     finally:
         stop_dynamic_typing(peer_id)
