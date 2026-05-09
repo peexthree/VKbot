@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 from ai_service import extract_tags, init_session, close_session
 

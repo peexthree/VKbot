@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import datetime
 import json
@@ -378,7 +379,7 @@ async def handle_global_draw(vk_id: int, peer_id: int, payload: dict, conv_msg_i
             card_id=card_id,
             card_data=card_data
         )
-finally:
+    finally:
         await release_lock(f"global_draw:{vk_id}")
 # ====================== ГЕНЕРАЦИЯ РАЗБОРА ======================
 async def execute_generation(vk_id: int, peer_id: int, target_section: str, partner_name: str = "", partner_date: str = "", card_id: str = None, card_data: dict = None):

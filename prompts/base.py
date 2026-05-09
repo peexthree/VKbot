@@ -1,3 +1,4 @@
+from __future__ import annotations
 BASE_SYSTEM_INSTRUCTION = (
     "Стиль ответа (строго соблюдать):\n"
     "1. Никакого Markdown. СТРОГО ЗАПРЕЩЕНО использовать звездочки, решетки, подчеркивания.\n"
