@@ -10,7 +10,6 @@ import aiofiles
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader
-from weasyprint import HTML
 
 from cache import acquire_lock, redis_client, release_lock
 from database import get_user_state, update_user
@@ -223,7 +222,123 @@ def get_dynamic_keyboard() -> str:
     return kb.get_json()
 
 
-# ... (get_sections_keyboard, check_and_give_daily_bonus, generate_premium_pdf, MockMsg — оставил без изменений, они были в порядке)
+
+
+async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int):
+    """Проверяет и выдает ежедневный бонус (100 Энергии звезд) при отрисовке меню"""
+    if not user:
+        return
+
+    from database import update_user
+    import datetime
+
+    last_bonus_date_str = user.get("last_daily_bonus_date")
+    now_date = datetime.datetime.now(datetime.timezone.utc).date()
+
+    should_give = False
+
+    if not last_bonus_date_str:
+        should_give = True
+    else:
+        try:
+            last_bonus_date = datetime.date.fromisoformat(last_bonus_date_str)
+            if now_date > last_bonus_date:
+                should_give = True
+        except ValueError:
+            should_give = True
+
+    if should_give:
+        current_balance = int(user.get("balance", 0) or 0)
+        new_balance = current_balance + 100
+        await update_user(vk_id, {
+            "balance": new_balance,
+            "last_daily_bonus_date": now_date.isoformat()
+        })
+        try:
+            from modules.bot_init import bot
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message=f"🎁 Твой ежедневный дар: +100 Энергии звезд.\nВозвращайся завтра за новой порцией. Твой баланс: {new_balance}.",
+                random_id=0
+            )
+        except Exception as e:
+            logger.error(f"Failed to send daily bonus notification: {e}")
+
+async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
+    await check_and_give_daily_bonus(vk_id, user, vk_id)
+
+    purchased = user.get("purchased_sections", {}) if user else {}
+    buttons = []
+
+    # Если куплен Секс, но результат еще не сгенерирован
+    if purchased.get("sex"):
+        buttons.append([{"action": {"type": "text", "label": "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ"}, "color": "positive"}])
+
+    if purchased.get("money"):
+        buttons.append([{"action": {"type": "text", "label": "💰 КОД ТВОЕГО БОГАТСТВА"}, "color": "positive"}])
+
+    if purchased.get("shadow"):
+        buttons.append([{"action": {"type": "text", "label": "🌘 ТВОИ СКРЫТЫЕ ГРАНИ"}, "color": "positive"}])
+
+    if purchased.get("final"):
+        buttons.append([{"action": {"type": "text", "label": "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ"}, "color": "positive"}])
+
+    if purchased.get("antitaro"):
+        buttons.append([{"action": {"type": "text", "label": "АНТИТАРО"}, "color": "positive"}])
+
+    if purchased.get("synastry"):
+        buttons.append([{"action": {"type": "text", "label": "👨‍❤️‍👨 СИНАСТРИЯ"}, "color": "positive"}])
+
+    if not buttons:
+        buttons.append([{"action": {"type": "text", "label": "✦ УСЛУГИ 🛒"}, "color": "secondary"}])
+
+    keyboard_obj = {
+        "inline": True,
+        "buttons": buttons
+    }
+
+    import json
+    return json.dumps(keyboard_obj, ensure_ascii=False)
+
+async def get_fsm_step(vk_id: int) -> dict | None:
+    data = await get_user_state(vk_id)
+    if data:
+        try:
+            import json
+            return json.loads(data)
+        except Exception:
+            return None
+    return None
+
+def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, text_content: str, output_filename: str, card_id: str | None = None) -> bool:
+    """Генерация PDF с lazy WeasyPrint — решает OOM на Render"""
+    try:
+        from weasyprint import HTML   # ← LAZY IMPORT здесь!
+
+        template = jinja_env.get_template('report.html')
+        formatted_text = text_content.replace('\n', '<br>')
+
+        card_image_uri = ""
+        if card_id:
+            local_path = os.path.abspath(f"cards/{card_id}.jpeg")
+            if os.path.exists(local_path):
+                card_image_uri = f"file://{local_path}"
+
+        html_out = template.render(
+            user_name=user_name,
+            birth_info=birth_info,
+            section_name=section_name,
+            text_content=formatted_text,
+            card_image_path=card_image_uri
+        )
+
+        HTML(string=html_out).write_pdf(output_filename)
+        logger.info(f"PDF создан: {output_filename}")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка PDF: {str(e)}")
+        return False
+
 
 # ====================== LEGACY COMPAT ======================
 class MockMsg:
