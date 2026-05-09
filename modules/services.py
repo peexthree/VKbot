@@ -21,17 +21,26 @@ labeler = BotLabeler()
 
 @labeler.message(text=["🔮 ГЛУБОКИЕ РАЗБОРЫ", "ГЛУБОКИЕ РАЗБОРЫ", "✦ Услуги", "Услуги", "✦ УСЛУГИ 🛒"])
 async def show_services_handler(message: Message):
-    logger.info(f"show_services_handler triggered by from_id={message.from_id}")
-    await show_services(message.from_id, message.peer_id, 0)
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id):
+        return
+    try:
+        logger.info(f"show_services_handler triggered by from_id={vk_id}")
+        await show_services(vk_id, message.peer_id, 0)
+    finally:
+        await release_lock(vk_id)
 
-async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
+async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None, event_id: str = None):
 
 
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
         try:
-            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
+            if edit_msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, message_id=edit_msg_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
         return
@@ -93,6 +102,27 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         }
     ]
 
+    if event_id:
+        try:
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id,
+                user_id=vk_id,
+                peer_id=peer_id
+            )
+        except Exception as e:
+            logger.error(f"Ignored event answer error: {str(e)}")
+
+    if edit_msg_id:
+        try:
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message_id=edit_msg_id,
+                message="Открываю гримуар...",
+                keyboard=Keyboard(inline=True).get_json()
+            )
+        except Exception:
+            pass
+
     elements = []
     for svc in services:
         att = await upload_local_photo(bot.api, svc['image_name'], peer_id=vk_id) if svc['image_name'] else None
@@ -139,11 +169,17 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     msg_text = "✦ ВИТРИНА УСЛУГ ✦\nВыберите услугу и нажмите 'КУПИТЬ'."
 
     try:
-        await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
+        if edit_msg_id:
+            await bot.api.messages.edit(peer_id=peer_id, message_id=edit_msg_id, message=msg_text, template=template_json)
+        else:
+            await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
     except Exception as e:
         logger.error(f"Error sending service carousel: {str(e)}")
         try:
-            await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+            if edit_msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, message_id=edit_msg_id, message=msg_text)
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
 
@@ -245,16 +281,25 @@ async def process_synastry_city(message: Message):
 
 @labeler.message(text=["🛰 ТАРИФЫ"])
 async def show_tariffs_handler(message: Message):
-    await show_tariffs(message.from_id, message.peer_id, 0)
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id):
+        return
+    try:
+        await show_tariffs(vk_id, message.peer_id, 0)
+    finally:
+        await release_lock(vk_id)
 
-async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
+async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None, event_id: str = None):
 
 
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
         try:
-            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
+            if edit_msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, message_id=edit_msg_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
         return
@@ -279,6 +324,27 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
             "image_name": "uslugi/VIPTOP.jpg"
         }
     ]
+
+    if event_id:
+        try:
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id,
+                user_id=vk_id,
+                peer_id=peer_id
+            )
+        except Exception as e:
+            logger.error(f"Ignored event answer error: {str(e)}")
+
+    if edit_msg_id:
+        try:
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                message_id=edit_msg_id,
+                message="Открываю гримуар...",
+                keyboard=Keyboard(inline=True).get_json()
+            )
+        except Exception:
+            pass
 
     elements = []
     for svc in tariffs:
@@ -319,10 +385,16 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     msg_text = "🛰 ТАРИФЫ 🛰\nВыберите тариф и нажмите 'КУПИТЬ'."
 
     try:
-        await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
+        if edit_msg_id:
+            await bot.api.messages.edit(peer_id=peer_id, message_id=edit_msg_id, message=msg_text, template=template_json)
+        else:
+            await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
     except Exception as e:
         logger.error(f"Error sending tariff carousel: {str(e)}")
         try:
-            await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+            if edit_msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, message_id=edit_msg_id, message=msg_text)
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
