@@ -147,11 +147,7 @@ async def daily_forecast_cron():
 
 
 async def main():
-    from ai_service import close_session, init_session
-    from database import init_db
-    from modules.middlewares import ThrottleMiddleware
-
-    # Health-check сервер для Render
+    # Health-check сервер для Render (запускаем самым первым!)
     app = web.Application()
     app.router.add_get('/', handle_ping)
     runner = web.AppRunner(app)
@@ -161,6 +157,10 @@ async def main():
     await site.start()
 
     logger.info(f"Сервер запущен на порту {port}. Бот в работе...")
+
+    from ai_service import close_session, init_session
+    from database import init_db
+    from modules.middlewares import ThrottleMiddleware
 
     # Инициализация
     init_session()

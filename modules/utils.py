@@ -7,7 +7,6 @@ import datetime
 from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
 from loguru import logger
 from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
 
 # Global imports to avoid local import overhead
 from database import update_user, get_user_state
@@ -359,8 +358,57 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
             card_image_path=card_image_uri
         )
 
+        from weasyprint import HTML
         HTML(string=html_out).write_pdf(output_filename)
         return True
     except Exception as e:
         logger.error(f"Ошибка PDF: {str(e)}")
         return False
+
+_typing_tasks = {}
+
+def stop_dynamic_typing(peer_id: int):
+    """Cancels the typing task for a given peer_id if it exists."""
+    if peer_id in _typing_tasks:
+        task = _typing_tasks.pop(peer_id)
+        if not task.done():
+            task.cancel()
+
+async def start_dynamic_typing(bot_api, peer_id: int, typing_time: int = 1200) -> asyncio.Task:
+    import random
+
+    stop_dynamic_typing(peer_id)
+
+    async def _typing_loop():
+        # Keep track of the last phrase to avoid visual duplication
+        last_phrase = None
+        start_time = asyncio.get_event_loop().time()
+
+        while asyncio.get_event_loop().time() - start_time < typing_time:
+            try:
+                available_phrases = [p for p in THEATRICAL_PHRASES if p != last_phrase]
+                phrase = random.choice(available_phrases) if available_phrases else random.choice(THEATRICAL_PHRASES)
+                last_phrase = phrase
+
+                # Edit to prevent spam, or send
+                # Based on AGENTs.md, use messages.edit or just typing activity
+                await bot_api.messages.set_activity(peer_id=peer_id, type="typing")
+            except Exception:
+                pass
+            await asyncio.sleep(10)
+
+    task = asyncio.create_task(_typing_loop())
+    _typing_tasks[peer_id] = task
+    return task
+
+class MockMsg:
+    def __init__(self, from_id, peer_id):
+        self.from_id = from_id
+        self.peer_id = peer_id
+    async def answer(self, message: str = None, **kwargs):
+        from modules.bot_init import bot
+        # extract attachment, keyboard, etc from kwargs
+        if 'attachment' in kwargs:
+            await bot.api.messages.send(peer_id=self.peer_id, random_id=0, message=message, attachment=kwargs['attachment'], keyboard=kwargs.get('keyboard'))
+        else:
+            await bot.api.messages.send(peer_id=self.peer_id, random_id=0, message=message, keyboard=kwargs.get('keyboard'))
