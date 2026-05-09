@@ -55,6 +55,7 @@ async def message_event_handler(event: dict):
     peer_id = obj.get("peer_id")
     event_id = obj.get("event_id")
     payload = obj.get("payload", {})
+    msg_id = obj.get("conversation_message_id")
 
     # Throttling is very important for inline callbacks (MESSAGE_EVENT) as well.
 
@@ -150,14 +151,18 @@ async def message_event_handler(event: dict):
                 "welcome_bonus_received": True
             })
 
-            # Notify user of balance top-up immediately
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message="БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: 700 Энергии звезд.",
-                random_id=0
-            )
-
-            await bot.api.messages.send(peer_id=peer_id, message="Анализирую состояние звезд...", random_id=0)
+            if msg_id:
+                await bot.api.messages.edit(
+                    peer_id=peer_id, conversation_message_id=msg_id,
+                    message="БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: 700 Энергии звезд.\n\nАнализирую состояние звезд...",
+                    keyboard=Keyboard(inline=True).get_json()
+                )
+            else:
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: 700 Энергии звезд.\n\nАнализирую состояние звезд...",
+                    random_id=0
+                )
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
             insight = await generate_section(
@@ -177,12 +182,19 @@ async def message_event_handler(event: dict):
             kb = Keyboard(inline=True)
             kb.add(Callback("🃏 ПРИНЯТЬ ПЕРВУЮ КАРТУ ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
 
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message=f"Твоя матрица готова...\n\n{intro}\n\n{insight}\n\nПервый шаг: открой Карту Дня.",
-                keyboard=kb.get_json(),
-                random_id=0
-            )
+            if msg_id:
+                await bot.api.messages.edit(
+                    peer_id=peer_id, conversation_message_id=msg_id,
+                    message=f"Твоя матрица готова...\n\n{intro}\n\n{insight}\n\nПервый шаг: открой Карту Дня.",
+                    keyboard=kb.get_json()
+                )
+            else:
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message=f"Твоя матрица готова...\n\n{intro}\n\n{insight}\n\nПервый шаг: открой Карту Дня.",
+                    keyboard=kb.get_json(),
+                    random_id=0
+                )
             return
 
         elif cmd == "use_section":
@@ -214,7 +226,10 @@ async def message_event_handler(event: dict):
             user = await get_user(vk_id)
             if not user: return
             kb_json = await get_sections_keyboard(vk_id, user)
-            await bot.api.messages.send(peer_id=peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, random_id=0)
+            if msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=msg_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json)
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, random_id=0)
 
         elif cmd == "card_of_day_menu":
             await card_of_day_logic(vk_id, peer_id)
@@ -251,10 +266,16 @@ async def message_event_handler(event: dict):
 
             latest_text = user.get("latest_reading_text", "")
             if not latest_text:
-                await bot.api.messages.send(peer_id=peer_id, message="Текст разбора не найден. Сгенерируйте разбор заново.", random_id=0)
+                if msg_id:
+                    await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=msg_id, message="Текст разбора не найден. Сгенерируйте разбор заново.")
+                else:
+                    await bot.api.messages.send(peer_id=peer_id, message="Текст разбора не найден. Сгенерируйте разбор заново.", random_id=0)
                 return
 
-            await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=0)
+            if msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=msg_id, message="Создаю PDF-файл, подожди секунду...", keyboard=Keyboard(inline=True).get_json())
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=0)
 
             pdf_name = f"report_{vk_id}_{section}.pdf"
             b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
@@ -265,7 +286,10 @@ async def message_event_handler(event: dict):
 
             # Отправка
             doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
-            await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0)
+            if msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=msg_id, message="Твой PDF-файл готов:", attachment=doc)
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0)
 
             if os.path.exists(pdf_name):
                 await asyncio.to_thread(os.remove, pdf_name)
@@ -323,7 +347,10 @@ async def message_event_handler(event: dict):
                     f"https://vk.com/im?sel=-219181948&text=ПЕЧАТЬ-{vk_id}\n\n"
                     "Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд."
                 )
-                await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
+                if msg_id:
+                    await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=msg_id, message=text, keyboard=Keyboard(inline=True).get_json())
+                else:
+                    await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
             elif action == "enter_seal":
                 await set_user_state(vk_id, "waiting_for_seal")
                 kb = Keyboard(inline=True)
@@ -334,83 +361,111 @@ async def message_event_handler(event: dict):
                 from modules.profile import syndicate_dashboard_handler
                 await syndicate_dashboard_handler(MockMsg(vk_id, peer_id))
         elif cmd == "buy":
-            buy_type = payload.get("type")
-            key = payload.get("key")
+            buy_lock_key = f"buy_lock:{vk_id}"
+            if not await acquire_lock(buy_lock_key, ttl=10): return
+            try:
+                buy_type = payload.get("type")
+                key = payload.get("key")
 
-            prices = {
-                "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
-                "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
-                "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
-            }
+                prices = {
+                    "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
+                    "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
+                    "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
+                }
 
-            amount_needed = prices.get(key)
-            if not amount_needed: return
+                amount_needed = prices.get(key)
+                if not amount_needed: return
 
-            user = await get_user(vk_id)
-            if not user: return
+                user = await get_user(vk_id)
+                if not user: return
 
-            balance = int(user.get("balance", 0) or 0)
+                balance = int(user.get("balance", 0) or 0)
 
-            # Миграция старых бонусов в баланс (если остались)
-            bonuses = int(user.get("bonuses", 0) or 0)
-            if bonuses > 0:
-                balance = (balance * 10) + bonuses
-                await update_user(vk_id, {"balance": balance, "bonuses": 0})
+                # Миграция старых бонусов в баланс (если остались)
+                bonuses = int(user.get("bonuses", 0) or 0)
+                if bonuses > 0:
+                    balance = (balance * 10) + bonuses
+                    await update_user(vk_id, {"balance": balance, "bonuses": 0})
 
-            if balance >= amount_needed:
-                new_balance = balance - amount_needed
-                await update_user(vk_id, {"balance": new_balance})
+                if balance >= amount_needed:
+                    new_balance = balance - amount_needed
+                    await update_user(vk_id, {"balance": new_balance})
 
-                if buy_type == "service":
-                    await process_payment_and_generate(vk_id, key)
-                elif buy_type == "tariff":
-                    days = 7 if key == "tariff_1" else 30
-                    now = datetime.datetime.now(datetime.timezone.utc)
-                    new_expires = now + datetime.timedelta(days=days)
-                    updates: dict[str, str | bool | dict[str, Any]] = {"transit_sub_expires_at": new_expires.isoformat()}
-                    if key == "tariff_vip":
-                        purchased = user.get("purchased_sections", {})
-                        for s in ["sex", "money", "shadow", "final"]: purchased[s] = True
-                        updates["purchased_sections"] = purchased
-                        updates["has_full_chart"] = True
-                    await update_user(vk_id, updates)
-                    await bot.api.messages.send(
-                        peer_id=peer_id,
-                        message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.",
-                        random_id=0
+                    if buy_type == "service":
+                        if msg_id:
+                            await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=msg_id, message="Активация услуги...", keyboard=Keyboard(inline=True).get_json())
+                        await process_payment_and_generate(vk_id, key, msg_id)
+                    elif buy_type == "tariff":
+                        days = 7 if key == "tariff_1" else 30
+                        now = datetime.datetime.now(datetime.timezone.utc)
+                        new_expires = now + datetime.timedelta(days=days)
+                        updates: dict[str, str | bool | dict[str, Any]] = {"transit_sub_expires_at": new_expires.isoformat()}
+                        if key == "tariff_vip":
+                            purchased = user.get("purchased_sections", {})
+                            for s in ["sex", "money", "shadow", "final"]: purchased[s] = True
+                            updates["purchased_sections"] = purchased
+                            updates["has_full_chart"] = True
+                        await update_user(vk_id, updates)
+                        if msg_id:
+                            await bot.api.messages.edit(
+                                peer_id=peer_id,
+                                conversation_message_id=msg_id,
+                                message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.",
+                                keyboard=Keyboard(inline=True).get_json()
+                            )
+                        else:
+                            await bot.api.messages.send(
+                                peer_id=peer_id,
+                                message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.",
+                                random_id=0
+                            )
+                else:
+                    diff_energy = amount_needed - balance
+                    diff_rubles = math.ceil(diff_energy / 10)
+
+                    # VK Pay strictly adheres to API (type: vkpay, hash)
+                    # referral button payload calls referral logic (assumed "profile_ref" or similar, we'll use a direct link logic or just command)
+                    kb = Keyboard(inline=True)
+                    kb.add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}"))
+                    kb.row()
+                    kb.add(Text("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
+
+                    msg_text = (
+                        f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\n"
+                        f"Твой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\n"
+                        f"Система не может вскрыть этот слой матрицы.\n\n"
+                        f"Оплати недостающие {diff_energy} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно."
                     )
-            else:
-                diff_energy = amount_needed - balance
-                diff_rubles = math.ceil(diff_energy / 10)
 
-                # VK Pay strictly adheres to API (type: vkpay, hash)
-                # referral button payload calls referral logic (assumed "profile_ref" or similar, we'll use a direct link logic or just command)
-                kb = Keyboard(inline=True)
-                kb.add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}"))
-                kb.row()
-                kb.add(Text("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
+                    if msg_id:
+                        await bot.api.messages.edit(
+                            peer_id=peer_id, conversation_message_id=msg_id,
+                            message=msg_text, keyboard=kb.get_json()
+                        )
+                    else:
+                        await bot.api.messages.send(
+                            peer_id=peer_id,
+                            message=msg_text,
+                            keyboard=kb.get_json(), random_id=0
+                        )
 
-                msg_text = (
-                    f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\n"
-                    f"Твой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\n"
-                    f"Система не может вскрыть этот слой матрицы.\n\n"
-                    f"Оплати недостающие {diff_energy} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно."
-                )
-
-                await bot.api.messages.send(
-                    peer_id=peer_id,
-                    message=msg_text,
-                    keyboard=kb.get_json(), random_id=0
-                )
-
+            finally:
+                await release_lock(buy_lock_key)
         elif cmd == "get_referral":
             # Direct link to group 219181948 sending text ПЕЧАТЬ-{vk_id}
             ref_link = f"https://vk.com/im?sel=-219181948&text=ПЕЧАТЬ-{vk_id}"
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message=f"Твоя персональная ссылка для друзей:\n{ref_link}\n\nОтправь этот код/ссылку новому адепту. Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд.",
-                random_id=0
-            )
+            if msg_id:
+                await bot.api.messages.edit(
+                    peer_id=peer_id, conversation_message_id=msg_id,
+                    message=f"Твоя персональная ссылка для друзей:\n{ref_link}\n\nОтправь этот код/ссылку новому адепту. Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд.",
+                    keyboard=Keyboard(inline=True).get_json()
+                )
+            else:
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message=f"Твоя персональная ссылка для друзей:\n{ref_link}\n\nОтправь этот код/ссылку новому адепту. Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд.",
+                    random_id=0
+                )
 
         elif cmd == "grimoire_page":
             page = payload.get("page", 0)
@@ -508,12 +563,16 @@ async def message_event_handler(event: dict):
                 f"📖 Значение: {card_data.get('description')}"
             )
 
-            if card_att:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, attachment=card_att, random_id=0)
+            if msg_id:
+                if card_att:
+                    await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=msg_id, message=msg_text + "\n\nСчитываю поток для персонализированного разбора...", attachment=card_att, keyboard=Keyboard(inline=True).get_json())
+                else:
+                    await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=msg_id, message=msg_text + "\n\nСчитываю поток для персонализированного разбора...", keyboard=Keyboard(inline=True).get_json())
             else:
-                await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
-
-            await bot.api.messages.send(peer_id=peer_id, message="Считываю поток для персонализированного разбора...", random_id=0)
+                if card_att:
+                    await bot.api.messages.send(peer_id=peer_id, message=msg_text + "\n\nСчитываю поток для персонализированного разбора...", attachment=card_att, random_id=0)
+                else:
+                    await bot.api.messages.send(peer_id=peer_id, message=msg_text + "\n\nСчитываю поток для персонализированного разбора...", random_id=0)
 
             if target_section:
                 asyncio.create_task(execute_generation(vk_id, peer_id, target_section, partner_name, partner_date, card_id, card_data))
@@ -567,33 +626,35 @@ async def money_transfer_handler(event: dict):
         tx_key = f"tx_vkpay_{vk_id}_{amount}_{event_id}"
 
         if not await acquire_lock(tx_key, ttl=3600): return
+        try:
+            if not vk_id or not amount: return
 
-        if not vk_id or not amount: return
+            # VK sends amount in 1/1000 of a ruble
+            amount_rubles = int(amount) // 1000
 
-        # VK sends amount in 1/1000 of a ruble
-        amount_rubles = int(amount) // 1000
+            if not await check_and_save_transaction(tx_key, vk_id, amount_rubles):
+                logger.warning(f"money_transfer_handler: duplicate or invalid transaction {tx_key} rejected")
+                return
 
-        if not await check_and_save_transaction(tx_key, vk_id, amount_rubles):
-            logger.warning(f"money_transfer_handler: duplicate or invalid transaction {tx_key} rejected")
-            return
+            added_energy = amount_rubles * 10
+            user = await get_user(vk_id)
+            if not user: return
 
-        added_energy = amount_rubles * 10
-        user = await get_user(vk_id)
-        if not user: return
+            current_balance = int(user.get("balance", 0) or 0)
+            new_balance = current_balance + added_energy
+            await update_user(vk_id, {"balance": new_balance})
 
-        current_balance = int(user.get("balance", 0) or 0)
-        new_balance = current_balance + added_energy
-        await update_user(vk_id, {"balance": new_balance})
-
-        await bot.api.messages.send(
-            peer_id=vk_id,
-            message=f"БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: {added_energy} Энергии звезд.\nНА ТВОЕМ СЧЕТУ: {new_balance} Энергии звезд.",
-            random_id=0
-        )
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message=f"БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: {added_energy} Энергии звезд.\nНА ТВОЕМ СЧЕТУ: {new_balance} Энергии звезд.",
+                random_id=0
+            )
+        finally:
+            await release_lock(tx_key)
     except Exception as e:
         logger.error(f"Ошибка: {str(e)}")
 
-async def process_payment_and_generate(vk_id: int, section: str):
+async def process_payment_and_generate(vk_id: int, section: str, msg_id: int = None):
     lock_key = f"process_payment_and_generate:{vk_id}"
     if not await acquire_lock(lock_key, ttl=300): return
     try:
@@ -601,27 +662,33 @@ async def process_payment_and_generate(vk_id: int, section: str):
         if not user: return
 
         purchased = user.get("purchased_sections", {})
+        prefix = ""
         if section == "all":
             purchased.update({"sex": True, "money": True, "shadow": True, "final": True})
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0)
-            # Тут вызываем логику формирования бандла...
+            prefix = "УСЛУГА АКТИВИРОВАНА. Все Врата открыты.\n\n"
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0)
+            if msg_id:
+                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=msg_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", keyboard=Keyboard(inline=True).get_json())
+            else:
+                await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0)
             return
         elif section == "synastry":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0)
+            if msg_id:
+                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=msg_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", keyboard=Keyboard(inline=True).get_json())
+            else:
+                await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0)
             return
         else:
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0)
+            prefix = "УСЛУГА АКТИВИРОВАНА.\n\n"
 
         # Стартуем FSM для обрезания колоды
         await set_user_state(vk_id, json.dumps({
@@ -629,7 +696,12 @@ async def process_payment_and_generate(vk_id: int, section: str):
         }))
         kb = Keyboard(inline=True)
         kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        await bot.api.messages.send(peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+
+        full_msg = prefix + "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже."
+        if msg_id:
+            await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=msg_id, message=full_msg, keyboard=kb.get_json())
+        else:
+            await bot.api.messages.send(peer_id=vk_id, message=full_msg, keyboard=kb.get_json(), random_id=0)
     finally:
         await release_lock(lock_key)
 
