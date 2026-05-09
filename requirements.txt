@@ -1,5 +1,5 @@
 vkbottle==4.8.2
-pydantic<2.0.0
+pydantic>=2.13.0,<3.0.0
 aiohttp
 Pillow
 Jinja2
