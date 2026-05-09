@@ -2,13 +2,16 @@ services:
   - type: web
     name: vkbot
     env: python
-    plan: starter
+    plan: starter   # ← можно потом поменять на hobby (1 ГБ) если будет мало
     pythonVersion: "3.12"
     buildCommand: pip install -r requirements.txt
     startCommand: python -u main.py
     envVars:
-      - key: WEASYPRINT_NO_FONTS
-        value: 1
+      - key: PYTHON_VERSION
+        value: 3.12
       - key: PORT
         value: 10000
+      - key: WEB_CONCURRENCY
+        value: 1
     healthCheckPath: /
+    autoDeploy: true
