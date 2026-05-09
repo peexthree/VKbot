@@ -9,6 +9,8 @@ from aiohttp import web
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor
 
+os.environ["WEASYPRINT_NO_FONTS"] = "1"
+
 from cache import acquire_lock, release_lock
 from modules.utils import warmup_task
 from modules.bot_init import bot
@@ -149,6 +151,17 @@ async def main():
     from database import init_db
     from modules.middlewares import ThrottleMiddleware
 
+    # Health-check сервер для Render
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+
+    logger.info(f"Сервер запущен на порту {port}. Бот в работе...")
+
     # Инициализация
     init_session()
     await init_db()
@@ -174,17 +187,6 @@ async def main():
     asyncio.create_task(bot.run_polling())
     asyncio.create_task(warmup_task())
     asyncio.create_task(daily_forecast_cron())
-
-    # Health-check сервер для Render
-    app = web.Application()
-    app.router.add_get('/', handle_ping)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    port = int(os.environ.get("PORT", 10000))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-
-    logger.info(f"Сервер запущен на порту {port}. Бот в работе...")
 
     # Graceful keep-alive
     try:

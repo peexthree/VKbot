@@ -15,7 +15,7 @@ def test_generate_premium_pdf():
 
     # Mock weasyprint HTML since it requires external dependencies (cairo/pango)
     # that might fail in some test environments, but we'll try to just patch it if needed.
-    with patch('modules.utils.HTML') as mock_html:
+    with patch('weasyprint.HTML') as mock_html:
         mock_instance = MagicMock()
         mock_html.return_value = mock_instance
 
