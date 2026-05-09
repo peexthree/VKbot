@@ -1,5 +1,4 @@
 from __future__ import annotations
-import asyncio
 import datetime
 import json
 import os
@@ -11,7 +10,6 @@ from vkbottle.bot import BotLabeler, Message
 from cache import acquire_lock, get_tarot_names, release_lock
 from database import delete_user, get_user, set_user_state, update_user
 from modules.bot_init import bot
-from modules.states import MyStates
 from modules.utils import SKIN_ASSETS, get_sections_keyboard, start_dynamic_typing, upload_local_photo
 
 labeler = BotLabeler()
@@ -224,7 +222,7 @@ async def show_skin_selection(vk_id: int, peer_id: int):
     free_skins = ["Олеся Ивонченко", "Серьезный Аскет", "olesya", "asket"]
 
     kb = Keyboard(inline=True)
-    for skin_name, filename in SKIN_ASSETS.items():
+    for skin_name, _filename in SKIN_ASSETS.items():
         style = {
             "olesya": "сарказм", "Олеся Ивонченко": "сарказм",
             "asket": "строгость", "Серьезный Аскет": "строгость",

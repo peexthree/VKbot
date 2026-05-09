@@ -4,7 +4,7 @@ import datetime
 import json
 import os
 import random
-from typing import Any, Dict
+from typing import Dict
 
 import aiofiles
 from jinja2 import Environment, FileSystemLoader
@@ -229,8 +229,6 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
     if not user:
         return
 
-    from database import update_user
-    import datetime
 
     last_bonus_date_str = user.get("last_daily_bonus_date")
     now_date = datetime.datetime.now(datetime.timezone.utc).date()
@@ -297,7 +295,6 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
         "buttons": buttons
     }
 
-    import json
     return json.dumps(keyboard_obj, ensure_ascii=False)
 
 async def get_fsm_step(vk_id: int) -> dict | None:

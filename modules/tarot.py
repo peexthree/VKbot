@@ -4,14 +4,13 @@ import datetime
 import json
 import random
 from loguru import logger
-from vkbottle import Callback, Keyboard, KeyboardButtonColor
+from vkbottle import Callback, Keyboard
 from vkbottle.bot import BotLabeler, Message
 
 from ai_service import extract_tags, generate_section, generate_text
 from cache import acquire_lock, get_tarot_names, release_lock
 from database import get_user, set_user_state, update_user
 from modules.bot_init import bot
-from modules.states import MyStates
 from modules.utils import (
     get_fsm_step,
     get_sections_keyboard,

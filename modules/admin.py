@@ -5,12 +5,14 @@ from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
-from cache import redis_client, set_fsm_state
-from database import get_all_users
+from cache import acquire_lock, redis_client, release_lock, set_fsm_state
+from database import get_all_users, get_user, update_user
+from modules.bot_init import bot
 from modules.utils import (
     ADMIN_ID,
     clear_photo_cache,
     get_dynamic_keyboard,
+    get_fsm_step,
     start_dynamic_typing,
     warmup_task,
 )
