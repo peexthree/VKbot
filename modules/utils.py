@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-import aiohttp
 import aiofiles
 import datetime
 from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader

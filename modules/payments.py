@@ -10,26 +10,25 @@ from typing import Any
 
 from loguru import logger
 from vkbottle import Callback, DocMessagesUploader, Keyboard, KeyboardButtonColor
-from vkbottle.bot import BotLabeler, Message
+from vkbottle.bot import BotLabeler
+from vkbottle import GroupEventType
 from vkbottle.tools.dev.keyboard.action import VKPay
 
 from ai_service import generate_section
 from cache import acquire_lock, check_throttle, release_lock
 from cards_data import get_card_data
-from database import check_and_save_transaction, get_user, set_user_state, update_user
+from database import get_user, set_user_state, update_user
 from modules.bot_init import bot
 from modules.profile import view_card_direct
 from modules.services import show_services, show_tariffs
 from modules.tarot import card_of_day_logic, process_oracle_final
 from modules.utils import (
-    SKIN_ASSETS,
     generate_premium_pdf,
     get_fsm_step,
     get_sections_keyboard,
     pdf_semaphore,
     start_dynamic_typing,
     stop_dynamic_typing,
-    upload_local_photo,
 )
 
 labeler = BotLabeler()
