@@ -1,3 +1,4 @@
+from __future__ import annotations
 MODELS = [
     ("models/gemini-3.1-flash-lite-preview", "v1beta"),
     ("models/gemini-2.5-flash-lite", "v1beta"),

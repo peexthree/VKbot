@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 from ai_service import generate_section, init_session, close_session
 
