@@ -52,7 +52,7 @@ async def _send_catalog_carousel(
                 if not att:
                     logger.warning(f"upload_local_photo returned empty for {svc['image_name']}")
             except Exception as e:
-                logger.error(f"Failed to upload photo {svc['image_name']}: {e}")
+                logger.error(f"Failed to upload photo {svc['image_name']}, exception details: {str(e)}", exc_info=True)
 
         # Strict VK Carousel limits (max 80 chars, no newlines)
         title = svc["title"].replace("\n", " ")[:80]
@@ -100,11 +100,9 @@ async def _send_catalog_carousel(
     }
     template_json = json.dumps(template, ensure_ascii=False)
 
-    kb = Keyboard(inline=True)
-
-    # Pagination buttons
+    nav_kb = Keyboard(inline=True)
+    nav_buttons = []
     if total_items > PAGE_SIZE:
-        nav_buttons = []
         if idx > 0:
             prev_idx = max(0, idx - PAGE_SIZE)
             nav_buttons.append(Callback("⬅️ НАЗАД", payload={"cmd": f"{item_type}_page", "idx": prev_idx}))
@@ -113,24 +111,25 @@ async def _send_catalog_carousel(
             nav_buttons.append(Callback("ВПЕРЕД ➡️", payload={"cmd": f"{item_type}_page", "idx": next_idx}))
 
         for btn in nav_buttons:
-            kb.add(btn, color=KeyboardButtonColor.SECONDARY)
+            nav_kb.add(btn, color=KeyboardButtonColor.SECONDARY)
         if nav_buttons:
-            kb.row()
+            nav_kb.row()
 
-    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
-    kb_json = kb.get_json()
+    nav_kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    nav_kb_json = nav_kb.get_json()
 
-    # IMPORTANT FIX: VK API strictly forbids sending both `template` (carousel) and `keyboard` simultaneously.
-    # Therefore, we do not attach the global keyboard to the carousel message itself.
     try:
         if edit_msg_id:
-            # We edit the message to just hold the carousel.
-            await bot.api.messages.edit(peer_id=peer_id, message=header_text, template=template_json, conversation_message_id=edit_msg_id)
-            # Send the keyboard as a new message to allow navigation.
-            await bot.api.messages.send(peer_id=peer_id, message="Навигация:", keyboard=kb_json, random_id=0)
+            # Delete the old message to avoid VK API conflict when replacing a message that had a keyboard with a template
+            try:
+                await bot.api.messages.delete(peer_id=peer_id, cmids=[edit_msg_id], delete_for_all=True)
+            except Exception as delete_e:
+                logger.warning(f"Failed to delete old message {edit_msg_id}: {delete_e}")
+            await bot.api.messages.send(peer_id=peer_id, message=header_text, template=template_json, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="Навигация:", keyboard=nav_kb_json, random_id=0)
         else:
             await bot.api.messages.send(peer_id=peer_id, message=header_text, template=template_json, random_id=0)
-            await bot.api.messages.send(peer_id=peer_id, message="Навигация:", keyboard=kb_json, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="Навигация:", keyboard=nav_kb_json, random_id=0)
     except Exception as e:
         logger.error(f"Error sending carousel, triggering fallback: {str(e)}")
         # Fallback: simple text with inline buttons for each item
@@ -164,6 +163,7 @@ async def _send_catalog_carousel(
                 await bot.api.messages.send(peer_id=peer_id, message=fallback_msg, keyboard=fallback_kb.get_json(), random_id=0)
         except Exception as fallback_e:
             logger.error(f"Fallback also failed: {str(fallback_e)}")
+
 
 async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
 
