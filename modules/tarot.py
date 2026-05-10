@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import random
+import re
 
 from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
@@ -9,6 +10,7 @@ from vkbottle.bot import BotLabeler, Message
 
 from ai_service import extract_tags, generate_section, generate_text
 from cache import acquire_lock, get_tarot_names, release_lock
+from cards_data import get_card_data
 from database import get_user, set_user_state, update_user
 from modules.bot_init import bot
 from modules.states import MyStates
@@ -227,19 +229,23 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
         await start_dynamic_typing(peer_id, bot.api)
 
         card_id = str(random.randint(0, 77))
+        card_data = get_card_data(card_id)
         active_skin = user.get("active_skin", "olesya")
         tags = user.get("tags", [])
 
         # 5. Генерация разбора
-        result_text = await generate_section(
+        res_text_raw = await generate_section(
             "card_of_day",
             user.get("birth_date"), user.get("birth_time"), user.get("birth_city"),
             user.get("core_profile"), user.get("first_name"), user.get("sex_val", 0),
-            skin=active_skin, card_id=card_id, tags=tags
+            skin=active_skin, card_id=card_id, card_data=card_data, tags=tags
         )
 
-        if not result_text:
+        if not res_text_raw:
             raise Exception("Empty result from generate_section")
+
+        # Очищаем от тех. тегов ID_ТАРО
+        result_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text_raw).strip()
 
         # Фоновое сохранение тегов
         async def background_tags(text):
