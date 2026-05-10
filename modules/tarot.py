@@ -186,11 +186,15 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
         conv_msg_id = kwargs.get("conversation_message_id")
         message_id = kwargs.get("message_id")
 
+        # 1. Сразу отвечаем ВК, если есть event_id
         if event_id:
             try:
-                await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+                await bot.api.messages.send_message_event_answer(
+                    event_id=event_id, user_id=vk_id, peer_id=peer_id
+                )
             except Exception: pass
 
+        # 2. Визуальный отклик
         if conv_msg_id:
             try:
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message="Достаю карту...", keyboard=Keyboard(inline=True).get_json())
@@ -200,11 +204,12 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
                 await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message="Достаю карту...", keyboard=Keyboard(inline=True).get_json())
             except Exception: pass
 
+        # 3. Получаем данные
         user = await get_user(vk_id)
         if not user:
             return
 
-        # Проверка лимита 24 часа
+        # 4. Проверка лимита 24 часа
         purchased = user.get("purchased_sections", {})
         last_used_str = purchased.get("card_of_day_last_used")
         if last_used_str:
@@ -216,7 +221,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
                 elif message_id:
                     await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message=err_msg)
                 else:
-                    await bot.api.messages.send(peer_id=vk_id, message=err_msg, random_id=0)
+                    await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=0)
                 return
 
         await start_dynamic_typing(peer_id, bot.api)
@@ -225,8 +230,16 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
         active_skin = user.get("active_skin", "olesya")
         tags = user.get("tags", [])
 
-        # Генерация разбора
-        result_text = await generate_section("card_of_day", user.get("birth_date"), user.get("birth_time"), user.get("birth_city"), user.get("core_profile"), user.get("first_name"), user.get("sex_val", 0), skin=active_skin, card_id=card_id, tags=tags)
+        # 5. Генерация разбора
+        result_text = await generate_section(
+            "card_of_day",
+            user.get("birth_date"), user.get("birth_time"), user.get("birth_city"),
+            user.get("core_profile"), user.get("first_name"), user.get("sex_val", 0),
+            skin=active_skin, card_id=card_id, tags=tags
+        )
+
+        if not result_text:
+            raise Exception("Empty result from generate_section")
 
         # Фоновое сохранение тегов
         async def background_tags(text):
@@ -234,7 +247,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
             if new_tags: await update_user(vk_id, {"tags": new_tags})
         asyncio.create_task(background_tags(result_text))
 
-        # Обновление баланса и статистики
+        # 6. Обновление баланса и статистики
         new_streak = user.get("visit_streak", 0) + 1
         unlocked = user.get("unlocked_cards", {})
         if not isinstance(unlocked, dict): unlocked = {}
@@ -248,40 +261,33 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
             "purchased_sections": {**purchased, "card_of_day_last_used": datetime.datetime.now(datetime.timezone.utc).isoformat()}
         })
 
-        # Отправка результата
-        photo = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
-
-        # ЛОГИКА ОНБОРДИНГА: Если это первая карта в жизни юзера
-        if user.get("total_cards_received", 0) == 0:
-            result_text += "\n\nЭта карта — твой первый цифровой отпечаток. Я занесла её в твой личный Гримуар. Там она будет копить силу."
-            kb = Keyboard(inline=True).add(Callback("📖 ОТКРЫТЬ ГРИМУАР", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.POSITIVE)
-            final_kb = kb.get_json()
-        else:
-            final_kb = await get_sections_keyboard(vk_id, user)
+        # 7. Отправка результата
+        photo = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=peer_id)
+        final_kb = await get_sections_keyboard(vk_id, user)
 
         if conv_msg_id:
             try:
-                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=result_text, attachment=photo, keyboard=final_kb)
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=result_text, attachment=photo, keyboard=final_kb)
             except Exception:
-                await bot.api.messages.send(peer_id=vk_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+                await bot.api.messages.send(peer_id=peer_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
         elif message_id:
             try:
-                await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message=result_text, attachment=photo, keyboard=final_kb)
+                await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message=result_text, attachment=photo, keyboard=final_kb)
             except Exception:
-                await bot.api.messages.send(peer_id=vk_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+                await bot.api.messages.send(peer_id=peer_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
         else:
-            await bot.api.messages.send(peer_id=vk_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
 
     except Exception as e:
         logger.error(f"Ошибка в Карте Дня: {e}")
         try:
             err_msg = "Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже."
             if conv_msg_id:
-                await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=err_msg)
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=err_msg)
             elif message_id:
-                await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message=err_msg)
+                await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message=err_msg)
             else:
-                await bot.api.messages.send(peer_id=vk_id, message=err_msg, random_id=0)
+                await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=0)
         except Exception:
             pass
     finally:

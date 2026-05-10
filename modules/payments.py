@@ -217,7 +217,13 @@ async def message_event_handler(event: dict):
             await bot.api.messages.send(peer_id=peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, random_id=0)
 
         elif cmd == "card_of_day_menu":
-            await card_of_day_logic(vk_id, peer_id)
+            await release_lock(vk_id)
+            await card_of_day_logic(
+                vk_id, peer_id,
+                event_id=event_id,
+                conversation_message_id=obj.get("conversation_message_id")
+            )
+            return
 
         elif cmd == "services_menu":
             await show_services(vk_id, peer_id, 0)
@@ -239,8 +245,12 @@ async def message_event_handler(event: dict):
             await show_tariffs(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
 
         elif cmd == "card_of_day":
-
-            await card_of_day_logic(vk_id, peer_id)
+            await release_lock(vk_id)
+            await card_of_day_logic(
+                vk_id, peer_id,
+                event_id=event_id,
+                conversation_message_id=obj.get("conversation_message_id")
+            )
             return
 
         elif cmd == "gen_pdf":
