@@ -4,25 +4,18 @@
     <meta charset="UTF-8">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Montserrat:wght@300;400;600&display=swap');
-        @page {
-            size: A4;
-            margin: 0;
-        }
+        @page { size: A4; margin: 0; }
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             font-family: 'Montserrat', sans-serif;
             line-height: 1.75;
             color: #f5e8c7;
             background: url('cards/uslugi/pdf_background_final.png') no-repeat center center;
             background-size: cover;
         }
-        .container {
-            padding: 60px 55px;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-        /* ПЕРВАЯ СТРАНИЦА — чистая обложка */
+        .container { padding: 60px 55px; min-height: 100vh; box-sizing: border-box; }
+
+        /* ПЕРВАЯ СТРАНИЦА */
         .cover {
             height: 100vh;
             display: flex;
@@ -31,66 +24,50 @@
             justify-content: center;
             text-align: center;
         }
-        .header {
-            margin-bottom: 80px; /* отступ сверху */
-        }
         .header img {
-            max-width: 85%;
+            max-width: 75%;   /* подогнано под реальный head2.png */
             height: auto;
+            margin-bottom: 70px;
         }
         .user-info {
-            font-size: 15.5pt;
+            font-size: 15.8pt;
             color: #f4d48c;
             line-height: 1.5;
-            margin-top: 40px; /* ← сдвинули чуть ниже центра */
         }
-        .highlight {
-            color: #ffe8a3;
-            font-weight: 600;
-        }
+        .highlight { color: #ffe8a3; font-weight: 600; }
+
         /* ВТОРАЯ СТРАНИЦА */
         .content-wrapper {
             background: rgba(20, 15, 35, 0.82);
             border-radius: 18px;
             padding: 40px 45px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
         }
-        .section-divider {
-            text-align: center;
-            margin: 30px 0 25px 0;
-        }
-        .section-divider img {
-            max-width: 100%;
-        }
-        .content {
-            font-size: 12.8pt;
-            text-align: justify;
-        }
-        /* КАРТА ДНЯ — bac.png СПЕРЕДИ */
+        .section-divider img { max-width: 100%; margin: 30px 0 20px 0; }
+        .content { font-size: 12.8pt; text-align: justify; }
+
+        /* КАРТА + РАМКА bac.png СПЕРЕДИ */
         .card-container {
             position: relative;
             display: inline-block;
-            margin: 30px auto;
+            margin: 35px auto;
         }
         .card-background {
             position: absolute;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 320px;   /* ← чуть увеличил */
-            height: 455px;
-            z-index: 2;     /* bac.png теперь СПЕРЕДИ */
+            width: 335px;     /* чуть больше карты */
+            z-index: 3;       /* рамка СТРОГО СПЕРЕДИ */
         }
         .card-image {
             position: relative;
             max-width: 280px;
-            border-radius: 12px;
-            z-index: 1;     /* карта tarot — позади рамки */
+            z-index: 1;       /* карта позади */
         }
     </style>
 </head>
 <body>
-    <!-- ПЕРВАЯ СТРАНИЦА -->
+    <!-- ПЕРВАЯ СТРАНИЦА (head2 + данные пользователя) -->
     <div class="container cover">
         <div class="header">
             <img src="cards/uslugi/head2.png" alt="Персональный разбор">
@@ -105,15 +82,11 @@
     <!-- ВТОРАЯ СТРАНИЦА -->
     <div class="container">
         <div class="content-wrapper">
-            <!-- ВСТУПЛЕНИЕ -->
             <div class="section-divider">
                 <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ">
             </div>
-            <div class="content">
-                {{ text_content | safe }}
-            </div>
+            <div class="content">{{ text_content | safe }}</div>
 
-            <!-- КАРТА ДНЯ -->
             {% if card_image_path %}
             <div class="card-container">
                 <img src="cards/uslugi/bac.png" class="card-background">
@@ -121,9 +94,7 @@
             </div>
             {% endif %}
 
-            <div class="content">
-                {{ advice_content | safe }}
-            </div>
+            <div class="content">{{ advice_content | safe }}</div>
         </div>
     </div>
 </body>
