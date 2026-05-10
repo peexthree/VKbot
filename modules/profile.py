@@ -20,7 +20,7 @@ from database import (
 )
 from modules.bot_init import bot
 from modules.states import MyStates
-from modules.utils import SKIN_ASSETS, get_sections_keyboard, upload_local_photo
+from modules.utils import SKIN_ASSETS, get_sections_keyboard, upload_local_photo, get_fsm_step
 
 labeler = BotLabeler()
 
@@ -75,6 +75,69 @@ async def settings_change_data(message: Message):
     try:
         await set_user_state(vk_id, json.dumps({"step": "date"}))
         await message.answer("Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):")
+    finally:
+        await release_lock(vk_id)
+
+
+async def is_waiting_change_date(message: Message) -> bool:
+    if message.text and message.text.startswith("✦"): return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "date"
+
+@labeler.message(func=is_waiting_change_date)
+async def process_change_date(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id): return
+    try:
+        new_date = message.text.strip()
+        await set_user_state(vk_id, json.dumps({"step": "time", "date": new_date}))
+        await message.answer(f"Дата {new_date} принята. Теперь введите ВРЕМЯ вашего рождения (например, 14:30 или 'не знаю'):")
+    finally:
+        await release_lock(vk_id)
+
+async def is_waiting_change_time(message: Message) -> bool:
+    if message.text and message.text.startswith("✦"): return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "time"
+
+@labeler.message(func=is_waiting_change_time)
+async def process_change_time(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id): return
+    try:
+        new_time = message.text.strip()
+        state_dict = await get_fsm_step(vk_id)
+        new_date = state_dict.get("date", "")
+        await set_user_state(vk_id, json.dumps({"step": "city", "date": new_date, "time": new_time}))
+        await message.answer(f"Время {new_time} принято. Теперь введите ГОРОД вашего рождения:")
+    finally:
+        await release_lock(vk_id)
+
+async def is_waiting_change_city(message: Message) -> bool:
+    if message.text and message.text.startswith("✦"): return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "city"
+
+@labeler.message(func=is_waiting_change_city)
+async def process_change_city(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id): return
+    try:
+        new_city = message.text.strip()
+        state_dict = await get_fsm_step(vk_id)
+        new_date = state_dict.get("date", "")
+        new_time = state_dict.get("time", "")
+
+        await update_user(vk_id, {
+            "birth_date": new_date,
+            "birth_time": new_time,
+            "birth_city": new_city
+        })
+        await set_user_state(vk_id, "")
+
+        kb = Keyboard(inline=True)
+        kb.add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
+        await message.answer(f"Твои данные обновлены: {new_date}, {new_time}, г. {new_city}", keyboard=kb.get_json())
     finally:
         await release_lock(vk_id)
 
@@ -174,7 +237,7 @@ async def settings_choose_character(message: Message):
             await asyncio.sleep(0.5)
 
             try:
-                photo = await upload_local_photo(bot.api, filename, peer_id=vk_id)
+                photo = await upload_local_photo, get_fsm_step(bot.api, filename, peer_id=vk_id)
             except Exception:
                 photo = None
 
@@ -336,7 +399,7 @@ async def show_profile(message: Message):
 
     active_skin = user.get("active_skin", "olesya")
     skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
-    photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
+    photo = await upload_local_photo, get_fsm_step(bot.api, skin_filename, peer_id=vk_id)
 
     try:
         if photo:
@@ -482,14 +545,14 @@ async def view_card_direct(vk_id: int, peer_id: int, card_id: str):
 
 
     active_skin = user.get("active_skin", "olesya")
-    skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
+    skin_att = await upload_local_photo, get_fsm_step(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
     if skin_att:
         await bot.api.messages.send(peer_id=peer_id, message="", attachment=skin_att, random_id=0)
 
     signature = unlocked_cards[str(card_id)]
     await bot.api.messages.send(peer_id=peer_id, message=f"Твое первое касание с этой картой: {signature}", random_id=0)
 
-    photo_att = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
+    photo_att = await upload_local_photo, get_fsm_step(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
     if photo_att:
         await bot.api.messages.send(peer_id=peer_id, message="", attachment=photo_att, random_id=0)
 
@@ -633,9 +696,11 @@ async def apply_promo_handler(message: Message):
     referrer_id = int(match.group(2))
 
     user = await get_user(vk_id)
+    is_new = False
     if not user:
-        await message.answer("Сначала зарегистрируйся в системе (напиши Начать).")
-        return
+        from database import create_user
+        user = await create_user(vk_id, "", "", "")
+        is_new = True
 
     is_veteran = False
     created_at_str = user.get("created_at")
@@ -675,6 +740,10 @@ async def apply_promo_handler(message: Message):
     await update_user(referrer_id, {"balance": referrer_balance, "purchased_sections": ref_purchased})
 
     await message.answer(f"ПЕЧАТЬ АКТИВИРОВАНА! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
+
+    if is_new:
+        from modules.registration import start_handler
+        await start_handler(message)
 
     try:
         # Get first name from user DB or use "Пользователь"
