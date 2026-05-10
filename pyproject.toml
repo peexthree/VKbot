@@ -1,29 +1,33 @@
+[tool.poetry]
+name = "vkbot"
+version = "1.0.0"
+description = "VK Anti-Taro Bot"
+authors = ["peexthree"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+vkbottle = "4.3.12"
+pydantic = "1.10.26"
+aiohttp = "3.13.5"
+Pillow = "12.2.0"
+Jinja2 = "3.1.6"
+WeasyPrint = "68.1"
+upstash-redis = "1.7.0"
+loguru = "0.7.3"
+sentry-sdk = "2.59.0"
+aiofiles = "22.1.0"
+watchfiles = "0.18.1"
+
 [tool.ruff]
 line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "C",  # flake8-comprehensions
-    "B",  # flake8-bugbear
+    "E", "W", "F", "I", "C", "B"
 ]
 ignore = [
-    "E501",  # line too long, handled by black
-    "C901",
-    "E402",
-    "E701",
-    "F841",
-    "W291",
-    "W293",
-    "E722",
-    "B023",
-    "F823",
-    "C414",
-    "I001"
+    "E501", "C901", "E402", "E701", "F841", "W291", "W293", "E722", "B023", "F823", "C414", "I001"
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -35,7 +39,8 @@ ignore_missing_imports = true
 no_strict_optional = true
 warn_return_any = false
 warn_unused_configs = true
-exclude = [
-    "venv",
-    ".venv",
-]
+exclude = ["venv", ".venv"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
