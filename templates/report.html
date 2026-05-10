@@ -4,29 +4,25 @@
     <meta charset="UTF-8">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Montserrat:wght@300;400;600&display=swap');
-
         @page {
             size: A4;
             margin: 0;
         }
-
         body {
             margin: 0;
             padding: 0;
             font-family: 'Montserrat', sans-serif;
-            line-height: 1.78;
+            line-height: 1.75;
             color: #f5e8c7;
             background: url('cards/uslugi/pdf_background_final.png') no-repeat center center;
             background-size: cover;
         }
-
-        .page {
+        .container {
+            padding: 60px 55px;
             min-height: 100vh;
-            padding: 0;
             box-sizing: border-box;
         }
-
-        /* ====================== ПЕРВАЯ СТРАНИЦА ====================== */
+        /* ПЕРВАЯ СТРАНИЦА — чистая обложка */
         .cover {
             height: 100vh;
             display: flex;
@@ -35,67 +31,67 @@
             justify-content: center;
             text-align: center;
         }
-
         .header {
-            margin-bottom: 65px;
+            margin-bottom: 80px; /* отступ сверху */
         }
         .header img {
-            max-width: 82%;
+            max-width: 85%;
             height: auto;
         }
-
         .user-info {
-            font-size: 15.8pt;
+            font-size: 15.5pt;
             color: #f4d48c;
-            line-height: 1.45;
+            line-height: 1.5;
+            margin-top: 40px; /* ← сдвинули чуть ниже центра */
         }
         .highlight {
             color: #ffe8a3;
             font-weight: 600;
         }
-
-        /* ====================== ВТОРАЯ СТРАНИЦА ====================== */
+        /* ВТОРАЯ СТРАНИЦА */
         .content-wrapper {
-            background: rgba(18, 14, 32, 0.88);
-            border-radius: 20px;
-            padding: 48px 52px;
-            margin: 0 55px;
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.7);
+            background: rgba(20, 15, 35, 0.82);
+            border-radius: 18px;
+            padding: 40px 45px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
         }
-
-        .content {
-            font-size: 13.4pt;
-            text-align: justify;
-            hyphens: auto;
-        }
-
-        /* Карта дня с чистой рамкой */
-        .card-container {
+        .section-divider {
             text-align: center;
-            margin: 50px 0;
+            margin: 30px 0 25px 0;
+        }
+        .section-divider img {
+            max-width: 100%;
+        }
+        .content {
+            font-size: 12.8pt;
+            text-align: justify;
+        }
+        /* КАРТА ДНЯ — bac.png СПЕРЕДИ */
+        .card-container {
             position: relative;
+            display: inline-block;
+            margin: 30px auto;
         }
         .card-background {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 335px;     /* чуть больше карты */
-            height: 470px;
-            z-index: 1;
+            width: 320px;   /* ← чуть увеличил */
+            height: 455px;
+            z-index: 2;     /* bac.png теперь СПЕРЕДИ */
         }
         .card-image {
             position: relative;
-            z-index: 2;
             max-width: 280px;
             border-radius: 12px;
+            z-index: 1;     /* карта tarot — позади рамки */
         }
     </style>
 </head>
 <body>
-
-    <!-- ПЕРВАЯ СТРАНИЦА — шапка строго по центру -->
-    <div class="page cover">
+    <!-- ПЕРВАЯ СТРАНИЦА -->
+    <div class="container cover">
         <div class="header">
             <img src="cards/uslugi/head2.png" alt="Персональный разбор">
         </div>
@@ -104,16 +100,15 @@
             ТОЧКА ВХОДА: {{ birth_info }}
         </div>
     </div>
+    <div style="page-break-before: always;"></div>
 
-    <!-- ВТОРАЯ СТРАНИЦА (начинается сразу) -->
-    <div class="page">
+    <!-- ВТОРАЯ СТРАНИЦА -->
+    <div class="container">
         <div class="content-wrapper">
-
             <!-- ВСТУПЛЕНИЕ -->
-            <div style="text-align:center; margin-bottom: 35px;">
-                <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ" style="max-width:100%;">
+            <div class="section-divider">
+                <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ">
             </div>
-
             <div class="content">
                 {{ text_content | safe }}
             </div>
@@ -129,9 +124,7 @@
             <div class="content">
                 {{ advice_content | safe }}
             </div>
-
         </div>
     </div>
-
 </body>
 </html>
