@@ -41,7 +41,8 @@ async def start_handler(message: Message):
     """Обрабатывает и текст 'Начать', и кнопку с payload"""
     vk_id = message.from_id
 
-    await start_dynamic_typing(vk_id, bot)   # ← исправлено
+    # Запускаем индикатор "печатает" (правильный вызов)
+    await start_dynamic_typing(vk_id, bot.api)
 
     if not await acquire_lock(vk_id):
         return
@@ -97,7 +98,7 @@ async def start_handler(message: Message):
 
         await message.answer(
             "✦ ДОБРО ПОЖАЛОВАТЬ В ЦИФРОВОЙ ГРИМУАР ✦ 🔮\n\n"
-            "Я АНТИ-ТАР - твой проводник в мир глубокого самопознания. Здесь нет ванильных гороскопов - только жесткий, честный разбор твоей матрицы судьбы.\n\n"
+            "Я АНТИ-ТАР — твой проводник в мир глубокого самопознания. Здесь нет ванильных гороскопов — только жесткий, честный разбор твоей матрицы судьбы.\n\n"
             "Мы вскроем твои теневые стороны, финансовый потенциал и скрытую энергию. Никакой воды, только факты, которые изменят твое восприятие себя.\n\n"
             "Для инициализации профиля и получения приветственного дара в 700 Энергии звезд я считал твои данные из профиля:\n"
             f"Дата рождения: {bdate}\n"
@@ -111,7 +112,7 @@ async def start_handler(message: Message):
         await message.answer("Произошла ошибка при инициализации. Попробуй ещё раз.")
     finally:
         await release_lock(vk_id)
-        await stop_dynamic_typing(vk_id, bot)   # ← исправлено
+        stop_dynamic_typing(vk_id)  # ← ИСПРАВЛЕНО: синхронно, только vk_id
 
 
 async def is_waiting_for_onboarding_data(message: Message) -> bool:
@@ -135,7 +136,7 @@ async def process_onboarding_data(message: Message):
         return
     try:
         user_text = message.text.strip()
-        await message.answer("👁‍🗨 Анализирую состояние звезд...")
+        await message.answer("Анализирую состояние звезд...")
         await bot.api.messages.set_activity(peer_id=message.peer_id, type="typing")
         data = await extract_birth_data(user_text)
         if not data:
@@ -154,7 +155,7 @@ async def process_onboarding_data(message: Message):
             "city": city
         }))
         verification_text = (
-            f"🪐 Данные рождения распознаны:\n"
+            f"Данные рождения распознаны:\n"
             f"Дата: {date}\n"
             f"Время: {time}\n"
             f"Город: {city}\n\n"
@@ -169,7 +170,7 @@ async def process_onboarding_data(message: Message):
         await release_lock(vk_id)
 
 
-@labeler.message(text=["✦ Главное меню", "Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД", "✦ ГЛАВНОЕ МЕНЮ 🏠"])
+@labeler.message(text=["Главное меню", "Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД", "ГЛАВНОЕ МЕНЮ"])
 async def back_to_main_menu(message: Message):
     vk_id = message.from_id
     await set_user_state(vk_id, "")
