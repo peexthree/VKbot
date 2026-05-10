@@ -395,34 +395,43 @@ async def get_fsm_step(vk_id: int) -> dict | None:
             return None
     return None
 
-def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, text_content: str, output_filename: str, card_id: str = None):
+def generate_premium_pdf(
+    user_name: str,
+    birth_info: str,
+    section_name: str,
+    text_content: str,
+    output_filename: str,
+    card_id: str = None,
+    advice_content: str = ""
+):
     try:
         template = jinja_env.get_template('report.html')
-
-        # Меняем переносы строк на HTML-теги
+        
+        # Подготовка текста
         formatted_text = text_content.replace('\n', '<br>')
+        formatted_advice = advice_content.replace('\n', '<br>') if advice_content else ""
 
-        card_image_uri = ""
-        if card_id:
-            local_path = os.path.abspath(f"cards/{card_id}.jpeg")
-            if os.path.exists(local_path):
-                card_image_uri = f"file://{local_path}"
+        # Абсолютный путь к корню проекта (чтобы WeasyPrint находил cards/uslugi/)
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
         html_out = template.render(
             user_name=user_name,
             birth_info=birth_info,
             section_name=section_name,
             text_content=formatted_text,
-            card_image_path=card_image_uri
+            advice_content=formatted_advice,
+            card_image_path=f"file://{os.path.abspath(f'cards/{card_id}.jpeg')}" if card_id and os.path.exists(f'cards/{card_id}.jpeg') else ""
         )
 
-        HTML(string=html_out).write_pdf(output_filename)
+        # Самое важное — base_url
+        HTML(string=html_out, base_url=project_root).write_pdf(output_filename)
+        
+        logger.info(f"✅ PDF успешно создан: {output_filename}")
         return True
-    except Exception as e:
-        logger.error(f"Ошибка PDF: {str(e)}")
-        return False
 
-_typing_tasks: dict[int, asyncio.Task] = {}
+    except Exception as e:
+        logger.error(f"Ошибка генерации PDF: {str(e)}")
+        return False
 
 def stop_dynamic_typing(peer_id: int):
     """Cancels the typing task for a given peer_id if it exists."""
