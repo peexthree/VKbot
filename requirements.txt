@@ -8,3 +8,4 @@ upstash-redis
 loguru
 sentry-sdk
 aiofiles
+psutil
