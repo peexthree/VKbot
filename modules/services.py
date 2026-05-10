@@ -15,6 +15,7 @@ from modules.states import MyStates
 from modules.utils import (
     get_fsm_step,
     upload_local_photo,
+    get_storefront_keyboard,
 )
 
 labeler = BotLabeler()
@@ -145,15 +146,14 @@ async def _send_catalog_carousel(
             await bot.api.messages.send(peer_id=peer_id, message=header_text, template=template_json, random_id=0)
     except Exception as e:
         logger.error(f"Error sending carousel, triggering fallback: {str(e)}")
-        fallback_kb = Keyboard(inline=True)
-        fallback_kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+        fallback_msg = f"{header_text}\n\n(Ошибка карусели. Используйте резервное меню)"
+        fallback_kb_json = await get_storefront_keyboard({})
 
-        fallback_msg = f"{header_text}\n\n(Ошибка отображения витрины. Пожалуйста, вернитесь в главное меню)"
         try:
             if edit_msg_id:
-                await bot.api.messages.edit(peer_id=peer_id, message=fallback_msg, conversation_message_id=edit_msg_id, keyboard=fallback_kb.get_json())
+                await bot.api.messages.edit(peer_id=peer_id, message=fallback_msg, conversation_message_id=edit_msg_id, keyboard=fallback_kb_json)
             else:
-                await bot.api.messages.send(peer_id=peer_id, message=fallback_msg, keyboard=fallback_kb.get_json(), random_id=0)
+                await bot.api.messages.send(peer_id=peer_id, message=fallback_msg, keyboard=fallback_kb_json, random_id=0)
         except Exception as fallback_e:
             logger.error(f"Fallback also failed: {str(fallback_e)}")
 
