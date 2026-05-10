@@ -13,7 +13,7 @@
         }
         .container { padding: 0; min-height: 100vh; box-sizing: border-box; position: relative; }
 
-        /* ПЕРВАЯ СТРАНИЦА — head2.png на весь размер */
+        /* ПЕРВАЯ СТРАНИЦА */
         .cover {
             height: 100vh;
             position: relative;
@@ -27,26 +27,25 @@
             max-height: 100vh;
             object-fit: contain;
         }
-        /* Подклад + свечение под текст имени */
         .user-info-wrapper {
             position: absolute;
-            top: 64%;               /* приспустили ниже */
+            top: 72%;               /* ещё ниже, как ты просил */
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(20, 15, 35, 0.75);
-            padding: 18px 45px;
-            border-radius: 12px;
-            box-shadow: 0 0 35px rgba(212, 175, 55, 0.6);
+            background: rgba(20, 15, 35, 0.78);
+            padding: 20px 50px;
+            border-radius: 14px;
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.65);
             z-index: 2;
             text-align: center;
-            min-width: 520px;
+            min-width: 540px;
         }
         .user-info {
-            font-size: 16.5pt;
+            font-size: 16.8pt;
             color: #f4d48c;
             line-height: 1.55;
-            text-shadow: 0 0 12px #f4d48c,
-                         0 0 22px #ffe8a3;
+            text-shadow: 0 0 15px #f4d48c,
+                         0 0 25px #ffe8a3;
         }
         .highlight { color: #ffe8a3; font-weight: 600; }
 
@@ -70,7 +69,7 @@
         .card-container {
             position: relative;
             display: block;
-            margin: 40px auto;      /* строго по центру */
+            margin: 55px auto 80px auto;   /* большой отступ сверху и снизу */
             text-align: center;
         }
         .card-background {
@@ -84,6 +83,21 @@
             position: relative;
             max-width: 280px;
             z-index: 1;
+        }
+
+        /* Название и описание под картой */
+        .card-info {
+            text-align: center;
+            margin-top: 25px;
+            color: #f4d48c;
+            font-size: 13.5pt;
+            text-shadow: 0 0 12px #f4d48c;
+        }
+        .card-name {
+            font-family: 'Cinzel', serif;
+            font-size: 18pt;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
         }
     </style>
 </head>
@@ -112,6 +126,10 @@
             <div class="card-container">
                 <img src="cards/uslugi/bac.png" class="card-background">
                 <img src="{{ card_image_path }}" class="card-image">
+            </div>
+            <div class="card-info">
+                <div class="card-name">{{ card_name }}</div>
+                {{ card_description | safe }}
             </div>
             {% endif %}
 
