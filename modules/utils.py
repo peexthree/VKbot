@@ -421,6 +421,8 @@ def generate_premium_pdf(
             section_name=section_name,
             text_content=formatted_text,
             advice_content=formatted_advice,
+            card_name=card_name,         
+            card_description=card_description,  
             card_image_path=f"file://{os.path.abspath(f'cards/{card_id}.jpeg')}" if card_id and os.path.exists(f'cards/{card_id}.jpeg') else ""
         )
 
