@@ -8,7 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
 # Global imports to avoid local import overhead
-from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader
+from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader, Text
 from weasyprint import HTML
 from database import get_user_state, update_user
 
@@ -311,8 +311,8 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     keyboard.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
 
-    keyboard.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("💳 МОЙ ПРОФИЛЬ", payload={}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("📖 ПУТЕВОДИТЕЛЬ", payload={}), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
 
@@ -331,8 +331,8 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
         {"action": {"type": "callback", "payload": json.dumps({"cmd": "services_menu"}), "label": "🔮 УСЛУГИ"}, "color": "positive"}
     ])
     buttons.append([
-        {"action": {"type": "callback", "payload": json.dumps({"cmd": "profile_menu"}), "label": "💳 МОЙ ПРОФИЛЬ"}, "color": "secondary"},
-        {"action": {"type": "callback", "payload": json.dumps({"cmd": "guide_menu"}), "label": "📖 ПУТЕВОДИТЕЛЬ"}, "color": "secondary"}
+        {"action": {"type": "text", "payload": "{}", "label": "💳 МОЙ ПРОФИЛЬ"}, "color": "secondary"},
+        {"action": {"type": "text", "payload": "{}", "label": "📖 ПУТЕВОДИТЕЛЬ"}, "color": "secondary"}
     ])
 
     purchased_list = []

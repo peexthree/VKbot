@@ -703,27 +703,10 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
 
                 asyncio.create_task(extract_and_save_tags(vk_id, res_text))
 
-                # Ensure the get_sections_keyboard dict has the structure to add an extra button
-                kb_str = await get_sections_keyboard(vk_id, user)
-                kb_dict = json.loads(kb_str)
-                if "buttons" in kb_dict:
-                    kb_dict["buttons"].append([{
-                        "action": {
-                            "type": "callback",
-                            "payload": json.dumps({"cmd": "gen_pdf", "section": target_section, "card": card_id}),
-                            "label": "СГЕНЕРИРОВАТЬ PDF"
-                        },
-                        "color": "secondary"
-                    }])
-                    kb_dict["buttons"].append([{
-                        "action": {
-                            "type": "callback",
-                            "payload": json.dumps({"cmd": "service_page", "idx": 0}),
-                            "label": "Вернуться в услуги"
-                        },
-                        "color": "primary"
-                    }])
-                kb_str = json.dumps(kb_dict, ensure_ascii=False)
+                # Build a lightweight keyboard just for PDF generation to avoid VK limits
+                light_kb = Keyboard(inline=True)
+                light_kb.add(Callback("СГЕНЕРИРОВАТЬ PDF", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.SECONDARY)
+                kb_str = light_kb.get_json()
 
                 try:
                     await bot.api.messages.send(
