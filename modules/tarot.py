@@ -191,13 +191,15 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, **kwargs):
 
 @labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня", "🃏 КАРТА ДНЯ"])
 async def card_of_day_handler(message: Message):
-    msg_id = await message.answer("Открываю гримуар...", keyboard=Keyboard(inline=True).get_json())
-    await card_of_day_logic(message.from_id, message.peer_id, message_id=msg_id)
+    if not await acquire_lock(message.from_id):
+        return
+    try:
+        msg_id = await message.answer("Открываю гримуар...", keyboard=Keyboard(inline=True).get_json())
+        await card_of_day_logic(message.from_id, message.peer_id, message_id=msg_id)
+    finally:
+        await release_lock(message.from_id)
 
 async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
-    if not await acquire_lock(vk_id):
-        return
-
     try:
         event_id = kwargs.get("event_id")
         conv_msg_id = kwargs.get("conversation_message_id")
@@ -275,6 +277,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
         if card_id not in unlocked: unlocked[card_id] = "Первое касание"
 
         await update_user(vk_id, {
+            "latest_reading_text": result_text,
             "balance": user.get("balance", 0) + 100,
             "visit_streak": new_streak,
             "unlocked_cards": unlocked,
@@ -328,7 +331,6 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
             pass
     finally:
         stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
 
 @labeler.message(state=MyStates.WAITING_ORACLE_QUESTION)
 async def process_oracle_question(message: Message):

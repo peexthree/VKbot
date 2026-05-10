@@ -366,20 +366,22 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
 
     return json.dumps(keyboard_obj, ensure_ascii=False)
 
-async def get_storefront_keyboard(purchased: dict) -> str | None:
+async def get_storefront_keyboard(purchased: dict = None) -> str | None:
     """Генерирует резервную инлайн клавиатуру для витрины услуг"""
+    if purchased is None:
+        purchased = {}
     kb = Keyboard(inline=True)
-    kb.add(Callback("👄 Сексуальность", payload={"cmd": "buy", "item": "sex"}), color=KeyboardButtonColor.POSITIVE)
-    kb.add(Callback("💰 Богатство", payload={"cmd": "buy", "item": "money"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("👄 Сексуальность", payload={"cmd": "buy", "type": "service", "key": "sex"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("💰 Богатство", payload={"cmd": "buy", "type": "service", "key": "money"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
-    kb.add(Callback("🌘 Тень", payload={"cmd": "buy", "item": "shadow"}), color=KeyboardButtonColor.POSITIVE)
-    kb.add(Callback("🏁 Путь", payload={"cmd": "buy", "item": "final"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("🌘 Тень", payload={"cmd": "buy", "type": "service", "key": "shadow"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("🏁 Путь", payload={"cmd": "buy", "type": "service", "key": "final"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
-    kb.add(Callback("👨‍❤️‍👨 Синастрия", payload={"cmd": "buy", "item": "synastry"}), color=KeyboardButtonColor.PRIMARY)
-    kb.add(Callback("❓ Оракул", payload={"cmd": "buy", "item": "oracle"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("👨‍❤️‍👨 Синастрия", payload={"cmd": "buy", "type": "service", "key": "synastry"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("❓ Оракул", payload={"cmd": "buy", "type": "service", "key": "oracle"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("👁 Антитаро", payload={"cmd": "buy", "item": "antitaro"}), color=KeyboardButtonColor.PRIMARY)
-    kb.add(Callback("👑 Архив (Всё)", payload={"cmd": "buy", "item": "all"}), color=KeyboardButtonColor.NEGATIVE)
+    kb.add(Callback("👁 Антитаро", payload={"cmd": "buy", "type": "service", "key": "antitaro"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("👑 Архив (Всё)", payload={"cmd": "buy", "type": "service", "key": "all"}), color=KeyboardButtonColor.NEGATIVE)
     kb.row()
     kb.add(Callback("🏠 В главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()

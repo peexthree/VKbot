@@ -39,8 +39,12 @@ async def show_balance(message: Message):
     await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд")
 
 @labeler.message(text=["✦ Настройки ⚙", "Настройки", "⚙ НАСТРОЙКИ"])
-async def settings_handler(message: Message):
-    vk_id = message.from_id
+async def settings_handler(message: Message = None, vk_id: int = None, peer_id: int = None):
+    if message:
+        vk_id = message.from_id
+        peer_id = message.peer_id
+    elif not vk_id or not peer_id:
+        return
 
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
@@ -60,7 +64,11 @@ async def settings_handler(message: Message):
         kb.row()
         kb.add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
 
-        await message.answer(text, keyboard=kb.get_json())
+        if message:
+            await message.answer(text, keyboard=kb.get_json())
+        else:
+            from modules.bot_init import bot
+            await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
     finally:
         await release_lock(vk_id)
 
@@ -198,8 +206,12 @@ async def settings_back_to_profile(message: Message):
     await show_profile(message)
 
 @labeler.message(text="Выбрать персонажа")
-async def settings_choose_character(message: Message):
-    vk_id = message.from_id
+async def settings_choose_character(message: Message = None, vk_id: int = None, peer_id: int = None):
+    if message:
+        vk_id = message.from_id
+        peer_id = message.peer_id
+    elif not vk_id or not peer_id:
+        return
 
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
@@ -208,7 +220,11 @@ async def settings_choose_character(message: Message):
     try:
         user = await get_user(vk_id)
         if not user:
-            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            if message:
+                await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            else:
+                from modules.bot_init import bot
+                await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
             return
 
         purchased_skins = user.get("purchased_skins", [])
@@ -237,7 +253,7 @@ async def settings_choose_character(message: Message):
             await asyncio.sleep(0.5)
 
             try:
-                photo = await upload_local_photo, get_fsm_step(bot.api, filename, peer_id=vk_id)
+                photo = await upload_local_photo(bot.api, filename, peer_id=vk_id)
             except Exception:
                 photo = None
 
@@ -255,11 +271,23 @@ async def settings_choose_character(message: Message):
 
             if photo:
                 try:
-                    await message.answer(text, attachment=photo, keyboard=kb.get_json())
+                    if message:
+                        await message.answer(text, attachment=photo, keyboard=kb.get_json())
+                    else:
+                        from modules.bot_init import bot
+                        await bot.api.messages.send(peer_id=peer_id, message=text, attachment=photo, keyboard=kb.get_json(), random_id=0)
                 except Exception:
-                    await message.answer(text, keyboard=kb.get_json())
+                    if message:
+                        await message.answer(text, keyboard=kb.get_json())
+                    else:
+                        from modules.bot_init import bot
+                        await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
             else:
-                await message.answer(text, keyboard=kb.get_json())
+                if message:
+                    await message.answer(text, keyboard=kb.get_json())
+                else:
+                    from modules.bot_init import bot
+                    await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
     finally:
         await release_lock(vk_id)
 
@@ -311,16 +339,21 @@ async def process_skin_action(message: Message):
         await release_lock(vk_id)
 
 @labeler.message(text=["✦ Мой профиль", "Мой профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ", "💳 МОЙ ПРОФИЛЬ"])
-async def show_profile(message: Message):
-
-
-
-    vk_id = message.from_id
+async def show_profile(message: Message = None, vk_id: int = None, peer_id: int = None):
+    if message:
+        vk_id = message.from_id
+        peer_id = message.peer_id
+    elif not vk_id or not peer_id:
+        return
 
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
-        await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+        if message:
+            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+        else:
+            from modules.bot_init import bot
+            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
         return
 
     first_name = user.get("purchased_sections", {}).get("first_name", "Неизвестно")
@@ -399,20 +432,36 @@ async def show_profile(message: Message):
 
     active_skin = user.get("active_skin", "olesya")
     skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
-    photo = await upload_local_photo, get_fsm_step(bot.api, skin_filename, peer_id=vk_id)
+    photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
 
     try:
         if photo:
-            await message.answer(profile_text, attachment=photo, keyboard=kb.get_json())
+            if message:
+                await message.answer(profile_text, attachment=photo, keyboard=kb.get_json())
+            else:
+                from modules.bot_init import bot
+                await bot.api.messages.send(peer_id=peer_id, message=profile_text, attachment=photo, keyboard=kb.get_json(), random_id=0)
         else:
-            await message.answer(profile_text, keyboard=kb.get_json())
+            if message:
+                await message.answer(profile_text, keyboard=kb.get_json())
+            else:
+                from modules.bot_init import bot
+                await bot.api.messages.send(peer_id=peer_id, message=profile_text, keyboard=kb.get_json(), random_id=0)
     except Exception as e:
         logger.error(f"Ошибка: {str(e)}")
         try:
              if photo:
-                  await message.answer(profile_text, attachment=photo)
+                  if message:
+                      await message.answer(profile_text, attachment=photo)
+                  else:
+                      from modules.bot_init import bot
+                      await bot.api.messages.send(peer_id=peer_id, message=profile_text, attachment=photo, random_id=0)
              else:
-                  await message.answer(profile_text)
+                  if message:
+                      await message.answer(profile_text)
+                  else:
+                      from modules.bot_init import bot
+                      await bot.api.messages.send(peer_id=peer_id, message=profile_text, random_id=0)
         except Exception as e:
              logger.error(f"Ignored Exception: {str(e)}")
 
@@ -545,14 +594,14 @@ async def view_card_direct(vk_id: int, peer_id: int, card_id: str):
 
 
     active_skin = user.get("active_skin", "olesya")
-    skin_att = await upload_local_photo, get_fsm_step(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
+    skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
     if skin_att:
         await bot.api.messages.send(peer_id=peer_id, message="", attachment=skin_att, random_id=0)
 
     signature = unlocked_cards[str(card_id)]
     await bot.api.messages.send(peer_id=peer_id, message=f"Твое первое касание с этой картой: {signature}", random_id=0)
 
-    photo_att = await upload_local_photo, get_fsm_step(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
+    photo_att = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
     if photo_att:
         await bot.api.messages.send(peer_id=peer_id, message="", attachment=photo_att, random_id=0)
 
@@ -593,8 +642,12 @@ async def god_mode_handler(message: Message):
 
 
 @labeler.message(text=["Мой Синдикат 🕸", "Мой Синдикат", "Мой синдикат"])
-async def syndicate_dashboard_handler(message: Message):
-    vk_id = message.from_id
+async def syndicate_dashboard_handler(message: Message = None, vk_id: int = None, peer_id: int = None):
+    if message:
+        vk_id = message.from_id
+        peer_id = message.peer_id
+    elif not vk_id or not peer_id:
+        return
     logger.info(f"syndicate_dashboard_handler triggered by vk_id={vk_id}")
 
     await set_user_state(vk_id, "")
@@ -648,7 +701,11 @@ async def syndicate_dashboard_handler(message: Message):
     kb.row()
     kb.add(Callback("Назад в профиль 👤", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.SECONDARY)
 
-    await message.answer(text, keyboard=kb.get_json())
+    if message:
+        await message.answer(text, keyboard=kb.get_json())
+    else:
+        from modules.bot_init import bot
+        await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
 
 @labeler.message(text=["Назад в профиль 👤"])
 async def back_to_profile(message: Message):

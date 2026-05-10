@@ -38,7 +38,6 @@ from modules.services import show_services, show_tariffs
 from modules.tarot import card_of_day_logic, process_oracle_final
 from modules.utils import (
     SKIN_ASSETS,
-    MockMsg,
     generate_premium_pdf,
     get_fsm_step,
     get_sections_keyboard,
@@ -217,7 +216,6 @@ async def message_event_handler(event: dict):
             await bot.api.messages.send(peer_id=peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, random_id=0)
 
         elif cmd == "card_of_day_menu":
-            await release_lock(vk_id)
             await card_of_day_logic(
                 vk_id, peer_id,
                 event_id=event_id,
@@ -230,7 +228,7 @@ async def message_event_handler(event: dict):
 
         elif cmd == "profile_menu":
             from modules.profile import show_profile
-            await show_profile(vk_id, peer_id)
+            await show_profile(vk_id=vk_id, peer_id=peer_id)
 
         elif cmd == "guide_menu":
             from modules.profile import show_guide
@@ -245,7 +243,6 @@ async def message_event_handler(event: dict):
             await show_tariffs(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
 
         elif cmd == "card_of_day":
-            await release_lock(vk_id)
             await card_of_day_logic(
                 vk_id, peer_id,
                 event_id=event_id,
@@ -285,7 +282,7 @@ async def message_event_handler(event: dict):
             if action == "settings":
                 from modules.profile import settings_handler
                 # Mock a message object
-                await settings_handler(MockMsg(vk_id, peer_id))
+                await settings_handler(vk_id=vk_id, peer_id=peer_id)
             elif action == "change_data":
                 await set_user_state(vk_id, "waiting_for_onboarding_data")
                 kb = Keyboard(inline=True)
@@ -293,7 +290,7 @@ async def message_event_handler(event: dict):
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json())
             elif action == "change_skin":
                 from modules.profile import settings_choose_character
-                await settings_choose_character(MockMsg(vk_id, peer_id))
+                await settings_choose_character(vk_id=vk_id, peer_id=peer_id)
             elif action == "cancel_sub":
                 await update_user(vk_id, {"transit_sub_expires_at": None})
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Транзит (Подписка) успешно отменен.")
@@ -311,13 +308,13 @@ async def message_event_handler(event: dict):
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
             elif action == "back_to_profile":
                 from modules.profile import show_profile
-                await show_profile(MockMsg(vk_id, peer_id))
+                await show_profile(vk_id=vk_id, peer_id=peer_id)
             elif action == "admin_console":
                 from modules.admin import show_admin_console
                 await show_admin_console(peer_id)
             elif action == "syndicate":
                 from modules.profile import syndicate_dashboard_handler
-                await syndicate_dashboard_handler(MockMsg(vk_id, peer_id))
+                await syndicate_dashboard_handler(vk_id=vk_id, peer_id=peer_id)
             elif action == "grimoire":
                 from modules.profile import show_grimoire_page
                 await show_grimoire_page(vk_id, peer_id, 0)
@@ -342,7 +339,7 @@ async def message_event_handler(event: dict):
             elif action == "cancel_seal":
                 await set_user_state(vk_id, "")
                 from modules.profile import syndicate_dashboard_handler
-                await syndicate_dashboard_handler(MockMsg(vk_id, peer_id))
+                await syndicate_dashboard_handler(vk_id=vk_id, peer_id=peer_id)
         elif cmd == "buy":
             buy_type = payload.get("type")
             key = payload.get("key")
