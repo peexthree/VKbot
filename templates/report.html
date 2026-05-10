@@ -27,18 +27,26 @@
             max-height: 100vh;
             object-fit: contain;
         }
-        /* Текст поверх head2.png */
-        .user-info {
+        /* Подклад + свечение под текст имени */
+        .user-info-wrapper {
             position: absolute;
-            top: 58%;               /* чуть ниже центра маскота */
+            top: 64%;               /* приспустили ниже */
             left: 50%;
             transform: translate(-50%, -50%);
-            text-align: center;
-            width: 100%;
+            background: rgba(20, 15, 35, 0.75);
+            padding: 18px 45px;
+            border-radius: 12px;
+            box-shadow: 0 0 35px rgba(212, 175, 55, 0.6);
             z-index: 2;
-            font-size: 16pt;
+            text-align: center;
+            min-width: 520px;
+        }
+        .user-info {
+            font-size: 16.5pt;
             color: #f4d48c;
-            line-height: 1.6;
+            line-height: 1.55;
+            text-shadow: 0 0 12px #f4d48c,
+                         0 0 22px #ffe8a3;
         }
         .highlight { color: #ffe8a3; font-weight: 600; }
 
@@ -51,10 +59,20 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.6);
         }
         .section-divider img { max-width: 100%; margin: 30px 0 20px 0; }
-        .content { font-size: 12.8pt; text-align: justify; }
+        .content {
+            font-size: 12.9pt;
+            text-align: justify;
+            color: #f0e6d2;
+            text-shadow: 0 0 8px rgba(244, 212, 140, 0.4);
+        }
 
         /* КАРТА + РАМКА */
-        .card-container { position: relative; display: inline-block; margin: 35px auto; }
+        .card-container {
+            position: relative;
+            display: block;
+            margin: 40px auto;      /* строго по центру */
+            text-align: center;
+        }
         .card-background {
             position: absolute;
             top: 50%; left: 50%;
@@ -62,16 +80,22 @@
             width: 335px;
             z-index: 3;
         }
-        .card-image { position: relative; max-width: 280px; z-index: 1; }
+        .card-image {
+            position: relative;
+            max-width: 280px;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
     <!-- ПЕРВАЯ СТРАНИЦА -->
     <div class="container cover">
         <img src="cards/uslugi/head2.png" class="head" alt="Персональный разбор">
-        <div class="user-info">
-            ИМЯ: <span class="highlight">{{ user_name }}</span><br>
-            ТОЧКА ВХОДА: {{ birth_info }}
+        <div class="user-info-wrapper">
+            <div class="user-info">
+                ИМЯ: <span class="highlight">{{ user_name }}</span><br>
+                ТОЧКА ВХОДА: {{ birth_info }}
+            </div>
         </div>
     </div>
     <div style="page-break-before: always;"></div>
