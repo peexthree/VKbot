@@ -4,7 +4,7 @@ import json
 import os
 import re
 from loguru import logger
-from vkbottle import Callback, GroupEventType, Keyboard, KeyboardButtonColor
+from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
 from cache import acquire_lock, get_tarot_names, release_lock
