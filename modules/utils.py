@@ -363,3 +363,38 @@ def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, tex
     except Exception as e:
         logger.error(f"Ошибка PDF: {str(e)}")
         return False
+
+# ==================== ДИНАМИЧЕСКИЙ ИНДИКАТОР "ПЕЧАТАЕТ..." ====================
+_typing_tasks = {}
+
+async def start_dynamic_typing(peer_id: int):
+    """Запускает индикатор набора текста у пользователя"""
+    if peer_id in _typing_tasks:
+        return
+    from modules.bot_init import bot
+    task = asyncio.create_task(_typing_loop(peer_id))
+    _typing_tasks[peer_id] = task
+
+
+async def stop_dynamic_typing(peer_id: int):
+    """Останавливает индикатор набора текста"""
+    if peer_id in _typing_tasks:
+        _typing_tasks[peer_id].cancel()
+        try:
+            await _typing_tasks[peer_id]
+        except asyncio.CancelledError:
+            pass
+        del _typing_tasks[peer_id]
+
+
+async def _typing_loop(peer_id: int):
+    """Внутренний цикл для индикатора"""
+    from modules.bot_init import bot
+    while True:
+        try:
+            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+            await asyncio.sleep(4.5)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            break
