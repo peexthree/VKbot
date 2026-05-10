@@ -7,85 +7,82 @@
 
         @page {
             size: A4;
-            margin: 2cm;
-            @bottom-center {
-                content: "ПЕРСОНАЛЬНЫЙ РАЗБОР • " counter(page);
-                font-family: 'Montserrat', sans-serif;
-                font-size: 9pt;
-                color: #555555;
-            }
+            margin: 0;
         }
 
         body {
-            background-color: #fdfbf7;
-            color: #333333;
+            margin: 0;
+            padding: 0;
             font-family: 'Montserrat', sans-serif;
-            line-height: 1.6;
+            line-height: 1.65;
+            color: #2c2c2c;
+            background: url('cards/uslugi/pdf_background_final.png') no-repeat center center fixed;
+            background-size: cover;
         }
 
-        h1, h2, h3 {
+        .container {
+            max-width: 100%;
+            padding: 45px 55px 60px 55px;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        /* Шапка */
+        .header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+        .header img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        /* Разделители */
+        .section-divider {
+            text-align: center;
+            margin: 45px 0 25px 0;
+        }
+        .section-divider img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        h1, h2 {
             font-family: 'Cinzel', serif;
             color: #d4af37;
             text-align: center;
             text-transform: uppercase;
-            font-weight: 700;
-            text-shadow: none;
-        }
-
-        .cover-page {
-            height: 100vh;
-            text-align: center;
-            padding-top: 30%;
-            border: 2px solid #d4af37;
-            border-radius: 15px;
-            box-sizing: border-box;
-            position: relative;
-        }
-
-        .title {
-            font-family: 'Cinzel', serif;
-            font-size: 42pt;
-            letter-spacing: 5px;
-            margin-bottom: 10px;
-            color: #d4af37;
-        }
-
-        .subtitle {
-            font-size: 18pt;
-            color: #555555;
-            margin-bottom: 50px;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
+            margin: 0 0 20px 0;
         }
 
         .user-info {
-            font-size: 12pt;
-            color: #666666;
-            border-top: 1px solid #d4af37;
-            border-bottom: 1px solid #d4af37;
-            padding: 20px 0;
-            display: inline-block;
+            text-align: center;
+            font-size: 13pt;
+            color: #d4af37;
+            margin: 25px 0 40px 0;
+            padding: 12px 0;
+            border-top: 1px solid rgba(212, 175, 55, 0.4);
+            border-bottom: 1px solid rgba(212, 175, 55, 0.4);
         }
 
-        .page-break {
-            page-break-before: always;
-        }
-
-        .content-section {
-            margin-top: 20px;
-            font-size: 12pt;
+        .content {
+            font-size: 12.5pt;
             text-align: justify;
+            hyphens: auto;
         }
 
         .card-container {
             text-align: center;
             margin: 40px 0;
         }
-
         .card-image {
-            max-width: 250px;
-            border: 2px solid #d4af37;
+            max-width: 260px;
+            border: 3px solid #d4af37;
             border-radius: 12px;
-            box-shadow: none;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
         }
 
         .highlight {
@@ -95,28 +92,45 @@
     </style>
 </head>
 <body>
-    <div class="cover-page">
-        <div class="title">ПЕРСОНАЛЬНЫЙ РАЗБОР</div>
-        <div class="subtitle">{{ section_name }}</div>
+    <div class="container">
 
+        <!-- ШАПКА -->
+        <div class="header">
+            <img src="cards/uslugi/head2.png" alt="Персональный разбор">
+        </div>
+
+        <!-- Информация о пользователе -->
         <div class="user-info">
             ИМЯ: <span class="highlight">{{ user_name }}</span><br>
             ТОЧКА ВХОДА: {{ birth_info }}
         </div>
-    </div>
 
-    <div class="page-break"></div>
+        <!-- ВСТУПЛЕНИЕ -->
+        <div class="section-divider">
+            <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ">
+        </div>
+        <div class="content">
+            {{ text_content | safe }}
+        </div>
 
-    <h2>АНАЛИЗ СИСТЕМЫ</h2>
+        <!-- КАРТА ДНЯ -->
+        {% if card_image_path %}
+        <div class="section-divider">
+            <img src="cards/uslugi/card.png" alt="КАРТА ДНЯ">
+        </div>
+        <div class="card-container">
+            <img src="{{ card_image_path }}" class="card-image">
+        </div>
+        {% endif %}
 
-    {% if card_image_path %}
-    <div class="card-container">
-        <img src="{{ card_image_path }}" class="card-image">
-    </div>
-    {% endif %}
+        <!-- СОВЕТ ДНЯ -->
+        <div class="section-divider">
+            <img src="cards/uslugi/day.png" alt="СОВЕТ ДНЯ">
+        </div>
+        <div class="content">
+            {{ advice_content | safe }}
+        </div>
 
-    <div class="content-section">
-        {{ text_content | safe }}
     </div>
 </body>
 </html>
