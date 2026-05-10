@@ -149,7 +149,7 @@ async def daily_forecast_cron():
 
 
 async def main():
-    # Health-check сервер для Render
+    # 1. САМОЕ ПЕРВОЕ — запускаем health-check (Render должен увидеть порт)
     app = web.Application()
     app.router.add_get('/', handle_ping)
     runner = web.AppRunner(app)
@@ -157,28 +157,25 @@ async def main():
     port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
+    print(f"[MEMORY AFTER HEALTH-CHECK] {psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024:.1f} MiB")
 
-    logger.info(f"Сервер запущен на порту {port}. Бот в работе...")
-
-    from ai_service import close_session, init_session
-    from database import init_db
-    from modules.middlewares import ThrottleMiddleware
+    # 2. Только теперь импортируем всё остальное
     from modules.bot_init import bot
-    from modules.utils import warmup_task
+    from database import init_db
+    from ai_service import init_session, close_session
+    from modules.middlewares import ThrottleMiddleware
 
-    # Инициализация
-    init_session()
     await init_db()
+    init_session()
 
-    # Регистрация middleware и модулей
     bot.labeler.message_view.register_middleware(ThrottleMiddleware)
 
-    import modules.admin as admin
-    import modules.payments as payments
-    import modules.profile as profile
     import modules.registration as registration
+    import modules.profile as profile
     import modules.services as services
     import modules.tarot as tarot
+    import modules.payments as payments
+    import modules.admin as admin
 
     bot.labeler.load(registration.labeler)
     bot.labeler.load(profile.labeler)
@@ -187,23 +184,23 @@ async def main():
     bot.labeler.load(payments.labeler)
     bot.labeler.load(admin.labeler)
 
-    # Запуск бота
+    # Запускаем бота
     asyncio.create_task(bot.run_polling())
-    asyncio.create_task(warmup_task())
-    asyncio.create_task(daily_forecast_cron())
 
-    # Graceful keep-alive
+    # Временно закомментируем самые тяжёлые задачи для теста
+    # asyncio.create_task(warmup_task())
+    # asyncio.create_task(daily_forecast_cron())
+
+    logger.info(f"Сервер запущен на порту {port}. Бот слушает сообщения...")
+
     try:
         while True:
             await asyncio.sleep(3600)
     finally:
-        # Cleanup
-        try:
-            from modules.utils import _typing_tasks, stop_dynamic_typing
-            for peer_id in list(_typing_tasks.keys()):
-                stop_dynamic_typing(peer_id)
-        except Exception as e:
-            logger.error(f"Error cleaning up typing tasks: {e}")
+        # Очистка
+        from modules.utils import _typing_tasks, stop_dynamic_typing
+        for peer_id in list(_typing_tasks.keys()):
+            await stop_dynamic_typing(peer_id)
         await close_session()
         await runner.cleanup()
 
