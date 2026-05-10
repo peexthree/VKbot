@@ -24,8 +24,148 @@ async def show_services_handler(message: Message):
     logger.info(f"show_services_handler triggered by from_id={message.from_id}")
     await show_services(message.from_id, message.peer_id, 0)
 
-async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
 
+async def _send_catalog_carousel(
+    vk_id: int,
+    peer_id: int,
+    items: list[dict],
+    idx: int,
+    edit_msg_id: int | None,
+    header_text: str,
+    item_type: str, # "service" or "tariff"
+):
+    PAGE_SIZE = 5
+    total_items = len(items)
+
+    # Validation for pagination
+    if idx < 0 or idx >= total_items:
+        idx = 0
+
+    current_items = items[idx:idx + PAGE_SIZE]
+
+    elements = []
+    for svc in current_items:
+        att = None
+        if svc.get("image_name"):
+            try:
+                att = await upload_local_photo(bot.api, svc["image_name"], peer_id=vk_id)
+                if not att:
+                    logger.warning(f"upload_local_photo returned empty for {svc['image_name']}")
+            except Exception as e:
+                logger.error(f"Failed to upload photo {svc['image_name']}: {e}")
+
+        # Strict VK Carousel limits (max 80 chars, no newlines)
+        title = svc["title"].replace("\n", " ")[:80]
+        desc_raw = svc["desc"].replace("\n", " ")
+        description = desc_raw[:77] + "..." if len(desc_raw) > 80 else desc_raw
+
+        button_cmd = "buy" if svc["key"] != "card_of_day" else "card_of_day"
+        button_label = "КУПИТЬ" if svc["key"] != "card_of_day" else "ПОЛУЧИТЬ"
+
+        element = {
+            "title": title,
+            "description": description,
+            "buttons": [{
+                "action": {
+                    "type": "callback",
+                    "payload": json.dumps({"cmd": button_cmd, "type": item_type, "key": svc["key"]}),
+                    "label": button_label
+                },
+                "color": "positive"
+            }]
+        }
+
+        # Fix the action field bug: if we have a photo_id, strictly use "open_photo", else fallback to "open_link"
+        if att and att.startswith("photo"):
+            photo_id = att.replace("photo", "")
+            if "_" in photo_id:
+                element["photo_id"] = photo_id
+                element["action"] = {"type": "open_photo"}
+
+        if "action" not in element:
+            element["action"] = {"type": "open_link", "link": "https://vk.com/market-219181948"}
+
+        elements.append(element)
+
+    if not elements:
+        try:
+            await bot.api.messages.send(peer_id=peer_id, message="Раздел пуст.", random_id=0)
+        except Exception:
+            pass
+        return
+
+    template = {
+        "type": "carousel",
+        "elements": elements
+    }
+    template_json = json.dumps(template, ensure_ascii=False)
+
+    kb = Keyboard(inline=True)
+
+    # Pagination buttons
+    if total_items > PAGE_SIZE:
+        nav_buttons = []
+        if idx > 0:
+            prev_idx = max(0, idx - PAGE_SIZE)
+            nav_buttons.append(Callback("⬅️ НАЗАД", payload={"cmd": f"{item_type}_page", "idx": prev_idx}))
+        if idx + PAGE_SIZE < total_items:
+            next_idx = idx + PAGE_SIZE
+            nav_buttons.append(Callback("ВПЕРЕД ➡️", payload={"cmd": f"{item_type}_page", "idx": next_idx}))
+
+        for btn in nav_buttons:
+            kb.add(btn, color=KeyboardButtonColor.SECONDARY)
+        if nav_buttons:
+            kb.row()
+
+    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb_json = kb.get_json()
+
+    # IMPORTANT FIX: VK API strictly forbids sending both `template` (carousel) and `keyboard` simultaneously.
+    # Therefore, we do not attach the global keyboard to the carousel message itself.
+    try:
+        if edit_msg_id:
+            # We edit the message to just hold the carousel.
+            await bot.api.messages.edit(peer_id=peer_id, message=header_text, template=template_json, conversation_message_id=edit_msg_id)
+            # Send the keyboard as a new message to allow navigation.
+            await bot.api.messages.send(peer_id=peer_id, message="Навигация:", keyboard=kb_json, random_id=0)
+        else:
+            await bot.api.messages.send(peer_id=peer_id, message=header_text, template=template_json, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="Навигация:", keyboard=kb_json, random_id=0)
+    except Exception as e:
+        logger.error(f"Error sending carousel, triggering fallback: {str(e)}")
+        # Fallback: simple text with inline buttons for each item
+        fallback_kb = Keyboard(inline=True)
+        for i, svc in enumerate(current_items):
+            button_cmd = "buy" if svc["key"] != "card_of_day" else "card_of_day"
+            button_label = svc["title"][:40]
+            fallback_kb.add(Callback(button_label, payload={"cmd": button_cmd, "type": item_type, "key": svc["key"]}), color=KeyboardButtonColor.SECONDARY)
+            # Add new row every 2 buttons to avoid limits, or if it's the last item before pagination/menu
+            if i % 2 != 0:
+                fallback_kb.row()
+
+        # Ensure we're on a new row for pagination/menu if needed
+        if len(current_items) % 2 != 0:
+            fallback_kb.row()
+
+        # Add pagination to fallback too
+        if total_items > PAGE_SIZE:
+            for btn in nav_buttons:
+                fallback_kb.add(btn, color=KeyboardButtonColor.SECONDARY)
+            if nav_buttons:
+                fallback_kb.row()
+
+        fallback_kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+
+        fallback_msg = f"{header_text}\n\n(Карусель недоступна, используйте кнопки ниже)"
+        try:
+            if edit_msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, message=fallback_msg, conversation_message_id=edit_msg_id, keyboard=fallback_kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message=fallback_msg, keyboard=fallback_kb.get_json(), random_id=0)
+        except Exception as fallback_e:
+            logger.error(f"Fallback also failed: {str(fallback_e)}")
+
+async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
 
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
@@ -48,72 +188,15 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         {"key": "card_of_day", "title": "Карта дня", "desc": "Бесплатно. Твоя персональная карта дня.", "image_name": "uslugi/cardofday.jpg"},
     ]
 
-    elements = []
-    for svc in services:
-        att = None
-        if svc.get("image_name"):
-            try:
-                att = await upload_local_photo(bot.api, svc["image_name"], peer_id=vk_id)
-            except Exception:
-                pass
-
-        # Strict VK Carousel limits (max 80 chars, no newlines)
-        title = svc["title"].replace("\n", " ")[:80]
-        desc_raw = svc["desc"].replace("\n", " ")
-        description = desc_raw[:77] + "..." if len(desc_raw) > 80 else desc_raw
-
-        button_cmd = "buy" if svc["key"] != "card_of_day" else "card_of_day"
-        button_label = "КУПИТЬ" if svc["key"] != "card_of_day" else "ПОЛУЧИТЬ"
-
-        element = {
-            "title": title,
-            "description": description,
-            "buttons": [{
-                "action": {
-                    "type": "callback",
-                    "payload": json.dumps({"cmd": button_cmd, "type": "service", "key": svc["key"]}),
-                    "label": button_label
-                },
-                "color": "positive"
-            }]
-        }
-
-        if att and att.startswith("photo"):
-            photo_id = att.replace("photo", "")
-            if "_" in photo_id:
-                element["photo_id"] = photo_id
-                element["action"] = {"type": "open_photo"}
-
-        if "action" not in element:
-            # Mandatory action field
-            element["action"] = {"type": "open_link", "link": "https://vk.com/market-219181948"}
-
-        elements.append(element)
-
-    template = {
-        "type": "carousel",
-        "elements": elements
-    }
-
-    template_json = json.dumps(template, ensure_ascii=False)
-    msg_text = "✦ ВИТРИНА УСЛУГ ✦\nВыберите услугу и нажмите 'КУПИТЬ'."
-
-    kb = Keyboard(inline=True)
-    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
-    kb_json = kb.get_json()
-
-    try:
-        if edit_msg_id:
-            await bot.api.messages.edit(peer_id=peer_id, message=msg_text, template=template_json, conversation_message_id=edit_msg_id, keyboard=kb_json)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, keyboard=kb_json, random_id=0)
-    except Exception as e:
-        logger.error(f"Error sending service carousel: {str(e)}")
-        try:
-            await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
-        except Exception as e:
-            logger.error(f"Ignored Exception: {str(e)}")
-
+    await _send_catalog_carousel(
+        vk_id=vk_id,
+        peer_id=peer_id,
+        items=services,
+        idx=idx,
+        edit_msg_id=edit_msg_id,
+        header_text="✦ ВИТРИНА УСЛУГ ✦\nВыберите услугу и нажмите 'КУПИТЬ'.",
+        item_type="service"
+    )
 
 async def is_waiting_synastry_name(message: Message) -> bool:
     if message.text and message.text.startswith("✦"):
@@ -216,7 +299,6 @@ async def show_tariffs_handler(message: Message):
 
 async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
 
-
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
@@ -232,63 +314,12 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         {"key": "tariff_vip", "title": "VIP Архив", "desc": "5900 Энергии. Золотой архив + месяц транзитов.", "image_name": "uslugi/VIPTOP.jpg"},
     ]
 
-    elements = []
-    for svc in tariffs:
-        att = None
-        if svc.get("image_name"):
-            try:
-                att = await upload_local_photo(bot.api, svc["image_name"], peer_id=vk_id)
-            except Exception:
-                pass
-
-        title = svc["title"].replace("\n", " ")[:80]
-        desc_raw = svc["desc"].replace("\n", " ")
-        description = desc_raw[:77] + "..." if len(desc_raw) > 80 else desc_raw
-
-        element = {
-            "title": title,
-            "description": description,
-            "buttons": [{
-                "action": {
-                    "type": "callback",
-                    "payload": json.dumps({"cmd": "buy", "type": "tariff", "key": svc["key"]}),
-                    "label": "КУПИТЬ"
-                },
-                "color": "positive"
-            }]
-        }
-
-        if att and att.startswith("photo"):
-            photo_id = att.replace("photo", "")
-            if "_" in photo_id:
-                element["photo_id"] = photo_id
-                element["action"] = {"type": "open_photo"}
-
-        if "action" not in element:
-            element["action"] = {"type": "open_link", "link": "https://vk.com/market-219181948"}
-
-        elements.append(element)
-
-    template = {
-        "type": "carousel",
-        "elements": elements
-    }
-
-    template_json = json.dumps(template, ensure_ascii=False)
-    msg_text = "🛰 ТАРИФЫ 🛰\nВыберите тариф и нажмите 'КУПИТЬ'."
-
-    kb = Keyboard(inline=True)
-    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
-    kb_json = kb.get_json()
-
-    try:
-        if edit_msg_id:
-            await bot.api.messages.edit(peer_id=peer_id, message=msg_text, template=template_json, conversation_message_id=edit_msg_id, keyboard=kb_json)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, keyboard=kb_json, random_id=0)
-    except Exception as e:
-        logger.error(f"Error sending tariff carousel: {str(e)}")
-        try:
-            await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
-        except Exception as e:
-            logger.error(f"Ignored Exception: {str(e)}")
+    await _send_catalog_carousel(
+        vk_id=vk_id,
+        peer_id=peer_id,
+        items=tariffs,
+        idx=idx,
+        edit_msg_id=edit_msg_id,
+        header_text="🛰 ТАРИФЫ 🛰\nВыберите тариф и нажмите 'КУПИТЬ'.",
+        item_type="tariff"
+    )
