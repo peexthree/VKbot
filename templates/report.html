@@ -15,32 +15,32 @@
             padding: 0;
             font-family: 'Montserrat', sans-serif;
             line-height: 1.78;
-            color: #f8f0d8;
+            color: #f5e8c7;
             background: url('cards/uslugi/pdf_background_final.png') no-repeat center center;
             background-size: cover;
         }
 
         .page {
             min-height: 100vh;
-            padding: 55px 58px;
+            padding: 0;
             box-sizing: border-box;
         }
 
         /* ====================== ПЕРВАЯ СТРАНИЦА ====================== */
         .cover {
+            height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
             text-align: center;
         }
 
         .header {
-            margin-bottom: 55px;
+            margin-bottom: 65px;
         }
         .header img {
-            max-width: 88%;
+            max-width: 82%;
             height: auto;
         }
 
@@ -54,11 +54,12 @@
             font-weight: 600;
         }
 
-        /* ====================== ВТОРАЯ И ДАЛЬШЕ ====================== */
+        /* ====================== ВТОРАЯ СТРАНИЦА ====================== */
         .content-wrapper {
-            background: rgba(18, 14, 32, 0.86);
+            background: rgba(18, 14, 32, 0.88);
             border-radius: 20px;
             padding: 48px 52px;
+            margin: 0 55px;
             box-shadow: 0 15px 50px rgba(0, 0, 0, 0.7);
         }
 
@@ -68,10 +69,10 @@
             hyphens: auto;
         }
 
-        /* Карта дня с красивой рамкой */
+        /* Карта дня с чистой рамкой */
         .card-container {
             text-align: center;
-            margin: 48px 0;
+            margin: 50px 0;
             position: relative;
         }
         .card-background {
@@ -79,8 +80,8 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 325px;
-            height: 455px;
+            width: 335px;     /* чуть больше карты */
+            height: 470px;
             z-index: 1;
         }
         .card-image {
@@ -88,13 +89,12 @@
             z-index: 2;
             max-width: 280px;
             border-radius: 12px;
-            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
         }
     </style>
 </head>
 <body>
 
-    <!-- ПЕРВАЯ СТРАНИЦА (только шапка по центру) -->
+    <!-- ПЕРВАЯ СТРАНИЦА — шапка строго по центру -->
     <div class="page cover">
         <div class="header">
             <img src="cards/uslugi/head2.png" alt="Персональный разбор">
@@ -105,14 +105,12 @@
         </div>
     </div>
 
-    <div style="page-break-before: always;"></div>
-
-    <!-- ВТОРАЯ СТРАНИЦА И ДАЛЬШЕ -->
+    <!-- ВТОРАЯ СТРАНИЦА (начинается сразу) -->
     <div class="page">
         <div class="content-wrapper">
 
             <!-- ВСТУПЛЕНИЕ -->
-            <div style="text-align:center; margin-bottom: 32px;">
+            <div style="text-align:center; margin-bottom: 35px;">
                 <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ" style="max-width:100%;">
             </div>
 
@@ -128,7 +126,6 @@
             </div>
             {% endif %}
 
-            <!-- СОВЕТ ДНЯ -->
             <div class="content">
                 {{ advice_content | safe }}
             </div>
