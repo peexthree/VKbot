@@ -316,7 +316,7 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     return keyboard.get_json()
 
 async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
-    """Генерирует инлайн клавиатуру для открытых (купленных) разделов"""
+    """Генерирует инлайн клавиатуру для главного меню и открытых (купленных) разделов"""
     # Заодно при отрисовке инлайн-кнопок меню выдадим бонус, если наступил новый день
     await check_and_give_daily_bonus(vk_id, user, vk_id)
 
@@ -324,27 +324,40 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     has_all = purchased.get("all") or (user and user.get("has_full_chart"))
     buttons = []
 
-    # Если куплен Секс, но результат еще не сгенерирован
+    # Добавляем основные кнопки навигации (как в нормальном SaaS-боте)
+    buttons.append([
+        {"action": {"type": "callback", "payload": json.dumps({"cmd": "card_of_day_menu"}), "label": "🃏 КАРТА ДНЯ"}, "color": "primary"},
+        {"action": {"type": "callback", "payload": json.dumps({"cmd": "services_menu"}), "label": "🔮 УСЛУГИ"}, "color": "positive"}
+    ])
+    buttons.append([
+        {"action": {"type": "callback", "payload": json.dumps({"cmd": "profile_menu"}), "label": "💳 МОЙ ПРОФИЛЬ"}, "color": "secondary"},
+        {"action": {"type": "callback", "payload": json.dumps({"cmd": "guide_menu"}), "label": "📖 ПУТЕВОДИТЕЛЬ"}, "color": "secondary"}
+    ])
+
+    purchased_list = []
+
+    # Собираем купленные разделы
     if purchased.get("sex") or has_all:
-        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "sex"}), "label": "👄 ТВОЯ СЕКСУАЛЬНАЯ ЭНЕРГИЯ"}, "color": "positive"}])
+        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "sex"}), "label": "👄 СЕКСУАЛЬНОСТЬ"}, "color": "positive"})
 
     if purchased.get("money") or has_all:
-        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "money"}), "label": "💰 КОД ТВОЕГО БОГАТСТВА"}, "color": "positive"}])
+        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "money"}), "label": "💰 БОГАТСТВО"}, "color": "positive"})
 
     if purchased.get("shadow") or has_all:
-        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "shadow"}), "label": "🌘 ТВОИ СКРЫТЫЕ ГРАНИ"}, "color": "positive"}])
+        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "shadow"}), "label": "🌘 ТЕНЬ"}, "color": "positive"})
 
     if purchased.get("final") or has_all:
-        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "final"}), "label": "🏁 ТВОЙ ИСТИННЫЙ ПУТЬ"}, "color": "positive"}])
+        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "final"}), "label": "🏁 ПУТЬ"}, "color": "positive"})
 
     if purchased.get("antitaro"):
-        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "antitaro"}), "label": "АНТИТАРО"}, "color": "positive"}])
+        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "antitaro"}), "label": "АНТИТАРО"}, "color": "positive"})
 
     if purchased.get("synastry"):
-        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "synastry"}), "label": "👨‍❤️‍👨 СИНАСТРИЯ"}, "color": "positive"}])
+        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "synastry"}), "label": "👨‍❤️‍👨 СИНАСТРИЯ"}, "color": "positive"})
 
-    if not buttons:
-        buttons.append([{"action": {"type": "callback", "payload": json.dumps({"cmd": "service_page", "idx": 0}), "label": "✦ УСЛУГИ 🛒"}, "color": "secondary"}])
+    # Группируем купленные разделы по 2 в ряд для экономии места
+    for i in range(0, len(purchased_list), 2):
+        buttons.append(purchased_list[i:i+2])
 
     keyboard_obj = {
         "inline": True,
