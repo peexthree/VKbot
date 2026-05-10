@@ -41,7 +41,7 @@ async def start_handler(message: Message):
     """Обрабатывает и текст 'Начать', и кнопку с payload"""
     vk_id = message.from_id
 
-    await start_dynamic_typing(vk_id)
+    await start_dynamic_typing(vk_id, bot)   # ← исправлено
 
     if not await acquire_lock(vk_id):
         return
@@ -111,7 +111,7 @@ async def start_handler(message: Message):
         await message.answer("Произошла ошибка при инициализации. Попробуй ещё раз.")
     finally:
         await release_lock(vk_id)
-        await stop_dynamic_typing(vk_id)
+        await stop_dynamic_typing(vk_id, bot)   # ← исправлено
 
 
 async def is_waiting_for_onboarding_data(message: Message) -> bool:
