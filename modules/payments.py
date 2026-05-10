@@ -267,8 +267,8 @@ async def message_event_handler(event: dict):
             b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
             first_name = user.get("purchased_sections", {}).get("first_name", "Странник")
 
-            async with pdf_semaphore:
-                await asyncio.to_thread(
+                async with pdf_semaphore:
+                    await asyncio.to_thread(
                         generate_premium_pdf,
                         first_name,
                         b_info,
