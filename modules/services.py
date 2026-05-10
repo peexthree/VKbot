@@ -96,25 +96,25 @@ async def _send_catalog_carousel(
         return
 
     # Add navigation element directly into carousel
-    nav_buttons_carousel = []
-    if total_items > PAGE_SIZE:
-        if idx > 0:
-            prev_idx = max(0, idx - PAGE_SIZE)
-            nav_buttons_carousel.append({
-                "action": {"type": "callback", "payload": json.dumps({"cmd": f"{item_type}_page", "idx": prev_idx}), "label": "⬅️ НАЗАД"},
-                "color": "secondary"
-            })
-        if idx + PAGE_SIZE < total_items:
-            next_idx = idx + PAGE_SIZE
-            nav_buttons_carousel.append({
-                "action": {"type": "callback", "payload": json.dumps({"cmd": f"{item_type}_page", "idx": next_idx}), "label": "ВПЕРЕД ➡️"},
-                "color": "secondary"
-            })
-
-    nav_buttons_carousel.append({
+    # We must ensure the nav element has EXACTLY the same number of buttons as the regular elements (1 button)
+    nav_button = {
         "action": {"type": "callback", "payload": json.dumps({"cmd": "main_menu"}), "label": "🏠 ГЛАВНОЕ МЕНЮ"},
         "color": "primary"
-    })
+    }
+
+    if total_items > PAGE_SIZE:
+        if idx + PAGE_SIZE < total_items:
+            next_idx = idx + PAGE_SIZE
+            nav_button = {
+                "action": {"type": "callback", "payload": json.dumps({"cmd": f"{item_type}_page", "idx": next_idx}), "label": "ВПЕРЕД ➡️"},
+                "color": "secondary"
+            }
+        elif idx > 0:
+            prev_idx = max(0, idx - PAGE_SIZE)
+            nav_button = {
+                "action": {"type": "callback", "payload": json.dumps({"cmd": f"{item_type}_page", "idx": prev_idx}), "label": "⬅️ НАЗАД"},
+                "color": "secondary"
+            }
 
     # To avoid VK API Error 100 (elements must have same fields), we must ensure
     # the navigation element has a photo_id if other elements have one.
@@ -123,7 +123,7 @@ async def _send_catalog_carousel(
         "title": "✦ НАВИГАЦИЯ ✦",
         "description": "Перемещение по витрине",
         "action": {"type": "open_link", "link": "https://vk.com/market-219181948"},
-        "buttons": nav_buttons_carousel
+        "buttons": [nav_button]
     }
 
     # VK requires uniform fields in carousels
