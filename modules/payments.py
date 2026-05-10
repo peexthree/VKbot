@@ -226,7 +226,7 @@ async def message_event_handler(event: dict):
             return
 
         elif cmd == "services_menu":
-            await show_services(vk_id, peer_id, 0)
+            await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
 
         elif cmd == "profile_menu":
             from modules.profile import show_profile

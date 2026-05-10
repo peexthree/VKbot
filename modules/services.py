@@ -97,19 +97,18 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     for svc in services:
         att = await upload_local_photo(bot.api, svc['image_name'], peer_id=vk_id) if svc['image_name'] else None
 
-        # Trim description to fit VK Carousel limits (approx 80 chars for title, 80 chars for description in carousel)
-        # However, for carousel description max length is 80, title is 80.
-        title_trimmed = svc['title'][:80]
-        desc_trimmed = svc['desc'][:80] + "..." if len(svc['desc']) > 80 else svc['desc']
+        # Trim description to fit VK Carousel limits (max 80 chars for title and description)
+        title_trimmed = svc['title'][:80].replace("\n", " ")
+        # Description is strictly 80 chars max
+        clean_desc = svc['desc'].replace("\n", " ")
+        desc_trimmed = clean_desc[:77] + "..." if len(clean_desc) > 80 else clean_desc
 
         button_cmd = "buy" if svc['key'] != "card_of_day" else "card_of_day"
         button_label = "КУПИТЬ" if svc['key'] != "card_of_day" else "ПОЛУЧИТЬ"
 
-        # We need a valid action URL or action for the element itself. Usually "open_photo" or "open_link"
         element = {
             "title": title_trimmed,
             "description": desc_trimmed,
-            "action": {"type": "open_photo"},
             "buttons": [
                 {
                     "action": {
@@ -123,10 +122,14 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         }
 
         if att:
-            # att format from upload_photo is "photo{owner_id}_{photo_id}"
             photo_id = att.replace("photo", "")
             if "_" in photo_id:
                 element["photo_id"] = photo_id
+                element["action"] = {"type": "open_photo"}
+
+        if "action" not in element:
+            # Fallback action if photo is missing
+            element["action"] = {"type": "open_link", "link": "https://vk.com/market-219181948"}
 
         elements.append(element)
 
@@ -138,12 +141,19 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     template_json = json.dumps(template, ensure_ascii=False)
     msg_text = "✦ ВИТРИНА УСЛУГ ✦\nВыберите услугу и нажмите 'КУПИТЬ'."
 
+    kb = Keyboard(inline=True)
+    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb_json = kb.get_json()
+
     try:
-        await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
+        if edit_msg_id:
+            await bot.api.messages.edit(peer_id=peer_id, message=msg_text, template=template_json, conversation_message_id=edit_msg_id, keyboard=kb_json)
+        else:
+            await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, keyboard=kb_json, random_id=0)
     except Exception as e:
         logger.error(f"Error sending service carousel: {str(e)}")
         try:
-            await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
 
@@ -284,13 +294,13 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     for svc in tariffs:
         att = await upload_local_photo(bot.api, svc['image_name'], peer_id=vk_id) if svc['image_name'] else None
 
-        title_trimmed = svc['title'][:80]
-        desc_trimmed = svc['desc'][:80] + "..." if len(svc['desc']) > 80 else svc['desc']
+        title_trimmed = svc['title'][:80].replace("\n", " ")
+        clean_desc = svc['desc'].replace("\n", " ")
+        desc_trimmed = clean_desc[:77] + "..." if len(clean_desc) > 80 else clean_desc
 
         element = {
             "title": title_trimmed,
             "description": desc_trimmed,
-            "action": {"type": "open_photo"},
             "buttons": [
                 {
                     "action": {
@@ -307,6 +317,10 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
             photo_id = att.replace("photo", "")
             if "_" in photo_id:
                 element["photo_id"] = photo_id
+                element["action"] = {"type": "open_photo"}
+
+        if "action" not in element:
+            element["action"] = {"type": "open_link", "link": "https://vk.com/market-219181948"}
 
         elements.append(element)
 
@@ -318,11 +332,18 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     template_json = json.dumps(template, ensure_ascii=False)
     msg_text = "🛰 ТАРИФЫ 🛰\nВыберите тариф и нажмите 'КУПИТЬ'."
 
+    kb = Keyboard(inline=True)
+    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb_json = kb.get_json()
+
     try:
-        await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, random_id=0)
+        if edit_msg_id:
+            await bot.api.messages.edit(peer_id=peer_id, message=msg_text, template=template_json, conversation_message_id=edit_msg_id, keyboard=kb_json)
+        else:
+            await bot.api.messages.send(peer_id=peer_id, message=msg_text, template=template_json, keyboard=kb_json, random_id=0)
     except Exception as e:
         logger.error(f"Error sending tariff carousel: {str(e)}")
         try:
-            await bot.api.messages.send(peer_id=peer_id, message=msg_text, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message=msg_text, keyboard=kb_json, random_id=0)
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
