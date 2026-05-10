@@ -50,7 +50,7 @@ SKIN_ASSETS = {
     "Баба Ванга": "ba.jpeg",
     "Григорий Распутин": "r.jpeg",
     "Магистр": "magistr.jpeg"
-}
+}_typing_tasks: dict[int, asyncio.Task] = {}
 
 # Pre-initialize Jinja2 Environment for faster PDF generation
 templates_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
