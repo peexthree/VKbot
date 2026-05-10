@@ -14,56 +14,56 @@
             margin: 0;
             padding: 0;
             font-family: 'Montserrat', sans-serif;
-            line-height: 1.75;
-            color: #f5e8c7;
+            line-height: 1.78;
+            color: #f8f0d8;
             background: url('cards/uslugi/pdf_background_final.png') no-repeat center center;
             background-size: cover;
         }
 
-        .container {
-            padding: 60px 55px;
+        .page {
             min-height: 100vh;
+            padding: 55px 58px;
             box-sizing: border-box;
         }
 
-        /* Первая страница — чистая */
+        /* ====================== ПЕРВАЯ СТРАНИЦА ====================== */
         .cover {
-            height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            height: 100vh;
             text-align: center;
         }
 
         .header {
-            margin-bottom: 60px;
+            margin-bottom: 55px;
         }
         .header img {
-            max-width: 85%;
+            max-width: 88%;
             height: auto;
         }
 
         .user-info {
-            font-size: 15.5pt;
+            font-size: 15.8pt;
             color: #f4d48c;
-            line-height: 1.5;
+            line-height: 1.45;
         }
         .highlight {
             color: #ffe8a3;
             font-weight: 600;
         }
 
-        /* Вторая страница и дальше */
+        /* ====================== ВТОРАЯ И ДАЛЬШЕ ====================== */
         .content-wrapper {
-            background: rgba(20, 15, 35, 0.82);
-            border-radius: 18px;
-            padding: 45px 50px;
-            box-shadow: 0 12px 45px rgba(0, 0, 0, 0.6);
+            background: rgba(18, 14, 32, 0.86);
+            border-radius: 20px;
+            padding: 48px 52px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.7);
         }
 
         .content {
-            font-size: 13.2pt;
+            font-size: 13.4pt;
             text-align: justify;
             hyphens: auto;
         }
@@ -71,7 +71,7 @@
         /* Карта дня с красивой рамкой */
         .card-container {
             text-align: center;
-            margin: 45px 0;
+            margin: 48px 0;
             position: relative;
         }
         .card-background {
@@ -79,21 +79,23 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 320px;
-            height: 440px;
+            width: 325px;
+            height: 455px;
+            z-index: 1;
         }
         .card-image {
             position: relative;
+            z-index: 2;
             max-width: 280px;
             border-radius: 12px;
-            z-index: 2;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
         }
     </style>
 </head>
 <body>
 
-    <!-- ПЕРВАЯ СТРАНИЦА — только шапка по центру -->
-    <div class="container cover">
+    <!-- ПЕРВАЯ СТРАНИЦА (только шапка по центру) -->
+    <div class="page cover">
         <div class="header">
             <img src="cards/uslugi/head2.png" alt="Персональный разбор">
         </div>
@@ -105,12 +107,12 @@
 
     <div style="page-break-before: always;"></div>
 
-    <!-- ВТОРАЯ СТРАНИЦА -->
-    <div class="container">
+    <!-- ВТОРАЯ СТРАНИЦА И ДАЛЬШЕ -->
+    <div class="page">
         <div class="content-wrapper">
 
-            <!-- ВСТУПЛЕНИЕ (оставляем разделитель) -->
-            <div style="text-align:center; margin: 30px 0 25px 0;">
+            <!-- ВСТУПЛЕНИЕ -->
+            <div style="text-align:center; margin-bottom: 32px;">
                 <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ" style="max-width:100%;">
             </div>
 
@@ -118,7 +120,7 @@
                 {{ text_content | safe }}
             </div>
 
-            <!-- КАРТА ДНЯ с подложкой bac.png -->
+            <!-- КАРТА ДНЯ -->
             {% if card_image_path %}
             <div class="card-container">
                 <img src="cards/uslugi/bac.png" class="card-background">
@@ -126,6 +128,7 @@
             </div>
             {% endif %}
 
+            <!-- СОВЕТ ДНЯ -->
             <div class="content">
                 {{ advice_content | safe }}
             </div>
