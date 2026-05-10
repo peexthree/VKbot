@@ -267,19 +267,23 @@ async def message_event_handler(event: dict):
             b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
             first_name = user.get("purchased_sections", {}).get("first_name", "Странник")
 
-                async with pdf_semaphore:
-                    await asyncio.to_thread(
-                        generate_premium_pdf,
-                        first_name,
-                        b_info,
-                        section.upper(),
-                        latest_text,
-                        pdf_name,
-                        card_id,
-                        advice_content=advice_content,
-                        card_name=card_name,
-                        card_description=card_description
-                    )
+            card_data = get_card_data(card_id) if card_id else {}
+            card_name = card_data.get("name")
+            card_description = card_data.get("description")
+
+            async with pdf_semaphore:
+                await asyncio.to_thread(
+                    generate_premium_pdf,
+                    user_name=first_name,
+                    birth_info=b_info,
+                    section_name=section.upper(),
+                    text_content=latest_text,
+                    output_filename=pdf_name,
+                    card_id=card_id,
+                    advice_content="",
+                    card_name=card_name,
+                    card_description=card_description
+                )
 
             # Отправка
             doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
@@ -817,11 +821,11 @@ async def donut_handler(event: dict):
                 random_id=0
             )
         except Exception as e:
-                                     logger.error(f"Donut notification error: {e}")
+            logger.error(f"Donut notification error: {e}")
 
     elif event_type in ["donut_subscription_expired", "donut_subscription_cancelled"]:
         purchased["donut_active"] = False
-                 await update_user(vk_id, {"purchased_sections": purchased})
+        await update_user(vk_id, {"purchased_sections": purchased})
 
         action = "истекла" if event_type == "donut_subscription_expired" else "отменена"
         try:

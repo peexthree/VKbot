@@ -24,7 +24,9 @@ def test_generate_premium_pdf():
             section_name="TEST SECTION",
             text_content="This is a test content\nNew line.",
             output_filename="test_output.pdf",
-            card_id=None
+            card_id=None,
+            card_name="Test Card",
+            card_description="Test Description"
         )
 
         assert result is True
