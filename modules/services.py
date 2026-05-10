@@ -37,98 +37,55 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         return
 
     services = [
-        {
-            "key": "sex",
-            "title": "Твоя сексуальная энергия",
-            "desc": "1000 Энергии. Раскроет матрицу страсти.\n\nДемо: В этом разборе мы изучим позицию Марса и Венеры, чтобы вскрыть твои истинные влечения.",
-            "image_name": "uslugi/sex.jpg"
-        },
-        {
-            "key": "money",
-            "title": "Код твоего богатства",
-            "desc": "900 Энергии. Пробьет финансовый потолок.\n\nДемо: Узнай, как положение Сатурна и 2-го дома блокируют или открывают твой денежный поток.",
-            "image_name": "uslugi/Money.jpg"
-        },
-        {
-            "key": "shadow",
-            "title": "Твои скрытые грани",
-            "desc": "700 Энергии. Раскроет подавленные эмоции.\n\nДемо: Лилит и 8-й дом покажут то, что ты боишься признать даже самому себе.",
-            "image_name": "uslugi/DEMONS.jpg"
-        },
-        {
-            "key": "final",
-            "title": "Твой истинный путь",
-            "desc": "1200 Энергии. Вектор развития.\n\nДемо: Северный узел укажет направление, в котором заложен твой максимальный потенциал.",
-            "image_name": "uslugi/WAYLIFE.jpg"
-        },
-        {
-            "key": "synastry",
-            "title": "Тайна ваших отношений",
-            "desc": "1500 Энергии. Жесткий разбор совместимости.\n\nДемо: Взаимодействие ваших натальных карт покажет, кармический ли это союз или временное испытание.",
-            "image_name": "uslugi/SINISTRY.jpg"
-        },
-        {
-            "key": "oracle",
-            "title": "Вопрос судьбе (Оракул)",
-            "desc": "500 Энергии. Ответ судьбы без воды.\n\nДемо: Задай свой самый сокровенный вопрос и получи трактовку 3-х карт Таро.",
-            "image_name": "uslugi/QUEST.jpg"
-        },
-        {
-            "key": "antitaro",
-            "title": "Антитаро (Разрыв иллюзий)",
-            "desc": "500 Энергии. Разбор иллюзий.\n\nДемо: Вскрываем ложь, которую ты себе рассказываешь, через темные арканы.",
-            "image_name": "uslugi/ANTITARO.jpg"
-        },
-        {
-            "key": "all",
-            "title": "Золотой архив всех откровений",
-            "desc": "3000 Энергии. Полный доступ ко всем тайнам твоей матрицы.",
-            "image_name": "uslugi/VIP.jpg"
-        },
-        {
-            "key": "card_of_day",
-            "title": "Карта дня",
-            "desc": "Бесплатно. Твоя персональная карта дня. Открой завесу тайн.",
-            "image_name": "uslugi/cardofday.jpg"
-        }
+        {"key": "sex", "title": "Твоя сексуальная энергия", "desc": "1000 Энергии. Раскроет матрицу страсти.", "image_name": "uslugi/sex.jpg"},
+        {"key": "money", "title": "Код твоего богатства", "desc": "900 Энергии. Пробьет финансовый потолок.", "image_name": "uslugi/Money.jpg"},
+        {"key": "shadow", "title": "Твои скрытые грани", "desc": "700 Энергии. Раскроет подавленные эмоции.", "image_name": "uslugi/DEMONS.jpg"},
+        {"key": "final", "title": "Твой истинный путь", "desc": "1200 Энергии. Вектор развития.", "image_name": "uslugi/WAYLIFE.jpg"},
+        {"key": "synastry", "title": "Тайна ваших отношений", "desc": "1500 Энергии. Жесткий разбор совместимости.", "image_name": "uslugi/SINISTRY.jpg"},
+        {"key": "oracle", "title": "Вопрос судьбе (Оракул)", "desc": "500 Энергии. Ответ судьбы без воды.", "image_name": "uslugi/QUEST.jpg"},
+        {"key": "antitaro", "title": "Антитаро (Разрыв иллюзий)", "desc": "500 Энергии. Разбор иллюзий.", "image_name": "uslugi/ANTITARO.jpg"},
+        {"key": "all", "title": "Золотой архив всех откровений", "desc": "3000 Энергии. Полный доступ ко всем тайнам.", "image_name": "uslugi/VIP.jpg"},
+        {"key": "card_of_day", "title": "Карта дня", "desc": "Бесплатно. Твоя персональная карта дня.", "image_name": "uslugi/cardofday.jpg"},
     ]
 
     elements = []
     for svc in services:
-        att = await upload_local_photo(bot.api, svc['image_name'], peer_id=vk_id) if svc['image_name'] else None
+        att = None
+        if svc.get("image_name"):
+            try:
+                att = await upload_local_photo(bot.api, svc["image_name"], peer_id=vk_id)
+            except Exception:
+                pass
 
-        # Trim description to fit VK Carousel limits (max 80 chars for title and description)
-        title_trimmed = svc['title'][:80].replace("\n", " ")
-        # Description is strictly 80 chars max
-        clean_desc = svc['desc'].replace("\n", " ")
-        desc_trimmed = clean_desc[:77] + "..." if len(clean_desc) > 80 else clean_desc
+        # Strict VK Carousel limits (max 80 chars, no newlines)
+        title = svc["title"].replace("\n", " ")[:80]
+        desc_raw = svc["desc"].replace("\n", " ")
+        description = desc_raw[:77] + "..." if len(desc_raw) > 80 else desc_raw
 
-        button_cmd = "buy" if svc['key'] != "card_of_day" else "card_of_day"
-        button_label = "КУПИТЬ" if svc['key'] != "card_of_day" else "ПОЛУЧИТЬ"
+        button_cmd = "buy" if svc["key"] != "card_of_day" else "card_of_day"
+        button_label = "КУПИТЬ" if svc["key"] != "card_of_day" else "ПОЛУЧИТЬ"
 
         element = {
-            "title": title_trimmed,
-            "description": desc_trimmed,
-            "buttons": [
-                {
-                    "action": {
-                        "type": "callback",
-                        "payload": json.dumps({"cmd": button_cmd, "type": "service", "key": svc['key']}),
-                        "label": button_label
-                    },
-                    "color": "positive"
-                }
-            ]
+            "title": title,
+            "description": description,
+            "buttons": [{
+                "action": {
+                    "type": "callback",
+                    "payload": json.dumps({"cmd": button_cmd, "type": "service", "key": svc["key"]}),
+                    "label": button_label
+                },
+                "color": "positive"
+            }]
         }
 
-        if att:
+        if att and att.startswith("photo"):
             photo_id = att.replace("photo", "")
             if "_" in photo_id:
                 element["photo_id"] = photo_id
                 element["action"] = {"type": "open_photo"}
 
         if "action" not in element:
-            # Fallback action if photo is missing
+            # Mandatory action field
             element["action"] = {"type": "open_link", "link": "https://vk.com/market-219181948"}
 
         elements.append(element)
@@ -270,50 +227,38 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         return
 
     tariffs = [
-        {
-            "key": "tariff_1",
-            "title": "Спутник 7 дней",
-            "desc": "990 Энергии. Ежедневные прогнозы и транзиты на 7 дней.",
-            "image_name": "uslugi/7day.jpg"
-        },
-        {
-            "key": "tariff_2",
-            "title": "Оракул 30 дней",
-            "desc": "2900 Энергии. Ежедневные прогнозы и транзиты на 30 дней.",
-            "image_name": "uslugi/30day.jpg"
-        },
-        {
-            "key": "tariff_vip",
-            "title": "VIP Архив",
-            "desc": "5900 Энергии. Золотой архив тайн + месяц транзитов.",
-            "image_name": "uslugi/VIPTOP.jpg"
-        }
+        {"key": "tariff_1", "title": "Спутник 7 дней", "desc": "990 Энергии. Ежедневные прогнозы на 7 дней.", "image_name": "uslugi/7day.jpg"},
+        {"key": "tariff_2", "title": "Оракул 30 дней", "desc": "2900 Энергии. Полный месяц транзитов.", "image_name": "uslugi/30day.jpg"},
+        {"key": "tariff_vip", "title": "VIP Архив", "desc": "5900 Энергии. Золотой архив + месяц транзитов.", "image_name": "uslugi/VIPTOP.jpg"},
     ]
 
     elements = []
     for svc in tariffs:
-        att = await upload_local_photo(bot.api, svc['image_name'], peer_id=vk_id) if svc['image_name'] else None
+        att = None
+        if svc.get("image_name"):
+            try:
+                att = await upload_local_photo(bot.api, svc["image_name"], peer_id=vk_id)
+            except Exception:
+                pass
 
-        title_trimmed = svc['title'][:80].replace("\n", " ")
-        clean_desc = svc['desc'].replace("\n", " ")
-        desc_trimmed = clean_desc[:77] + "..." if len(clean_desc) > 80 else clean_desc
+        title = svc["title"].replace("\n", " ")[:80]
+        desc_raw = svc["desc"].replace("\n", " ")
+        description = desc_raw[:77] + "..." if len(desc_raw) > 80 else desc_raw
 
         element = {
-            "title": title_trimmed,
-            "description": desc_trimmed,
-            "buttons": [
-                {
-                    "action": {
-                        "type": "callback",
-                        "payload": json.dumps({"cmd": "buy", "type": "tariff", "key": svc['key']}),
-                        "label": "КУПИТЬ"
-                    },
-                    "color": "positive"
-                }
-            ]
+            "title": title,
+            "description": description,
+            "buttons": [{
+                "action": {
+                    "type": "callback",
+                    "payload": json.dumps({"cmd": "buy", "type": "tariff", "key": svc["key"]}),
+                    "label": "КУПИТЬ"
+                },
+                "color": "positive"
+            }]
         }
 
-        if att:
+        if att and att.startswith("photo"):
             photo_id = att.replace("photo", "")
             if "_" in photo_id:
                 element["photo_id"] = photo_id
