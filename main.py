@@ -2,6 +2,9 @@ from __future__ import annotations
 import asyncio
 import datetime
 import os
+import psutil
+
+print(f"Memory at start: {psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024:.1f} MiB")
 
 import sentry_sdk
 from aiohttp import web
@@ -11,8 +14,6 @@ from vkbottle import Keyboard, KeyboardButtonColor
 os.environ["WEASYPRINT_NO_FONTS"] = "1"
 
 from cache import acquire_lock, release_lock
-from modules.utils import warmup_task
-from modules.bot_init import bot
 
 sentry_dsn = os.environ.get("SENTRY_DSN", "")
 if sentry_dsn:
@@ -86,6 +87,7 @@ async def daily_forecast_cron():
                                    "но... ТРИАЛ ОКОНЧЕН. Канал связи с Оракулом закрыт. Матрица требует энергообмена.")
 
                             try:
+                                from modules.bot_init import bot
                                 await bot.api.messages.send(
                                     peer_id=vk_id,
                                     message=msg,
@@ -115,6 +117,7 @@ async def daily_forecast_cron():
                     forecast = await generate_text(prompt, skin=active_skin)
                     if forecast:
                         try:
+                            from modules.bot_init import bot
                             await bot.api.messages.send(
                                 peer_id=vk_id,
                                 message=f"✦ ЕЖЕДНЕВНЫЙ ТРАНЗИТ ✦\n-----------------\n{forecast}\n-----------------",
@@ -146,10 +149,6 @@ async def daily_forecast_cron():
 
 
 async def main():
-    from ai_service import close_session, init_session
-    from database import init_db
-    from modules.middlewares import ThrottleMiddleware
-
     # Health-check сервер для Render
     app = web.Application()
     app.router.add_get('/', handle_ping)
@@ -160,6 +159,12 @@ async def main():
     await site.start()
 
     logger.info(f"Сервер запущен на порту {port}. Бот в работе...")
+
+    from ai_service import close_session, init_session
+    from database import init_db
+    from modules.middlewares import ThrottleMiddleware
+    from modules.bot_init import bot
+    from modules.utils import warmup_task
 
     # Инициализация
     init_session()

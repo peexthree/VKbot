@@ -6,7 +6,6 @@ import datetime
 from vkbottle import Keyboard, KeyboardButtonColor, Text, PhotoMessageUploader
 from loguru import logger
 from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
 
 # Global imports to avoid local import overhead
 from database import update_user, get_user_state
@@ -338,6 +337,7 @@ async def get_fsm_step(vk_id: int) -> dict | None:
     return None
 
 def generate_premium_pdf(user_name: str, birth_info: str, section_name: str, text_content: str, output_filename: str, card_id: str = None):
+    from weasyprint import HTML
     try:
         template = jinja_env.get_template('report.html')
 
