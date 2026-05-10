@@ -371,7 +371,6 @@ async def start_dynamic_typing(peer_id: int):
     """Запускает индикатор набора текста у пользователя"""
     if peer_id in _typing_tasks:
         return
-    from modules.bot_init import bot
     task = asyncio.create_task(_typing_loop(peer_id))
     _typing_tasks[peer_id] = task
 
