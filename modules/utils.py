@@ -8,7 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
 # Global imports to avoid local import overhead
-from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader
+from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader, Text
 from weasyprint import HTML
 from database import get_user_state, update_user
 
@@ -302,6 +302,17 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
         except Exception as e:
             logger.error(f"Ошибка: {str(e)}")
 
+
+def get_main_keyboard() -> str:
+    """Генерирует постоянную нижнюю клавиатуру"""
+    kb = Keyboard(one_time=False, inline=False)
+    kb.add(Text("Главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Text("Профиль", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Text("Карта дня", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+    kb.add(Text("Услуги", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Text("Гримуар", payload={"cmd": "grimoire"}), color=KeyboardButtonColor.SECONDARY)
+    return kb.get_json()
 
 def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную инлайн клавиатуру с Картой дня и Путеводителем"""

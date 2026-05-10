@@ -338,7 +338,7 @@ async def process_skin_action(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(text=["✦ Мой профиль", "Мой профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ", "💳 МОЙ ПРОФИЛЬ"])
+@labeler.message(text=["✦ Мой профиль", "Мой профиль", "Профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ", "💳 МОЙ ПРОФИЛЬ"])
 async def show_profile(message: Message = None, vk_id: int = None, peer_id: int = None):
     if message:
         vk_id = message.from_id
@@ -465,7 +465,7 @@ async def show_profile(message: Message = None, vk_id: int = None, peer_id: int 
         except Exception as e:
              logger.error(f"Ignored Exception: {str(e)}")
 
-@labeler.message(text=["🎴 МОЙ ГРИМУАР"])
+@labeler.message(text=["🎴 МОЙ ГРИМУАР", "Гримуар"])
 async def show_grimoire(message: Message):
     vk_id = message.from_id
 
