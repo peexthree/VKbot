@@ -268,7 +268,18 @@ async def message_event_handler(event: dict):
             first_name = user.get("purchased_sections", {}).get("first_name", "Странник")
 
             async with pdf_semaphore:
-                await asyncio.to_thread(generate_premium_pdf, first_name, b_info, section.upper(), latest_text, pdf_name, card_id)
+                await asyncio.to_thread(
+                        generate_premium_pdf,
+                        first_name,
+                        b_info,
+                        section.upper(),
+                        latest_text,
+                        pdf_name,
+                        card_id,
+                        advice_content=advice_content,
+                        card_name=card_name,
+                        card_description=card_description
+                    )
 
             # Отправка
             doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
@@ -806,11 +817,11 @@ async def donut_handler(event: dict):
                 random_id=0
             )
         except Exception as e:
-            logger.error(f"Donut notification error: {e}")
+                                     logger.error(f"Donut notification error: {e}")
 
     elif event_type in ["donut_subscription_expired", "donut_subscription_cancelled"]:
         purchased["donut_active"] = False
-        await update_user(vk_id, {"purchased_sections": purchased})
+                 await update_user(vk_id, {"purchased_sections": purchased})
 
         action = "истекла" if event_type == "donut_subscription_expired" else "отменена"
         try:
