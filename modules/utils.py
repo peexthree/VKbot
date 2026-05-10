@@ -434,6 +434,7 @@ def generate_premium_pdf(
         return False
 
 def stop_dynamic_typing(peer_id: int):
+    global _typing_tasks
     """Cancels the typing task for a given peer_id if it exists."""
     if peer_id in _typing_tasks:
         task = _typing_tasks.pop(peer_id)
@@ -441,6 +442,7 @@ def stop_dynamic_typing(peer_id: int):
             task.cancel()
 
 async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
+    global _typing_tasks
     import random
 
     stop_dynamic_typing(peer_id)
