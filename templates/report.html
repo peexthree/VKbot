@@ -8,70 +8,67 @@
         body {
             margin: 0; padding: 0;
             font-family: 'Montserrat', sans-serif;
-            line-height: 1.75;
-            color: #f5e8c7;
             background: url('cards/uslugi/pdf_background_final.png') no-repeat center center;
             background-size: cover;
         }
-        .container { padding: 60px 55px; min-height: 100vh; box-sizing: border-box; }
+        .container { padding: 0; min-height: 100vh; box-sizing: border-box; position: relative; }
 
-        /* ПЕРВАЯ СТРАНИЦА */
+        /* ПЕРВАЯ СТРАНИЦА — head2.png на весь размер */
         .cover {
             height: 100vh;
+            position: relative;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-align: center;
         }
-        .header img {
-            max-width: 75%;   /* подогнано под реальный head2.png */
+        .cover img.head {
+            width: 100%;
             height: auto;
-            margin-bottom: 70px;
+            max-height: 100vh;
+            object-fit: contain;
         }
+        /* Текст поверх head2.png */
         .user-info {
-            font-size: 15.8pt;
+            position: absolute;
+            top: 58%;               /* чуть ниже центра маскота */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 100%;
+            z-index: 2;
+            font-size: 16pt;
             color: #f4d48c;
-            line-height: 1.5;
+            line-height: 1.6;
         }
         .highlight { color: #ffe8a3; font-weight: 600; }
 
-        /* ВТОРАЯ СТРАНИЦА */
+        /* ВТОРАЯ И ДАЛЬШЕ СТРАНИЦЫ */
         .content-wrapper {
             background: rgba(20, 15, 35, 0.82);
             border-radius: 18px;
             padding: 40px 45px;
+            margin-top: 20px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.6);
         }
         .section-divider img { max-width: 100%; margin: 30px 0 20px 0; }
         .content { font-size: 12.8pt; text-align: justify; }
 
-        /* КАРТА + РАМКА bac.png СПЕРЕДИ */
-        .card-container {
-            position: relative;
-            display: inline-block;
-            margin: 35px auto;
-        }
+        /* КАРТА + РАМКА */
+        .card-container { position: relative; display: inline-block; margin: 35px auto; }
         .card-background {
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 335px;     /* чуть больше карты */
-            z-index: 3;       /* рамка СТРОГО СПЕРЕДИ */
+            width: 335px;
+            z-index: 3;
         }
-        .card-image {
-            position: relative;
-            max-width: 280px;
-            z-index: 1;       /* карта позади */
-        }
+        .card-image { position: relative; max-width: 280px; z-index: 1; }
     </style>
 </head>
 <body>
-    <!-- ПЕРВАЯ СТРАНИЦА (head2 + данные пользователя) -->
+    <!-- ПЕРВАЯ СТРАНИЦА -->
     <div class="container cover">
-        <div class="header">
-            <img src="cards/uslugi/head2.png" alt="Персональный разбор">
-        </div>
+        <img src="cards/uslugi/head2.png" class="head" alt="Персональный разбор">
         <div class="user-info">
             ИМЯ: <span class="highlight">{{ user_name }}</span><br>
             ТОЧКА ВХОДА: {{ birth_info }}
@@ -79,7 +76,7 @@
     </div>
     <div style="page-break-before: always;"></div>
 
-    <!-- ВТОРАЯ СТРАНИЦА -->
+    <!-- ВТОРАЯ СТРАНИЦА И ДАЛЕЕ -->
     <div class="container">
         <div class="content-wrapper">
             <div class="section-divider">
