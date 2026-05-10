@@ -10,6 +10,7 @@ from loguru import logger
 _session: aiohttp.ClientSession | None = None
 
 from configs.models import MODELS
+from cards_data import get_card_data
 from prompts.base import BASE_SYSTEM_INSTRUCTION
 from prompts.personas import SKIN_MAP
 
@@ -203,6 +204,9 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         tags_str = ", ".join(tags)
         base_info += f" ВАЖНО: Вижу, что прошлый раз был фокус на следующих темах/болях: [{tags_str}]. Давай посмотрим, как новая энергия решит эти проблемы. Начни текст с тонкой отсылки к этим темам, чтобы показать, что ты помнишь пользователя."
 
+    if card_id and not card_data:
+        card_data = get_card_data(card_id)
+
     if card_data:
         base_info += f" ВАЖНО: Пользователь вытянул карту: '{card_data.get('name')}'. Ее базовое значение: '{card_data.get('description')}'. Построй весь свой персонализированный разбор ИСКЛЮЧИТЕЛЬНО вокруг энергии и символизма этой карты."
 
@@ -234,10 +238,8 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         cid = card_id if card_id else random.randint(0, 77)
         prompt = f"{base_info} Сделай Вступление (короткий панч) и разбор АНТИТАРО (максимально циничный, деструктивный и жесткий совет наоборот, снятие розовых очков). ОБЯЗАТЕЛЬНО используй слово АНТИТАРО на отдельной строке перед основным разбором. Выдели заголовки ВСТУПЛЕНИЕ и АНТИТАРО КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
     elif section == "card_of_day":
-
-        if card_id is None:
-            card_id = str(random.randint(0, 77))
-        prompt = f"{base_info} Выдай карту дня (как ежедневный гороскоп, но в стиле Таро). ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {card_id}. Вплети этот ID прямо в свой прогноз.{style_instruction}"
+        card_name = card_data.get('name', 'Твою карту') if card_data else "Твою карту"
+        prompt = f"{base_info} Выдай карту дня: {card_name} (как ежедневный гороскоп, но в стиле Таро). ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ. {style_instruction}"
 
     else:
         return None
