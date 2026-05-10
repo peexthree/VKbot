@@ -403,7 +403,9 @@ def generate_premium_pdf(
     text_content: str,
     output_filename: str,
     card_id: str = None,
-    advice_content: str = ""
+    advice_content: str = "",
+    card_name: str = None,
+    card_description: str = None
 ):
     try:
         template = jinja_env.get_template('report.html')
