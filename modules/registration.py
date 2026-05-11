@@ -19,6 +19,7 @@ from database import (
 from modules.bot_init import bot
 from modules.utils import (
     get_sections_keyboard,
+    get_main_keyboard,
     start_dynamic_typing,
     stop_dynamic_typing,
 )
@@ -95,6 +96,8 @@ async def start_handler(message: Message):
         kb.row()
         kb.add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}),
                color=KeyboardButtonColor.NEGATIVE)
+
+        await message.answer("Меню активировано", keyboard=get_main_keyboard())
 
         await message.answer(
             "✦ ДОБРО ПОЖАЛОВАТЬ В ЦИФРОВОЙ ГРИМУАР ✦ 🔮\n\n"

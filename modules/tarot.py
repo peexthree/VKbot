@@ -108,8 +108,18 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, **kwargs):
         sex_val = purchased.get("sex_val", 0)
         gender_str = "ЖЕНЩИНА" if sex_val == 1 else "МУЖЧИНА"
 
+        core_profile = user.get("core_profile", "")
+        tags = user.get("tags", [])
+
         prompt = (
             f"КОНТЕКСТ: {gender_str}. "
+        )
+        if core_profile:
+            prompt += f"Прошлый анализ: {core_profile}. "
+        if tags:
+            prompt += f"Фокус на прошлых темах: [{', '.join(tags)}]. "
+
+        prompt += (
             f"Пользователь задает вопрос: {text}. "
             f"Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. "
             "Сначала выведи: Карта [N]: [Название] - [Краткий смысл]. Только потом делай общий синтез."

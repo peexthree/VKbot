@@ -7,9 +7,12 @@ import aiofiles
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
+
 # Global imports to avoid local import overhead
-from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader
-from database import get_user_state, update_user
+from vkbotlle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader, Text
+from weasyprint import HTML
+from main import get_user_state, update_user
+
 
 # Global cache for cover photo IDs
 cover_cache: dict[str, str] = {}
@@ -302,6 +305,17 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
             logger.error(f"Ошибка: {str(e)}")
 
 
+def get_main_keyboard() -> str:
+    """Генерирует постоянную нижнюю клавиатуру"""
+    kb = Keyboard(one_time=False, inline=False)
+    kb.add(Text("Главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Text("Профиль", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Text("Карта дня", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+    kb.add(Text("Услуги", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Text("Гримуар", payload={"cmd": "grimoire"}), color=KeyboardButtonColor.SECONDARY)
+    return kb.get_json()
+
 def get_dynamic_keyboard(user: dict | None = None) -> str:
     """Генерирует главную инлайн клавиатуру с Картой дня и Путеводителем"""
     keyboard = Keyboard(inline=True)
@@ -310,8 +324,8 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     keyboard.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
 
-    keyboard.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide_menu"}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("💳 МОЙ ПРОФИЛЬ", payload={}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("📖 ПУТЕВОДИТЕЛЬ", payload={}), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
 
@@ -330,8 +344,8 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
         {"action": {"type": "callback", "payload": json.dumps({"cmd": "services_menu"}), "label": "🔮 УСЛУГИ"}, "color": "positive"}
     ])
     buttons.append([
-        {"action": {"type": "callback", "payload": json.dumps({"cmd": "profile_menu"}), "label": "💳 МОЙ ПРОФИЛЬ"}, "color": "secondary"},
-        {"action": {"type": "callback", "payload": json.dumps({"cmd": "guide_menu"}), "label": "📖 ПУТЕВОДИТЕЛЬ"}, "color": "secondary"}
+        {"action": {"type": "text", "payload": "{}", "label": "💳 МОЙ ПРОФИЛЬ"}, "color": "secondary"},
+        {"action": {"type": "text", "payload": "{}", "label": "📖 ПУТЕВОДИТЕЛЬ"}, "color": "secondary"}
     ])
 
     purchased_list = []

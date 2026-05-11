@@ -40,6 +40,7 @@ from modules.utils import (
     SKIN_ASSETS,
     generate_premium_pdf,
     get_fsm_step,
+    get_main_keyboard,
     get_sections_keyboard,
     pdf_semaphore,
     upload_local_photo,
@@ -287,7 +288,7 @@ async def message_event_handler(event: dict):
 
             # Отправка
             doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
-            await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0, keyboard=get_main_keyboard())
 
             if os.path.exists(pdf_name):
                 await asyncio.to_thread(os.remove, pdf_name)
@@ -626,24 +627,24 @@ async def process_payment_and_generate(vk_id: int, section: str):
         if section == "all":
             purchased.update({"sex": True, "money": True, "shadow": True, "final": True})
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0)
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0, keyboard=get_main_keyboard())
             # Тут вызываем логику формирования бандла...
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0)
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0, keyboard=get_main_keyboard())
             return
         elif section == "synastry":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0)
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0, keyboard=get_main_keyboard())
             return
         else:
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0)
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0, keyboard=get_main_keyboard())
 
         # Стартуем FSM для обрезания колоды
         await set_user_state(vk_id, json.dumps({
@@ -703,27 +704,10 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
 
                 asyncio.create_task(extract_and_save_tags(vk_id, res_text))
 
-                # Ensure the get_sections_keyboard dict has the structure to add an extra button
-                kb_str = await get_sections_keyboard(vk_id, user)
-                kb_dict = json.loads(kb_str)
-                if "buttons" in kb_dict:
-                    kb_dict["buttons"].append([{
-                        "action": {
-                            "type": "callback",
-                            "payload": json.dumps({"cmd": "gen_pdf", "section": target_section, "card": card_id}),
-                            "label": "СГЕНЕРИРОВАТЬ PDF"
-                        },
-                        "color": "secondary"
-                    }])
-                    kb_dict["buttons"].append([{
-                        "action": {
-                            "type": "callback",
-                            "payload": json.dumps({"cmd": "service_page", "idx": 0}),
-                            "label": "Вернуться в услуги"
-                        },
-                        "color": "primary"
-                    }])
-                kb_str = json.dumps(kb_dict, ensure_ascii=False)
+                # Build a lightweight keyboard just for PDF generation to avoid VK limits
+                light_kb = Keyboard(inline=True)
+                light_kb.add(Callback("СГЕНЕРИРОВАТЬ PDF", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.SECONDARY)
+                kb_str = light_kb.get_json()
 
                 try:
                     await bot.api.messages.send(
