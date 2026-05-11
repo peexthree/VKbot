@@ -9,7 +9,6 @@ from loguru import logger
 
 # Global imports to avoid local import overhead
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader
-from weasyprint import HTML
 from database import get_user_state, update_user
 
 # Global cache for cover photo IDs
@@ -429,6 +428,7 @@ def generate_premium_pdf(
         )
 
         # Самое важное — base_url
+        from weasyprint import HTML
         HTML(string=html_out, base_url=project_root).write_pdf(output_filename)
         
         logger.info(f"✅ PDF успешно создан: {output_filename}")
