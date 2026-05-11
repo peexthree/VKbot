@@ -7,10 +7,12 @@ import aiofiles
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
+
 # Global imports to avoid local import overhead
-from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader, Text
+from vkbotlle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader, Text
 from weasyprint import HTML
-from database import get_user_state, update_user
+from main import get_user_state, update_user
+
 
 # Global cache for cover photo IDs
 cover_cache: dict[str, str] = {}
@@ -440,6 +442,7 @@ def generate_premium_pdf(
         )
 
         # Самое важное — base_url
+        from weasyprint import HTML
         HTML(string=html_out, base_url=project_root).write_pdf(output_filename)
         
         logger.info(f"✅ PDF успешно создан: {output_filename}")
