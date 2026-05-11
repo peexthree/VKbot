@@ -9,9 +9,8 @@ from loguru import logger
 
 
 # Global imports to avoid local import overhead
-from vkbotlle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader, Text
-from weasyprint import HTML
-from main import get_user_state, update_user
+from vkbottle import Callback, Keyboard, KeyboardButtonColor, PhotoMessageUploader, Text
+from database import get_user_state, update_user
 
 
 # Global cache for cover photo IDs
