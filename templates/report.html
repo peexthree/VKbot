@@ -3,17 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Montserrat:wght@300;400;600&display=swap');
-        @page { size: A4; margin: 0; }
+        /* Локальный шрифт Roboto */
+        @font-face {
+            font-family: 'Roboto';
+            src: url('Roboto.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Roboto';
+            src: url('Roboto.ttf') format('truetype');
+            font-weight: 600;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Roboto';
+            src: url('Roboto.ttf') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+        }
+
+        @page { 
+            size: A4; 
+            margin: 0; 
+        }
+
         body {
-            margin: 0; padding: 0;
-            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
             background: url('cards/uslugi/pdf_background_final.png') no-repeat center center;
             background-size: cover;
+            color: #f0e6d2;
         }
-        .container { padding: 0; min-height: 100vh; box-sizing: border-box; position: relative; }
 
-        /* ПЕРВАЯ СТРАНИЦА */
+        .container {
+            padding: 0;
+            min-height: 100vh;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* ====================== ПЕРВАЯ СТРАНИЦА ====================== */
         .cover {
             height: 100vh;
             position: relative;
@@ -27,77 +60,93 @@
             max-height: 100vh;
             object-fit: contain;
         }
+
         .user-info-wrapper {
             position: absolute;
-            top: 72%;               /* ещё ниже, как ты просил */
+            top: 71%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(20, 15, 35, 0.78);
-            padding: 20px 50px;
-            border-radius: 14px;
-            box-shadow: 0 0 40px rgba(212, 175, 55, 0.65);
+            background: rgba(20, 15, 35, 0.82);
+            padding: 22px 55px;
+            border-radius: 16px;
+            box-shadow: 0 0 45px rgba(212, 175, 55, 0.7);
             z-index: 2;
             text-align: center;
-            min-width: 540px;
+            min-width: 560px;
         }
         .user-info {
-            font-size: 16.8pt;
+            font-size: 17pt;
             color: #f4d48c;
-            line-height: 1.55;
-            text-shadow: 0 0 15px #f4d48c,
-                         0 0 25px #ffe8a3;
+            line-height: 1.65;
+            font-weight: 400;
         }
-        .highlight { color: #ffe8a3; font-weight: 600; }
+        .highlight { 
+            color: #ffe8a3; 
+            font-weight: 700; 
+        }
 
-        /* ВТОРАЯ И ДАЛЬШЕ СТРАНИЦЫ */
+        /* ====================== ОСНОВНОЕ СОДЕРЖИМОЕ ====================== */
         .content-wrapper {
-            background: rgba(20, 15, 35, 0.82);
-            border-radius: 18px;
-            padding: 40px 45px;
-            margin-top: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-        }
-        .section-divider img { max-width: 100%; margin: 30px 0 20px 0; }
-        .content {
-            font-size: 12.9pt;
-            text-align: justify;
-            color: #f0e6d2;
-            text-shadow: 0 0 8px rgba(244, 212, 140, 0.4);
+            background: rgba(20, 15, 35, 0.85);
+            border-radius: 20px;
+            padding: 45px 50px;
+            margin: 30px 35px;
+            box-shadow: 0 12px 45px rgba(0,0,0,0.65);
         }
 
-        /* КАРТА + РАМКА */
+        .section-divider img {
+            width: 780px;           /* увеличено в 1.5 раза */
+            display: block;
+            margin: 45px auto 35px auto;
+        }
+
+        .content {
+            font-size: 13.2pt;
+            text-align: justify;
+            line-height: 1.68;
+            font-weight: 400;
+        }
+
+        /* ====================== БЛОК КАРТЫ ====================== */
         .card-container {
             position: relative;
-            display: block;
-            margin: 55px auto 80px auto;   /* большой отступ сверху и снизу */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 58vh;
+            margin: 45px 0 70px 0;
             text-align: center;
-        }
-        .card-background {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 335px;
-            z-index: 3;
-        }
-        .card-image {
-            position: relative;
-            max-width: 280px;
-            z-index: 1;
         }
 
-        /* Название и описание под картой */
+        .card-background {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 430px;
+            z-index: 2;
+        }
+
+        .card-image {
+            position: relative;
+            max-width: 295px;
+            z-index: 3;
+        }
+
         .card-info {
             text-align: center;
-            margin-top: 25px;
+            margin-top: 48px;
             color: #f4d48c;
-            font-size: 13.5pt;
-            text-shadow: 0 0 12px #f4d48c;
+            font-size: 14.5pt;
+            font-weight: 400;
         }
+
         .card-name {
-            font-family: 'Cinzel', serif;
-            font-size: 18pt;
-            margin-bottom: 8px;
-            letter-spacing: 1px;
+            font-size: 21pt;
+            font-weight: 700;
+            margin-bottom: 14px;
+            letter-spacing: 1.2px;
         }
     </style>
 </head>
@@ -114,14 +163,16 @@
     </div>
     <div style="page-break-before: always;"></div>
 
-    <!-- ВТОРАЯ СТРАНИЦА И ДАЛЕЕ -->
+    <!-- ОСНОВНОЕ СОДЕРЖИМОЕ -->
     <div class="container">
         <div class="content-wrapper">
             <div class="section-divider">
                 <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ">
             </div>
+            
             <div class="content">{{ text_content | safe }}</div>
 
+            <!-- КАРТА -->
             {% if card_image_path %}
             <div class="card-container">
                 <img src="cards/uslugi/bac.png" class="card-background">
