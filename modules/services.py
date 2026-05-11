@@ -198,10 +198,11 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     )
 
 async def is_waiting_synastry_name(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"):
-        return False
-    if message.text and message.text.lower() in ["начать", "start", "/start", "лайн голос"]:
-        return False
+    if message.text:
+        if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]):
+            return False
+        if message.text.lower() in ["начать", "start", "/start", "лайн голос", "главное меню", "профиль", "услуги", "гримуар"]:
+            return False
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "waiting_synastry_name"
 

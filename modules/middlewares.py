@@ -41,7 +41,7 @@ class ThrottleMiddleware(BaseMiddleware[Message]):
         elif self.event.text:
             text = self.event.text.strip()
             # Emojis or specific prefixes used for menu buttons:
-            if text.startswith("✦") or text.startswith("🃏") or text.startswith("📖") or text.startswith("🛰") or text.startswith("🔮"):
+            if any(text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "⚙️", "👤", "🎴", "⚡️", "📢"]):
                 is_heavy = True
 
         if is_heavy:
