@@ -18,9 +18,9 @@ from database import (
     set_user_state,
     update_user,
 )
-from modules.bot_init import bot
 from modules.states import MyStates
 from modules.utils import SKIN_ASSETS, get_sections_keyboard, upload_local_photo, get_fsm_step
+from modules.bot_init import bot
 
 labeler = BotLabeler()
 
@@ -67,8 +67,7 @@ async def settings_handler(message: Message = None, vk_id: int = None, peer_id: 
         if message:
             await message.answer(text, keyboard=kb.get_json())
         else:
-            from modules.bot_init import bot
-            await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
+                        await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
     finally:
         await release_lock(vk_id)
 
@@ -226,8 +225,7 @@ async def settings_choose_character(message: Message = None, vk_id: int = None, 
             if message:
                 await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
             else:
-                from modules.bot_init import bot
-                await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
+                                await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
             return
 
         purchased_skins = user.get("purchased_skins", [])
@@ -277,20 +275,17 @@ async def settings_choose_character(message: Message = None, vk_id: int = None, 
                     if message:
                         await message.answer(text, attachment=photo, keyboard=kb.get_json())
                     else:
-                        from modules.bot_init import bot
-                        await bot.api.messages.send(peer_id=peer_id, message=text, attachment=photo, keyboard=kb.get_json(), random_id=0)
+                                                await bot.api.messages.send(peer_id=peer_id, message=text, attachment=photo, keyboard=kb.get_json(), random_id=0)
                 except Exception:
                     if message:
                         await message.answer(text, keyboard=kb.get_json())
                     else:
-                        from modules.bot_init import bot
-                        await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
+                                                await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
             else:
                 if message:
                     await message.answer(text, keyboard=kb.get_json())
                 else:
-                    from modules.bot_init import bot
-                    await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
+                                        await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
     finally:
         await release_lock(vk_id)
 
@@ -355,8 +350,7 @@ async def show_profile(message: Message = None, vk_id: int = None, peer_id: int 
         if message:
             await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
         else:
-            from modules.bot_init import bot
-            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
+                        await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
         return
 
     first_name = user.get("purchased_sections", {}).get("first_name", "Неизвестно")
@@ -442,14 +436,12 @@ async def show_profile(message: Message = None, vk_id: int = None, peer_id: int 
             if message:
                 await message.answer(profile_text, attachment=photo, keyboard=kb.get_json())
             else:
-                from modules.bot_init import bot
-                await bot.api.messages.send(peer_id=peer_id, message=profile_text, attachment=photo, keyboard=kb.get_json(), random_id=0)
+                                await bot.api.messages.send(peer_id=peer_id, message=profile_text, attachment=photo, keyboard=kb.get_json(), random_id=0)
         else:
             if message:
                 await message.answer(profile_text, keyboard=kb.get_json())
             else:
-                from modules.bot_init import bot
-                await bot.api.messages.send(peer_id=peer_id, message=profile_text, keyboard=kb.get_json(), random_id=0)
+                                await bot.api.messages.send(peer_id=peer_id, message=profile_text, keyboard=kb.get_json(), random_id=0)
     except Exception as e:
         logger.error(f"Ошибка: {str(e)}")
         try:
@@ -457,14 +449,12 @@ async def show_profile(message: Message = None, vk_id: int = None, peer_id: int 
                   if message:
                       await message.answer(profile_text, attachment=photo)
                   else:
-                      from modules.bot_init import bot
-                      await bot.api.messages.send(peer_id=peer_id, message=profile_text, attachment=photo, random_id=0)
+                                            await bot.api.messages.send(peer_id=peer_id, message=profile_text, attachment=photo, random_id=0)
              else:
                   if message:
                       await message.answer(profile_text)
                   else:
-                      from modules.bot_init import bot
-                      await bot.api.messages.send(peer_id=peer_id, message=profile_text, random_id=0)
+                                            await bot.api.messages.send(peer_id=peer_id, message=profile_text, random_id=0)
         except Exception as e:
              logger.error(f"Ignored Exception: {str(e)}")
 
@@ -707,8 +697,7 @@ async def syndicate_dashboard_handler(message: Message = None, vk_id: int = None
     if message:
         await message.answer(text, keyboard=kb.get_json())
     else:
-        from modules.bot_init import bot
-        await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
+                await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
 
 @labeler.message(text=["Назад в профиль 👤"])
 async def back_to_profile(message: Message):
