@@ -429,15 +429,18 @@ def generate_premium_pdf(
         # Абсолютный путь к корню проекта (чтобы WeasyPrint находил cards/uslugi/)
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
+        # Относительный путь к карте (WeasyPrint будет искать от base_url)
+        card_image_path = f"cards/{card_id}.jpeg" if card_id else ""
+
         html_out = template.render(
             user_name=user_name,
             birth_info=birth_info,
-            section_name=section_name,
+            section_name=section_name,           # добавлено
             text_content=formatted_text,
             advice_content=formatted_advice,
-            card_name=card_name,         
-            card_description=card_description,  
-            card_image_path=f"file://{os.path.abspath(f'cards/{card_id}.jpeg')}" if card_id and os.path.exists(f'cards/{card_id}.jpeg') else ""
+            card_name=card_name or "",
+            card_description=card_description or "",
+            card_image_path=card_image_path
         )
 
         # Самое важное — base_url
