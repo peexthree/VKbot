@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        /* Новый шрифт Adventure Indiana */
+        /* Основной шрифт */
         @font-face {
             font-family: 'AdventureIndiana';
             src: url('ofont.ru_Adventure Indiana.ttf') format('truetype');
@@ -56,7 +56,7 @@
             background: rgba(20, 15, 35, 0.85);
             padding: 18px 75px;
             border-radius: 16px;
-            box-shadow: 0 0 45px rgba(212, 175, 55, 0.75);
+            box-shadow: 0 0 45px rgba(212, 175, 55, 0.78);
             z-index: 2;
             text-align: center;
             min-width: 460px;
@@ -87,7 +87,7 @@
         .content {
             font-size: 13.4pt;
             text-align: justify;
-            line-height: 1.75;
+            line-height: 1.78;
         }
 
         /* ====================== КАРТА ====================== */
@@ -119,8 +119,8 @@
 
         .card-info {
             text-align: center;
-            margin-top: 55px;
-            margin-bottom: 35px;
+            margin-top: 58px;
+            margin-bottom: 40px;
             color: #f4d48c;
             font-size: 14.5pt;
         }
@@ -134,23 +134,40 @@
 
         /* ====================== КРЕАТИВНЫЕ БЛОКИ ====================== */
         .creative-block {
-            background: rgba(30, 20, 45, 0.75);
-            border-radius: 14px;
-            padding: 22px;
-            margin: 35px 0;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+            background: rgba(30, 20, 45, 0.82);
+            border-radius: 16px;
+            padding: 26px 30px;
+            margin: 42px 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
         }
 
+        .creative-block strong {
+            font-size: 15.5pt;
+            color: #ffe8a3;
+            display: block;
+            margin-bottom: 14px;
+        }
+
+        /* Энергетическая шкала */
         .scale-bar {
-            height: 12px;
+            height: 14px;
             background: #3a2a55;
-            border-radius: 20px;
+            border-radius: 30px;
             overflow: hidden;
-            margin: 12px 0;
+            margin: 14px 0 8px 0;
         }
         .scale-fill {
             height: 100%;
             background: linear-gradient(90deg, #f4d48c, #ffe8a3);
+            box-shadow: 0 0 12px #ffe8a3;
+        }
+
+        /* Финальная печать */
+        .final-seal {
+            text-align: center;
+            margin-top: 70px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(244, 212, 140, 0.3);
         }
     </style>
 </head>
@@ -190,46 +207,46 @@
 
             <!-- 1. Теневая сторона -->
             <div class="creative-block">
-                <strong>ТЕНЕВАЯ СТОРОНА</strong><br>
+                <strong>ТЕНЕВАЯ СТОРОНА</strong>
                 {{ shadow_side | safe }}
             </div>
 
             <!-- 2. Энергетическая шкала -->
             <div class="creative-block">
-                <strong>ЭНЕРГЕТИЧЕСКАЯ ШКАЛА</strong><br>
+                <strong>ЭНЕРГЕТИЧЕСКАЯ ШКАЛА</strong>
                 Уровень активации: <strong>{{ activation_level }}%</strong>
                 <div class="scale-bar"><div class="scale-fill" style="width: {{ activation_level }}%;"></div></div>
             </div>
 
             <!-- 3. Аффирмации -->
             <div class="creative-block">
-                <strong>ТВОИ ЛИЧНЫЕ АФФИРМАЦИИ</strong><br>
+                <strong>ТВОИ ЛИЧНЫЕ АФФИРМАЦИИ</strong>
                 {{ affirmations | safe }}
             </div>
 
             <!-- 4. Рекомендации по активации -->
             <div class="creative-block">
-                <strong>РЕКОМЕНДАЦИИ ПО АКТИВАЦИИ</strong><br>
+                <strong>РЕКОМЕНДАЦИИ ПО АКТИВАЦИИ</strong>
                 {{ activation_recommendations | safe }}
             </div>
 
-            <!-- 5. Мини-прогноз + Дата следующей активации -->
+            <!-- 5. Ближайшие 30 дней + Дата активации -->
             <div class="creative-block">
-                <strong>БЛИЖАЙШИЕ 30 ДНЕЙ</strong><br>
+                <strong>БЛИЖАЙШИЕ 30 ДНЕЙ</strong>
                 {{ thirty_day_forecast | safe }}<br><br>
                 <strong>Следующая мощная активация:</strong> {{ next_activation_date }}
             </div>
 
             <!-- 6. Звёздный код -->
             <div class="creative-block">
-                <strong>ТВОЙ ЗВЁЗДНЫЙ КОД</strong><br>
+                <strong>ТВОЙ ЗВЁЗДНЫЙ КОД</strong>
                 {{ star_code | safe }}
             </div>
 
             <!-- 7. Финальная печать -->
-            <div style="text-align:center; margin-top: 60px; opacity: 0.9;">
-                <h2 style="color:#f4d48c; letter-spacing: 4px;">ANTI-TAR</h2>
-                <p style="font-size: 11pt;">Персональный разбор • {{ current_date }}</p>
+            <div class="final-seal">
+                <h2 style="color:#f4d48c; letter-spacing: 6px; font-size: 28pt; margin: 0;">ANTI-TAR</h2>
+                <p style="font-size: 11.5pt; margin-top: 8px;">Персональный разбор • {{ current_date }}</p>
             </div>
 
             <div class="content">{{ advice_content | safe }}</div>
