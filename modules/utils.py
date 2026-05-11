@@ -316,68 +316,53 @@ def get_main_keyboard() -> str:
     return kb.get_json()
 
 def get_dynamic_keyboard(user: dict | None = None) -> str:
-    """Генерирует главную инлайн клавиатуру с Картой дня и Путеводителем"""
+    """Генерирует главную инлайн клавиатуру"""
     keyboard = Keyboard(inline=True)
 
     keyboard.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
     keyboard.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
 
-    keyboard.add(Text("💳 МОЙ ПРОФИЛЬ", payload={}), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("📖 ПУТЕВОДИТЕЛЬ", payload={}), color=KeyboardButtonColor.SECONDARY)
+    # ←←← ИСПРАВЛЕНИЕ: переводим на text, чтобы срабатывали text-хендлеры
+    keyboard.add(Text("💳 МОЙ ПРОФИЛЬ"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("📖 ПУТЕВОДИТЕЛЬ"), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
 
+
 async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
-    """Генерирует инлайн клавиатуру для главного меню и открытых (купленных) разделов"""
-    # Заодно при отрисовке инлайн-кнопок меню выдадим бонус, если наступил новый день
     await check_and_give_daily_bonus(vk_id, user, vk_id)
 
     purchased = user.get("purchased_sections", {}) if user else {}
     has_all = purchased.get("all") or (user and user.get("has_full_chart"))
-    buttons = []
 
-    # Добавляем основные кнопки навигации (как в нормальном SaaS-боте)
-    buttons.append([
-        {"action": {"type": "callback", "payload": json.dumps({"cmd": "card_of_day_menu"}), "label": "🃏 КАРТА ДНЯ"}, "color": "primary"},
-        {"action": {"type": "callback", "payload": json.dumps({"cmd": "services_menu"}), "label": "🔮 УСЛУГИ"}, "color": "positive"}
-    ])
-    buttons.append([
-        {"action": {"type": "text", "payload": "{}", "label": "💳 МОЙ ПРОФИЛЬ"}, "color": "secondary"},
-        {"action": {"type": "text", "payload": "{}", "label": "📖 ПУТЕВОДИТЕЛЬ"}, "color": "secondary"}
-    ])
+    # Используем обычный Keyboard (inline), но кнопки Профиль и Путеводитель — text
+    kb = Keyboard(inline=True)
 
-    purchased_list = []
+    kb.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🔮 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+    kb.row()
 
-    # Собираем купленные разделы
+    # ←←← ИСПРАВЛЕНИЕ: text-кнопки
+    kb.add(Text("💳 МОЙ ПРОФИЛЬ"), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Text("📖 ПУТЕВОДИТЕЛЬ"), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+
+    # Купленные разделы (остаются callback)
     if purchased.get("sex") or has_all:
-        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "sex"}), "label": "👄 СЕКСУАЛЬНОСТЬ"}, "color": "positive"})
-
+        kb.add(Callback("👄 СЕКСУАЛЬНОСТЬ", payload={"cmd": "use_section", "key": "sex"}), color=KeyboardButtonColor.POSITIVE)
     if purchased.get("money") or has_all:
-        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "money"}), "label": "💰 БОГАТСТВО"}, "color": "positive"})
-
+        kb.add(Callback("💰 БОГАТСТВО", payload={"cmd": "use_section", "key": "money"}), color=KeyboardButtonColor.POSITIVE)
     if purchased.get("shadow") or has_all:
-        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "shadow"}), "label": "🌘 ТЕНЬ"}, "color": "positive"})
-
+        kb.add(Callback("🌘 ТЕНЬ", payload={"cmd": "use_section", "key": "shadow"}), color=KeyboardButtonColor.POSITIVE)
     if purchased.get("final") or has_all:
-        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "final"}), "label": "🏁 ПУТЬ"}, "color": "positive"})
-
+        kb.add(Callback("🏁 ПУТЬ", payload={"cmd": "use_section", "key": "final"}), color=KeyboardButtonColor.POSITIVE)
     if purchased.get("antitaro"):
-        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "antitaro"}), "label": "АНТИТАРО"}, "color": "positive"})
-
+        kb.add(Callback("👁 АНТИТАРО", payload={"cmd": "use_section", "key": "antitaro"}), color=KeyboardButtonColor.POSITIVE)
     if purchased.get("synastry"):
-        purchased_list.append({"action": {"type": "callback", "payload": json.dumps({"cmd": "use_section", "key": "synastry"}), "label": "👨‍❤️‍👨 СИНАСТРИЯ"}, "color": "positive"})
+        kb.add(Callback("👨‍❤️‍👨 СИНАСТРИЯ", payload={"cmd": "use_section", "key": "synastry"}), color=KeyboardButtonColor.POSITIVE)
 
-    # Группируем купленные разделы по 2 в ряд для экономии места
-    for i in range(0, len(purchased_list), 2):
-        buttons.append(purchased_list[i:i+2])
-
-    keyboard_obj = {
-        "inline": True,
-        "buttons": buttons
-    }
-
-    return json.dumps(keyboard_obj, ensure_ascii=False)
+    return kb.get_json()
 
 async def get_storefront_keyboard(purchased: dict = None) -> str | None:
     """Генерирует резервную инлайн клавиатуру для витрины услуг"""
