@@ -152,6 +152,11 @@ async def admin_broadcast_start(message: Message):
 async def _is_admin_fsm(message: Message) -> bool:
     if message.from_id != ADMIN_ID:
         return False
+    if message.text:
+        if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]):
+            return False
+        if message.text.lower() in ["главное меню", "профиль", "услуги", "гримуар"]:
+            return False
     from modules.utils import get_fsm_step
     fsm_data = await get_fsm_step(message.from_id)
     if not fsm_data:

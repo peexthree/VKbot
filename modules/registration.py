@@ -119,8 +119,12 @@ async def start_handler(message: Message):
 
 
 async def is_waiting_for_onboarding_data(message: Message) -> bool:
-    if message.text and message.text.lower() in ["начать", "start", "/start", "сброс"]:
-        return False
+    if message.text:
+        text_lower = message.text.lower()
+        if text_lower in ["начать", "start", "/start", "сброс", "главное меню", "профиль", "услуги", "гримуар"]:
+            return False
+        if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]):
+            return False
     state = await get_user_state(message.from_id)
     if not state:
         return False

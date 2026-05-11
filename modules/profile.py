@@ -88,7 +88,8 @@ async def settings_change_data(message: Message):
 
 
 async def is_waiting_change_date(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"): return False
+    if message.text and any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️"]):
+        return False
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "date"
 
@@ -104,7 +105,8 @@ async def process_change_date(message: Message):
         await release_lock(vk_id)
 
 async def is_waiting_change_time(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"): return False
+    if message.text and any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️"]):
+        return False
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "time"
 
@@ -122,7 +124,8 @@ async def process_change_time(message: Message):
         await release_lock(vk_id)
 
 async def is_waiting_change_city(message: Message) -> bool:
-    if message.text and message.text.startswith("✦"): return False
+    if message.text and any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️"]):
+        return False
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "city"
 
@@ -338,7 +341,7 @@ async def process_skin_action(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(text=["✦ Мой профиль", "Мой профиль", "Профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ", "💳 МОЙ ПРОФИЛЬ"])
+@labeler.message(text=["✦ Мой профиль", "Мой профиль", "Профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ", "💳 МОЙ ПРОФИЛЬ", "👤 МОЙ ПРОФИЛЬ"])
 async def show_profile(message: Message = None, vk_id: int = None, peer_id: int = None):
     if message:
         vk_id = message.from_id
