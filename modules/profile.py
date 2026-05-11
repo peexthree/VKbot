@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import json
 import re
-
+from modules.bot_init import bot
 from loguru import logger
 from vkbottle import (
     Callback,
