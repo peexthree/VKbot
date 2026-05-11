@@ -18,9 +18,8 @@ from database import (
     set_user_state,
     update_user,
 )
-from modules.bot_init import bot
-from modules.states import MyStates
 from modules.utils import SKIN_ASSETS, get_sections_keyboard, upload_local_photo, get_fsm_step
+from modules.states import MyStates
 
 labeler = BotLabeler()
 
@@ -67,7 +66,6 @@ async def settings_handler(message: Message = None, vk_id: int = None, peer_id: 
         if message:
             await message.answer(text, keyboard=kb.get_json())
         else:
-            from modules.bot_init import bot
             await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
     finally:
         await release_lock(vk_id)
@@ -226,7 +224,6 @@ async def settings_choose_character(message: Message = None, vk_id: int = None, 
             if message:
                 await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
             else:
-                from modules.bot_init import bot
                 await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
             return
 
@@ -277,19 +274,16 @@ async def settings_choose_character(message: Message = None, vk_id: int = None, 
                     if message:
                         await message.answer(text, attachment=photo, keyboard=kb.get_json())
                     else:
-                        from modules.bot_init import bot
                         await bot.api.messages.send(peer_id=peer_id, message=text, attachment=photo, keyboard=kb.get_json(), random_id=0)
                 except Exception:
                     if message:
                         await message.answer(text, keyboard=kb.get_json())
                     else:
-                        from modules.bot_init import bot
                         await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
             else:
                 if message:
                     await message.answer(text, keyboard=kb.get_json())
                 else:
-                    from modules.bot_init import bot
                     await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
     finally:
         await release_lock(vk_id)
@@ -349,7 +343,6 @@ async def show_profile(message: Message = None, vk_id: int = None, peer_id: int 
     elif not vk_id or not peer_id:
         return
 
-    # Получаем данные пользователя
     user = await get_user(vk_id)
     if not user:
         await message.answer("❌ Не удалось найти ваш профиль. Попробуйте /start")
@@ -358,7 +351,7 @@ async def show_profile(message: Message = None, vk_id: int = None, peer_id: int 
     # Получаем активный скин
     skin_filename = user.get("active_skin", "o.png")
 
-    # Загружаем фото профиля (исправлено — bot теперь импортирован)
+    # Загружаем фото профиля
     photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
 
     # Формируем клавиатуру
@@ -370,124 +363,8 @@ async def show_profile(message: Message = None, vk_id: int = None, peer_id: int 
         attachment=photo,
         keyboard=keyboard
     )
+
     await set_user_state(vk_id, "")
-    user = await get_user(vk_id)
-    if not user:
-        if message:
-            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
-        else:
-            from modules.bot_init import bot
-            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
-        return
-
-    first_name = user.get("purchased_sections", {}).get("first_name", "Неизвестно")
-    birth_date = user.get("birth_date", "Неизвестно")
-    birth_city = user.get("birth_city", "Неизвестно")
-
-    created_at_str = user.get("created_at")
-    days_in_matrix = 0
-    if created_at_str:
-        try:
-            created_at = datetime.datetime.fromisoformat(created_at_str)
-            days_in_matrix = (datetime.datetime.now(datetime.timezone.utc) - created_at).days
-        except ValueError:
-            days_in_matrix = 0
-
-    unlocked_cards = user.get("unlocked_cards", {})
-    if isinstance(unlocked_cards, list):
-         unlocked_cards = {}
-    cards_count = len(unlocked_cards)
-    total_cards_received = cards_count
-
-    # streak calculation
-    visit_streak = user.get("visit_streak", 0)
-
-    bars = min(10, int((cards_count / 78) * 10))
-    progress_bar = ("|" * bars) + ("." * (10 - bars))
-
-    balance = int(user.get("balance", 0) or 0)
-
-    status = "Пробужденный" if balance > 0 else "Спящий"
-
-    transit_expires = user.get("transit_sub_expires_at")
-    transit_status = "Базовый"
-    transit_timer = "Отсутствует"
-    if transit_expires:
-        try:
-            exp_date = datetime.datetime.fromisoformat(transit_expires)
-            if exp_date > datetime.datetime.now(datetime.timezone.utc):
-                transit_status = "Активен"
-                transit_timer = exp_date.strftime("%d.%m.%Y")
-        except ValueError as e:
-            logger.error(f"Ignored Exception: {str(e)}")
-
-    profile_text = (
-        f"✦ ЛИЧНАЯ КАРТА ✦\n"
-        f"👤 ИМЯ: {first_name}\n"
-        f"📍 ТОЧКА ВХОДА: {birth_date} - {birth_city}\n"
-        f"⏳ ДНЕЙ В ОСОЗНАННОСТИ: {days_in_matrix}\n"
-        f"🎴 СОБРАНО КАРТ: {total_cards_received} из 78\n"
-        f"📊 ПРОГРЕСС: {progress_bar}\n"
-        f"💳 БАЛАНС: {balance} Энергии звезд\n"
-        f"🛡 СТАТУС: {status}\n"
-        f"📡 ТРАНЗИТ: {transit_status}\n"
-        f"🕙 ДОСТУП ДО: {transit_timer}\n\n"
-    )
-
-    purchased = user.get("purchased_sections", {})
-    if status == "Спящий":
-        profile_text += "✨ Твоя энергия на нуле. Открой 'Карта дня', чтобы пробудиться и запустить энергообмен!\n\n"
-    elif purchased.get("sex") and not purchased.get("money"):
-        profile_text += "✨ Рекомендуем продолжить погружение с разделом 'Код твоего богатства'\n\n"
-
-    profile_text += "Оплачивая услуги, вы принимаете условия Публичной оферты: https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
-
-    kb = Keyboard(inline=True)
-    kb.add(Callback("✦ Настройки ⚙", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.SECONDARY)
-
-    from modules.utils import ADMIN_ID
-    if vk_id == ADMIN_ID:
-        kb.row()
-        kb.add(Callback("⚙️ КОНСОЛЬ МАГИСТРА", payload={"cmd": "profile_action", "action": "admin_console"}), color=KeyboardButtonColor.PRIMARY)
-    kb.add(Callback("Мой Синдикат 🕸", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
-    kb.add(Callback("🎴 МОЙ ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
-    kb.add(Callback("🛰 ТАРИФЫ", payload={"cmd": "profile_action", "action": "tariffs"}), color=KeyboardButtonColor.PRIMARY)
-
-    active_skin = user.get("active_skin", "olesya")
-    skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
-    photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
-
-    try:
-        if photo:
-            if message:
-                await message.answer(profile_text, attachment=photo, keyboard=kb.get_json())
-            else:
-                from modules.bot_init import bot
-                await bot.api.messages.send(peer_id=peer_id, message=profile_text, attachment=photo, keyboard=kb.get_json(), random_id=0)
-        else:
-            if message:
-                await message.answer(profile_text, keyboard=kb.get_json())
-            else:
-                from modules.bot_init import bot
-                await bot.api.messages.send(peer_id=peer_id, message=profile_text, keyboard=kb.get_json(), random_id=0)
-    except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
-        try:
-             if photo:
-                  if message:
-                      await message.answer(profile_text, attachment=photo)
-                  else:
-                      from modules.bot_init import bot
-                      await bot.api.messages.send(peer_id=peer_id, message=profile_text, attachment=photo, random_id=0)
-             else:
-                  if message:
-                      await message.answer(profile_text)
-                  else:
-                      from modules.bot_init import bot
-                      await bot.api.messages.send(peer_id=peer_id, message=profile_text, random_id=0)
-        except Exception as e:
-             logger.error(f"Ignored Exception: {str(e)}")
 
 @labeler.message(text=["🎴 МОЙ ГРИМУАР", "Гримуар"])
 async def show_grimoire(message: Message):
@@ -728,7 +605,6 @@ async def syndicate_dashboard_handler(message: Message = None, vk_id: int = None
     if message:
         await message.answer(text, keyboard=kb.get_json())
     else:
-        from modules.bot_init import bot
         await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
 
 @labeler.message(text=["Назад в профиль 👤"])
