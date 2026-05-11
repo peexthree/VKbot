@@ -349,6 +349,27 @@ async def show_profile(message: Message = None, vk_id: int = None, peer_id: int 
     elif not vk_id or not peer_id:
         return
 
+    # Получаем данные пользователя
+    user = await get_user(vk_id)
+    if not user:
+        await message.answer("❌ Не удалось найти ваш профиль. Попробуйте /start")
+        return
+
+    # Получаем активный скин
+    skin_filename = user.get("active_skin", "o.png")
+
+    # Загружаем фото профиля (исправлено — bot теперь импортирован)
+    photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
+
+    # Формируем клавиатуру
+    keyboard = await get_sections_keyboard(vk_id, user)
+
+    # Отправляем профиль
+    await message.answer(
+        message="💳 **Ваш профиль**",
+        attachment=photo,
+        keyboard=keyboard
+    )
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
