@@ -264,16 +264,17 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
         tags = user.get("tags", [])
 
         # 5. Генерация разбора
-        res_text_raw = await generate_section(
+        res_data = await generate_section(
             "card_of_day",
             user.get("birth_date"), user.get("birth_time"), user.get("birth_city"),
             user.get("core_profile"), user.get("first_name"), user.get("sex_val", 0),
-            skin=active_skin, card_id=card_id, card_data=card_data, tags=tags
+            skin=active_skin, card_id=card_id, card_data=card_data, tags=tags, return_json=True
         )
 
-        if not res_text_raw:
+        if not res_data:
             raise Exception("Empty result from generate_section")
 
+        res_text_raw = res_data.get("text", "") if isinstance(res_data, dict) else res_data
         # Очищаем от тех. тегов ID_ТАРО
         result_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text_raw).strip()
 
@@ -289,14 +290,19 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
         if not isinstance(unlocked, dict): unlocked = {}
         if card_id not in unlocked: unlocked[card_id] = "Первое касание"
 
-        await update_user(vk_id, {
+        save_data = {
             "latest_reading_text": result_text,
             "balance": user.get("balance", 0) + 100,
             "visit_streak": new_streak,
             "unlocked_cards": unlocked,
             "total_cards_received": user.get("total_cards_received", 0) + 1,
             "purchased_sections": {**purchased, "card_of_day_last_used": datetime.datetime.now(datetime.timezone.utc).isoformat()}
-        })
+        }
+        if isinstance(res_data, dict):
+            res_data["text"] = result_text
+            save_data["latest_reading_data"] = res_data
+
+        await update_user(vk_id, save_data)
 
         # 7. Отправка результата
         photo = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=peer_id)
@@ -317,18 +323,31 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
         except Exception:
             pass
 
+        display_text = result_text
+        if isinstance(res_data, dict):
+            act_lvl = res_data.get('activation_level')
+            if act_lvl:
+                display_text += f"\n\n⚡ УРОВЕНЬ АКТИВАЦИИ: {act_lvl}%"
+                if res_data.get('activation_comment'):
+                    display_text += f"\n{res_data.get('activation_comment')}"
+
+            if res_data.get('affirmations'):
+                display_text += f"\n\nТвои аффирмации:\n{res_data.get('affirmations')}"
+
+            display_text += "\n\nПолный разбор со всеми 10 блоками доступен в PDF."
+
         if conv_msg_id:
             try:
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=result_text, attachment=photo, keyboard=final_kb)
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=display_text, attachment=photo, keyboard=final_kb)
             except Exception:
-                await bot.api.messages.send(peer_id=peer_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+                await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=photo, keyboard=final_kb, random_id=0)
         elif message_id:
             try:
-                await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message=result_text, attachment=photo, keyboard=final_kb)
+                await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message=display_text, attachment=photo, keyboard=final_kb)
             except Exception:
-                await bot.api.messages.send(peer_id=peer_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+                await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=photo, keyboard=final_kb, random_id=0)
         else:
-            await bot.api.messages.send(peer_id=peer_id, message=result_text, attachment=photo, keyboard=final_kb, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=photo, keyboard=final_kb, random_id=0)
 
     except Exception as e:
         logger.error(f"Ошибка в Карте Дня: {e}")

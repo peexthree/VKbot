@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 from typing import Any
 import json
 import math
@@ -257,8 +256,12 @@ async def message_event_handler(event: dict):
             user = await get_user(vk_id)
             if not user: return
 
-            latest_text = user.get("latest_reading_text", "")
-            if not latest_text:
+            latest_data = user.get("latest_reading_data", {})
+            if not latest_data and user.get("latest_reading_text"):
+                # fallback for old users
+                latest_data = {"text": user.get("latest_reading_text")}
+
+            if not latest_data or "text" not in latest_data:
                 await bot.api.messages.send(peer_id=peer_id, message="Текст разбора не найден. Сгенерируйте разбор заново.", random_id=0)
                 return
 
@@ -272,18 +275,31 @@ async def message_event_handler(event: dict):
             card_name = card_data.get("name")
             card_description = card_data.get("description")
 
+            from datetime import datetime
+            current_date_str = datetime.now().strftime("%d.%m.%Y")
+
             async with pdf_semaphore:
                 await asyncio.to_thread(
                     generate_premium_pdf,
                     user_name=first_name,
                     birth_info=b_info,
                     section_name=section.upper(),
-                    text_content=latest_text,
+                    text_content=latest_data.get("text", ""),
                     output_filename=pdf_name,
                     card_id=card_id,
                     advice_content="",
                     card_name=card_name,
-                    card_description=card_description
+                    card_description=card_description,
+                    shadow_side=latest_data.get("shadow_side", ""),
+                    activation_level=latest_data.get("activation_level", 100),
+                    activation_comment=latest_data.get("activation_comment", ""),
+                    affirmations=latest_data.get("affirmations", ""),
+                    next_activation_date=latest_data.get("next_activation_date", ""),
+                    thirty_day_forecast=latest_data.get("thirty_day_forecast", ""),
+                    activation_recommendations=latest_data.get("activation_recommendations", ""),
+                    star_code=latest_data.get("star_code", ""),
+                    energy_map=latest_data.get("energy_map", ""),
+                    current_date=current_date_str
                 )
 
             # Отправка
@@ -678,13 +694,15 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
             # 3. Генерация текста
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
-            res_text = await generate_section(
+            res_data = await generate_section(
                 target_section, user.get("birth_date"), user.get("birth_time"),
                 user.get("birth_city"), user.get("core_profile", ""),
                 p.get("first_name", ""), p.get("sex_val", 0),
                 partner_name=partner_name, partner_date=partner_date, skin=active_skin,
-                card_id=card_id, card_data=card_data, tags=tags
+                card_id=card_id, card_data=card_data, tags=tags, return_json=True
             )
+
+            res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
 
             if res_text:
                 # Очищаем текст от тех. тегов ID_ТАРО
@@ -693,8 +711,13 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
                 # PDF On-Demand: Do not generate it here automatically
                 # Instead, we will add a button to the keyboard to generate it
 
-                # Save the latest reading text to user's db to use later for PDF generation
-                await update_user(vk_id, {"latest_reading_text": display_text})
+                # Save the latest reading data to user's db to use later for PDF generation
+                # We also save the text specifically so the fallback works
+                save_data = {"latest_reading_text": display_text}
+                if isinstance(res_data, dict):
+                    res_data["text"] = display_text # clean version
+                    save_data["latest_reading_data"] = res_data
+                await update_user(vk_id, save_data)
 
                 from ai_service import extract_tags
                 async def extract_and_save_tags(v_id: int, text: str):
@@ -708,6 +731,19 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
                 light_kb = Keyboard(inline=True)
                 light_kb.add(Callback("СГЕНЕРИРОВАТЬ PDF", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.SECONDARY)
                 kb_str = light_kb.get_json()
+
+                # Append some premium blocks to the text to preview it in VK
+                if isinstance(res_data, dict):
+                    act_lvl = res_data.get('activation_level')
+                    if act_lvl:
+                        display_text += f"\n\n⚡ УРОВЕНЬ АКТИВАЦИИ: {act_lvl}%"
+                        if res_data.get('activation_comment'):
+                            display_text += f"\n{res_data.get('activation_comment')}"
+
+                    if res_data.get('affirmations'):
+                        display_text += f"\n\nТвои аффирмации:\n{res_data.get('affirmations')}"
+
+                    display_text += "\n\nПолный разбор со всеми 10 блоками доступен в PDF ниже."
 
                 try:
                     await bot.api.messages.send(

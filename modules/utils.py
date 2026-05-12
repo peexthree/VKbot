@@ -402,7 +402,17 @@ def generate_premium_pdf(
     card_id: str = None,
     advice_content: str = "",
     card_name: str = None,
-    card_description: str = None
+    card_description: str = None,
+    shadow_side: str = "",
+    activation_level: int = 100,
+    activation_comment: str = "",
+    affirmations: str = "",
+    next_activation_date: str = "",
+    thirty_day_forecast: str = "",
+    activation_recommendations: str = "",
+    star_code: str = "",
+    energy_map: str = "",
+    current_date: str = ""
 ):
     try:
         template = jinja_env.get_template('report.html')
@@ -410,6 +420,15 @@ def generate_premium_pdf(
         # Подготовка текста
         formatted_text = text_content.replace('\n', '<br>')
         formatted_advice = advice_content.replace('\n', '<br>') if advice_content else ""
+
+        # Форматирование креативных блоков
+        shadow_side = shadow_side.replace('\n', '<br>')
+        activation_comment = activation_comment.replace('\n', '<br>')
+        affirmations = affirmations.replace('\n', '<br>')
+        thirty_day_forecast = thirty_day_forecast.replace('\n', '<br>')
+        activation_recommendations = activation_recommendations.replace('\n', '<br>')
+        star_code = star_code.replace('\n', '<br>')
+        energy_map = energy_map.replace('\n', '<br>')
 
         # Абсолютный путь к корню проекта (чтобы WeasyPrint находил cards/uslugi/)
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -420,12 +439,22 @@ def generate_premium_pdf(
         html_out = template.render(
             user_name=user_name,
             birth_info=birth_info,
-            section_name=section_name,           # добавлено
+            section_name=section_name,
             text_content=formatted_text,
             advice_content=formatted_advice,
             card_name=card_name or "",
             card_description=card_description or "",
-            card_image_path=card_image_path
+            card_image_path=card_image_path,
+            shadow_side=shadow_side,
+            activation_level=activation_level,
+            activation_comment=activation_comment,
+            affirmations=affirmations,
+            next_activation_date=next_activation_date,
+            thirty_day_forecast=thirty_day_forecast,
+            activation_recommendations=activation_recommendations,
+            star_code=star_code,
+            energy_map=energy_map,
+            current_date=current_date
         )
 
         # Самое важное — base_url
@@ -438,6 +467,10 @@ def generate_premium_pdf(
     except Exception as e:
         logger.error(f"Ошибка генерации PDF: {str(e)}")
         return False
+
+
+
+
 
 def stop_dynamic_typing(peer_id: int):
     global _typing_tasks

@@ -177,7 +177,7 @@ async def extract_birth_data(text: str) -> dict | None:
         return None
 
 
-async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None) -> str | None:
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False) -> str | dict | None:
 
     gender_str = "МУЖЧИНА" if sex == 2 else "ЖЕНЩИНА" if sex == 1 else "НЕИЗВЕСТНО"
 
@@ -244,4 +244,29 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     else:
         return None
 
-    return await generate_text(prompt, skin=skin)
+    if return_json:
+        prompt += "\n\nТЕБЕ НУЖНО ВЕРНУТЬ СТРОГО JSON ОБЪЕКТ со следующими ключами:\n" \
+                  "1. 'text': Главный текст разбора (ВСТУПЛЕНИЕ и основной блок).\n" \
+                  "2. 'shadow_side': Теневая сторона карты или личности (2-3 предложения).\n" \
+                  "3. 'activation_level': Уровень активации энергии (число от 0 до 100).\n" \
+                  "4. 'activation_comment': Комментарий к уровню активации (1 предложение).\n" \
+                  "5. 'affirmations': Личные аффирмации/мантры (3-4 штуки).\n" \
+                  "6. 'next_activation_date': Дата следующей мощной активации (например, '23 октября 2024').\n" \
+                  "7. 'thirty_day_forecast': Мини-прогноз на ближайшие 30 дней.\n" \
+                  "8. 'activation_recommendations': Рекомендации по активации (камень, цвет, аромат, ритуал).\n" \
+                  "9. 'star_code': Персональный Звёздный код/Магическая печать (уникальная фраза-код).\n" \
+                  "10. 'energy_map': Описание визуальной Карты энергий (какие планеты влияют).\n\n" \
+                  "Отвечай только JSON."
+
+        res = await generate_text(prompt, json_mode=True, skin=skin)
+        if res:
+            try:
+                import json
+                return json.loads(res)
+            except Exception as e:
+                import logging
+                logging.error(f"Failed to parse JSON from AI: {e}. Raw text: {res}")
+                return {"text": res}
+        return {"text": "Ошибка генерации."}
+    else:
+        return await generate_text(prompt, skin=skin)
