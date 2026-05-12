@@ -18,7 +18,6 @@ from database import (
     set_user_state,
     update_user,
 )
-from modules.bot_init import bot
 from modules.states import MyStates
 from modules.utils import SKIN_ASSETS, get_sections_keyboard, upload_local_photo, get_fsm_step
 
