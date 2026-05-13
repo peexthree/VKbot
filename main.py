@@ -168,7 +168,7 @@ async def main():
         try:
             from modules.utils import _typing_tasks, stop_dynamic_typing
             for peer_id in list(_typing_tasks.keys()):
-                stop_dynamic_typing(peer_id)
+                await stop_dynamic_typing(peer_id)
         except Exception as e:
             logger.error(f"Error cleaning up typing tasks: {str(e)}")
         await close_session()

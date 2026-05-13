@@ -761,10 +761,10 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
             else:
                 await handle_generation_failure(vk_id, peer_id, target_section)
         finally:
-            stop_dynamic_typing(peer_id)
+            await stop_dynamic_typing(peer_id)
     except Exception as e:
         from modules.utils import stop_dynamic_typing
-        stop_dynamic_typing(peer_id)
+        await stop_dynamic_typing(peer_id)
         logger.error(f"Ошибка: {str(e)}")
         await handle_generation_failure(vk_id, peer_id, target_section)
     finally:
