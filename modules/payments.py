@@ -40,7 +40,6 @@ from modules.profile import (
 )
 from modules.profile.views import (
     show_guide_logic,
-    show_profile_logic,
     syndicate_dashboard_logic,
 )
 
