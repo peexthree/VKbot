@@ -40,7 +40,6 @@ from modules.profile import (
 )
 from modules.profile.views import (
     show_guide_logic,
-    show_profile_logic,
     syndicate_dashboard_logic,
 )
 
@@ -238,6 +237,7 @@ async def message_event_handler(event: dict):
             await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
 
         elif cmd == "profile_menu":
+            from modules.profile.views import show_profile_logic
             await show_profile_logic(vk_id=vk_id, peer_id=peer_id)
 
         elif cmd == "guide_menu":
@@ -344,6 +344,7 @@ async def message_event_handler(event: dict):
                 await set_user_state(vk_id, "")
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
             elif action == "back_to_profile":
+                from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id=vk_id, peer_id=peer_id)
             elif action == "admin_console":
                 await show_admin_console(peer_id)
