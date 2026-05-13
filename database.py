@@ -151,7 +151,8 @@ async def create_user(
         "last_daily_bonus_date": None,
         "welcome_bonus_received": False,
         "tags": [],
-        "latest_reading_text": None
+        "latest_reading_text": None,
+        "latest_reading_data": {}
     }
 
     try:

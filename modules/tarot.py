@@ -2,12 +2,11 @@ import asyncio
 import datetime
 import json
 import random
-import re
 from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
 from vkbottle.bot import BotLabeler, Message
 
-from ai_service import extract_tags, generate_section, generate_text
+from ai_service import clean_ai_json, extract_tags, generate_section, generate_text
 from cache import acquire_lock, get_tarot_names, release_lock
 from cards_data import get_card_data
 from database import get_user, set_user_state, update_user
@@ -270,23 +269,26 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
             first_name=user.get("first_name", ""),
             sex=user.get("sex_val", 0),
             skin=active_skin,
-            tags=tags
+            tags=tags,
+            return_json=True
         )
 
         if not res_data:
             raise Exception("Empty result from generate_section")
 
         # === ИСПРАВЛЕННЫЙ ПАРСИНГ JSON ===
-        clean_text = res_data.strip()
-        clean_text = re.sub(r'^```json\s*|\s*```$', '', clean_text, flags=re.MULTILINE | re.IGNORECASE).strip()
-
-        try:
-            parsed = json.loads(clean_text) if clean_text.startswith("{") else {}
-        except json.JSONDecodeError:
-            parsed = {}
-            result_text = clean_text
+        if isinstance(res_data, dict):
+            parsed = res_data
+            result_text = parsed.get("text", "")
         else:
-            result_text = parsed.get("text", clean_text)
+            clean_text = clean_ai_json(res_data)
+            try:
+                parsed = json.loads(clean_text) if clean_text.startswith("{") else {}
+            except json.JSONDecodeError:
+                parsed = {}
+                result_text = clean_text
+            else:
+                result_text = parsed.get("text", clean_text)
 
         # Фоновое сохранение тегов
         async def background_tags(text):
@@ -298,6 +300,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
         # Обновление БД (правильная колонка!)
         save_data = {
             "latest_reading_text": result_text,
+            "latest_reading_data": parsed if parsed else {"text": result_text},
             "balance": user.get("balance", 0) + 100,
             "visit_streak": user.get("visit_streak", 0) + 1,
             "unlocked_cards": {**user.get("unlocked_cards", {}), card_id: "Первое касание"},
