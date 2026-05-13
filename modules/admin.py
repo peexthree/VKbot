@@ -137,7 +137,7 @@ async def admin_energy_start(message: Message):
 
     await set_fsm_state(message.from_id, json.dumps({"step": "admin_energy_target"}))
     await message.answer("Введите ID пользователя и количество энергии через пробел (например: 123456 500), или напишите Отмена",
-                         keyboard=Keyboard(inline=True).add(Text("Отмена", payload={"cmd": "admin_cmd_cancel"})).get_json())
+                         keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_cmd_cancel"})).get_json())
 
 @labeler.message(text=["📢 Призыв Синдиката"])
 async def admin_broadcast_start(message: Message):
@@ -146,7 +146,7 @@ async def admin_broadcast_start(message: Message):
 
     await set_fsm_state(message.from_id, json.dumps({"step": "admin_broadcast_message"}))
     await message.answer("Отправьте сообщение для рассылки всем адептам, или напишите Отмена",
-                         keyboard=Keyboard(inline=True).add(Text("Отмена", payload={"cmd": "admin_cmd_cancel"})).get_json())
+                         keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_cmd_cancel"})).get_json())
 
 
 async def _is_admin_fsm(message: Message) -> bool:

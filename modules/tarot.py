@@ -3,7 +3,7 @@ import datetime
 import json
 import random
 from loguru import logger
-from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
+from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
 from ai_service import clean_ai_json, extract_tags, generate_section, generate_text
@@ -355,7 +355,7 @@ async def process_oracle_question(message: Message):
         return
     try:
         await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": message.text.strip()}))
-        kb = Keyboard(inline=True).add(Text("✦ ОБРЕЗАТЬ КОЛОДУ"), color=KeyboardButtonColor.PRIMARY)
+        kb = Keyboard(inline=True).add(Callback("✦ ОБРЕЗАТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.PRIMARY)
         await message.answer("ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже, чтобы обрезать колоду", keyboard=kb.get_json())
     finally:
         await release_lock(vk_id)

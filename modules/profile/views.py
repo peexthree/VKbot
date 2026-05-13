@@ -39,7 +39,9 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None):
             await _send_resp("❌ Не удалось найти ваш профиль. Попробуйте /start")
             return
 
-        skin_filename = user.get("active_skin", "o.png")
+        active_skin = user.get("active_skin", "olesya")
+        from modules.utils import SKIN_ASSETS
+        skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
         photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
         keyboard = await get_sections_keyboard(vk_id, user)
 

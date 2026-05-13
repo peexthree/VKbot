@@ -101,7 +101,7 @@ async def settings_choose_character(message: Message = None, vk_id: int = None, 
 async def process_skin_action(message: Message):
     await process_skin_action_logic(message.from_id, message)
 
-@labeler.message(text=["✦ Мой профиль", "Мой профиль", "Профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ", "💳 МОЙ ПРОФИЛЬ", "👤 МОЙ ПРОФИЛЬ"])
+@labeler.message(text=["✦ Мой профиль", "Мой профиль", "Профиль", "✦ МОЙ ПРОФИЛЬ 👤", "✦ МОЙ ПРОФИЛЬ", "💳 МОЙ ПРОФИЛЬ", "👤 МОЙ ПРОФИЛЬ", "Профиль 👤"])
 async def show_profile(message: Message = None, vk_id: int = None, peer_id: int = None):
     v_id = vk_id or (message.from_id if message else None)
     p_id = peer_id or (message.peer_id if message else None)

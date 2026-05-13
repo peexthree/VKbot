@@ -13,7 +13,6 @@ from vkbottle import (
     GroupEventType,
     Keyboard,
     KeyboardButtonColor,
-    Text,
 )
 from vkbottle.bot import BotLabeler
 from vkbottle.tools.dev.keyboard.action import VKPay
@@ -427,7 +426,7 @@ async def message_event_handler(event: dict):
                 kb = Keyboard(inline=True)
                 kb.add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}"))
                 kb.row()
-                kb.add(Text("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
+                kb.add(Callback("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
 
                 msg_text = (
                     f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\n"
