@@ -246,16 +246,18 @@ async def settings_choose_character(message: Message = None, vk_id: int = None, 
 
         free_skins = ["Олеся Ивонченко", "Серьезный Аскет", "olesya", "asket"]
 
-        for skin_name, filename in SKIN_ASSETS.items():
-            if skin_name in ["olesya", "asket"]:
-                 continue
+        skins_to_process = [(name, file) for name, file in SKIN_ASSETS.items() if name not in ["olesya", "asket"]]
+
+        # Concurrent upload
+        upload_tasks = [upload_local_photo(bot.api, file, peer_id=vk_id) for _, file in skins_to_process]
+        photos = await asyncio.gather(*upload_tasks, return_exceptions=True)
+
+        for (skin_name, _filename), photo in zip(skins_to_process, photos, strict=True):
+            if isinstance(photo, Exception):
+                logger.error(f"Error uploading skin {skin_name}: {str(photo)}")
+                photo = None
 
             await asyncio.sleep(0.5)
-
-            try:
-                photo = await upload_local_photo(bot.api, filename, peer_id=vk_id)
-            except Exception:
-                photo = None
 
             style_desc = styles.get(skin_name, "мистицизм")
             text = f"✦ ПЕРСОНАЖ: {skin_name}\nСтиль: {style_desc}\nЦена: 1500 Энергии звезд."
