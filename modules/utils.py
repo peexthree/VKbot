@@ -234,6 +234,10 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
         uploader = PhotoMessageUploader(bot_api)
         filepath = os.path.join("cards", filename)
 
+        if not os.path.exists(filepath):
+            logger.error(f"Файл не найден: {filepath}")
+            return ""
+
         async with aiofiles.open(filepath, 'rb') as f:
             data = await f.read()
             if len(data) < 100:
@@ -348,9 +352,9 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
     keyboard.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
 
-    # ←←← ИСПРАВЛЕНИЕ: переводим на text, чтобы срабатывали text-хендлеры
-    keyboard.add(Text("💳 МОЙ ПРОФИЛЬ"), color=KeyboardButtonColor.SECONDARY)
-    keyboard.add(Text("📖 ПУТЕВОДИТЕЛЬ"), color=KeyboardButtonColor.SECONDARY)
+    # ←←← ИСПРАВЛЕНИЕ: переводим на callback (Text запрещен в inline)
+    keyboard.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
 
@@ -368,13 +372,11 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     kb.add(Callback("🔮 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
 
-    # ←←← ИСПРАВЛЕНИЕ: text-кнопки
-    kb.add(Text("💳 МОЙ ПРОФИЛЬ"), color=KeyboardButtonColor.SECONDARY)
-    kb.add(Text("📖 ПУТЕВОДИТЕЛЬ"), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
+    # ←←← ИСПРАВЛЕНИЕ: callback-кнопки (Text запрещен в inline)
+    kb.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
 
     # Купленные разделы (остаются callback)
-    buttons_in_row = 0
     sections = [
         ("sex", "👄 СЕКСУАЛЬНОСТЬ", purchased.get("sex") or has_all),
         ("money", "💰 БОГАТСТВО", purchased.get("money") or has_all),
@@ -384,8 +386,11 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
         ("synastry", "👨‍❤️‍👨 СИНАСТРИЯ", purchased.get("synastry"))
     ]
 
-    for key, label, has_access in sections:
-        if has_access:
+    active_sections = [s for s in sections if s[2]]
+    if active_sections:
+        kb.row()
+        buttons_in_row = 0
+        for key, label, _ in active_sections:
             if buttons_in_row == 2:
                 kb.row()
                 buttons_in_row = 0
