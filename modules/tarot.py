@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import json
 import random
-import re
 from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
 from vkbottle.bot import BotLabeler, Message
