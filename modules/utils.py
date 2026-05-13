@@ -203,6 +203,13 @@ async def warmup_task():
 
 async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None) -> str:
     """Загружает фото локально из папки cards/"""
+    if not filename:
+        return ""
+
+    # Resolve skin name to filename if needed
+    if filename in SKIN_ASSETS:
+        filename = SKIN_ASSETS[filename]
+
     cached = await get_cached_photo(filename)
     if cached:
         return cached
@@ -365,14 +372,12 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     purchased = user.get("purchased_sections", {}) if user else {}
     has_all = purchased.get("all") or (user and user.get("has_full_chart"))
 
-    # Используем обычный Keyboard (inline), но кнопки Профиль и Путеводитель — text
     kb = Keyboard(inline=True)
 
     kb.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
     kb.add(Callback("🔮 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
 
-    # ←←← ИСПРАВЛЕНИЕ: callback-кнопки (Text запрещен в inline)
     kb.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
 
@@ -388,14 +393,14 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
 
     active_sections = [s for s in sections if s[2]]
     if active_sections:
-        kb.row()
         buttons_in_row = 0
         for key, label, _ in active_sections:
-            if buttons_in_row == 2:
+            if buttons_in_row == 0:
                 kb.row()
-                buttons_in_row = 0
             kb.add(Callback(label, payload={"cmd": "use_section", "key": key}), color=KeyboardButtonColor.POSITIVE)
             buttons_in_row += 1
+            if buttons_in_row == 2:
+                buttons_in_row = 0
 
     return kb.get_json()
 

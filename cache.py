@@ -20,7 +20,8 @@ async def check_throttle(vk_id: int | str) -> bool:
     """Returns True if the user is throttled (should be ignored), False otherwise."""
     from loguru import logger
     try:
-        res = await redis_client.set(f"throttle:{vk_id}", "1", nx=True, ex=2)
+        # Reduced throttle from 2s to 0.8s for better UX
+        res = await redis_client.set(f"throttle:{vk_id}", "1", nx=True, px=800)
         return not bool(res)
     except Exception as e:
         logger.error(f"Ошибка проверки троттлинга для {vk_id}: {str(e)}")

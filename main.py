@@ -18,8 +18,8 @@ if sentry_dsn:
         profiles_sample_rate=1.0,
     )
 
-# Настройка логирования loguru
-logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=True, backtrace=True, diagnose=True)
+# Настройка логирования loguru (отключаем enqueue из-за проблем с пиклингом динамических исключений vkbottle)
+logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=False)
 
 # КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+
 with warnings.catch_warnings():
