@@ -1,5 +1,16 @@
-from modules.profile.handlers import labeler
-from modules.profile.handlers import show_profile
+from modules.profile.handlers import (
+    labeler,
+    settings_handler,
+    settings_choose_character,
+    show_profile,
+)
+from modules.profile.grimoire import show_grimoire_page, view_card_direct
 
-__all__ = ["labeler", "show_profile", "view_card_direct"]
-from modules.profile.grimoire import view_card_direct
+__all__ = [
+    "labeler",
+    "show_profile",
+    "settings_handler",
+    "settings_choose_character",
+    "show_grimoire_page",
+    "view_card_direct",
+]
