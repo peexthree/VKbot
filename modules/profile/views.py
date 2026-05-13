@@ -277,11 +277,11 @@ async def apply_promo_logic(vk_id: int, message: Message):
         await release_lock(vk_id)
 
 
-async def show_guide_logic(vk_id: int, message: Message):
+async def show_guide_logic(vk_id: int, peer_id: int, message: Message = None):
     if not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, message.peer_id)
+        await start_dynamic_typing(bot.api, peer_id)
         text = (
             "ПУТЕВОДИТЕЛЬ ПО СИСТЕМЕ\n"
             "Здесь собраны ответы на все вопросы.\n\n"
@@ -293,7 +293,10 @@ async def show_guide_logic(vk_id: int, message: Message):
             "Как открывать тайны: Перейди в Услуги, листай карточки и жми Купить. Если энергии не хватит, система сама рассчитает доплату. После покупки я выдам тебе личный PDF-файл.\n\n"
             "Карты и Гримуар: После каждой покупки ты вытягиваешь новую карту. Она навсегда сохранится в твоем Гримуаре в профиле."
         )
-        await message.answer(text)
+        if message:
+            await message.answer(text)
+        else:
+            await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
     finally:
-        await stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(peer_id)
         await release_lock(vk_id)

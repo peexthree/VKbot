@@ -1,10 +1,11 @@
 import asyncio
-from typing import Any
+import datetime
 import json
 import math
 import os
 import random
 import re
+from typing import Any
 
 from loguru import logger
 from vkbottle import (
@@ -17,19 +18,31 @@ from vkbottle import (
 from vkbottle.bot import BotLabeler
 from vkbottle.tools.dev.keyboard.action import VKPay
 
-from ai_service import generate_section
-from cache import acquire_lock, check_throttle, release_lock
+from ai_service import extract_tags, generate_section
+from cache import acquire_lock, check_throttle, release_lock, set_fsm_state
 from cards_data import get_card_data
 
 # Все импорты базы и сервисов — строго здесь
 from database import (
     check_and_save_transaction,
+    delete_user,
     get_user,
     set_user_state,
     update_user,
 )
+from modules.admin import process_admin_cmd, show_admin_console
 from modules.bot_init import bot
-from modules.profile import view_card_direct
+from modules.profile import (
+    settings_handler,
+    settings_choose_character,
+    show_grimoire_page,
+    view_card_direct,
+)
+from modules.profile.views import (
+    show_guide_logic,
+    show_profile_logic,
+    syndicate_dashboard_logic,
+)
 
 # Локальные импорты, перенесенные наверх
 from modules.services import show_services, show_tariffs
@@ -41,6 +54,8 @@ from modules.utils import (
     get_main_keyboard,
     get_sections_keyboard,
     pdf_semaphore,
+    start_dynamic_typing,
+    stop_dynamic_typing,
     upload_local_photo,
 )
 
@@ -66,7 +81,6 @@ async def message_event_handler(event: dict):
         cmd = payload.get("cmd")
 
         if cmd == "admin_cmd":
-            from modules.admin import process_admin_cmd
             await process_admin_cmd(vk_id, peer_id, payload)
             # Acknowledge the event
             await bot.api.messages.send_message_event_answer(
@@ -76,9 +90,7 @@ async def message_event_handler(event: dict):
             )
             return
         elif cmd == "admin_cmd_cancel":
-            from cache import set_fsm_state
             await set_fsm_state(vk_id, "")
-            from modules.admin import show_admin_console
             await show_admin_console(peer_id)
             await bot.api.messages.send_message_event_answer(
                 event_id=event_id,
@@ -226,12 +238,10 @@ async def message_event_handler(event: dict):
             await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
 
         elif cmd == "profile_menu":
-            from modules.profile import show_profile
-            await show_profile(vk_id=vk_id, peer_id=peer_id)
+            await show_profile_logic(vk_id=vk_id, peer_id=peer_id)
 
         elif cmd == "guide_menu":
-            from modules.profile import show_guide
-            await show_guide(vk_id, peer_id)
+            await show_guide_logic(vk_id, peer_id)
 
         elif cmd == "service_page":
             idx = payload.get("idx", 0)
@@ -274,8 +284,7 @@ async def message_event_handler(event: dict):
             card_name = card_data.get("name")
             card_description = card_data.get("description")
 
-            from datetime import datetime
-            current_date_str = datetime.now().strftime("%d.%m.%Y")
+            current_date_str = datetime.datetime.now().strftime("%d.%m.%Y")
 
             async with pdf_semaphore:
                 await asyncio.to_thread(
@@ -311,7 +320,6 @@ async def message_event_handler(event: dict):
         elif cmd == "profile_action":
             action = payload.get("action")
             if action == "settings":
-                from modules.profile import settings_handler
                 # Mock a message object
                 await settings_handler(vk_id=vk_id, peer_id=peer_id)
             elif action == "change_data":
@@ -320,7 +328,6 @@ async def message_event_handler(event: dict):
                 kb.add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json())
             elif action == "change_skin":
-                from modules.profile import settings_choose_character
                 await settings_choose_character(vk_id=vk_id, peer_id=peer_id)
             elif action == "cancel_sub":
                 await update_user(vk_id, {"transit_sub_expires_at": None})
@@ -333,24 +340,18 @@ async def message_event_handler(event: dict):
                 kb.add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?", keyboard=kb.get_json())
             elif action == "confirm_reset":
-                from database import delete_user
                 await delete_user(vk_id)
                 await set_user_state(vk_id, "")
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
             elif action == "back_to_profile":
-                from modules.profile import show_profile
-                await show_profile(vk_id=vk_id, peer_id=peer_id)
+                await show_profile_logic(vk_id=vk_id, peer_id=peer_id)
             elif action == "admin_console":
-                from modules.admin import show_admin_console
                 await show_admin_console(peer_id)
             elif action == "syndicate":
-                from modules.profile import syndicate_dashboard_handler
-                await syndicate_dashboard_handler(vk_id=vk_id, peer_id=peer_id)
+                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id)
             elif action == "grimoire":
-                from modules.profile import show_grimoire_page
                 await show_grimoire_page(vk_id, peer_id, 0)
             elif action == "tariffs":
-                from modules.services import show_tariffs
                 await show_tariffs(vk_id, peer_id, 0)
             elif action == "get_seal":
                 await set_user_state(vk_id, "")
@@ -369,8 +370,7 @@ async def message_event_handler(event: dict):
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
             elif action == "cancel_seal":
                 await set_user_state(vk_id, "")
-                from modules.profile import syndicate_dashboard_handler
-                await syndicate_dashboard_handler(vk_id=vk_id, peer_id=peer_id)
+                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id)
         elif cmd == "buy":
             buy_type = payload.get("type")
             key = payload.get("key")
@@ -681,7 +681,6 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         if not user: return
 
         # 1. Показываем прогресс
-        from modules.utils import start_dynamic_typing, stop_dynamic_typing
         typing_task = await start_dynamic_typing(peer_id, bot.api)
 
         try:
@@ -720,7 +719,6 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
 
                 await update_user(vk_id, save_data)
 
-                from ai_service import extract_tags
                 async def extract_and_save_tags(v_id: int, text: str):
                     new_tags = await extract_tags(text)
                     if new_tags:

@@ -152,4 +152,4 @@ async def apply_promo_handler(message: Message):
 
 @labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 ПУТЕВОДИТЕЛЬ", "📖 Путеводитель"])
 async def show_guide(message: Message):
-    await show_guide_logic(message.from_id, message)
+    await show_guide_logic(message.from_id, message.peer_id, message)
