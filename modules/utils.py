@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import os
+import random
 
 import aiofiles
 from jinja2 import Environment, FileSystemLoader
@@ -272,36 +273,43 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
             should_give = True
 
     if should_give:
-        current_balance = int(user.get("balance", 0) or 0)
-        visit_streak = user.get("visit_streak", 0)
+        lock_key = f"bonus:{vk_id}"
+        if not await acquire_lock(lock_key, ttl=10):
+            return
 
-        if last_bonus_date_str:
-            try:
-                last_bonus_date = datetime.date.fromisoformat(last_bonus_date_str)
-                if (now_date - last_bonus_date).days == 1:
-                    visit_streak += 1
-                else:
-                    visit_streak = 1
-            except ValueError:
-                visit_streak = 1
-        else:
-            visit_streak = 1
-
-        new_balance = current_balance + 100
-        await update_user(vk_id, {
-            "balance": new_balance,
-            "last_daily_bonus_date": now_date.isoformat(),
-            "visit_streak": visit_streak
-        })
         try:
-            from modules.bot_init import bot
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message=f"🎁 Твой ежедневный дар: +100 Энергии звезд.\nВозвращайся завтра за новой порцией. Твой баланс: {new_balance}.",
-                random_id=0
-            )
-        except Exception as e:
-            logger.error(f"Ошибка: {str(e)}")
+            current_balance = int(user.get("balance", 0) or 0)
+            visit_streak = user.get("visit_streak", 0)
+
+            if last_bonus_date_str:
+                try:
+                    last_bonus_date = datetime.date.fromisoformat(last_bonus_date_str)
+                    if (now_date - last_bonus_date).days == 1:
+                        visit_streak += 1
+                    else:
+                        visit_streak = 1
+                except ValueError:
+                    visit_streak = 1
+            else:
+                visit_streak = 1
+
+            new_balance = current_balance + 100
+            await update_user(vk_id, {
+                "balance": new_balance,
+                "last_daily_bonus_date": now_date.isoformat(),
+                "visit_streak": visit_streak
+            })
+            try:
+                from modules.bot_init import bot
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message=f"🎁 Твой ежедневный дар: +100 Энергии звезд.\nВозвращайся завтра за новой порцией. Твой баланс: {new_balance}.",
+                    random_id=0
+                )
+            except Exception as e:
+                logger.error(f"Ошибка: {str(e)}")
+        finally:
+            await release_lock(lock_key)
 
 
 def get_main_keyboard() -> str:
@@ -309,9 +317,10 @@ def get_main_keyboard() -> str:
     kb = Keyboard(one_time=False, inline=False)
     kb.add(Text("Главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
     kb.add(Text("Профиль", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
-    kb.add(Text("Карта дня", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
+    kb.add(Text("Карта дня", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Text("Услуги", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
     kb.add(Text("Гримуар", payload={"cmd": "grimoire"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
 
@@ -346,21 +355,26 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     # ←←← ИСПРАВЛЕНИЕ: text-кнопки
     kb.add(Text("💳 МОЙ ПРОФИЛЬ"), color=KeyboardButtonColor.SECONDARY)
     kb.add(Text("📖 ПУТЕВОДИТЕЛЬ"), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
 
-    # Купленные разделы (остаются callback)
+    # Собираем купленные разделы (остаются callback)
+    sections = []
     if purchased.get("sex") or has_all:
-        kb.add(Callback("👄 СЕКСУАЛЬНОСТЬ", payload={"cmd": "use_section", "key": "sex"}), color=KeyboardButtonColor.POSITIVE)
+        sections.append(Callback("👄 СЕКСУАЛЬНОСТЬ", payload={"cmd": "use_section", "key": "sex"}))
     if purchased.get("money") or has_all:
-        kb.add(Callback("💰 БОГАТСТВО", payload={"cmd": "use_section", "key": "money"}), color=KeyboardButtonColor.POSITIVE)
+        sections.append(Callback("💰 БОГАТСТВО", payload={"cmd": "use_section", "key": "money"}))
     if purchased.get("shadow") or has_all:
-        kb.add(Callback("🌘 ТЕНЬ", payload={"cmd": "use_section", "key": "shadow"}), color=KeyboardButtonColor.POSITIVE)
+        sections.append(Callback("🌘 ТЕНЬ", payload={"cmd": "use_section", "key": "shadow"}))
     if purchased.get("final") or has_all:
-        kb.add(Callback("🏁 ПУТЬ", payload={"cmd": "use_section", "key": "final"}), color=KeyboardButtonColor.POSITIVE)
+        sections.append(Callback("🏁 ПУТЬ", payload={"cmd": "use_section", "key": "final"}))
     if purchased.get("antitaro"):
-        kb.add(Callback("👁 АНТИТАРО", payload={"cmd": "use_section", "key": "antitaro"}), color=KeyboardButtonColor.POSITIVE)
+        sections.append(Callback("👁 АНТИТАРО", payload={"cmd": "use_section", "key": "antitaro"}))
     if purchased.get("synastry"):
-        kb.add(Callback("👨‍❤️‍👨 СИНАСТРИЯ", payload={"cmd": "use_section", "key": "synastry"}), color=KeyboardButtonColor.POSITIVE)
+        sections.append(Callback("👨‍❤️‍👨 СИНАСТРИЯ", payload={"cmd": "use_section", "key": "synastry"}))
+
+    for i, section in enumerate(sections):
+        if i % 2 == 0:
+            kb.row()
+        kb.add(section, color=KeyboardButtonColor.POSITIVE)
 
     return kb.get_json()
 
@@ -472,8 +486,7 @@ def generate_premium_pdf(
 
 
 
-def stop_dynamic_typing(peer_id: int):
-    global _typing_tasks
+async def stop_dynamic_typing(peer_id: int):
     """Cancels the typing task for a given peer_id if it exists."""
     if peer_id in _typing_tasks:
         task = _typing_tasks.pop(peer_id)
@@ -481,10 +494,7 @@ def stop_dynamic_typing(peer_id: int):
             task.cancel()
 
 async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
-    global _typing_tasks
-    import random
-
-    stop_dynamic_typing(peer_id)
+    await stop_dynamic_typing(peer_id)
 
     async def _typing_loop():
         # Keep track of the last phrase to avoid visual duplication
@@ -512,14 +522,3 @@ async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
     _typing_tasks[peer_id] = task
     return task
 
-class MockMsg:
-    def __init__(self, from_id, peer_id):
-        self.from_id = from_id
-        self.peer_id = peer_id
-    async def answer(self, message: str = None, **kwargs):
-        from modules.bot_init import bot
-        # extract attachment, keyboard, etc from kwargs
-        if 'attachment' in kwargs:
-            await bot.api.messages.send(peer_id=self.peer_id, random_id=0, message=message, attachment=kwargs['attachment'], keyboard=kwargs.get('keyboard'))
-        else:
-            await bot.api.messages.send(peer_id=self.peer_id, random_id=0, message=message, keyboard=kwargs.get('keyboard'))
