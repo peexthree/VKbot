@@ -20,10 +20,12 @@ FSM_TABLE = "user_fsm"
 
 session: Optional[aiohttp.ClientSession] = None
 
+
 async def init_db():
     global session
     if session is None:
         session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=100))
+
 
 async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
     if not URL or not KEY or session is None:
@@ -34,12 +36,12 @@ async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
                 data = await r.json()
                 if data:
                     user = data[0]
+                    # Миграция старого поля bonuses → balance (on-the-fly)
                     if "bonuses" in user and user["bonuses"] is not None:
-                        # Migrate on the fly
                         new_balance = (user.get("balance", 0) * 10) + user["bonuses"]
                         user["balance"] = new_balance
                         del user["bonuses"]
-                        # Optional: fire-and-forget update in DB
+                        # Асинхронно обновляем в БД
                         import asyncio
                         asyncio.create_task(update_user(vk_id, {"balance": new_balance, "bonuses": None}))
                     return user
@@ -47,8 +49,9 @@ async def get_user(vk_id: int) -> Optional[Dict[str, Any]]:
                 logger.error(f"Supabase error in get_user: {r.status} {await r.text()}")
             return None
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Ошибка в get_user: {str(e)}")
         return None
+
 
 async def get_all_subscribed_users() -> list[Dict[str, Any]]:
     """Получает список всех подписанных пользователей для утренних прогнозов"""
@@ -57,14 +60,14 @@ async def get_all_subscribed_users() -> list[Dict[str, Any]]:
     try:
         async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?has_full_chart=eq.true", headers=HEADERS) as r:
             if r.status == 200:
-                data = await r.json()
-                return data
+                return await r.json()
             else:
                 logger.error(f"Supabase error in get_all_subscribed_users: {r.status} {await r.text()}")
             return []
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Ошибка в get_all_subscribed_users: {str(e)}")
         return []
+
 
 async def get_all_users() -> list[Dict[str, Any]]:
     """Получает список всех пользователей"""
@@ -73,14 +76,14 @@ async def get_all_users() -> list[Dict[str, Any]]:
     try:
         async with session.get(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS) as r:
             if r.status == 200:
-                data = await r.json()
-                return data
+                return await r.json()
             else:
                 logger.error(f"Supabase error in get_all_users: {r.status} {await r.text()}")
             return []
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Ошибка в get_all_users: {str(e)}")
         return []
+
 
 async def get_inactive_free_users() -> list[Dict[str, Any]]:
     """Получает пользователей, которые не купили разбор, для кармических пушей"""
@@ -89,51 +92,80 @@ async def get_inactive_free_users() -> list[Dict[str, Any]]:
     try:
         async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?has_full_chart=eq.false", headers=HEADERS) as r:
             if r.status == 200:
-                data = await r.json()
-                return data
+                return await r.json()
             else:
                 logger.error(f"Supabase error in get_inactive_free_users: {r.status} {await r.text()}")
             return []
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Ошибка в get_inactive_free_users: {str(e)}")
         return []
 
-async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: str) -> Optional[Dict[str, Any]]:
+
+async def create_user(
+    vk_id: int,
+    birth_date: str,
+    birth_time: str,
+    birth_city: str,
+    first_name: str = ""
+) -> Optional[Dict[str, Any]]:
+    """Создаёт пользователя с ПОЛНОЙ актуальной схемой таблицы (31 колонка)"""
     if not URL or not KEY or session is None:
         return None
+
     payload = {
         "vk_id": vk_id,
         "birth_date": birth_date,
         "birth_time": birth_time,
         "birth_city": birth_city,
+        "free_teaser_used": False,
+        "is_subscribed": False,
+        "compatibility_balance": 0,
+        "core_profile": "",
         "partners": [],
+        "free_card_used": False,
+        "purchased_sections": {
+            "sex": False,
+            "money": False,
+            "shadow": False,
+            "final": False,
+            "sex_val": 0,
+            "first_name": first_name,
+            "oracle_access": False,
+            "card_of_day_last_used": None
+        },
         "has_full_chart": False,
-        "purchased_sections": {"sex": False, "money": False, "shadow": False, "final": False},
+        "forecast_time": None,
         "balance": 0,
+        "oracle_last_used": None,
+        "has_priority_access": False,
+        "bonuses": None,
+        "last_active_date": None,
         "active_skin": "olesya",
         "purchased_skins": [],
         "transit_trial_days": 0,
         "transit_sub_expires_at": None,
-        "bonuses": None,
-        "last_daily_bonus_date": None,
-        "last_active_date": None,
         "unlocked_cards": {},
         "weekly_log": [],
         "visit_streak": 0,
-        "tags": []
+        "total_cards_received": 0,
+        "last_daily_bonus_date": None,
+        "welcome_bonus_received": False,
+        "tags": [],
+        "latest_reading_text": None
     }
+
     try:
         async with session.post(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS, json=payload) as r:
             if r.status in (200, 201):
                 data = await r.json()
                 if data:
-                    logger.info(f"Записано в Users: vk_id={vk_id}")
+                    logger.success(f"✅ Создан пользователь vk_id={vk_id}")
                     return data[0]
             else:
                 logger.error(f"Supabase error in create_user: {r.status} {await r.text()}")
             return None
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Ошибка в create_user: {str(e)}")
         return None
 
 
@@ -152,6 +184,7 @@ async def delete_user(vk_id: int) -> bool:
         logger.error(f"Ошибка в delete_user: {str(e)}")
         return False
 
+
 async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if not URL or not KEY or session is None:
         return None
@@ -160,14 +193,15 @@ async def update_user(vk_id: int, updates: Dict[str, Any]) -> Optional[Dict[str,
             if r.status in (200, 204):
                 data = await r.json()
                 if data:
-                    logger.info(f"Обновлено в Users: vk_id={vk_id}")
+                    logger.success(f"✅ Обновлён пользователь vk_id={vk_id}")
                     return data[0]
             else:
                 logger.error(f"Supabase error in update_user: {r.status} {await r.text()}")
             return None
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Ошибка в update_user: {str(e)}")
         return None
+
 
 async def check_and_save_transaction(transaction_id: str, vk_id: int, amount: int) -> bool:
     """Checks if a vkpay transaction exists to prevent fraud, and saves it if unique."""
@@ -175,7 +209,10 @@ async def check_and_save_transaction(transaction_id: str, vk_id: int, amount: in
         return False
     try:
         # Check for existing transaction
-        async with session.get(f"{URL}/rest/v1/events?action=eq.vkpay_transaction&metadata->>transaction_id=eq.{transaction_id}", headers=HEADERS) as r:
+        async with session.get(
+            f"{URL}/rest/v1/events?action=eq.vkpay_transaction&metadata->>transaction_id=eq.{transaction_id}",
+            headers=HEADERS
+        ) as r:
             if r.status == 200:
                 data = await r.json()
                 if data:
@@ -198,8 +235,9 @@ async def check_and_save_transaction(transaction_id: str, vk_id: int, amount: in
                 logger.error(f"Supabase error in check_and_save_transaction (post): {r.status} {await r.text()}")
                 return False
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Ошибка в check_and_save_transaction: {str(e)}")
         return False
+
 
 async def get_user_state(vk_id: int) -> Optional[str]:
     from modules.bot_init import bot
@@ -207,6 +245,7 @@ async def get_user_state(vk_id: int) -> Optional[str]:
     if state_rec:
         return state_rec.payload.get("raw_json") if state_rec.payload else None
     return await get_fsm_state(vk_id)
+
 
 async def set_user_state(vk_id: int, state: str) -> bool:
     from modules.bot_init import bot
@@ -225,7 +264,6 @@ async def set_user_state(vk_id: int, state: str) -> bool:
     except Exception:
         step = state
 
-    # Map steps to actual MyStates
     state_map = {
         "waiting_for_onboarding_data": MyStates.WAITING_FOR_ONBOARDING_DATA,
         "date": MyStates.WAITING_FOR_DATE,
@@ -248,5 +286,4 @@ async def set_user_state(vk_id: int, state: str) -> bool:
         except KeyError:
             pass
         await set_fsm_state(vk_id, state)
-
     return True
