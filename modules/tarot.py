@@ -3,7 +3,7 @@ import datetime
 import json
 import random
 from loguru import logger
-from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
+from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
 from ai_service import clean_ai_json, extract_tags, generate_section, generate_text

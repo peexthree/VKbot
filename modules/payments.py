@@ -13,7 +13,6 @@ from vkbottle import (
     GroupEventType,
     Keyboard,
     KeyboardButtonColor,
-    Text,
 )
 from vkbottle.bot import BotLabeler
 from vkbottle.tools.dev.keyboard.action import VKPay
