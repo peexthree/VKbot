@@ -10,6 +10,7 @@ from modules.utils import (
     get_sections_keyboard,
     start_dynamic_typing,
     stop_dynamic_typing,
+    SKIN_ASSETS,
 )
 from modules.profile.keyboards import get_syndicate_keyboard, get_cancel_seal_keyboard
 
@@ -27,7 +28,7 @@ async def show_balance_logic(vk_id: int, message: Message):
         balance = int(user.get("balance", 0) or 0)
         await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд")
     finally:
-        stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
 
 
@@ -36,10 +37,8 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None):
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
-
     try:
         await start_dynamic_typing(bot.api, peer_id)
-
         user = await get_user(vk_id)
         if not user:
             text = "❌ Не удалось найти ваш профиль. Напишите 'Начать'"
@@ -49,23 +48,29 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None):
                 await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
             return
 
-        # Фото текущего скина
+        # Фото текущего скина (маскот никогда не используется)
         active_skin = user.get("active_skin", "olesya")
-        from modules.utils import SKIN_ASSETS
         skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
         photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
 
         # Данные
-        first_name = user.get("purchased_sections", {}).get("first_name", "Адепт")
+        first_name = user.get("first_name") or "Адепт"
+        if first_name == "Адепт":
+            try:
+                user_info = await bot.api.users.get(user_ids=[vk_id])
+                if user_info:
+                    first_name = user_info[0].first_name
+            except Exception:
+                pass
+
         birth_date = user.get("birth_date", "Неизвестно")
         birth_city = user.get("birth_city", "Неизвестно")
-
         balance = int(user.get("balance", 0) or 0)
         visit_streak = user.get("visit_streak", 0)
-        total_cards = user.get("total_cards_received", 0)
 
-        # Прогресс-бар
+        # Прогресс по реальным открытым картам
         unlocked_count = len(user.get("unlocked_cards", {}))
+        total_cards = unlocked_count
         progress = min(10, int((unlocked_count / 78) * 10))
         progress_bar = "█" * progress + "░" * (10 - progress)
 
@@ -95,9 +100,8 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None):
                 keyboard=keyboard,
                 random_id=0
             )
-
     finally:
-        stop_dynamic_typing(peer_id)
+        await stop_dynamic_typing(peer_id)
         await release_lock(vk_id)
 
 
@@ -116,7 +120,7 @@ async def god_mode_logic(vk_id: int, message: Message):
         kb_json = await get_sections_keyboard(vk_id, user)
         await message.answer("ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.", keyboard=kb_json)
     finally:
-        stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
 
 
@@ -132,7 +136,6 @@ async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message =
         purchased = user.get("purchased_sections", {})
         syndicate_count = purchased.get("syndicate_count", 0)
         syndicate_energy = purchased.get("syndicate_energy", 0)
-
         if syndicate_count >= 5:
             rank = "Теневой Кардинал"
             progress_text = "Ты достиг вершины синдиката."
@@ -143,7 +146,6 @@ async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message =
         else:
             rank = "Одиночка"
             progress_text = "До статуса Вербовщик остался 1 адепт."
-
         text = (
             "🕸 СИНДИКАТ АНТИ-ТАР 🕸\n\n"
             f"Твой текущий ранг: {rank}\n"
@@ -152,7 +154,6 @@ async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message =
             f"{progress_text}\n\n"
             "Расширяй свою матрицу. За каждого нового адепта ты получаешь 500 чистой Энергии звезд."
         )
-
         is_veteran = False
         created_at_str = user.get("created_at")
         if created_at_str:
@@ -162,15 +163,13 @@ async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message =
                 is_veteran = True
         if purchased.get("promo_used"):
             is_veteran = True
-
         kb_json = get_syndicate_keyboard(is_veteran)
-
         if message:
             await message.answer(text, keyboard=kb_json)
         else:
             await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
     finally:
-        stop_dynamic_typing(peer_id)
+        await stop_dynamic_typing(peer_id)
         await release_lock(vk_id)
 
 
@@ -189,7 +188,7 @@ async def get_seal_logic(vk_id: int, message: Message):
         )
         await message.answer(text)
     finally:
-        stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
 
 
@@ -202,7 +201,7 @@ async def enter_seal_logic(vk_id: int, message: Message):
         kb_json = get_cancel_seal_keyboard()
         await message.answer("Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb_json)
     finally:
-        stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
 
 
@@ -274,7 +273,7 @@ async def apply_promo_logic(vk_id: int, message: Message):
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
     finally:
-        stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
 
 
@@ -296,5 +295,5 @@ async def show_guide_logic(vk_id: int, message: Message):
         )
         await message.answer(text)
     finally:
-        stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
