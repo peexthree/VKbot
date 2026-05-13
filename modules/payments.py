@@ -708,15 +708,17 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
                 # Очищаем текст от тех. тегов ID_ТАРО
                 display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
 
-                # PDF On-Demand: Do not generate it here automatically
-                # Instead, we will add a button to the keyboard to generate it
-
                 # Save the latest reading data to user's db to use later for PDF generation
                 # We also save the text specifically so the fallback works
                 save_data = {"latest_reading_text": display_text}
                 if isinstance(res_data, dict):
-                    res_data["text"] = display_text # clean version
+                    # Сохраняем чистую версию текста в объекте данных
+                    res_data["text"] = display_text
                     save_data["latest_reading_data"] = res_data
+                else:
+                    # Если вдруг вернулась строка, создаем минимальный объект
+                    save_data["latest_reading_data"] = {"text": display_text}
+
                 await update_user(vk_id, save_data)
 
                 from ai_service import extract_tags
@@ -740,8 +742,11 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
                         if res_data.get('activation_comment'):
                             display_text += f"\n{res_data.get('activation_comment')}"
 
-                    if res_data.get('affirmations'):
-                        display_text += f"\n\nТвои аффирмации:\n{res_data.get('affirmations')}"
+                    affirmations = res_data.get('affirmations')
+                    if affirmations:
+                        if isinstance(affirmations, list):
+                            affirmations = "\n".join([f"- {a}" for a in affirmations])
+                        display_text += f"\n\nТвои аффирмации:\n{affirmations}"
 
                     display_text += "\n\nПолный разбор со всеми 10 блоками доступен в PDF ниже."
 

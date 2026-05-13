@@ -24,6 +24,18 @@ SANITIZATION_TABLE = str.maketrans({
 
 _cached_api_keys = None
 
+
+def clean_ai_json(raw: str) -> str:
+    """Убирает ```json и прочий мусор из ответа AI"""
+    if not raw:
+        return raw
+    # Убираем блоки кода ```json ... ``` или просто ``` ... ```
+    cleaned = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw.strip(), flags=re.IGNORECASE | re.MULTILINE)
+    # На случай если ```json встречается где-то внутри (бывает при сбоях)
+    cleaned = re.sub(r'```\s*json', '', cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
+
+
 def init_session():
     global _session
     if _session is None or _session.closed:
@@ -151,14 +163,13 @@ async def extract_tags(text: str) -> list[str]:
     if not res:
         return []
     try:
-        clean_res = re.sub(r"```(?:json)?\s*|\s*```", "", res).strip()
-        tags = json.loads(clean_res)
-        if isinstance(tags, list):
-            return tags
-        return []
+        clean = clean_ai_json(res)
+        tags = json.loads(clean)
+        return tags if isinstance(tags, list) else []
     except Exception as e:
-        logger.error(f"Ошибка парсинга тегов: {str(e)}")
+        logger.error(f"Ошибка парсинга тегов: {e}. Raw: {res[:200]}...")
         return []
+
 
 async def extract_birth_data(text: str) -> dict | None:
     prompt = (
@@ -168,12 +179,13 @@ async def extract_birth_data(text: str) -> dict | None:
         f"Верни строго JSON: {{\"date\": \"15.04.1990\", \"time\": \"14:30\", \"city\": \"Москва\"}}."
     )
     res = await generate_text(prompt, json_mode=True)
-    if not res: return None
+    if not res:
+        return None
     try:
-        clean_res = re.sub(r"```(?:json)?\s*|\s*```", "", res).strip()
-        return json.loads(clean_res)
+        clean = clean_ai_json(res)
+        return json.loads(clean)
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Failed to parse birth data JSON: {e}. Raw: {res[:200]}...")
         return None
 
 
@@ -261,11 +273,10 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         res = await generate_text(prompt, json_mode=True, skin=skin)
         if res:
             try:
-                import json
-                return json.loads(res)
+                clean = clean_ai_json(res)
+                return json.loads(clean)
             except Exception as e:
-                import logging
-                logging.error(f"Failed to parse JSON from AI: {e}. Raw text: {res}")
+                logger.error(f"Failed to parse JSON from AI: {e}. Raw text: {res[:300]}...")
                 return {"text": res}
         return {"text": "Ошибка генерации."}
     else:

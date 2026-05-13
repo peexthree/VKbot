@@ -43,8 +43,20 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None):
         photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
         keyboard = await get_sections_keyboard(vk_id, user)
 
+        balance = int(user.get("balance", 0) or 0)
+        visit_streak = user.get("visit_streak", 0)
+        total_cards = user.get("total_cards_received", 0)
+
+        profile_text = (
+            "💳 ЛИЧНЫЙ ПРОФИЛЬ АДЕПТА\n\n"
+            f"✨ Баланс: {balance} Энергии звезд\n"
+            f"🔥 Серия посещений: {visit_streak} дн.\n"
+            f"🃏 Открыто карт: {total_cards}\n\n"
+            "Здесь ты можешь управлять своими данными, менять персонажа и следить за ростом своей силы в матрице."
+        )
+
         await _send_resp(
-            text="💳 **Ваш профиль**",
+            text=profile_text,
             attachment=photo,
             keyboard=keyboard
         )
