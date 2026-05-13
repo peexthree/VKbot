@@ -5,14 +5,21 @@ from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state, create_user
 from cache import acquire_lock, release_lock
-from modules.utils import upload_local_photo, get_sections_keyboard
+from modules.utils import (
+    upload_local_photo,
+    get_sections_keyboard,
+    start_dynamic_typing,
+    stop_dynamic_typing,
+)
 from modules.profile.keyboards import get_syndicate_keyboard, get_cancel_seal_keyboard
+
 
 async def show_balance_logic(vk_id: int, message: Message):
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
     try:
+        await start_dynamic_typing(bot.api, message.peer_id)
         user = await get_user(vk_id)
         if not user:
             await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
@@ -20,86 +27,108 @@ async def show_balance_logic(vk_id: int, message: Message):
         balance = int(user.get("balance", 0) or 0)
         await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд")
     finally:
+        stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
 
+
 async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None):
-    async def _send_resp(text: str, attachment: str = None, keyboard: str = None):
-        if message:
-            await message.answer(message=text, attachment=attachment, keyboard=keyboard)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message=text, attachment=attachment, keyboard=keyboard, random_id=0)
-
+    """Премиум-профиль — точно такой вид, как ты показал"""
     await set_user_state(vk_id, "")
-
     if not await acquire_lock(vk_id):
         return
+
     try:
+        await start_dynamic_typing(bot.api, peer_id)
+
         user = await get_user(vk_id)
         if not user:
-            await _send_resp("❌ Не удалось найти ваш профиль. Попробуйте /start")
+            text = "❌ Не удалось найти ваш профиль. Напишите 'Начать'"
+            if message:
+                await message.answer(text)
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
             return
 
+        # Фото текущего скина
         active_skin = user.get("active_skin", "olesya")
         from modules.utils import SKIN_ASSETS
         skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
         photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
-        keyboard = await get_sections_keyboard(vk_id, user)
+
+        # Данные
+        first_name = user.get("purchased_sections", {}).get("first_name", "Адепт")
+        birth_date = user.get("birth_date", "Неизвестно")
+        birth_city = user.get("birth_city", "Неизвестно")
 
         balance = int(user.get("balance", 0) or 0)
         visit_streak = user.get("visit_streak", 0)
         total_cards = user.get("total_cards_received", 0)
 
+        # Прогресс-бар
+        unlocked_count = len(user.get("unlocked_cards", {}))
+        progress = min(10, int((unlocked_count / 78) * 10))
+        progress_bar = "█" * progress + "░" * (10 - progress)
+
         profile_text = (
             "💳 ЛИЧНЫЙ ПРОФИЛЬ АДЕПТА\n\n"
-            f"✨ Баланс: {balance} Энергии звезд\n"
-            f"🔥 Серия посещений: {visit_streak} дн.\n"
-            f"🃏 Открыто карт: {total_cards}\n\n"
-            "Здесь ты можешь управлять своими данными, менять персонажа и следить за ростом своей силы в матрице."
+            f"👤 {first_name}\n"
+            f"📍 {birth_date} — {birth_city}\n\n"
+            f"✨ Баланс: {balance} Энергии звёзд\n"
+            f"🔥 Серия посещений: {visit_streak} дней\n"
+            f"🃏 Открыто карт: {total_cards} из 78\n"
+            f"📊 ПРОГРЕСС: {progress_bar}\n\n"
+            "Здесь ты можешь управлять своими данными, менять проводника "
+            "и следить за ростом своей силы в матрице.\n\n"
+            "📜 Публичная оферта и пользовательское соглашение:\n"
+            "https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
         )
 
-        await _send_resp(
-            text=profile_text,
-            attachment=photo,
-            keyboard=keyboard
-        )
+        keyboard = await get_sections_keyboard(vk_id, user)
+
+        if message:
+            await message.answer(text=profile_text, attachment=photo, keyboard=keyboard)
+        else:
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message=profile_text,
+                attachment=photo,
+                keyboard=keyboard,
+                random_id=0
+            )
+
     finally:
+        stop_dynamic_typing(peer_id)
         await release_lock(vk_id)
+
 
 async def god_mode_logic(vk_id: int, message: Message):
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
     try:
+        await start_dynamic_typing(bot.api, message.peer_id)
         user = await get_user(vk_id)
         if not user:
             await message.answer("Сначала напиши 'Начать'")
             return
-
-        balance = user.get("balance", 0)
-        new_balance = balance + 100000
-
+        new_balance = int(user.get("balance", 0) or 0) + 100000
         await update_user(vk_id, {"balance": new_balance})
-
-        user = await get_user(vk_id)
-        if not user: return
         kb_json = await get_sections_keyboard(vk_id, user)
-
-        try:
-            await message.answer("ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.", keyboard=kb_json)
-        except Exception:
-            await message.answer("ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.")
+        await message.answer("ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.", keyboard=kb_json)
     finally:
+        stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
+
 
 async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message = None):
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
     try:
+        await start_dynamic_typing(bot.api, peer_id)
         user = await get_user(vk_id)
         if not user:
             return
-
         purchased = user.get("purchased_sections", {})
         syndicate_count = purchased.get("syndicate_count", 0)
         syndicate_energy = purchased.get("syndicate_energy", 0)
@@ -131,7 +160,6 @@ async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message =
             now = datetime.datetime.now(datetime.timezone.utc)
             if (now - created_at).total_seconds() / 3600 > 24:
                 is_veteran = True
-
         if purchased.get("promo_used"):
             is_veteran = True
 
@@ -142,13 +170,16 @@ async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message =
         else:
             await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
     finally:
+        stop_dynamic_typing(peer_id)
         await release_lock(vk_id)
+
 
 async def get_seal_logic(vk_id: int, message: Message):
     await set_user_state(vk_id, "")
     if not await acquire_lock(vk_id):
         return
     try:
+        await start_dynamic_typing(bot.api, message.peer_id)
         text = (
             "📜 ТВОЯ ПЕЧАТЬ ПРИЗЫВА\n\n"
             f"Код твоей Печати: ПЕЧАТЬ-{vk_id}\n\n"
@@ -158,40 +189,44 @@ async def get_seal_logic(vk_id: int, message: Message):
         )
         await message.answer(text)
     finally:
+        stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
+
 
 async def enter_seal_logic(vk_id: int, message: Message):
     await set_user_state(vk_id, "waiting_for_seal")
     if not await acquire_lock(vk_id):
         return
     try:
+        await start_dynamic_typing(bot.api, message.peer_id)
         kb_json = get_cancel_seal_keyboard()
         await message.answer("Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb_json)
     finally:
+        stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
+
 
 async def cancel_seal_logic(vk_id: int, peer_id: int, message: Message):
     await set_user_state(vk_id, "")
     await syndicate_dashboard_logic(vk_id, peer_id, message)
 
+
 async def apply_promo_logic(vk_id: int, message: Message):
     await set_user_state(vk_id, "")
-    text = message.text.strip().upper()
-    match = re.match(r"^(ПРОМО|ПЕЧАТЬ)-(\d+)$", text)
-    if not match:
-        return
-
     if not await acquire_lock(vk_id):
         return
     try:
+        await start_dynamic_typing(bot.api, message.peer_id)
+        text = message.text.strip().upper()
+        match = re.match(r"^(ПРОМО|ПЕЧАТЬ)-(\d+)$", text)
+        if not match:
+            return
         referrer_id = int(match.group(2))
         user = await get_user(vk_id)
         is_new = False
-
         if not user:
             user = await create_user(vk_id, "", "", "")
             is_new = True
-
         is_veteran = False
         created_at_str = user.get("created_at")
         if created_at_str:
@@ -199,41 +234,31 @@ async def apply_promo_logic(vk_id: int, message: Message):
             now = datetime.datetime.now(datetime.timezone.utc)
             if (now - created_at).total_seconds() / 3600 > 24:
                 is_veteran = True
-
         purchased = user.get("purchased_sections", {})
         if purchased.get("promo_used"):
             is_veteran = True
-
         if is_veteran:
             await message.answer("Доступ отклонен. Твоя матрица уже давно интегрирована в систему. Печать призыва работает только для новых адептов. Выстраивай свой личный Синдикат.")
             return
-
         if referrer_id == vk_id:
             await message.answer("Ты не можешь использовать свою собственную Печать.")
             return
-
         referrer = await get_user(referrer_id)
         if not referrer:
             await message.answer("Такой Печати не существует.")
             return
-
         user_balance = int(user.get("balance", 0) or 0) + 500
         referrer_balance = int(referrer.get("balance", 0) or 0) + 500
-
         purchased["promo_used"] = True
         await update_user(vk_id, {"balance": user_balance, "purchased_sections": purchased})
-
         ref_purchased = referrer.get("purchased_sections", {})
         ref_purchased["syndicate_count"] = ref_purchased.get("syndicate_count", 0) + 1
         ref_purchased["syndicate_energy"] = ref_purchased.get("syndicate_energy", 0) + 500
         await update_user(referrer_id, {"balance": referrer_balance, "purchased_sections": ref_purchased})
-
         await message.answer(f"ПЕЧАТЬ АКТИВИРОВАНА! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
-
         if is_new:
             from modules.registration import start_handler
             await start_handler(message)
-
         try:
             first_name = purchased.get("first_name")
             if not first_name:
@@ -242,7 +267,6 @@ async def apply_promo_logic(vk_id: int, message: Message):
                     first_name = user_info[0].first_name
                 else:
                     first_name = "Адепт"
-
             push_msg = f"Твой Синдикат растет! Пользователь {first_name} подключился к твоей сети. Зачислено 500 Энергии звезд."
             if ref_purchased.get("syndicate_count", 0) == 5:
                 push_msg += "\n\nТвой ранг повышен до: Теневой Кардинал! Теперь тебе открыты скрытые возможности."
@@ -250,12 +274,15 @@ async def apply_promo_logic(vk_id: int, message: Message):
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
     finally:
+        stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
+
 
 async def show_guide_logic(vk_id: int, message: Message):
     if not await acquire_lock(vk_id):
         return
     try:
+        await start_dynamic_typing(bot.api, message.peer_id)
         text = (
             "ПУТЕВОДИТЕЛЬ ПО СИСТЕМЕ\n"
             "Здесь собраны ответы на все вопросы.\n\n"
@@ -269,4 +296,5 @@ async def show_guide_logic(vk_id: int, message: Message):
         )
         await message.answer(text)
     finally:
+        stop_dynamic_typing(message.peer_id)
         await release_lock(vk_id)
