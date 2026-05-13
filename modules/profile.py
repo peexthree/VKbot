@@ -97,6 +97,18 @@ async def process_change_date(message: Message):
     if not await acquire_lock(vk_id): return
     try:
         new_date = message.text.strip()
+
+        # Security: Input validation
+        if len(new_date) > 10 or not re.match(r"^\d{2}\.\d{2}\.\d{4}$", new_date):
+            await message.answer("ФОРМАТ ОТКЛОНЕН. Введите дату строго в формате ДД.ММ.ГГГГ (например, 15.04.1990).")
+            return
+
+        try:
+            datetime.datetime.strptime(new_date, "%d.%m.%Y")
+        except ValueError:
+            await message.answer("ДАТА НЕДЕЙСТВИТЕЛЬНА. Введите существующую дату в формате ДД.ММ.ГГГГ.")
+            return
+
         await set_user_state(vk_id, json.dumps({"step": "time", "date": new_date}))
         await message.answer(f"Дата {new_date} принята. Теперь введите ВРЕМЯ вашего рождения (например, 14:30 или 'не знаю'):")
     finally:
@@ -113,7 +125,26 @@ async def process_change_time(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
     try:
-        new_time = message.text.strip()
+        new_time = message.text.strip().lower()
+
+        # Security: Input validation
+        is_valid_time = False
+        if new_time == "не знаю":
+            is_valid_time = True
+            new_time = "12:00"
+        elif len(new_time) <= 5 and re.match(r"^\d{1,2}:\d{2}$", new_time):
+            try:
+                h, m = map(int, new_time.split(':'))
+                if 0 <= h < 24 and 0 <= m < 60:
+                    is_valid_time = True
+                    new_time = f"{h:02d}:{m:02d}"
+            except ValueError:
+                pass
+
+        if not is_valid_time:
+            await message.answer("ФОРМАТ ОТКЛОНЕН. Введите время в формате ЧЧ:ММ (например, 14:30) или напишите 'не знаю'.")
+            return
+
         state_dict = await get_fsm_step(vk_id)
         new_date = state_dict.get("date", "")
         await set_user_state(vk_id, json.dumps({"step": "city", "date": new_date, "time": new_time}))
@@ -133,6 +164,16 @@ async def process_change_city(message: Message):
     if not await acquire_lock(vk_id): return
     try:
         new_city = message.text.strip()
+
+        # Security: Input validation
+        if len(new_city) < 2 or len(new_city) > 50:
+            await message.answer("ФОРМАТ ОТКЛОНЕН. Название города должно быть от 2 до 50 символов.")
+            return
+
+        if not re.match(r"^[a-zA-Zа-яА-ЯёЁ\s\-]+$", new_city):
+            await message.answer("ФОРМАТ ОТКЛОНЕН. Название города может содержать только буквы, пробелы и дефисы.")
+            return
+
         state_dict = await get_fsm_step(vk_id)
         new_date = state_dict.get("date", "")
         new_time = state_dict.get("time", "")
