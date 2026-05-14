@@ -15,6 +15,7 @@ from modules.states import MyStates
 from modules.utils import (
     get_fsm_step,
     get_sections_keyboard,
+    ghost_edit,
     start_dynamic_typing,
     stop_dynamic_typing,
     upload_local_photo,
@@ -309,7 +310,6 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         display_text = result_text + "\n\nПолный разбор со всеми 10 блоками доступен в PDF."
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
-        from modules.utils import ghost_edit
         await ghost_edit(
             bot.api,
             peer_id,
