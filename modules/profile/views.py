@@ -32,10 +32,10 @@ async def show_balance_logic(vk_id: int, message: Message):
         await release_lock(vk_id)
 
 
-async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None):
+async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     """Премиум-профиль — точно такой вид, как ты показал"""
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, peer_id)
@@ -124,9 +124,9 @@ async def god_mode_logic(vk_id: int, message: Message):
         await release_lock(vk_id)
 
 
-async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message = None):
+async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, peer_id)
@@ -210,9 +210,9 @@ async def cancel_seal_logic(vk_id: int, peer_id: int, message: Message):
     await syndicate_dashboard_logic(vk_id, peer_id, message)
 
 
-async def apply_promo_logic(vk_id: int, message: Message):
+async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
@@ -277,8 +277,8 @@ async def apply_promo_logic(vk_id: int, message: Message):
         await release_lock(vk_id)
 
 
-async def show_guide_logic(vk_id: int, peer_id: int, message: Message = None):
-    if not await acquire_lock(vk_id):
+async def show_guide_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, peer_id)

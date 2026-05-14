@@ -229,6 +229,7 @@ async def message_event_handler(event: dict):
         elif cmd == "card_of_day_menu":
             await card_of_day_logic(
                 vk_id, peer_id,
+                skip_lock=True,
                 event_id=event_id,
                 conversation_message_id=obj.get("conversation_message_id")
             )
@@ -239,10 +240,10 @@ async def message_event_handler(event: dict):
 
         elif cmd == "profile_menu":
             from modules.profile.views import show_profile_logic
-            await show_profile_logic(vk_id=vk_id, peer_id=peer_id)
+            await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
 
         elif cmd == "guide_menu":
-            await show_guide_logic(vk_id, peer_id)
+            await show_guide_logic(vk_id, peer_id, skip_lock=True)
 
         elif cmd == "service_page":
             idx = payload.get("idx", 0)
@@ -255,6 +256,7 @@ async def message_event_handler(event: dict):
         elif cmd == "card_of_day":
             await card_of_day_logic(
                 vk_id, peer_id,
+                skip_lock=True,
                 event_id=event_id,
                 conversation_message_id=obj.get("conversation_message_id")
             )
@@ -325,14 +327,14 @@ async def message_event_handler(event: dict):
                 
             if action == "settings":
                 # Mock a message object
-                await settings_handler(vk_id=vk_id, peer_id=peer_id)
+                await settings_handler(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
             elif action == "change_data":
                 await set_user_state(vk_id, "waiting_for_onboarding_data")
                 kb = Keyboard(inline=True)
                 kb.add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json())
             elif action == "change_skin":
-                await settings_choose_character(vk_id=vk_id, peer_id=peer_id)
+                await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
             elif action == "cancel_sub":
                 await update_user(vk_id, {"transit_sub_expires_at": None})
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Транзит (Подписка) успешно отменен.")
@@ -349,13 +351,13 @@ async def message_event_handler(event: dict):
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
             elif action == "back_to_profile":
                 from modules.profile.views import show_profile_logic
-                await show_profile_logic(vk_id=vk_id, peer_id=peer_id)
+                await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
             elif action == "admin_console":
                 await show_admin_console(peer_id)
             elif action == "syndicate":
-                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id)
+                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
             elif action == "grimoire":
-                await show_grimoire_page(vk_id, peer_id, 0)
+                await show_grimoire_page(vk_id, peer_id, 0, skip_lock=True)
             elif action == "tariffs":
                 await show_tariffs(vk_id, peer_id, 0)
             elif action == "get_seal":
@@ -375,7 +377,7 @@ async def message_event_handler(event: dict):
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
             elif action == "cancel_seal":
                 await set_user_state(vk_id, "")
-                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id)
+                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
         elif cmd == "buy":
             buy_type = payload.get("type")
             key = payload.get("key")
@@ -457,11 +459,11 @@ async def message_event_handler(event: dict):
 
         elif cmd == "grimoire_page":
             page = payload.get("page", 0)
-            await show_grimoire_page(vk_id, peer_id, page)
+            await show_grimoire_page(vk_id, peer_id, page, skip_lock=True)
 
         elif cmd == "view_card":
             card_id = str(payload.get("id"))
-            await view_card_direct(vk_id, peer_id, card_id)
+            await view_card_direct(vk_id, peer_id, card_id, skip_lock=True)
 
         elif cmd == "global_cut":
             # Если в payload передан target (например, "welcome" для первого разбора), сохраняем его в стейт

@@ -10,9 +10,9 @@ from modules.profile.keyboards import (
     get_reset_confirm_keyboard, get_skin_keyboard
 )
 
-async def settings_handler_logic(vk_id: int, peer_id: int, message: Message = None):
+async def settings_handler_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         text = "✦ НАСТРОЙКИ И ЮРИДИЧЕСКИЙ ЩИТ ✦"
@@ -106,9 +106,9 @@ async def confirm_reset_account_logic(vk_id: int, message: Message):
     finally:
         await release_lock(vk_id)
 
-async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Message = None):
+async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         user = await get_user(vk_id)

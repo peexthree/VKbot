@@ -215,9 +215,9 @@ async def card_of_day_handler(message: Message):
         await release_lock(vk_id)
 
 
-async def card_of_day_logic(vk_id: int, peer_id: int, **kwargs):
+async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, **kwargs):
     """Исправленная и стабильная Карта Дня"""
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         event_id = kwargs.get("event_id")
