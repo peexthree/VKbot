@@ -91,7 +91,7 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None):
         keyboard = await get_sections_keyboard(vk_id, user)
 
         if message:
-            await message.answer(text=profile_text, attachment=photo, keyboard=keyboard)
+            await message.answer(message=profile_text, attachment=photo, keyboard=keyboard)
         else:
             await bot.api.messages.send(
                 peer_id=peer_id,
