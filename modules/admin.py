@@ -2,13 +2,13 @@ import json
 import os
 import datetime
 import asyncio
-from loguru import logger
-from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
+from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
 from cache import redis_client, set_fsm_state
-from database import get_all_users, get_user, update_user
+from database import get_all_users, get_user, update_user, get_user_count
 from modules.utils import ADMIN_ID, clear_photo_cache, ghost_edit, get_fsm_step
+from modules.bot_init import bot
 
 labeler = BotLabeler()
 
@@ -22,7 +22,6 @@ async def admin_console_handler(message: Message):
 
 async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     """Главная страница консоли"""
-    from database import get_user_count
     user_count = await get_user_count()
 
     text = (
@@ -42,7 +41,6 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     kb.add(Callback("📜 ЛОГИ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("🏠 ВЫХОД", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
-    from modules.bot_init import bot
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_system(peer_id: int, conversation_message_id: int = None):
@@ -94,7 +92,6 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None):
     kb.row()
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
-    from modules.bot_init import bot
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_analytics(peer_id: int, conversation_message_id: int = None):
@@ -157,7 +154,6 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
     kb = Keyboard(inline=True)
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
-    from modules.bot_init import bot
     await ghost_edit(bot.api, peer_id, stats_text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_users(peer_id: int, conversation_message_id: int = None):
@@ -175,7 +171,6 @@ async def show_admin_users(peer_id: int, conversation_message_id: int = None):
     kb.row()
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
-    from modules.bot_init import bot
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_broadcast(peer_id: int, conversation_message_id: int = None):
@@ -191,7 +186,6 @@ async def show_admin_broadcast(peer_id: int, conversation_message_id: int = None
     kb.row()
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
-    from modules.bot_init import bot
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
@@ -215,7 +209,6 @@ async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
     kb.add(Callback("🔄 ОБНОВИТЬ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
-    from modules.bot_init import bot
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 
@@ -227,8 +220,6 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict):
 
     action = payload.get("action")
     nav_menu = payload.get("menu")
-
-    from modules.bot_init import bot
 
     if payload.get("cmd") == "admin_nav":
         if nav_menu == "main": await show_admin_main(peer_id)
@@ -434,7 +425,6 @@ async def admin_fsm_handler(message: Message):
 
             await message.answer(f"Зачислено {amount} ✨ пользователю {target_id}. Итого: {new_balance}")
 
-            from modules.bot_init import bot
             try:
                 await bot.api.messages.send(peer_id=target_id,
                                            message=f"⚡️ Магистр даровал вам {amount} Энергии звезд!\nВаш баланс: {new_balance}",
