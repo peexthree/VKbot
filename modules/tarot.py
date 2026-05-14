@@ -106,7 +106,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, **kwargs):
         if not user:
             return
 
-        await start_dynamic_typing(vk_id, bot.api)
+        await start_dynamic_typing(bot.api, vk_id)
 
         # Загружаем фото карт
         attachments = []
@@ -209,8 +209,7 @@ async def card_of_day_handler(message: Message):
     if not await acquire_lock(vk_id):
         return
     try:
-        msg_id = await message.answer("Открываю гримуар...", keyboard=Keyboard(inline=True).get_json())
-        await card_of_day_logic(vk_id, message.peer_id, message_id=msg_id)
+        await card_of_day_logic(vk_id, message.peer_id, conversation_message_id=message.conversation_message_id)
     finally:
         await release_lock(vk_id)
 
@@ -231,10 +230,8 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
             except Exception:
                 pass
 
-        if conv_msg_id:
-            await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message="Достаю карту...", keyboard=Keyboard(inline=True).get_json())
-        elif message_id:
-            await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message="Достаю карту...", keyboard=Keyboard(inline=True).get_json())
+        # Используем наш новый механизм динамического тайпинга
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conv_msg_id)
 
         user = await get_user(vk_id)
         if not user:
@@ -327,12 +324,17 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
 
         display_text = result_text + "\n\nПолный разбор со всеми 10 блоками доступен в PDF."
 
-        if conv_msg_id:
-            await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=display_text, attachment=photo, keyboard=final_kb)
-        elif message_id:
-            await bot.api.messages.edit(peer_id=peer_id, message_id=message_id, message=display_text, attachment=photo, keyboard=final_kb)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message=display_text, attachment=photo, keyboard=final_kb, random_id=0)
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        from modules.utils import ghost_edit
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            message=display_text,
+            conversation_message_id=conv_msg_id,
+            message_id=message_id or typing_msg_id,
+            attachment=photo,
+            keyboard=final_kb
+        )
 
     except Exception as e:
         logger.error(f"Ошибка в Карте Дня: {e}")

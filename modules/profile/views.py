@@ -10,43 +10,55 @@ from modules.utils import (
     get_sections_keyboard,
     start_dynamic_typing,
     stop_dynamic_typing,
+    ghost_edit,
     SKIN_ASSETS,
 )
 from modules.profile.keyboards import get_syndicate_keyboard, get_cancel_seal_keyboard, get_profile_keyboard
 
 
-async def show_balance_logic(vk_id: int, message: Message, skip_lock: bool = False):
+async def show_balance_logic(
+    vk_id: int,
+    message: Message,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, message.peer_id)
+        await start_dynamic_typing(bot.api, message.peer_id, conversation_message_id=conversation_message_id)
         user = await get_user(vk_id)
         if not user:
-            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            await ghost_edit(bot.api, message.peer_id, "ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", conversation_message_id=conversation_message_id)
             return
         balance = int(user.get("balance", 0) or 0)
-        await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд")
+        text = f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд"
+
+        typing_msg_id = await stop_dynamic_typing(message.peer_id)
+        await ghost_edit(bot.api, message.peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id)
     finally:
         await stop_dynamic_typing(message.peer_id)
         if not skip_lock:
             await release_lock(vk_id)
 
 
-async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
+async def show_profile_logic(
+    vk_id: int,
+    peer_id: int,
+    message: Message = None,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
     """Премиум-профиль — точно такой вид, как ты показал"""
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, peer_id)
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         user = await get_user(vk_id)
         if not user:
             text = "❌ Не удалось найти ваш профиль. Напишите 'Начать'"
-            if message:
-                await message.answer(text)
-            else:
-                await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
+            await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id)
             return
 
         # Фото текущего скина (маскот никогда не используется)
@@ -99,16 +111,19 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None, 
 
         keyboard = get_profile_keyboard()
 
-        if message:
-            await message.answer(message=profile_text, attachment=photo, keyboard=keyboard)
-        else:
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message=profile_text,
-                attachment=photo,
-                keyboard=keyboard,
-                random_id=0
-            )
+        # Stop typing and get message_id used if any
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+
+        # Если у нас уже было сообщение от тайпинга или нам передали conv_id — редактируем
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            profile_text,
+            conversation_message_id=conversation_message_id,
+            message_id=typing_msg_id,
+            attachment=photo,
+            keyboard=keyboard
+        )
     finally:
         await stop_dynamic_typing(peer_id)
         if not skip_lock:
@@ -135,12 +150,18 @@ async def god_mode_logic(vk_id: int, message: Message, skip_lock: bool = False):
             await release_lock(vk_id)
 
 
-async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
+async def syndicate_dashboard_logic(
+    vk_id: int,
+    peer_id: int,
+    message: Message = None,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, peer_id)
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         user = await get_user(vk_id)
         if not user:
             return
@@ -175,10 +196,16 @@ async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message =
         if purchased.get("promo_used"):
             is_veteran = True
         kb_json = get_syndicate_keyboard(is_veteran)
-        if message:
-            await message.answer(text, keyboard=kb_json)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
+
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            text,
+            conversation_message_id=conversation_message_id,
+            message_id=typing_msg_id,
+            keyboard=kb_json
+        )
     finally:
         await stop_dynamic_typing(peer_id)
         if not skip_lock:
@@ -292,11 +319,17 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
             await release_lock(vk_id)
 
 
-async def show_guide_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
+async def show_guide_logic(
+    vk_id: int,
+    peer_id: int,
+    message: Message = None,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, peer_id)
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         text = (
             "ПУТЕВОДИТЕЛЬ ПО СИСТЕМЕ\n"
             "Здесь собраны ответы на все вопросы.\n\n"
@@ -308,10 +341,15 @@ async def show_guide_logic(vk_id: int, peer_id: int, message: Message = None, sk
             "Как открывать тайны: Перейди в Услуги, листай карточки и жми Купить. Если энергии не хватит, система сама рассчитает доплату. После покупки я выдам тебе личный PDF-файл.\n\n"
             "Карты и Гримуар: После каждой покупки ты вытягиваешь новую карту. Она навсегда сохранится в твоем Гримуаре в профиле."
         )
-        if message:
-            await message.answer(text)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
+
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            text,
+            conversation_message_id=conversation_message_id,
+            message_id=typing_msg_id
+        )
     finally:
         await stop_dynamic_typing(peer_id)
         if not skip_lock:

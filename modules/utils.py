@@ -56,6 +56,7 @@ SKIN_ASSETS = {
     "Магистр": "magistr.jpeg"
 }
 _typing_tasks: dict[int, asyncio.Task] = {}
+_typing_msg_ids: dict[int, int] = {}
 
 # Pre-initialize Jinja2 Environment for faster PDF generation
 templates_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
@@ -512,9 +513,10 @@ def generate_premium_pdf(
 
 
 
-async def stop_dynamic_typing(peer_id: int):
-    global _typing_tasks
-    """Cancels the typing task for a given peer_id if it exists."""
+async def stop_dynamic_typing(peer_id: int) -> int | None:
+    global _typing_tasks, _typing_msg_ids
+    """Cancels the typing task and returns the message_id that was used for typing."""
+    msg_id = _typing_msg_ids.pop(peer_id, None)
     if peer_id in _typing_tasks:
         task = _typing_tasks.pop(peer_id)
         if not task.done():
@@ -523,17 +525,20 @@ async def stop_dynamic_typing(peer_id: int):
                 await task
             except asyncio.CancelledError:
                 pass
+    return msg_id
 
-async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
-    global _typing_tasks
+async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: int = None) -> asyncio.Task:
+    global _typing_tasks, _typing_msg_ids
 
     await stop_dynamic_typing(peer_id)
 
     async def _typing_loop():
-        # Keep track of the last phrase to avoid visual duplication
         last_phrase = None
-        # We need a message to edit rather than sending new messages to prevent chat spam
         msg_id = None
+
+        # Если нам передали ID сообщения, используем его для редактирования
+        if conversation_message_id:
+            msg_id = conversation_message_id
 
         try:
             while True:
@@ -543,16 +548,25 @@ async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
                     last_phrase = phrase
 
                     if msg_id is None:
+                        # Используем messages.send и получаем message_id (не conversation_message_id)
+                        # vkbottle возвращает message_id
                         resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
                         msg_id = resp
+                        _typing_msg_ids[peer_id] = msg_id
                     else:
-                        await bot_api.messages.edit(peer_id=peer_id, message=phrase, message_id=msg_id)
+                        # Редактируем. Если это был conversation_message_id, edit сработает
+                        # Но vkbottle.edit по умолчанию принимает message_id
+                        if conversation_message_id:
+                            await bot_api.messages.edit(peer_id=peer_id, message=phrase, conversation_message_id=msg_id)
+                        else:
+                            await bot_api.messages.edit(peer_id=peer_id, message=phrase, message_id=msg_id)
+
                     await bot_api.messages.set_activity(peer_id=peer_id, type="typing")
                 except asyncio.CancelledError:
                     raise
-                except Exception:
-                    pass
-                await asyncio.sleep(10)
+                except Exception as e:
+                    logger.debug(f"Typing error: {e}")
+                await asyncio.sleep(4) # Ускорим интервал для живости
         finally:
             if peer_id in _typing_tasks and _typing_tasks[peer_id] == asyncio.current_task():
                 _typing_tasks.pop(peer_id, None)
@@ -560,3 +574,53 @@ async def start_dynamic_typing(peer_id: int, bot_api) -> asyncio.Task:
     task = asyncio.create_task(_typing_loop())
     _typing_tasks[peer_id] = task
     return task
+
+async def ghost_edit(
+    bot_api,
+    peer_id: int,
+    message: str,
+    conversation_message_id: int = None,
+    message_id: int = None,
+    keyboard: str = None,
+    attachment: str = None,
+    **kwargs
+):
+    """
+    Универсальный помощник для редактирования сообщений.
+    Сначала пробует редактировать по conversation_message_id,
+    затем по message_id, если не вышло — отправляет новое.
+    """
+    try:
+        if conversation_message_id:
+            await bot_api.messages.edit(
+                peer_id=peer_id,
+                message=message,
+                conversation_message_id=conversation_message_id,
+                keyboard=keyboard,
+                attachment=attachment,
+                **kwargs
+            )
+            return
+        elif message_id:
+            await bot_api.messages.edit(
+                peer_id=peer_id,
+                message=message,
+                message_id=message_id,
+                keyboard=keyboard,
+                attachment=attachment,
+                **kwargs
+            )
+            return
+    except Exception as e:
+        logger.warning(f"Ghost edit failed (id={conversation_message_id or message_id}): {e}")
+
+    # Fallback to send
+    # Важно: vkbottle.messages.send ожидает аргумент message, а не text
+    return await bot_api.messages.send(
+        peer_id=peer_id,
+        message=message,
+        keyboard=keyboard,
+        attachment=attachment,
+        random_id=0,
+        **kwargs
+    )

@@ -15,6 +15,7 @@ from modules.states import MyStates
 from modules.utils import (
     get_fsm_step,
     upload_local_photo,
+    ghost_edit,
 )
 
 labeler = BotLabeler()
@@ -70,13 +71,14 @@ async def _send_catalog_page(
 
     full_text = f"{header_text}\n\n📦 {item['title']}\n📜 {item['desc']}\n\nПозиция: {idx + 1} из {total_items}"
 
-    try:
-        if edit_msg_id:
-            await bot.api.messages.edit(peer_id=peer_id, message=full_text, attachment=att, keyboard=kb.get_json(), conversation_message_id=edit_msg_id)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message=full_text, attachment=att, keyboard=kb.get_json(), random_id=0)
-    except Exception as e:
-        logger.error(f"Error sending catalog page: {str(e)}")
+    await ghost_edit(
+        bot.api,
+        peer_id,
+        full_text,
+        conversation_message_id=edit_msg_id,
+        attachment=att,
+        keyboard=kb.get_json()
+    )
 
 
 async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
