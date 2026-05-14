@@ -12,7 +12,7 @@ from modules.utils import (
     stop_dynamic_typing,
     SKIN_ASSETS,
 )
-from modules.profile.keyboards import get_syndicate_keyboard, get_cancel_seal_keyboard
+from modules.profile.keyboards import get_syndicate_keyboard, get_cancel_seal_keyboard, get_profile_keyboard
 
 
 async def show_balance_logic(vk_id: int, message: Message):
@@ -88,7 +88,7 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None):
             "https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
         )
 
-        keyboard = await get_sections_keyboard(vk_id, user)
+        keyboard = get_profile_keyboard()
 
         if message:
             await message.answer(message=profile_text, attachment=photo, keyboard=keyboard)
