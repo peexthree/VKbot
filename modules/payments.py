@@ -258,6 +258,10 @@ async def message_event_handler(event: dict):
             idx = payload.get("idx", 0)
             await show_tariffs(vk_id, peer_id, idx, edit_msg_id=obj.get("conversation_message_id"))
 
+        elif cmd == "skin_page":
+            idx = payload.get("idx", 0)
+            await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, idx=idx, edit_msg_id=obj.get("conversation_message_id"))
+
         elif cmd == "card_of_day":
             await card_of_day_logic(
                 vk_id, peer_id,
@@ -339,7 +343,7 @@ async def message_event_handler(event: dict):
                 kb.add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json())
             elif action == "change_skin":
-                await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
+                await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=obj.get("conversation_message_id"))
             elif action == "cancel_sub":
                 await update_user(vk_id, {"transit_sub_expires_at": None})
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Транзит (Подписка) успешно отменен.")

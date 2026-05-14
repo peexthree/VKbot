@@ -91,11 +91,11 @@ async def settings_back_to_profile(message: Message):
     await show_profile_logic(message.from_id, message.peer_id, message)
 
 @labeler.message(text="Выбрать персонажа")
-async def settings_choose_character(message: Message = None, vk_id: int = None, peer_id: int = None, skip_lock: bool = False):
+async def settings_choose_character(message: Message = None, vk_id: int = None, peer_id: int = None, skip_lock: bool = False, idx: int = 0, edit_msg_id: int = None):
     v_id = vk_id or (message.from_id if message else None)
     p_id = peer_id or (message.peer_id if message else None)
     if not v_id or not p_id: return
-    await settings_choose_character_logic(v_id, p_id, message, skip_lock=skip_lock)
+    await settings_choose_character_logic(v_id, p_id, message, skip_lock=skip_lock, idx=idx, edit_msg_id=edit_msg_id)
 
 @labeler.message(func=lambda m: m.payload and "cmd" in m.payload and "skin" in m.payload)
 async def process_skin_action(message: Message):
