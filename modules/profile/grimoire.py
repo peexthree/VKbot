@@ -14,9 +14,9 @@ def _normalize_unlocked_cards(unlocked_cards) -> dict:
     return unlocked_cards or {}
 
 
-async def show_grimoire_page(vk_id: int, peer_id: int, page: int = 0):
+async def show_grimoire_page(vk_id: int, peer_id: int, page: int = 0, skip_lock: bool = False):
     """Показывает страницу Гримуара с пагинацией"""
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
 
     try:
@@ -111,9 +111,9 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int = 0):
         await release_lock(vk_id)
 
 
-async def view_card_direct(vk_id: int, peer_id: int, card_id: str):
+async def view_card_direct(vk_id: int, peer_id: int, card_id: str, skip_lock: bool = False):
     """Показывает детальную информацию по конкретной карте"""
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
 
     try:
