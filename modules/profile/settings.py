@@ -209,7 +209,7 @@ async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Mes
         if not skip_lock:
             await release_lock(vk_id)
 
-async def process_skin_action_logic(vk_id: int, message: Message, skip_lock: bool = False):
+async def process_skin_action_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False, payload: dict = None):
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
@@ -217,7 +217,15 @@ async def process_skin_action_logic(vk_id: int, message: Message, skip_lock: boo
         if not user:
             return
 
-        payload = json.loads(message.payload)
+        if not payload and message:
+            try:
+                payload = json.loads(message.payload)
+            except Exception:
+                payload = {}
+
+        if not payload:
+            return
+
         action = payload.get("cmd")
         target_skin = payload.get("skin")
 
@@ -228,13 +236,19 @@ async def process_skin_action_logic(vk_id: int, message: Message, skip_lock: boo
         if action == "set_skin":
             if target_skin in free_skins or target_skin in purchased_skins:
                 await update_user(vk_id, {"active_skin": target_skin})
-                await message.answer(f"Скин '{target_skin}' успешно активирован. Система теперь говорит его голосом.")
+                from modules.profile.views import show_profile_logic
+                await show_profile_logic(vk_id, peer_id, message, skip_lock=True)
             else:
-                await message.answer("Этот скин недоступен. Сначала купите его.")
+                msg = "Этот персонаж недоступен. Сначала купите его."
+                if message:
+                    await message.answer(msg)
+                else:
+                    await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=0)
 
         elif action == "buy_skin":
             if target_skin in purchased_skins:
-                await message.answer("Этот скин уже куплен.")
+                from modules.profile.views import show_profile_logic
+                await show_profile_logic(vk_id, peer_id, message, skip_lock=True)
                 return
 
             price = 1500
@@ -246,9 +260,14 @@ async def process_skin_action_logic(vk_id: int, message: Message, skip_lock: boo
                     "purchased_skins": purchased_skins,
                     "active_skin": target_skin
                 })
-                await message.answer(f"Скин '{target_skin}' успешно приобретен и активирован!\nВаш баланс: 💳 {new_balance} Энергии звезд.")
+                from modules.profile.views import show_profile_logic
+                await show_profile_logic(vk_id, peer_id, message, skip_lock=True)
             else:
-                await message.answer(f"Недостаточно Энергии звезд. Цена: {price}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд.")
+                msg = f"Недостаточно Энергии звезд. Цена: {price}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд."
+                if message:
+                    await message.answer(msg)
+                else:
+                    await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=0)
     finally:
         if not skip_lock:
             await release_lock(vk_id)

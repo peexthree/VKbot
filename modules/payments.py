@@ -38,6 +38,7 @@ from modules.profile import (
     show_grimoire_page,
     view_card_direct,
 )
+from modules.profile.settings import process_skin_action_logic
 from modules.profile.views import (
     show_guide_logic,
     syndicate_dashboard_logic,
@@ -261,6 +262,9 @@ async def message_event_handler(event: dict):
         elif cmd == "skin_page":
             idx = payload.get("idx", 0)
             await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, idx=idx, edit_msg_id=obj.get("conversation_message_id"))
+
+        elif cmd in ["set_skin", "buy_skin"]:
+            await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload)
 
         elif cmd == "card_of_day":
             await card_of_day_logic(
