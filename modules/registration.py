@@ -48,7 +48,7 @@ async def start_handler(message: Message):
     """Обрабатывает и текст 'Начать', и кнопку с payload"""
     vk_id = message.from_id
 
-    await start_dynamic_typing(vk_id, bot.api)
+    await start_dynamic_typing(bot.api, vk_id)
 
     if not await acquire_lock(vk_id):
         return

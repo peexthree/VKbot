@@ -5,7 +5,7 @@ from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state, delete_user
 from cache import acquire_lock, release_lock
-from modules.utils import SKIN_ASSETS, upload_local_photo, get_fsm_step
+from modules.utils import SKIN_ASSETS, upload_local_photo, get_fsm_step, ghost_edit
 from modules.profile.keyboards import (
     get_settings_keyboard, get_change_data_keyboard,
     get_reset_confirm_keyboard
@@ -79,17 +79,20 @@ async def _send_skins_page(
     except Exception as e:
         logger.error(f"Error sending skin page: {e}")
 
-async def settings_handler_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
+async def settings_handler_logic(
+    vk_id: int,
+    peer_id: int,
+    message: Message = None,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         text = "✦ НАСТРОЙКИ И ЮРИДИЧЕСКИЙ ЩИТ ✦"
         kb_json = get_settings_keyboard()
-        if message:
-            await message.answer(text, keyboard=kb_json)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
+        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, keyboard=kb_json)
     finally:
         if not skip_lock:
             await release_lock(vk_id)
@@ -182,7 +185,14 @@ async def confirm_reset_account_logic(vk_id: int, message: Message, skip_lock: b
         if not skip_lock:
             await release_lock(vk_id)
 
-async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False, idx: int = 0, edit_msg_id: int = None):
+async def settings_choose_character_logic(
+    vk_id: int,
+    peer_id: int,
+    message: Message = None,
+    skip_lock: bool = False,
+    idx: int = 0,
+    edit_msg_id: int = None
+):
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
@@ -190,10 +200,7 @@ async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Mes
         user = await get_user(vk_id)
         if not user:
             msg = "ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'."
-            if message:
-                await message.answer(msg)
-            else:
-                await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=0)
+            await ghost_edit(bot.api, peer_id, msg, conversation_message_id=edit_msg_id)
             return
 
         purchased_skins = user.get("purchased_skins", [])
@@ -203,13 +210,20 @@ async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Mes
             peer_id=peer_id,
             purchased_skins=purchased_skins,
             idx=idx,
-            edit_msg_id=edit_msg_id or (message.conversation_message_id if message and not message.text else None)
+            edit_msg_id=edit_msg_id
         )
     finally:
         if not skip_lock:
             await release_lock(vk_id)
 
-async def process_skin_action_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False, payload: dict = None):
+async def process_skin_action_logic(
+    vk_id: int,
+    peer_id: int,
+    message: Message = None,
+    skip_lock: bool = False,
+    payload: dict = None,
+    conversation_message_id: int = None
+):
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
@@ -237,18 +251,15 @@ async def process_skin_action_logic(vk_id: int, peer_id: int, message: Message =
             if target_skin in free_skins or target_skin in purchased_skins:
                 await update_user(vk_id, {"active_skin": target_skin})
                 from modules.profile.views import show_profile_logic
-                await show_profile_logic(vk_id, peer_id, message, skip_lock=True)
+                await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
             else:
                 msg = "Этот персонаж недоступен. Сначала купите его."
-                if message:
-                    await message.answer(msg)
-                else:
-                    await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=0)
+                await ghost_edit(bot.api, peer_id, msg, conversation_message_id=conversation_message_id)
 
         elif action == "buy_skin":
             if target_skin in purchased_skins:
                 from modules.profile.views import show_profile_logic
-                await show_profile_logic(vk_id, peer_id, message, skip_lock=True)
+                await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
                 return
 
             price = 1500
@@ -261,13 +272,10 @@ async def process_skin_action_logic(vk_id: int, peer_id: int, message: Message =
                     "active_skin": target_skin
                 })
                 from modules.profile.views import show_profile_logic
-                await show_profile_logic(vk_id, peer_id, message, skip_lock=True)
+                await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
             else:
                 msg = f"Недостаточно Энергии звезд. Цена: {price}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд."
-                if message:
-                    await message.answer(msg)
-                else:
-                    await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=0)
+                await ghost_edit(bot.api, peer_id, msg, conversation_message_id=conversation_message_id)
     finally:
         if not skip_lock:
             await release_lock(vk_id)

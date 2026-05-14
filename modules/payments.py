@@ -53,6 +53,7 @@ from modules.utils import (
     get_fsm_step,
     get_main_keyboard,
     get_sections_keyboard,
+    ghost_edit,
     pdf_semaphore,
     start_dynamic_typing,
     stop_dynamic_typing,
@@ -230,7 +231,7 @@ async def message_event_handler(event: dict):
             user = await get_user(vk_id)
             if not user: return
             kb_json = await get_sections_keyboard(vk_id, user)
-            await bot.api.messages.send(peer_id=peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, random_id=0)
+            await ghost_edit(bot.api, peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, conversation_message_id=obj.get("conversation_message_id"))
 
         elif cmd == "card_of_day_menu":
             await card_of_day_logic(
@@ -246,10 +247,10 @@ async def message_event_handler(event: dict):
 
         elif cmd == "profile_menu":
             from modules.profile.views import show_profile_logic
-            await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
+            await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
 
         elif cmd == "guide_menu" or cmd == "guide":
-            await show_guide_logic(vk_id, peer_id, skip_lock=True)
+            await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
 
         elif cmd == "service_page":
             idx = payload.get("idx", 0)
@@ -264,7 +265,7 @@ async def message_event_handler(event: dict):
             await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, idx=idx, edit_msg_id=obj.get("conversation_message_id"))
 
         elif cmd in ["set_skin", "buy_skin"]:
-            await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload)
+            await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload, conversation_message_id=obj.get("conversation_message_id"))
 
         elif cmd == "card_of_day":
             await card_of_day_logic(
@@ -335,44 +336,42 @@ async def message_event_handler(event: dict):
 
         elif cmd == "profile_action":
             action = payload.get("action")
+            conv_id = obj.get("conversation_message_id")
             
-          
-                
             if action == "settings":
-                # Mock a message object
-                await settings_handler(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
+                await settings_handler(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "change_data":
                 await set_user_state(vk_id, "waiting_for_onboarding_data")
                 kb = Keyboard(inline=True)
                 kb.add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json())
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json())
             elif action == "change_skin":
-                await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=obj.get("conversation_message_id"))
+                await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=conv_id)
             elif action == "cancel_sub":
                 await update_user(vk_id, {"transit_sub_expires_at": None})
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Транзит (Подписка) успешно отменен.")
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="Транзит (Подписка) успешно отменен.")
             elif action == "reset_account":
                 await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
                 kb = Keyboard(inline=True)
                 kb.add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE)
                 kb.row()
                 kb.add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?", keyboard=kb.get_json())
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?", keyboard=kb.get_json())
             elif action == "confirm_reset":
                 await delete_user(vk_id)
                 await set_user_state(vk_id, "")
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
+                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
             elif action == "back_to_profile":
                 from modules.profile.views import show_profile_logic
-                await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
+                await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "guide":
-                await show_guide_logic(vk_id, peer_id, skip_lock=True)
+                await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "admin_console":
                 await show_admin_console(peer_id)
             elif action == "syndicate":
-                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
+                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "grimoire":
-                await show_grimoire_page(vk_id, peer_id, 0, skip_lock=True)
+                await show_grimoire_page(vk_id, peer_id, 0, skip_lock=True, conversation_message_id=conv_id)
             elif action == "tariffs":
                 await show_tariffs(vk_id, peer_id, 0)
             elif action == "get_seal":
@@ -466,19 +465,20 @@ async def message_event_handler(event: dict):
         elif cmd == "get_referral":
             # Direct link to group 219181948 sending text ПЕЧАТЬ-{vk_id}
             ref_link = f"https://vk.com/im?sel=-219181948&text=ПЕЧАТЬ-{vk_id}"
-            await bot.api.messages.send(
+            await ghost_edit(
+                bot.api,
                 peer_id=peer_id,
                 message=f"Твоя персональная ссылка для друзей:\n{ref_link}\n\nОтправь этот код/ссылку новому адепту. Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд.",
-                random_id=0
+                conversation_message_id=obj.get("conversation_message_id")
             )
 
         elif cmd == "grimoire_page":
             page = payload.get("page", 0)
-            await show_grimoire_page(vk_id, peer_id, page, skip_lock=True)
+            await show_grimoire_page(vk_id, peer_id, page, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
 
         elif cmd == "view_card":
             card_id = str(payload.get("id"))
-            await view_card_direct(vk_id, peer_id, card_id, skip_lock=True)
+            await view_card_direct(vk_id, peer_id, card_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
 
         elif cmd == "global_cut":
             # Если в payload передан target (например, "welcome" для первого разбора), сохраняем его в стейт
@@ -576,7 +576,7 @@ async def message_event_handler(event: dict):
             await bot.api.messages.send(peer_id=peer_id, message="Считываю поток для персонализированного разбора...", random_id=0)
 
             if target_section:
-                asyncio.create_task(execute_generation(vk_id, peer_id, target_section, partner_name, partner_date, card_id, card_data))
+                asyncio.create_task(execute_generation(vk_id, peer_id, target_section, partner_name, partner_date, card_id, card_data, conversation_message_id=obj.get("conversation_message_id")))
 
         elif "oracle_card" in payload:
             card_id = payload["oracle_card"]
@@ -694,7 +694,16 @@ async def process_payment_and_generate(vk_id: int, section: str):
         await release_lock(lock_key)
 
 
-async def execute_generation(vk_id: int, peer_id: int, target_section: str, partner_name: str, partner_date: str, card_id: str = None, card_data: dict = None):
+async def execute_generation(
+    vk_id: int,
+    peer_id: int,
+    target_section: str,
+    partner_name: str,
+    partner_date: str,
+    card_id: str = None,
+    card_data: dict = None,
+    conversation_message_id: int = None
+):
     """ПОЛНАЯ ЛОГИКА ГЕНЕРАЦИИ"""
     lock_key = f"execute_generation:{vk_id}"
     if not await acquire_lock(lock_key, ttl=300): return
@@ -703,7 +712,7 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
         if not user: return
 
         # 1. Показываем прогресс
-        typing_task = await start_dynamic_typing(peer_id, bot.api)
+        typing_task = await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
         try:
             # 2. Формируем данные
@@ -769,19 +778,15 @@ async def execute_generation(vk_id: int, peer_id: int, target_section: str, part
 
                     display_text += "\n\nПолный разбор со всеми 10 блоками доступен в PDF ниже."
 
-                try:
-                    await bot.api.messages.send(
-                        peer_id=peer_id,
-                        message=display_text,
-                        keyboard=kb_str,
-                        random_id=0
-                    )
-                except Exception:
-                    await bot.api.messages.send(
-                        peer_id=peer_id,
-                        message=display_text,
-                        random_id=0
-                    )
+                typing_msg_id = await stop_dynamic_typing(peer_id)
+                await ghost_edit(
+                    bot.api,
+                    peer_id,
+                    display_text,
+                    conversation_message_id=conversation_message_id,
+                    message_id=typing_msg_id,
+                    keyboard=kb_str
+                )
             else:
                 await handle_generation_failure(vk_id, peer_id, target_section)
         finally:

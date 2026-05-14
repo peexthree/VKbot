@@ -29,11 +29,17 @@ async def show_balance(message: Message):
     await show_balance_logic(message.from_id, message)
 
 @labeler.message(text=["✦ Настройки ⚙", "Настройки", "⚙ НАСТРОЙКИ"])
-async def settings_handler(message: Message = None, vk_id: int = None, peer_id: int = None, skip_lock: bool = False):
+async def settings_handler(
+    message: Message = None,
+    vk_id: int = None,
+    peer_id: int = None,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
     v_id = vk_id or (message.from_id if message else None)
     p_id = peer_id or (message.peer_id if message else None)
     if not v_id or not p_id: return
-    await settings_handler_logic(v_id, p_id, message, skip_lock=skip_lock)
+    await settings_handler_logic(v_id, p_id, message, skip_lock=skip_lock, conversation_message_id=conversation_message_id)
 
 @labeler.message(text="Изменить свои данные")
 async def settings_change_data(message: Message):
@@ -118,11 +124,17 @@ async def god_mode_handler(message: Message):
     await god_mode_logic(message.from_id, message)
 
 @labeler.message(text=["Мой Синдикат 🕸", "Мой Синдикат", "Мой синдикат"])
-async def syndicate_dashboard_handler(message: Message = None, vk_id: int = None, peer_id: int = None, skip_lock: bool = False):
+async def syndicate_dashboard_handler(
+    message: Message = None,
+    vk_id: int = None,
+    peer_id: int = None,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
     v_id = vk_id or (message.from_id if message else None)
     p_id = peer_id or (message.peer_id if message else None)
     if not v_id or not p_id: return
-    await syndicate_dashboard_logic(v_id, p_id, message, skip_lock=skip_lock)
+    await syndicate_dashboard_logic(v_id, p_id, message, skip_lock=skip_lock, conversation_message_id=conversation_message_id)
 
 @labeler.message(text=["Назад в профиль 👤"])
 async def back_to_profile(message: Message):
