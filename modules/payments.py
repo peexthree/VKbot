@@ -57,7 +57,9 @@ from modules.utils import (
     pdf_semaphore,
     start_dynamic_typing,
     stop_dynamic_typing,
+    THEATRICAL_PHRASES,
     upload_local_photo,
+    ADMIN_ID,
 )
 
 labeler = BotLabeler()
@@ -220,7 +222,7 @@ async def message_event_handler(event: dict):
                         keyboard=kb.get_json()
                     )
                 else:
-                    await show_services(vk_id, peer_id, 0) # Fallback if they don't own it
+                    await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id")) # Fallback if they don't own it
 
         elif cmd == "main_menu":
             user = await get_user(vk_id)
@@ -455,10 +457,12 @@ async def message_event_handler(event: dict):
                     f"Оплати недостающие {diff_energy} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно."
                 )
 
-                await bot.api.messages.send(
+                await ghost_edit(
+                    bot.api,
                     peer_id=peer_id,
                     message=msg_text,
-                    keyboard=kb.get_json(), random_id=0
+                    conversation_message_id=obj.get("conversation_message_id"),
+                    keyboard=kb.get_json()
                 )
 
         elif cmd == "get_referral":
@@ -534,7 +538,6 @@ async def message_event_handler(event: dict):
                 await update_user(vk_id, {"total_cards_received": current_total + 1, "unlocked_cards": unlocked_cards})
 
             # Remove previous inline keyboard msg immediately to prevent double-clicks
-                from modules.utils import THEATRICAL_PHRASES
             loading_text = random.choice(THEATRICAL_PHRASES)
 
             await bot.api.messages.edit(
@@ -791,7 +794,6 @@ async def execute_generation(
         finally:
             await stop_dynamic_typing(peer_id)
     except Exception as e:
-        from modules.utils import stop_dynamic_typing
         await stop_dynamic_typing(peer_id)
         logger.error(f"Ошибка: {str(e)}")
         await handle_generation_failure(vk_id, peer_id, target_section)
@@ -862,7 +864,6 @@ async def donut_handler(event: dict):
                 random_id=0
             )
             # Notify admin
-            from modules.utils import ADMIN_ID
             await bot.api.messages.send(
                 peer_id=ADMIN_ID,
                 message=f"💰 [DONUT] Пользователь vk.com/id{vk_id} {action} подписку на {amount_rub} RUB (+{energy_added} ✨)",
