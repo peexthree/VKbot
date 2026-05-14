@@ -54,6 +54,13 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None, 
         skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
         photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
 
+        # Определение отображаемого имени персонажа
+        skin_display_name = active_skin
+        if active_skin == "olesya":
+            skin_display_name = "Олеся Ивонченко"
+        elif active_skin == "asket":
+            skin_display_name = "Серьезный Аскет"
+
         # Данные
         first_name = user.get("first_name") or "Адепт"
         if first_name == "Адепт":
@@ -78,7 +85,8 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None, 
         profile_text = (
             "💳 ЛИЧНЫЙ ПРОФИЛЬ АДЕПТА\n\n"
             f"👤 {first_name}\n"
-            f"📍 {birth_date} — {birth_city}\n\n"
+            f"📍 {birth_date} — {birth_city}\n"
+            f"🔮 Личный оракул: {skin_display_name}\n\n"
             f"✨ Баланс: {balance} Энергии звёзд\n"
             f"🔥 Серия посещений: {visit_streak} дней\n"
             f"🃏 Открыто карт: {total_cards} из 78\n"

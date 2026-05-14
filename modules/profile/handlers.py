@@ -99,7 +99,7 @@ async def settings_choose_character(message: Message = None, vk_id: int = None, 
 
 @labeler.message(func=lambda m: m.payload and "cmd" in m.payload and "skin" in m.payload)
 async def process_skin_action(message: Message):
-    await process_skin_action_logic(message.from_id, message)
+    await process_skin_action_logic(message.from_id, message.peer_id, message)
 
 
 @labeler.message(text=["🎴 МОЙ ГРИМУАР", "Гримуар"])
