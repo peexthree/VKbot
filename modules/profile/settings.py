@@ -1,5 +1,6 @@
 import json
 from loguru import logger
+from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state, delete_user
@@ -10,15 +11,13 @@ from modules.profile.keyboards import (
     get_reset_confirm_keyboard
 )
 
-async def _send_skins_carousel(
+async def _send_skins_page(
     vk_id: int,
     peer_id: int,
     purchased_skins: list[str],
     idx: int,
     edit_msg_id: int | None,
 ):
-    PAGE_SIZE = 5
-
     styles = {
         "Олеся Ивонченко": "сарказм",
         "Серьезный Аскет": "строгость",
@@ -34,7 +33,6 @@ async def _send_skins_carousel(
     free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
 
     skins_to_show = []
-    # Avoid duplicates if multiple keys point to same filename or same person
     seen_names = set()
     for skin_name, filename in SKIN_ASSETS.items():
         if skin_name in ["olesya", "asket"] or skin_name in seen_names:
@@ -50,86 +48,36 @@ async def _send_skins_carousel(
     if idx < 0 or idx >= total_items:
         idx = 0
 
-    current_items = skins_to_show[idx:idx + PAGE_SIZE]
+    skin = skins_to_show[idx]
+    skin_name = skin["name"]
+    is_owned = skin_name in purchased_skins or skin_name in free_skins
 
-    elements = []
-    for skin in current_items:
-        skin_name = skin["name"]
-        is_owned = skin_name in purchased_skins or skin_name in free_skins
+    att = await upload_local_photo(bot.api, skin["filename"], peer_id=vk_id)
 
-        att = await upload_local_photo(bot.api, skin["filename"], peer_id=vk_id)
+    kb = Keyboard(inline=True)
 
-        button_cmd = "set_skin" if is_owned else "buy_skin"
-        button_label = "ВЫБРАТЬ" if is_owned else "КУПИТЬ (1500 ✨)"
+    button_cmd = "set_skin" if is_owned else "buy_skin"
+    button_label = "ВЫБРАТЬ" if is_owned else "КУПИТЬ (1500 ✨)"
+    kb.add(Callback(button_label, payload={"cmd": button_cmd, "skin": skin_name}), color=KeyboardButtonColor.POSITIVE if is_owned else KeyboardButtonColor.PRIMARY)
 
-        element = {
-            "title": f"Персонаж: {skin_name}",
-            "description": f"Стиль: {skin['style']}",
-            "buttons": [{
-                "action": {
-                    "type": "callback",
-                    "payload": json.dumps({"cmd": button_cmd, "skin": skin_name}),
-                    "label": button_label
-                },
-                "color": "positive" if is_owned else "primary"
-            }]
-        }
+    kb.row()
+    if idx > 0:
+        kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "skin_page", "idx": idx - 1}), color=KeyboardButtonColor.SECONDARY)
+    if idx < total_items - 1:
+        kb.add(Callback("ВПЕРЕД ➡️", payload={"cmd": "skin_page", "idx": idx + 1}), color=KeyboardButtonColor.SECONDARY)
 
-        if att and att.startswith("photo"):
-            photo_id = att.replace("photo", "")
-            if "_" in photo_id:
-                element["photo_id"] = photo_id
-                element["action"] = {"type": "open_photo"}
+    kb.row()
+    kb.add(Callback("⚙️ НАСТРОЙКИ", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.PRIMARY)
 
-        if "action" not in element:
-            element["action"] = {"type": "open_link", "link": "https://vk.com/market-219181948"}
-
-        elements.append(element)
-
-    if not elements:
-        return
-
-    # Navigation button
-    nav_button = {
-        "action": {"type": "callback", "payload": json.dumps({"cmd": "profile_action", "action": "settings"}), "label": "⚙️ НАСТРОЙКИ"},
-        "color": "primary"
-    }
-
-    if total_items > PAGE_SIZE:
-        if idx + PAGE_SIZE < total_items:
-            nav_button = {
-                "action": {"type": "callback", "payload": json.dumps({"cmd": "skin_page", "idx": idx + PAGE_SIZE}), "label": "ВПЕРЕД ➡️"},
-                "color": "secondary"
-            }
-        elif idx > 0:
-            nav_button = {
-                "action": {"type": "callback", "payload": json.dumps({"cmd": "skin_page", "idx": max(0, idx - PAGE_SIZE)}), "label": "⬅️ НАЗАД"},
-                "color": "secondary"
-            }
-
-    nav_element = {
-        "title": "✦ НАВИГАЦИЯ ✦",
-        "description": "Перемещение по списку",
-        "action": {"type": "open_link", "link": "https://vk.com/market-219181948"},
-        "buttons": [nav_button]
-    }
-
-    if elements and "photo_id" in elements[0]:
-        nav_element["photo_id"] = elements[0]["photo_id"]
-        nav_element["action"] = {"type": "open_photo"}
-
-    elements.append(nav_element)
-
-    template = json.dumps({"type": "carousel", "elements": elements}, ensure_ascii=False)
-    header_text = "✦ ВЫБОР ПЕРСОНАЖА ✦\nВыберите своего проводника."
+    header_text = f"✦ ВЫБОР ПЕРСОНАЖА ({idx + 1}/{total_items}) ✦\n\n👤 Персонаж: {skin_name}\n🎭 Стиль: {skin['style']}\n\nВыберите своего проводника."
 
     try:
         if edit_msg_id:
-            await bot.api.messages.edit(peer_id=peer_id, message=header_text, template=template, conversation_message_id=edit_msg_id)
+            await bot.api.messages.edit(peer_id=peer_id, message=header_text, attachment=att, keyboard=kb.get_json(), conversation_message_id=edit_msg_id)
         else:
-            await bot.api.messages.send(peer_id=peer_id, message=header_text, template=template, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message=header_text, attachment=att, keyboard=kb.get_json(), random_id=0)
     except Exception as e:
-        logger.error(f"Error sending skin carousel: {e}")
+        logger.error(f"Error sending skin page: {e}")
 
 async def settings_handler_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     await set_user_state(vk_id, "")
@@ -250,7 +198,7 @@ async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Mes
 
         purchased_skins = user.get("purchased_skins", [])
 
-        await _send_skins_carousel(
+        await _send_skins_page(
             vk_id=vk_id,
             peer_id=peer_id,
             purchased_skins=purchased_skins,
