@@ -15,9 +15,9 @@ from modules.utils import (
 from modules.profile.keyboards import get_syndicate_keyboard, get_cancel_seal_keyboard, get_profile_keyboard
 
 
-async def show_balance_logic(vk_id: int, message: Message):
+async def show_balance_logic(vk_id: int, message: Message, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
@@ -29,7 +29,8 @@ async def show_balance_logic(vk_id: int, message: Message):
         await message.answer(f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд")
     finally:
         await stop_dynamic_typing(message.peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
 async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
@@ -102,12 +103,13 @@ async def show_profile_logic(vk_id: int, peer_id: int, message: Message = None, 
             )
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
-async def god_mode_logic(vk_id: int, message: Message):
+async def god_mode_logic(vk_id: int, message: Message, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
@@ -121,7 +123,8 @@ async def god_mode_logic(vk_id: int, message: Message):
         await message.answer("ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.", keyboard=kb_json)
     finally:
         await stop_dynamic_typing(message.peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
 async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
@@ -170,12 +173,13 @@ async def syndicate_dashboard_logic(vk_id: int, peer_id: int, message: Message =
             await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
-async def get_seal_logic(vk_id: int, message: Message):
+async def get_seal_logic(vk_id: int, message: Message, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
@@ -189,12 +193,13 @@ async def get_seal_logic(vk_id: int, message: Message):
         await message.answer(text)
     finally:
         await stop_dynamic_typing(message.peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
-async def enter_seal_logic(vk_id: int, message: Message):
+async def enter_seal_logic(vk_id: int, message: Message, skip_lock: bool = False):
     await set_user_state(vk_id, "waiting_for_seal")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
@@ -202,12 +207,13 @@ async def enter_seal_logic(vk_id: int, message: Message):
         await message.answer("Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb_json)
     finally:
         await stop_dynamic_typing(message.peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
-async def cancel_seal_logic(vk_id: int, peer_id: int, message: Message):
+async def cancel_seal_logic(vk_id: int, peer_id: int, message: Message, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    await syndicate_dashboard_logic(vk_id, peer_id, message)
+    await syndicate_dashboard_logic(vk_id, peer_id, message, skip_lock=skip_lock)
 
 
 async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = False):
@@ -274,7 +280,8 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
             logger.error(f"Ignored Exception: {str(e)}")
     finally:
         await stop_dynamic_typing(message.peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
 async def show_guide_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
@@ -299,4 +306,5 @@ async def show_guide_logic(vk_id: int, peer_id: int, message: Message = None, sk
             await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)

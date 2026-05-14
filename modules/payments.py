@@ -67,6 +67,11 @@ async def message_event_handler(event: dict):
     peer_id = obj.get("peer_id")
     event_id = obj.get("event_id")
     payload = obj.get("payload", {})
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            pass
 
     # Throttling is very important for inline callbacks (MESSAGE_EVENT) as well.
     if vk_id and payload.get("cmd") != "profile_action":
@@ -242,7 +247,7 @@ async def message_event_handler(event: dict):
             from modules.profile.views import show_profile_logic
             await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
 
-        elif cmd == "guide_menu":
+        elif cmd == "guide_menu" or cmd == "guide":
             await show_guide_logic(vk_id, peer_id, skip_lock=True)
 
         elif cmd == "service_page":
@@ -352,6 +357,8 @@ async def message_event_handler(event: dict):
             elif action == "back_to_profile":
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
+            elif action == "guide":
+                await show_guide_logic(vk_id, peer_id, skip_lock=True)
             elif action == "admin_console":
                 await show_admin_console(peer_id)
             elif action == "syndicate":

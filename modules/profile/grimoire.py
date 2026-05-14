@@ -108,7 +108,8 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int = 0, skip_lock:
         logger.error(f"Ошибка в show_grimoire_page: {e}")
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
 async def view_card_direct(vk_id: int, peer_id: int, card_id: str, skip_lock: bool = False):
@@ -152,4 +153,5 @@ async def view_card_direct(vk_id: int, peer_id: int, card_id: str, skip_lock: bo
         logger.error(f"Ошибка в view_card_direct: {e}")
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)

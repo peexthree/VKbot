@@ -22,11 +22,12 @@ async def settings_handler_logic(vk_id: int, peer_id: int, message: Message = No
         else:
             await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
-async def settings_change_data_logic(vk_id: int, message: Message):
+async def settings_change_data_logic(vk_id: int, message: Message, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await set_user_state(vk_id, json.dumps({"step": "date"}))
@@ -34,17 +35,18 @@ async def settings_change_data_logic(vk_id: int, message: Message):
     finally:
         await release_lock(vk_id)
 
-async def process_change_date_logic(vk_id: int, message: Message):
-    if not await acquire_lock(vk_id): return
+async def process_change_date_logic(vk_id: int, message: Message, skip_lock: bool = False):
+    if not skip_lock and not await acquire_lock(vk_id): return
     try:
         new_date = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "time", "date": new_date}))
         await message.answer(f"Дата {new_date} принята. Теперь введите ВРЕМЯ вашего рождения (например, 14:30 или 'не знаю'):")
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
-async def process_change_time_logic(vk_id: int, message: Message):
-    if not await acquire_lock(vk_id): return
+async def process_change_time_logic(vk_id: int, message: Message, skip_lock: bool = False):
+    if not skip_lock and not await acquire_lock(vk_id): return
     try:
         new_time = message.text.strip()
         state_dict = await get_fsm_step(vk_id)
@@ -52,10 +54,11 @@ async def process_change_time_logic(vk_id: int, message: Message):
         await set_user_state(vk_id, json.dumps({"step": "city", "date": new_date, "time": new_time}))
         await message.answer(f"Время {new_time} принято. Теперь введите ГОРОД вашего рождения:")
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
-async def process_change_city_logic(vk_id: int, message: Message):
-    if not await acquire_lock(vk_id): return
+async def process_change_city_logic(vk_id: int, message: Message, skip_lock: bool = False):
+    if not skip_lock and not await acquire_lock(vk_id): return
     try:
         new_city = message.text.strip()
         state_dict = await get_fsm_step(vk_id)
@@ -72,19 +75,21 @@ async def process_change_city_logic(vk_id: int, message: Message):
         kb_json = get_change_data_keyboard()
         await message.answer(f"Твои данные обновлены: {new_date}, {new_time}, г. {new_city}", keyboard=kb_json)
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
-async def settings_cancel_subscription_logic(vk_id: int, message: Message):
+async def settings_cancel_subscription_logic(vk_id: int, message: Message, skip_lock: bool = False):
     await set_user_state(vk_id, "")
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await message.answer("Ваш аккаунт не имеет активных рекуррентных подписок. Все платежи разовые. Для прекращения получения транзитов просто не пополняйте баланс. Отвязка карт не требуется по ФЗ №376-ФЗ.")
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
-async def settings_reset_account_logic(vk_id: int, message: Message):
-    if not await acquire_lock(vk_id):
+async def settings_reset_account_logic(vk_id: int, message: Message, skip_lock: bool = False):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
@@ -94,17 +99,19 @@ async def settings_reset_account_logic(vk_id: int, message: Message):
             keyboard=kb_json
         )
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
-async def confirm_reset_account_logic(vk_id: int, message: Message):
-    if not await acquire_lock(vk_id):
+async def confirm_reset_account_logic(vk_id: int, message: Message, skip_lock: bool = False):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await delete_user(vk_id)
         await set_user_state(vk_id, "")
         await message.answer("Система обнулена. Напишите 'Начать', чтобы заново войти в матрицу.")
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     await set_user_state(vk_id, "")
@@ -166,10 +173,11 @@ async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Mes
                 else:
                     await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
-async def process_skin_action_logic(vk_id: int, message: Message):
-    if not await acquire_lock(vk_id):
+async def process_skin_action_logic(vk_id: int, message: Message, skip_lock: bool = False):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         user = await get_user(vk_id)
@@ -209,4 +217,5 @@ async def process_skin_action_logic(vk_id: int, message: Message):
             else:
                 await message.answer(f"Недостаточно Энергии звезд. Цена: {price}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд.")
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
