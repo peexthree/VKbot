@@ -1,0 +1,78 @@
+import json
+import datetime
+from loguru import logger
+from database import get_user_state, update_user
+from cache import acquire_lock, release_lock
+
+async def get_fsm_step(vk_id: int) -> dict | None:
+    data = await get_user_state(vk_id)
+    if data:
+        try:
+            return json.loads(data)
+        except Exception:
+            return None
+    return None
+
+async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int):
+    if not user:
+        return
+    last_bonus_date_str = user.get("last_daily_bonus_date")
+    now_date = datetime.datetime.now(datetime.timezone.utc).date()
+    should_give = False
+    if not last_bonus_date_str:
+        should_give = True
+    else:
+        try:
+            last_bonus_date = datetime.date.fromisoformat(last_bonus_date_str)
+            if now_date > last_bonus_date:
+                should_give = True
+        except ValueError:
+            should_give = True
+    if should_give:
+        lock_key = f"daily_bonus_lock:{vk_id}"
+        if not await acquire_lock(lock_key, ttl=10):
+            return
+        try:
+            from database import get_user
+            current_user = await get_user(vk_id)
+            if not current_user:
+                return
+            current_last_bonus = current_user.get("last_daily_bonus_date")
+            if current_last_bonus:
+                try:
+                    if now_date <= datetime.date.fromisoformat(current_last_bonus):
+                        return
+                except ValueError: pass
+            current_balance = int(current_user.get("balance", 0) or 0)
+            visit_streak = current_user.get("visit_streak", 0)
+            if current_last_bonus:
+                try:
+                    last_bonus_date = datetime.date.fromisoformat(current_last_bonus)
+                    if (now_date - last_bonus_date).days == 1:
+                        visit_streak += 1
+                    else:
+                        visit_streak = 1
+                except ValueError:
+                    visit_streak = 1
+            else:
+                visit_streak = 1
+            new_balance = current_balance + 100
+            await update_user(vk_id, {
+                "balance": new_balance,
+                "last_daily_bonus_date": now_date.isoformat(),
+                "visit_streak": visit_streak
+            })
+            user["balance"] = new_balance
+            user["last_daily_bonus_date"] = now_date.isoformat()
+            user["visit_streak"] = visit_streak
+            try:
+                from modules.bot_init import bot
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message=f"🎁 Твой ежедневный дар: +100 Энергии звезд.\nВозвращайся завтра за новой порцией. Твой баланс: {new_balance}.",
+                    random_id=0
+                )
+            except Exception as e:
+                logger.error(f"Ошибка: {str(e)}")
+        finally:
+            await release_lock(lock_key)
