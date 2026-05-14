@@ -23,7 +23,6 @@ def _back_to_profile_btn() -> Callback:
     return Callback(
         "Назад в профиль 👤",
         payload={"cmd": "profile_action", "action": "back_to_profile"},
-        color=KeyboardButtonColor.PRIMARY,
     )
 
 
@@ -36,14 +35,14 @@ def get_settings_keyboard() -> str:
     kb.add(Callback("Отменить подписку", payload={"cmd": "profile_action", "action": "cancel_sub"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("СБРОС АККАУНТА", payload={"cmd": "profile_action", "action": "reset_account"}), color=KeyboardButtonColor.NEGATIVE)
     kb.row()
-    kb.add(_back_to_profile_btn())
+    kb.add(_back_to_profile_btn(), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
 
 def get_change_data_keyboard() -> str:
     """Клавиатура при изменении данных"""
     kb = Keyboard(inline=True, one_time=False)
-    kb.add(_back_to_profile_btn())
+    kb.add(_back_to_profile_btn(), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
 
@@ -52,7 +51,7 @@ def get_reset_confirm_keyboard() -> str:
     kb = Keyboard(inline=True, one_time=False)
     kb.add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE)
     kb.row()
-    kb.add(_back_to_profile_btn())
+    kb.add(_back_to_profile_btn(), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
 
@@ -79,7 +78,7 @@ def get_syndicate_keyboard(is_veteran: bool) -> str:
     if not is_veteran:
         kb.add(Callback("Ввести Печать ✒", payload={"cmd": "profile_action", "action": "enter_seal"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
-    kb.add(_back_to_profile_btn())
+    kb.add(_back_to_profile_btn(), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
 

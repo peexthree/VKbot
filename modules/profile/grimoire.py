@@ -73,8 +73,8 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int = 0, skip_lock:
                 Callback(
                     f"Карта {item['id']}",
                     payload={"cmd": "view_card", "id": item['id']},
-                    color=KeyboardButtonColor.SECONDARY,
-                )
+                ),
+                color=KeyboardButtonColor.SECONDARY,
             )
 
         # Навигация
