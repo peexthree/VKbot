@@ -321,15 +321,7 @@ async def message_event_handler(event: dict):
         elif cmd == "profile_action":
             action = payload.get("action")
             
-            # Send an empty event answer to remove the loading state from the inline button
-            try:
-                await bot.api.messages.send_message_event_answer(
-                    event_id=obj.get("event_id"),
-                    user_id=vk_id,
-                    peer_id=peer_id
-                )
-            except Exception:
-                pass
+          
                 
             if action == "settings":
                 # Mock a message object
