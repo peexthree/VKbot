@@ -598,6 +598,10 @@ async def ghost_edit(
     затем по message_id, если не вышло — отправляет новое.
     """
     try:
+        # Убеждаемся, что клавиатура - это строка или None
+        if isinstance(keyboard, dict):
+            keyboard = json.dumps(keyboard, ensure_ascii=False)
+
         if conversation_message_id:
             await bot_api.messages.edit(
                 peer_id=peer_id,
@@ -622,7 +626,6 @@ async def ghost_edit(
         logger.warning(f"Ghost edit failed (id={conversation_message_id or message_id}): {e}")
 
     # Fallback to send
-    # Важно: vkbottle.messages.send ожидает аргумент message, а не text
     return await bot_api.messages.send(
         peer_id=peer_id,
         message=message,

@@ -105,7 +105,8 @@ async def settings_change_data_logic(vk_id: int, message: Message, skip_lock: bo
         await set_user_state(vk_id, json.dumps({"step": "date"}))
         await message.answer("Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):")
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 async def process_change_date_logic(vk_id: int, message: Message, skip_lock: bool = False):
     if not skip_lock and not await acquire_lock(vk_id): return

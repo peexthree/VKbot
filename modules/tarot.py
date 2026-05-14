@@ -56,7 +56,7 @@ async def process_oracle_cut(message: Message):
 
         kb = Keyboard(inline=True)
         for i, card_id in enumerate(pool):
-            if i > 0 and i % 5 == 0:
+            if i > 0 and i % 2 == 0:
                 kb.row()
             kb.add(Callback("🎴", payload={"oracle_card": card_id}))
 
@@ -68,8 +68,8 @@ async def process_oracle_cut(message: Message):
         await release_lock(vk_id)
 
 
-async def process_oracle_final(vk_id: int, text: str, card_ids: list, **kwargs):
-    if not await acquire_lock(vk_id):
+async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock: bool = False, **kwargs):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         conv_msg_id = kwargs.get("conversation_message_id")
@@ -158,14 +158,16 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, **kwargs):
         try:
             kb_data = json.loads(kb_json)
             if "buttons" in kb_data:
-                kb_data["buttons"].insert(0, [{
+                # Вставляем кнопку PDF отдельным рядом сверху
+                pdf_btn = {
                     "action": {
                         "type": "callback",
                         "payload": json.dumps({"cmd": "gen_pdf", "section": "oracle", "card": str(card_ids[0]) if card_ids else ""}),
                         "label": "СГЕНЕРИРОВАТЬ PDF"
                     },
                     "color": "secondary"
-                }])
+                }
+                kb_data["buttons"].insert(0, [pdf_btn])
             kb_json = json.dumps(kb_data, ensure_ascii=False)
         except Exception:
             pass
@@ -193,7 +195,8 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, **kwargs):
             await bot.api.messages.send(peer_id=vk_id, message=err_msg, random_id=0)
     finally:
         await stop_dynamic_typing(vk_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
 # ==================== КАРТА ДНЯ ====================
@@ -299,10 +302,12 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         try:
             kb_data = json.loads(final_kb)
             if "buttons" in kb_data:
-                kb_data["buttons"].insert(0, [{
+                # Кнопка PDF отдельным рядом сверху
+                pdf_btn = {
                     "action": {"type": "callback", "payload": json.dumps({"cmd": "gen_pdf", "section": "card_of_day", "card": card_id}), "label": "СГЕНЕРИРОВАТЬ PDF"},
                     "color": "secondary"
-                }])
+                }
+                kb_data["buttons"].insert(0, [pdf_btn])
             final_kb = json.dumps(kb_data, ensure_ascii=False)
         except Exception:
             pass
@@ -331,7 +336,8 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
             await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=0)
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
 @labeler.message(state=MyStates.WAITING_ORACLE_QUESTION)

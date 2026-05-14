@@ -90,21 +90,22 @@ async def message_event_handler(event: dict):
         cmd = payload.get("cmd")
 
         if cmd == "admin_cmd":
-            await process_admin_cmd(vk_id, peer_id, payload)
             try:
                 await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
             except Exception: pass
+            await process_admin_cmd(vk_id, peer_id, payload)
             return
         elif cmd == "admin_cmd_cancel":
-            await set_fsm_state(vk_id, "")
-            await show_admin_console(peer_id)
             try:
                 await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
             except Exception: pass
+            await set_fsm_state(vk_id, "")
+            await show_admin_console(peer_id)
             return
         logger.info(f"message_event_handler triggered by vk_id={vk_id}, cmd={cmd}")
 
         # 1. Сразу отвечаем ВК, чтобы убрать «часики» на кнопке
+        # Переносим ответ в начало и ловим возможные ошибки, чтобы не падать
         try:
             await bot.api.messages.send_message_event_answer(
                 event_id=event_id,
@@ -112,7 +113,8 @@ async def message_event_handler(event: dict):
                 peer_id=peer_id
             )
         except Exception as e:
-            logger.error(f"Ошибка: {str(e)}")
+            # logger.debug(f"Event answer already sent or invalid: {str(e)}")
+            pass
 
         # 2. Обработка команд (CALLBACK)
         if cmd == "retry_registration":
@@ -494,7 +496,7 @@ async def message_event_handler(event: dict):
 
             kb = Keyboard(inline=True)
             for i in range(10):
-                if i > 0 and i % 5 == 0: kb.row()
+                if i > 0 and i % 2 == 0: kb.row()
                 kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
 
             await bot.api.messages.edit(
@@ -528,9 +530,14 @@ async def message_event_handler(event: dict):
             # 3. Add to user DB synchronously
             user = await get_user(vk_id)
             if user:
-                unlocked_cards = user.get("unlocked_cards", {})
-                if isinstance(unlocked_cards, list):
-                    unlocked_cards = dict.fromkeys(unlocked_cards, "Первое касание")
+                unlocked_cards = user.get("unlocked_cards")
+                if not isinstance(unlocked_cards, dict):
+                    if isinstance(unlocked_cards, list):
+                        # Convert old list format to dict
+                        unlocked_cards = {str(c): "Первое касание" for c in unlocked_cards}
+                    else:
+                        unlocked_cards = {}
+
                 if card_id not in unlocked_cards:
                     unlocked_cards[card_id] = f"{card_data.get('name', 'Карта')} - {card_data.get('subtitle', 'Новое знание')}"
 
@@ -595,7 +602,7 @@ async def message_event_handler(event: dict):
                 btn_count = 0
                 for c_id in pool:
                     if c_id not in drawn_cards:
-                        if btn_count > 0 and btn_count % 5 == 0: kb.row()
+                        if btn_count > 0 and btn_count % 2 == 0: kb.row()
                         kb.add(Callback("🎴", payload={"oracle_card": c_id}))
                         btn_count += 1
                 await bot.api.messages.edit(
@@ -761,7 +768,7 @@ async def execute_generation(
 
                 # Build a lightweight keyboard just for PDF generation to avoid VK limits
                 light_kb = Keyboard(inline=True)
-                light_kb.add(Callback("СГЕНЕРИРОВАТЬ PDF", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.SECONDARY)
+                light_kb.add(Callback("СГЕНЕРИРОВАТЬ PDF 📄", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)
                 kb_str = light_kb.get_json()
 
                 # Append some premium blocks to the text to preview it in VK
