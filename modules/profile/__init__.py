@@ -1,3 +1,4 @@
+# modules/profile/__init__.py
 from modules.profile.views import (
     show_profile_logic,
     show_guide_logic,
@@ -5,13 +6,18 @@ from modules.profile.views import (
 )
 
 from modules.profile.handlers import (
+    labeler,                        
     settings_handler,
     settings_choose_character,
 )
 
-from modules.profile.grimoire import show_grimoire_page, view_card_direct
+from modules.profile.grimoire import (
+    show_grimoire_page,
+    view_card_direct,
+)
 
 __all__ = [
+    "labeler",                     
     "show_profile_logic",
     "show_guide_logic",
     "syndicate_dashboard_logic",
