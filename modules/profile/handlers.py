@@ -147,3 +147,7 @@ async def apply_promo_handler(message: Message):
 @labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 ПУТЕВОДИТЕЛЬ", "📖 Путеводитель"])
 async def show_guide(message: Message):
     await show_guide_logic(message.from_id, message.peer_id, message)
+@labeler.message(text=["Профиль", "Мой профиль", "✦ Мой профиль", "💳 МОЙ ПРОФИЛЬ", "👤 МОЙ ПРОФИЛЬ"])
+async def show_profile(message: Message):
+    """Просто вызывает новый красивый профиль"""
+    await show_profile_logic(message.from_id, message.peer_id, message)
