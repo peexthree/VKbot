@@ -13,6 +13,7 @@ def get_profile_keyboard() -> str:
     kb.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("🔮 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
+    kb.add(Callback("📖 Путеводитель", payload={"cmd": "profile_action", "action": "guide"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("Главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
 

@@ -22,7 +22,8 @@ async def settings_handler_logic(vk_id: int, peer_id: int, message: Message = No
         else:
             await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 async def settings_change_data_logic(vk_id: int, message: Message):
     await set_user_state(vk_id, "")
@@ -104,7 +105,8 @@ async def confirm_reset_account_logic(vk_id: int, message: Message):
         await set_user_state(vk_id, "")
         await message.answer("Система обнулена. Напишите 'Начать', чтобы заново войти в матрицу.")
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     await set_user_state(vk_id, "")
@@ -166,7 +168,8 @@ async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Mes
                 else:
                     await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 async def process_skin_action_logic(vk_id: int, message: Message):
     if not await acquire_lock(vk_id):
