@@ -78,17 +78,18 @@ async def show_grimoire_page(vk_id: int, peer_id: int, page: int = 0, skip_lock:
             )
 
         # Навигация
-        kb.row()
-        if page > 0:
-            kb.add(
-                Callback("◀️ Назад", payload={"cmd": "grimoire_page", "page": page - 1}),
-                color=KeyboardButtonColor.PRIMARY,
-            )
-        if page < total_pages - 1:
-            kb.add(
-                Callback("Вперёд ▶️", payload={"cmd": "grimoire_page", "page": page + 1}),
-                color=KeyboardButtonColor.PRIMARY,
-            )
+        if total_pages > 1:
+            kb.row()
+            if page > 0:
+                kb.add(
+                    Callback("◀️ Назад", payload={"cmd": "grimoire_page", "page": page - 1}),
+                    color=KeyboardButtonColor.PRIMARY,
+                )
+            if page < total_pages - 1:
+                kb.add(
+                    Callback("Вперёд ▶️", payload={"cmd": "grimoire_page", "page": page + 1}),
+                    color=KeyboardButtonColor.PRIMARY,
+                )
 
         # Кнопка в Услуги
         kb.row()
