@@ -53,6 +53,7 @@ from modules.utils import (
     get_fsm_step,
     get_main_keyboard,
     get_sections_keyboard,
+    ghost_edit,
     pdf_semaphore,
     start_dynamic_typing,
     stop_dynamic_typing,
