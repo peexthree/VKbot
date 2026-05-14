@@ -43,3 +43,16 @@ async def delete_user(vk_id: int):
             return r.status in (200, 204)
     except Exception as e: logger.error(f"Ошибка в delete_user: {e}")
     return False
+
+async def get_user_count():
+    if not URL or not KEY or core.session is None: return 0
+    headers = HEADERS.copy()
+    headers["Prefer"] = "count=exact"
+    try:
+        async with core.session.get(f"{URL}/rest/v1/{TABLE_NAME}?select=vk_id&limit=1", headers=headers) as r:
+            if r.status in (200, 206):
+                content_range = r.headers.get("Content-Range", "")
+                if "/" in content_range:
+                    return int(content_range.split("/")[-1])
+    except Exception as e: logger.error(f"Error in get_user_count: {e}")
+    return 0

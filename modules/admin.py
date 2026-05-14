@@ -1,24 +1,52 @@
 import json
-
+import os
+import datetime
+import asyncio
 from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
 from vkbottle.bot import BotLabeler, Message
 
 from cache import redis_client, set_fsm_state
-from database import get_all_users
-from modules.utils import ADMIN_ID, clear_photo_cache, get_dynamic_keyboard, warmup_task
+from database import get_all_users, get_user, update_user
+from modules.utils import ADMIN_ID, clear_photo_cache, ghost_edit, get_fsm_step
 
 labeler = BotLabeler()
 
-@labeler.message(text=["⚙️ КОНСОЛЬ МАГИСТРА"])
+# ==================== НАВИГАЦИЯ ====================
+
+@labeler.message(text=["⚙️ КОНСОЛЬ МАГИСТРА", "админка"])
 async def admin_console_handler(message: Message):
     if message.from_id != ADMIN_ID:
         return
+    await show_admin_main(message.peer_id)
 
-    await show_admin_console(message.peer_id)
+async def show_admin_main(peer_id: int, conversation_message_id: int = None):
+    """Главная страница консоли"""
+    from database import get_user_count
+    user_count = await get_user_count()
 
-async def show_admin_console(peer_id: int):
-    # Fetch flags
+    text = (
+        "⚙️ КОНСОЛЬ МАГИСТРА: ГЛАВНАЯ ⚙️\n\n"
+        "Добро пожаловать в центр управления матрицей.\n"
+        f"👥 Всего адептов: {user_count}\n\n"
+        "Выберите раздел для глубокой настройки:"
+    )
+
+    kb = Keyboard(inline=True)
+    kb.add(Callback("💻 СИСТЕМА", payload={"cmd": "admin_nav", "menu": "system"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("📈 АНАЛИТИКА", payload={"cmd": "admin_nav", "menu": "analytics"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("👥 АДЕПТЫ", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("📢 ВЕЩАНИЕ", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("📜 ЛОГИ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 ВЫХОД", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+    from modules.bot_init import bot
+    await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
+async def show_admin_system(peer_id: int, conversation_message_id: int = None):
+    """Раздел системных настроек"""
     warmup_active = await redis_client.get("system_config:warmup_active")
     warmup_active = bool(int(warmup_active)) if warmup_active else False
 
@@ -26,13 +54,8 @@ async def show_admin_console(peer_id: int):
     maintenance_mode = bool(int(maintenance_mode)) if maintenance_mode else False
 
     tag_memory_active = await redis_client.get("system_config:tag_memory_active")
-    # Default to True if missing
     tag_memory_active = bool(int(tag_memory_active)) if tag_memory_active is not None else True
 
-    users = await get_all_users()
-    user_count = len(users)
-
-    # Note: the real cache size logic will vary, but we can do a rough count from redis
     try:
         keys = await redis_client.keys("photo:*")
         cache_count = len(keys)
@@ -40,210 +63,400 @@ async def show_admin_console(peer_id: int):
         cache_count = -1
 
     text = (
-        "⚙️ КОНСОЛЬ МАГИСТРА ⚙️\n\n"
-        f"👥 Адептов в матрице: {user_count}\n"
-        f"🖼 Ассетов в кэше: {cache_count}\n\n"
-        f"Фоновый прогрев: {'🟢 ВКЛ' if warmup_active else '🔴 ВЫКЛ'}\n"
-        f"Режим тех. работ: {'🔴 АКТИВЕН' if maintenance_mode else '🟢 ВЫКЛ'}\n"
-        f"Теговая память ИИ: {'🟢 ВКЛ' if tag_memory_active else '🔴 ВЫКЛ'}"
+        "💻 СИСТЕМНЫЕ НАСТРОЙКИ\n\n"
+        f"🖼 АССЕТОВ В КЭШЕ: {cache_count}\n"
+        "--------------------------\n"
+        f"ФОНОВЫЙ ПРОГРЕВ: {'🟢 ВКЛ' if warmup_active else '🔴 ВЫКЛ'}\n"
+        "- ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА КАРТ В VK ДЛЯ СКОРОСТИ\n\n"
+        f"РЕЖИМ ТЕХ. РАБОТ: {'🔴 АКТИВЕН' if maintenance_mode else '🟢 ВЫКЛ'}\n"
+        "- БЛОКИРУЕТ ДОСТУП ВСЕМ, КРОМЕ АДМИНИСТРАТОРА\n\n"
+        f"ТЕГОВАЯ ПАМЯТЬ ИИ: {'🟢 ВКЛ' if tag_memory_active else '🔴 ВЫКЛ'}\n"
+        "- СОХРАНЕНИЕ КОНТЕКСТА ПРОШЛЫХ ГАДАНИЙ\n"
     )
 
     kb = Keyboard(inline=True)
 
-    # Toggle Cache
-    if warmup_active:
-        kb.add(Callback("Остановить прогрев", payload={"cmd": "admin_cmd", "action": "toggle_warmup"}), color=KeyboardButtonColor.NEGATIVE)
-    else:
-        kb.add(Callback("🟢 ВКЛЮЧИТЬ КЭШИРОВАНИЕ", payload={"cmd": "admin_cmd", "action": "toggle_warmup"}), color=KeyboardButtonColor.POSITIVE)
+    # Warmup
+    label = "🔴 СТОП ПРОГРЕВ" if warmup_active else "🟢 СТАРТ ПРОГРЕВ"
+    kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_warmup"}), color=KeyboardButtonColor.SECONDARY)
+
+    # Maintenance
+    label = "🟢 ВЫКЛ ТЕХРАБОТЫ" if maintenance_mode else "🛠 ВКЛ ТЕХРАБОТЫ"
+    kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_maintenance"}), color=KeyboardButtonColor.SECONDARY)
 
     kb.row()
+    # Memory
+    label = "🧠 ВЫКЛ ПАМЯТЬ" if tag_memory_active else "🧠 ВКЛ ПАМЯТЬ"
+    kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_tag_memory"}), color=KeyboardButtonColor.SECONDARY)
 
-    # Toggle Maintenance
-    if maintenance_mode:
-        kb.add(Callback("Выключить Тех. Работы", payload={"cmd": "admin_cmd", "action": "toggle_maintenance"}), color=KeyboardButtonColor.POSITIVE)
-    else:
-        kb.add(Callback("🛠 РЕЖИМ ТЕХ. РАБОТ", payload={"cmd": "admin_cmd", "action": "toggle_maintenance"}), color=KeyboardButtonColor.NEGATIVE)
-
-    kb.row()
-
-    # Toggle AI Memory
-    if tag_memory_active:
-        kb.add(Callback("Отключить память ИИ", payload={"cmd": "admin_cmd", "action": "toggle_tag_memory"}), color=KeyboardButtonColor.NEGATIVE)
-    else:
-        kb.add(Callback("Включить память ИИ", payload={"cmd": "admin_cmd", "action": "toggle_tag_memory"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("🧹 ОЧИСТИТЬ REDIS", payload={"cmd": "admin_cmd", "action": "clear_redis"}), color=KeyboardButtonColor.NEGATIVE)
 
     kb.row()
-
-    # Buttons for single actions
-    kb.add(Callback("🧹 ОЧИСТИТЬ REDIS", payload={"cmd": "admin_cmd", "action": "clear_redis"}), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
-    kb.add(Text("⚡️ Выдать Энергию"), color=KeyboardButtonColor.PRIMARY)
-    kb.add(Text("📢 Призыв Синдиката"), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
     from modules.bot_init import bot
-    await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=0)
+    await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
+async def show_admin_analytics(peer_id: int, conversation_message_id: int = None):
+    """Раздел аналитики"""
+    # Use cached analytics if available to avoid heavy DB scans
+    cached_stats = await redis_client.get("admin:analytics_cache")
+    if cached_stats:
+        stats = json.loads(cached_stats)
+    else:
+        users = await get_all_users()
+        total_users = len(users)
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        new_today = 0
+        total_balance = 0
+        purchased_stats = {}
+
+        for u in users:
+            total_balance += int(u.get("balance", 0) or 0)
+            created_at_str = u.get("created_at")
+            if created_at_str:
+                try:
+                    created_at = datetime.datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                    if created_at >= today_start:
+                        new_today += 1
+                except: pass
+
+            purchased = u.get("purchased_sections", {})
+            for key, val in purchased.items():
+                if val is True:
+                    purchased_stats[key] = purchased_stats.get(key, 0) + 1
+
+        stats = {
+            "total_users": total_users,
+            "new_today": new_today,
+            "total_balance": total_balance,
+            "purchased_stats": purchased_stats
+        }
+        # Cache for 10 minutes
+        await redis_client.set("admin:analytics_cache", json.dumps(stats), ex=600)
+
+    total_users = stats["total_users"]
+    new_today = stats["new_today"]
+    total_balance = stats["total_balance"]
+    purchased_stats = stats["purchased_stats"]
+
+    stats_text = (
+        "📈 АНАЛИТИКА МАТРИЦЫ\n\n"
+        f"👥 Всего адептов: {total_users}\n"
+        f"✨ Новых за сегодня: {new_today}\n"
+        f"💰 Общий банк энергии: {total_balance} ✨\n\n"
+        "🔥 Популярные услуги:\n"
+    )
+
+    for key, count in sorted(purchased_stats.items(), key=lambda x: x[1], reverse=True)[:5]:
+        stats_text += f"- {key.upper()}: {count}\n"
+
+    kb = Keyboard(inline=True)
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+
+    from modules.bot_init import bot
+    await ghost_edit(bot.api, peer_id, stats_text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
+async def show_admin_users(peer_id: int, conversation_message_id: int = None):
+    """Раздел управления пользователями"""
+    text = (
+        "👥 УПРАВЛЕНИЕ АДЕПТАМИ\n\n"
+        "Здесь вы можете найти конкретного пользователя для ручной коррекции его судьбы.\n\n"
+        "Используйте кнопки ниже для поиска или массовых действий."
+    )
+
+    kb = Keyboard(inline=True)
+    kb.add(Callback("🔍 НАЙТИ ПО ID", payload={"cmd": "admin_cmd", "action": "search_user_start"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("⚡️ ВЫДАТЬ ЭНЕРГИЮ", payload={"cmd": "admin_cmd", "action": "mass_energy_start"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+
+    from modules.bot_init import bot
+    await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
+async def show_admin_broadcast(peer_id: int, conversation_message_id: int = None):
+    """Раздел рассылки"""
+    text = (
+        "📢 ПРИЗЫВ СИНДИКАТА (РАССЫЛКА)\n\n"
+        "Сообщение будет отправлено всем зарегистрированным адептам.\n"
+        "Используйте с осторожностью, чтобы не нарушить баланс матрицы."
+    )
+
+    kb = Keyboard(inline=True)
+    kb.add(Callback("📝 СОЗДАТЬ ПРИЗЫВ", payload={"cmd": "admin_cmd", "action": "broadcast_start"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+
+    from modules.bot_init import bot
+    await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
+async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
+    """Просмотр последних логов"""
+    log_dir = "logs"
+    try:
+        files = [f for f in os.listdir(log_dir) if f.startswith("bot_") and f.endswith(".log")]
+        if not files:
+            log_text = "Логи не найдены."
+        else:
+            latest_file = sorted(files)[-1]
+            with open(os.path.join(log_dir, latest_file), "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                log_text = "".join(lines[-15:]) # Последние 15 строк
+    except Exception as e:
+        log_text = f"Ошибка при чтении логов: {e}"
+
+    text = f"📜 ПОСЛЕДНИЕ СОБЫТИЯ:\n\n{log_text}"
+
+    kb = Keyboard(inline=True)
+    kb.add(Callback("🔄 ОБНОВИТЬ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+
+    from modules.bot_init import bot
+    await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
+
+# ==================== ОБРАБОТКА КОМАНД ====================
 
 async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict):
     if vk_id != ADMIN_ID:
         return
 
     action = payload.get("action")
-    import asyncio
+    nav_menu = payload.get("menu")
 
     from modules.bot_init import bot
+
+    if payload.get("cmd") == "admin_nav":
+        if nav_menu == "main": await show_admin_main(peer_id)
+        elif nav_menu == "system": await show_admin_system(peer_id)
+        elif nav_menu == "analytics": await show_admin_analytics(peer_id)
+        elif nav_menu == "users": await show_admin_users(peer_id)
+        elif nav_menu == "broadcast": await show_admin_broadcast(peer_id)
+        elif nav_menu == "logs": await show_admin_logs(peer_id)
+        return
 
     if action == "toggle_warmup":
         current = await redis_client.get("system_config:warmup_active")
         new_val = 0 if current and int(current) == 1 else 1
         await redis_client.set("system_config:warmup_active", str(new_val))
-
         if new_val == 1:
-            await bot.api.messages.send(peer_id=peer_id, message="Инициализация вербовки ассетов запущена. Медленное якорение начато.", random_id=0)
+            from modules.utils import warmup_task
             asyncio.create_task(warmup_task())
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message="Потоки синхронизации заморожены. Матрица работает на текущем кэше.", random_id=0)
+        await show_admin_system(peer_id)
 
     elif action == "toggle_maintenance":
         current = await redis_client.get("system_config:maintenance_mode")
         new_val = 0 if current and int(current) == 1 else 1
         await redis_client.set("system_config:maintenance_mode", str(new_val))
-
-        if new_val == 1:
-            await bot.api.messages.send(peer_id=peer_id, message="Синдикат перешел в тень. Идет калибровка матрицы.", random_id=0)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message="Матрица снова активна для всех.", random_id=0)
+        await show_admin_system(peer_id)
 
     elif action == "toggle_tag_memory":
         current = await redis_client.get("system_config:tag_memory_active")
         new_val = 0 if current and int(current) == 1 else 1
         await redis_client.set("system_config:tag_memory_active", str(new_val))
-
-        if new_val == 1:
-            await bot.api.messages.send(peer_id=peer_id, message="Теговая память ИИ включена.", random_id=0)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message="Теговая память ИИ отключена.", random_id=0)
+        await show_admin_system(peer_id)
 
     elif action == "clear_redis":
         await clear_photo_cache()
         await bot.api.messages.send(peer_id=peer_id, message="Кэш фото в Redis очищен.", random_id=0)
+        await show_admin_system(peer_id)
 
-    # Re-render console
-    await show_admin_console(peer_id)
+    elif action == "search_user_start":
+        await set_fsm_state(vk_id, json.dumps({"step": "admin_user_search"}))
+        await bot.api.messages.send(peer_id=peer_id, message="Введите VK ID адепта для поиска:",
+                                   keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(),
+                                   random_id=0)
 
-@labeler.message(text=["⚡️ Выдать Энергию"])
-async def admin_energy_start(message: Message):
-    if message.from_id != ADMIN_ID:
-        return
+    elif action == "broadcast_start":
+        await set_fsm_state(vk_id, json.dumps({"step": "admin_broadcast_message"}))
+        await bot.api.messages.send(peer_id=peer_id, message="📝 Введите текст призыва (рассылки).\n\nОн будет отправлен всем адептам Синдиката.",
+                                   keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "broadcast"})).get_json(),
+                                   random_id=0)
 
-    await set_fsm_state(message.from_id, json.dumps({"step": "admin_energy_target"}))
-    await message.answer("Введите ID пользователя и количество энергии через пробел (например: 123456 500), или напишите Отмена",
-                         keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_cmd_cancel"})).get_json())
+    elif action == "broadcast_confirm":
+        # Get text from Redis instead of payload to avoid VK payload size limits
+        broadcast_text = await redis_client.get(f"admin:broadcast_text:{vk_id}")
+        if not broadcast_text:
+            await bot.api.messages.send(peer_id=peer_id, message="❌ Текст призыва утерян. Начните заново.", random_id=0)
+            await show_admin_broadcast(peer_id)
+            return
 
-@labeler.message(text=["📢 Призыв Синдиката"])
-async def admin_broadcast_start(message: Message):
-    if message.from_id != ADMIN_ID:
-        return
-
-    await set_fsm_state(message.from_id, json.dumps({"step": "admin_broadcast_message"}))
-    await message.answer("Отправьте сообщение для рассылки всем адептам, или напишите Отмена",
-                         keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_cmd_cancel"})).get_json())
-
-
-async def _is_admin_fsm(message: Message) -> bool:
-    if message.from_id != ADMIN_ID:
-        return False
-    if message.text:
-        if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]):
-            return False
-        if message.text.lower() in ["главное меню", "профиль", "услуги", "гримуар"]:
-            return False
-    from modules.utils import get_fsm_step
-    fsm_data = await get_fsm_step(message.from_id)
-    if not fsm_data:
-        return False
-    step = fsm_data.get("step")
-    return step in ["admin_energy_target", "admin_broadcast_message"]
-
-@labeler.message(func=_is_admin_fsm)
-async def admin_fsm_handler(message: Message):
-
-
-    from modules.utils import get_fsm_step
-    fsm_data = await get_fsm_step(message.from_id)
-    if not fsm_data:
-        return False
-
-    step = fsm_data.get("step")
-
-    if message.text.lower() == "отмена":
-        await set_fsm_state(message.from_id, "")
-        await message.answer("Действие отменено.")
-        await show_admin_console(message.peer_id)
-        return True
-
-    if step == "admin_energy_target":
-        parts = message.text.strip().split()
-        if len(parts) != 2:
-            await message.answer("Неверный формат. Нужно: ID КОЛИЧЕСТВО")
-            return True
-
-        try:
-            target_id = int(parts[0])
-            amount = int(parts[1])
-        except ValueError:
-            await message.answer("Неверный формат. ID и Количество должны быть числами.")
-            return True
-
-        from database import get_user, update_user
-        target_user = await get_user(target_id)
-        if not target_user:
-            await message.answer(f"Пользователь {target_id} не найден.")
-            return True
-
-        new_balance = int(target_user.get("balance", 0) or 0) + amount
-        await update_user(target_id, {"balance": new_balance})
-
-        await set_fsm_state(message.from_id, "")
-        await message.answer(f"Пользователю {target_id} выдано {amount} Энергии звезд. Новый баланс: {new_balance}.")
-
-        from modules.bot_init import bot
-        try:
-            await bot.api.messages.send(
-                peer_id=target_id,
-                message=f"⚡️ Магистр Синдиката даровал вам {amount} Энергии звезд!\nВаш баланс: {new_balance}",
-                random_id=0,
-                keyboard=get_dynamic_keyboard(target_user)
-            )
-        except Exception as e:
-            logger.error(f"Не удалось отправить уведомление пользователю: {e}")
-
-        return True
-
-    elif step == "admin_broadcast_message":
-        text = message.text.strip()
-        await set_fsm_state(message.from_id, "")
+        broadcast_text = broadcast_text.decode('utf-8') if isinstance(broadcast_text, bytes) else broadcast_text
+        await bot.api.messages.send(peer_id=peer_id, message="🚀 Запуск трансмиссии...", random_id=0)
 
         users = await get_all_users()
         success = 0
-        import asyncio
-
-        from modules.bot_init import bot
-
-        await message.answer(f"Начинаю рассылку для {len(users)} пользователей...")
-
         for u in users:
             try:
-                await bot.api.messages.send(
-                    peer_id=u["vk_id"],
-                    message=f"📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{text}",
-                    random_id=0
-                )
+                await bot.api.messages.send(peer_id=u["vk_id"], message=f"📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{broadcast_text}", random_id=0)
                 success += 1
-                await asyncio.sleep(0.1) # prevent flood
-            except Exception:
-                pass
+                await asyncio.sleep(0.05)
+            except: pass
 
-        await message.answer(f"Рассылка завершена. Успешно доставлено: {success}/{len(users)}")
-        return True
+        await bot.api.messages.send(peer_id=peer_id, message=f"✅ Рассылка завершена. Доставлено: {success}/{len(users)}", random_id=0)
+        await show_admin_broadcast(peer_id)
 
-    return False
+    elif action == "mass_energy_start":
+        await set_fsm_state(vk_id, json.dumps({"step": "admin_energy_target"}))
+        await bot.api.messages.send(peer_id=peer_id, message="Введите ID и количество энергии через пробел (например: 12345 500):",
+                                   keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(),
+                                   random_id=0)
+
+    elif payload.get("cmd") == "admin_user_op":
+        op, target = payload.get("op"), payload.get("target")
+        if op == "edit_balance":
+            await set_fsm_state(vk_id, json.dumps({"step": "admin_user_edit_balance", "target": target}))
+            await bot.api.messages.send(peer_id=peer_id, message=f"Введите НОВОЕ значение баланса для {target}:",
+                                       keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(),
+                                       random_id=0)
+        elif op == "full_unlock":
+            user = await get_user(target)
+            if user:
+                p = user.get("purchased_sections", {})
+                for s in ["sex", "money", "shadow", "final", "synastry", "antitaro"]: p[s] = True
+                await update_user(target, {"purchased_sections": p, "has_full_chart": True})
+                await bot.api.messages.send(peer_id=peer_id, message=f"✅ Все услуги разблокированы для {target}", random_id=0)
+                await bot.api.messages.send(peer_id=target, message="🌟 Магистр даровал вам полный доступ ко всем тайнам Синдиката!", random_id=0)
+        elif op == "give_card_start":
+            await set_fsm_state(vk_id, json.dumps({"step": "admin_user_give_card", "target": target}))
+            await bot.api.messages.send(peer_id=peer_id, message=f"Введите ID карты (0-77) для выдачи адепту {target}:",
+                                       keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(),
+                                       random_id=0)
+
+
+# ==================== FSM HANDLERS ====================
+
+async def _is_admin_fsm(message: Message) -> bool:
+    if message.from_id != ADMIN_ID: return False
+    fsm_data = await get_fsm_step(message.from_id)
+    if not fsm_data: return False
+    step = fsm_data.get("step")
+    return step in ["admin_user_search", "admin_broadcast_message", "admin_energy_target", "admin_user_edit_balance", "admin_user_give_card"]
+
+@labeler.message(func=_is_admin_fsm)
+async def admin_fsm_handler(message: Message):
+    fsm_data = await get_fsm_step(message.from_id)
+    step = fsm_data.get("step")
+    vk_id = message.from_id
+
+    if message.text.lower() == "отмена":
+        await set_fsm_state(vk_id, "")
+        await show_admin_main(message.peer_id)
+        return
+
+    if step == "admin_user_search":
+        try:
+            target_id = int(message.text.strip())
+            user = await get_user(target_id)
+            if not user:
+                await message.answer("Адепт не найден в матрице.")
+                return
+
+            await set_fsm_state(vk_id, "")
+
+            # Show User Info
+            purchased = user.get("purchased_sections", {})
+            skins = user.get("purchased_skins", [])
+            has_full = user.get("has_full_chart", False)
+
+            text = (
+                f"👤 ПРОФИЛЬ АДЕПТА: {target_id}\n"
+                f"Имя: {user.get('first_name', '???')}\n"
+                f"Баланс: {user.get('balance', 0)} ✨\n"
+                f"Скины: {', '.join(skins) if skins else 'нет'}\n"
+                f"Услуги: {sum(1 for v in purchased.values() if v is True)}\n"
+                f"Full Chart: {'✅' if has_full else '❌'}\n"
+                f"Зарегистрирован: {user.get('created_at', '???')}"
+            )
+
+            kb = Keyboard(inline=True)
+            kb.add(Callback("⚡️ БАЛАНС", payload={"cmd": "admin_user_op", "op": "edit_balance", "target": target_id}), color=KeyboardButtonColor.PRIMARY)
+            kb.add(Callback("👑 FULL UNLOCK", payload={"cmd": "admin_user_op", "op": "full_unlock", "target": target_id}), color=KeyboardButtonColor.POSITIVE)
+            kb.row()
+            kb.add(Callback("🎁 КАРТА", payload={"cmd": "admin_user_op", "op": "give_card_start", "target": target_id}), color=KeyboardButtonColor.SECONDARY)
+            kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.SECONDARY)
+
+            await message.answer(text, keyboard=kb.get_json())
+
+        except ValueError:
+            await message.answer("Введите корректный числовой ID.")
+
+    elif step == "admin_user_edit_balance":
+        try:
+            target_id, new_bal = fsm_data.get("target"), int(message.text.strip())
+            await update_user(target_id, {"balance": new_bal})
+            await set_fsm_state(vk_id, "")
+            await message.answer(f"Баланс пользователя {target_id} изменен на {new_bal} ✨")
+            await show_admin_users(message.peer_id)
+        except:
+            await message.answer("Введите число.")
+
+    elif step == "admin_user_give_card":
+        try:
+            target_id, card_id = fsm_data.get("target"), str(int(message.text.strip()))
+            user = await get_user(target_id)
+            if not user: return
+            unlocked = user.get("unlocked_cards", {})
+            from cards_data import get_card_data
+            card_data = get_card_data(card_id)
+            if not card_data:
+                await message.answer("Такой карты не существует.")
+                return
+            unlocked[card_id] = f"{card_data.get('name')} - ДАР МАГИСТРА"
+            await update_user(target_id, {"unlocked_cards": unlocked})
+            await set_fsm_state(vk_id, "")
+            await message.answer(f"✅ Карта {card_id} выдана адепту {target_id}")
+            await bot.api.messages.send(peer_id=target_id, message=f"🎁 Магистр Синдиката даровал вам новую карту в Гримуар: {card_data.get('name')}!", random_id=0)
+            await show_admin_users(message.peer_id)
+        except:
+            await message.answer("Введите число ID карты (0-77).")
+
+    elif step == "admin_energy_target":
+        parts = message.text.strip().split()
+        if len(parts) != 2:
+            await message.answer("Формат: ID КОЛИЧЕСТВО")
+            return
+
+        try:
+            target_id, amount = int(parts[0]), int(parts[1])
+            target_user = await get_user(target_id)
+            if not target_user:
+                await message.answer("Пользователь не найден.")
+                return
+
+            new_balance = int(target_user.get("balance", 0) or 0) + amount
+            await update_user(target_id, {"balance": new_balance})
+            await set_fsm_state(vk_id, "")
+
+            await message.answer(f"Зачислено {amount} ✨ пользователю {target_id}. Итого: {new_balance}")
+
+            from modules.bot_init import bot
+            try:
+                await bot.api.messages.send(peer_id=target_id,
+                                           message=f"⚡️ Магистр даровал вам {amount} Энергии звезд!\nВаш баланс: {new_balance}",
+                                           random_id=0)
+            except: pass
+            await show_admin_users(message.peer_id)
+        except:
+            await message.answer("Ошибка в числах.")
+
+    elif step == "admin_broadcast_message":
+        text = message.text.strip()
+        await set_fsm_state(vk_id, "")
+
+        # Store broadcast text in Redis with 1 hour expiration
+        await redis_client.set(f"admin:broadcast_text:{vk_id}", text, ex=3600)
+
+        kb = Keyboard(inline=True)
+        kb.add(Callback("✅ ПОДТВЕРДИТЬ", payload={"cmd": "admin_cmd", "action": "broadcast_confirm"}), color=KeyboardButtonColor.POSITIVE)
+        kb.add(Callback("❌ ОТМЕНА", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.NEGATIVE)
+
+        await message.answer(f"ПРЕВЬЮ ПРИЗЫВА:\n\n📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{text}\n\nОтправить всем адептам?", keyboard=kb.get_json())
+
+async def show_admin_console(peer_id: int, conversation_message_id: int = None):
+    """Wrapper to maintain compatibility with other modules"""
+    await show_admin_main(peer_id, conversation_message_id=conversation_message_id)
