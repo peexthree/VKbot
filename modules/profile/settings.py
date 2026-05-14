@@ -1,5 +1,6 @@
 import json
 import asyncio
+from loguru import logger
 from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state, delete_user
@@ -9,6 +10,127 @@ from modules.profile.keyboards import (
     get_settings_keyboard, get_change_data_keyboard,
     get_reset_confirm_keyboard, get_skin_keyboard
 )
+
+async def _send_skins_carousel(
+    vk_id: int,
+    peer_id: int,
+    purchased_skins: list[str],
+    idx: int,
+    edit_msg_id: int | None,
+):
+    PAGE_SIZE = 5
+
+    styles = {
+        "Олеся Ивонченко": "сарказм",
+        "Серьезный Аскет": "строгость",
+        "Влад Череватов": "дерзость",
+        "Виктория Райдес": "властность",
+        "Олег Шэпс": "загадочность",
+        "Александр Шеппс": "мистицизм",
+        "Баба Ванга": "пророчества",
+        "Григорий Распутин": "безумие",
+        "Магистр": "высшее знание"
+    }
+
+    free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
+
+    skins_to_show = []
+    # Avoid duplicates if multiple keys point to same filename or same person
+    seen_names = set()
+    for skin_name, filename in SKIN_ASSETS.items():
+        if skin_name in ["olesya", "asket"] or skin_name in seen_names:
+            continue
+        skins_to_show.append({
+            "name": skin_name,
+            "filename": filename,
+            "style": styles.get(skin_name, "мистицизм")
+        })
+        seen_names.add(skin_name)
+
+    total_items = len(skins_to_show)
+    if idx < 0 or idx >= total_items:
+        idx = 0
+
+    current_items = skins_to_show[idx:idx + PAGE_SIZE]
+
+    elements = []
+    for skin in current_items:
+        skin_name = skin["name"]
+        is_owned = skin_name in purchased_skins or skin_name in free_skins
+
+        att = await upload_local_photo(bot.api, skin["filename"], peer_id=vk_id)
+
+        button_cmd = "set_skin" if is_owned else "buy_skin"
+        button_label = "ВЫБРАТЬ" if is_owned else "КУПИТЬ (1500 ✨)"
+
+        element = {
+            "title": f"Персонаж: {skin_name}",
+            "description": f"Стиль: {skin['style']}",
+            "buttons": [{
+                "action": {
+                    "type": "callback",
+                    "payload": json.dumps({"cmd": button_cmd, "skin": skin_name}),
+                    "label": button_label
+                },
+                "color": "positive" if is_owned else "primary"
+            }]
+        }
+
+        if att and att.startswith("photo"):
+            photo_id = att.replace("photo", "")
+            if "_" in photo_id:
+                element["photo_id"] = photo_id
+                element["action"] = {"type": "open_photo"}
+
+        if "action" not in element:
+            element["action"] = {"type": "open_link", "link": "https://vk.com/market-219181948"}
+
+        elements.append(element)
+
+    if not elements:
+        return
+
+    # Navigation button
+    nav_button = {
+        "action": {"type": "callback", "payload": json.dumps({"cmd": "profile_action", "action": "settings"}), "label": "⚙️ НАСТРОЙКИ"},
+        "color": "primary"
+    }
+
+    if total_items > PAGE_SIZE:
+        if idx + PAGE_SIZE < total_items:
+            nav_button = {
+                "action": {"type": "callback", "payload": json.dumps({"cmd": "skin_page", "idx": idx + PAGE_SIZE}), "label": "ВПЕРЕД ➡️"},
+                "color": "secondary"
+            }
+        elif idx > 0:
+            nav_button = {
+                "action": {"type": "callback", "payload": json.dumps({"cmd": "skin_page", "idx": max(0, idx - PAGE_SIZE)}), "label": "⬅️ НАЗАД"},
+                "color": "secondary"
+            }
+
+    nav_element = {
+        "title": "✦ НАВИГАЦИЯ ✦",
+        "description": "Перемещение по списку",
+        "action": {"type": "open_link", "link": "https://vk.com/market-219181948"},
+        "buttons": [nav_button]
+    }
+
+    if elements and "photo_id" in elements[0]:
+        nav_element["photo_id"] = elements[0]["photo_id"]
+        nav_element["action"] = {"type": "open_photo"}
+
+    elements.append(nav_element)
+
+    template = json.dumps({"type": "carousel", "elements": elements}, ensure_ascii=False)
+    header_text = "✦ ВЫБОР ПЕРСОНАЖА ✦\nВыберите своего проводника."
+
+    try:
+        if edit_msg_id:
+            await bot.api.messages.edit(peer_id=peer_id, message=header_text, template=template, conversation_message_id=edit_msg_id)
+        else:
+            await bot.api.messages.send(peer_id=peer_id, message=header_text, template=template, random_id=0)
+    except Exception as e:
+        logger.error(f"Error sending skin carousel: {e}")
 
 async def settings_handler_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     await set_user_state(vk_id, "")
@@ -113,7 +235,7 @@ async def confirm_reset_account_logic(vk_id: int, message: Message, skip_lock: b
         if not skip_lock:
             await release_lock(vk_id)
 
-async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
+async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False, idx: int = 0, edit_msg_id: int = None):
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
@@ -129,49 +251,13 @@ async def settings_choose_character_logic(vk_id: int, peer_id: int, message: Mes
 
         purchased_skins = user.get("purchased_skins", [])
 
-        styles = {
-            "olesya": "сарказм", "Олеся Ивонченко": "сарказм",
-            "asket": "строгость", "Серьезный Аскет": "строгость",
-            "Влад Череватов": "дерзость", "Виктория Райдес": "властность",
-            "Олег Шэпс": "загадочность", "Александр Шеппс": "мистицизм",
-            "Баба Ванга": "пророчества", "Григорий Распутин": "безумие",
-            "Магистр": "высшее знание"
-        }
-
-        free_skins = ["Олеся Ивонченко", "Серьезный Аскет", "olesya", "asket"]
-
-        for skin_name, filename in SKIN_ASSETS.items():
-            if skin_name in ["olesya", "asket"]:
-                 continue
-            await asyncio.sleep(0.5)
-
-            try:
-                photo = await upload_local_photo(bot.api, filename, peer_id=vk_id)
-            except Exception:
-                photo = None
-
-            style_desc = styles.get(skin_name, "мистицизм")
-            text = f"✦ ПЕРСОНАЖ: {skin_name}\nСтиль: {style_desc}\nЦена: 1500 Энергии звезд."
-
-            is_owned = skin_name in purchased_skins or skin_name in free_skins
-            kb_json = get_skin_keyboard(skin_name, is_owned)
-
-            if photo:
-                try:
-                    if message:
-                        await message.answer(text, attachment=photo, keyboard=kb_json)
-                    else:
-                        await bot.api.messages.send(peer_id=peer_id, message=text, attachment=photo, keyboard=kb_json, random_id=0)
-                except Exception:
-                    if message:
-                        await message.answer(text, keyboard=kb_json)
-                    else:
-                        await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
-            else:
-                if message:
-                    await message.answer(text, keyboard=kb_json)
-                else:
-                    await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb_json, random_id=0)
+        await _send_skins_carousel(
+            vk_id=vk_id,
+            peer_id=peer_id,
+            purchased_skins=purchased_skins,
+            idx=idx,
+            edit_msg_id=edit_msg_id or (message.conversation_message_id if message and not message.text else None)
+        )
     finally:
         if not skip_lock:
             await release_lock(vk_id)
