@@ -69,8 +69,9 @@ async def message_event_handler(event: dict):
     payload = obj.get("payload", {})
 
     # Throttling is very important for inline callbacks (MESSAGE_EVENT) as well.
-
-    if vk_id and await check_throttle(vk_id): return
+    if vk_id and payload.get("cmd") != "profile_action":
+        if await check_throttle(vk_id):
+            return
 
     if not await acquire_lock(vk_id, ttl=2): return
     try:
