@@ -63,8 +63,9 @@ async def show_grimoire_page(
             f"✦ МОЙ ГРИМУАР ✦ (Страница {page + 1}/{total_pages})\n",
             "Это твоя личная книга магии. Нажимай на карту, чтобы освежить её значение.\n",
         ]
-        for item in current_items:
-            lines.append(f"[{item['id']}] {item['name']}")
+        # Убираем дублирование списка в тексте, так как есть кнопки
+        # for item in current_items:
+        #    lines.append(f"[{item['id']}] {item['name']}")
 
         text = "\n".join(lines)
 

@@ -19,7 +19,9 @@ SANITIZATION_TABLE = str.maketrans({
     '*': '',
     '#': '',
     '_': '',
-    '—': '-'
+    '—': '-',
+    '`': '',
+    '~': ''
 })
 
 _cached_api_keys = None
@@ -30,10 +32,10 @@ def clean_ai_json(raw: str) -> str:
     if not raw:
         return raw
     # Убираем блоки кода ```json ... ``` или просто ``` ... ```
-    cleaned = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw.strip(), flags=re.IGNORECASE | re.MULTILINE)
-    # На случай если ```json встречается где-то внутри (бывает при сбоях)
-    cleaned = re.sub(r'```\s*json', '', cleaned, flags=re.IGNORECASE)
-    return cleaned.strip()
+    cleaned = re.sub(r'```(?:json)?', '', raw, flags=re.IGNORECASE).strip()
+    # Если остались какие-то артефакты в начале/конце
+    cleaned = cleaned.strip('`').strip()
+    return cleaned
 
 
 def init_session():
