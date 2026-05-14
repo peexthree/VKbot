@@ -319,6 +319,17 @@ async def message_event_handler(event: dict):
 
         elif cmd == "profile_action":
             action = payload.get("action")
+            
+            # Send an empty event answer to remove the loading state from the inline button
+            try:
+                await bot.api.messages.send_message_event_answer(
+                    event_id=obj.get("event_id"),
+                    user_id=vk_id,
+                    peer_id=peer_id
+                )
+            except Exception:
+                pass
+                
             if action == "settings":
                 # Mock a message object
                 await settings_handler(vk_id=vk_id, peer_id=peer_id)
@@ -333,7 +344,7 @@ async def message_event_handler(event: dict):
                 await update_user(vk_id, {"transit_sub_expires_at": None})
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Транзит (Подписка) успешно отменен.")
             elif action == "reset_account":
-                await set_user_state(vk_id, "waiting_reset_confirm")
+                await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
                 kb = Keyboard(inline=True)
                 kb.add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE)
                 kb.row()
