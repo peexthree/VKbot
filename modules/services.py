@@ -15,7 +15,6 @@ from modules.states import MyStates
 from modules.utils import (
     get_fsm_step,
     upload_local_photo,
-    get_storefront_keyboard,
 )
 
 labeler = BotLabeler()
