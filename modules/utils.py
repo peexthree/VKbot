@@ -457,19 +457,26 @@ def generate_premium_pdf(
 ):
     try:
         template = jinja_env.get_template('report.html')
-        
+
+        def safe_br(val):
+            if val is None:
+                return ""
+            if isinstance(val, list):
+                val = "\n".join([str(i) for i in val])
+            return str(val).replace('\n', '<br>')
+
         # Подготовка текста
-        formatted_text = text_content.replace('\n', '<br>')
-        formatted_advice = advice_content.replace('\n', '<br>') if advice_content else ""
+        formatted_text = safe_br(text_content)
+        formatted_advice = safe_br(advice_content)
 
         # Форматирование креативных блоков
-        shadow_side = shadow_side.replace('\n', '<br>')
-        activation_comment = activation_comment.replace('\n', '<br>')
-        affirmations = affirmations.replace('\n', '<br>')
-        thirty_day_forecast = thirty_day_forecast.replace('\n', '<br>')
-        activation_recommendations = activation_recommendations.replace('\n', '<br>')
-        star_code = star_code.replace('\n', '<br>')
-        energy_map = energy_map.replace('\n', '<br>')
+        shadow_side = safe_br(shadow_side)
+        activation_comment = safe_br(activation_comment)
+        affirmations = safe_br(affirmations)
+        thirty_day_forecast = safe_br(thirty_day_forecast)
+        activation_recommendations = safe_br(activation_recommendations)
+        star_code = safe_br(star_code)
+        energy_map = safe_br(energy_map)
 
         # Абсолютный путь к корню проекта (чтобы WeasyPrint находил cards/uslugi/)
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -556,7 +563,7 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                     else:
                         # Редактируем. Если это был conversation_message_id, edit сработает
                         # Но vkbottle.edit по умолчанию принимает message_id
-                        if conversation_message_id:
+                        if conversation_message_id and msg_id == conversation_message_id:
                             await bot_api.messages.edit(peer_id=peer_id, message=phrase, conversation_message_id=msg_id)
                         else:
                             await bot_api.messages.edit(peer_id=peer_id, message=phrase, message_id=msg_id)

@@ -89,21 +89,16 @@ async def message_event_handler(event: dict):
 
         if cmd == "admin_cmd":
             await process_admin_cmd(vk_id, peer_id, payload)
-            # Acknowledge the event
-            await bot.api.messages.send_message_event_answer(
-                event_id=event_id,
-                user_id=vk_id,
-                peer_id=peer_id
-            )
+            try:
+                await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+            except Exception: pass
             return
         elif cmd == "admin_cmd_cancel":
             await set_fsm_state(vk_id, "")
             await show_admin_console(peer_id)
-            await bot.api.messages.send_message_event_answer(
-                event_id=event_id,
-                user_id=vk_id,
-                peer_id=peer_id
-            )
+            try:
+                await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+            except Exception: pass
             return
         logger.info(f"message_event_handler triggered by vk_id={vk_id}, cmd={cmd}")
 
@@ -304,7 +299,7 @@ async def message_event_handler(event: dict):
             current_date_str = datetime.datetime.now().strftime("%d.%m.%Y")
 
             async with pdf_semaphore:
-                await asyncio.to_thread(
+                success = await asyncio.to_thread(
                     generate_premium_pdf,
                     user_name=first_name,
                     birth_info=b_info,
@@ -328,11 +323,15 @@ async def message_event_handler(event: dict):
                 )
 
             # Отправка
-            doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
-            await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0, keyboard=get_main_keyboard())
-
-            if os.path.exists(pdf_name):
-                await asyncio.to_thread(os.remove, pdf_name)
+            if success and os.path.exists(pdf_name):
+                try:
+                    doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
+                    await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0, keyboard=get_main_keyboard())
+                finally:
+                    if os.path.exists(pdf_name):
+                        await asyncio.to_thread(os.remove, pdf_name)
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=0)
 
         elif cmd == "profile_action":
             action = payload.get("action")

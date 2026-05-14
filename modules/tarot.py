@@ -71,15 +71,8 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, **kwargs):
     if not await acquire_lock(vk_id):
         return
     try:
-        event_id = kwargs.get("event_id")
         conv_msg_id = kwargs.get("conversation_message_id")
         message_id = kwargs.get("message_id")
-
-        if event_id:
-            try:
-                await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=vk_id)
-            except Exception:
-                pass
 
         if conv_msg_id:
             try:
@@ -223,13 +216,6 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         conv_msg_id = kwargs.get("conversation_message_id")
         message_id = kwargs.get("message_id")
 
-        # Ghost interface
-        if event_id:
-            try:
-                await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
-            except Exception:
-                pass
-
         # Используем наш новый механизм динамического тайпинга
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conv_msg_id)
 
@@ -249,8 +235,6 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
                 else:
                     await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=0)
                 return
-
-        await start_dynamic_typing(peer_id, bot.api)
 
         card_id = str(random.randint(0, 77))
         card_data = get_card_data(card_id)
