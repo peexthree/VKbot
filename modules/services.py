@@ -15,7 +15,6 @@ from modules.states import MyStates
 from modules.utils import (
     get_fsm_step,
     upload_local_photo,
-    get_storefront_keyboard,
 )
 
 labeler = BotLabeler()
@@ -26,7 +25,7 @@ async def show_services_handler(message: Message):
     await show_services(message.from_id, message.peer_id, 0)
 
 
-async def _send_catalog_carousel(
+async def _send_catalog_page(
     vk_id: int,
     peer_id: int,
     items: list[dict],
@@ -35,127 +34,49 @@ async def _send_catalog_carousel(
     header_text: str,
     item_type: str, # "service" or "tariff"
 ):
-    PAGE_SIZE = 5
     total_items = len(items)
-
-    # Validation for pagination
-    if idx < 0 or idx >= total_items:
-        idx = 0
-
-    current_items = items[idx:idx + PAGE_SIZE]
-
-    elements = []
-    for svc in current_items:
-        att = None
-        if svc.get("image_name"):
-            try:
-                att = await upload_local_photo(bot.api, svc["image_name"], peer_id=vk_id)
-                if not att:
-                    logger.warning(f"upload_local_photo returned empty for {svc['image_name']}")
-            except Exception as e:
-                logger.error(f"Failed to upload photo {svc['image_name']}, exception details: {str(e)}", exc_info=True)
-
-        # Strict VK Carousel limits (max 80 chars, no newlines)
-        title = svc["title"].replace("\n", " ")[:80]
-        desc_raw = svc["desc"].replace("\n", " ")
-        description = desc_raw[:77] + "..." if len(desc_raw) > 80 else desc_raw
-
-        button_cmd = "buy" if svc["key"] != "card_of_day" else "card_of_day"
-        button_label = "КУПИТЬ" if svc["key"] != "card_of_day" else "ПОЛУЧИТЬ"
-
-        element = {
-            "title": title,
-            "description": description,
-            "buttons": [{
-                "action": {
-                    "type": "callback",
-                    "payload": json.dumps({"cmd": button_cmd, "type": item_type, "key": svc["key"]}),
-                    "label": button_label
-                },
-                "color": "positive"
-            }]
-        }
-
-        # Fix the action field bug: if we have a photo_id, strictly use "open_photo", else fallback to "open_link"
-        if att and att.startswith("photo"):
-            photo_id = att.replace("photo", "")
-            if "_" in photo_id:
-                element["photo_id"] = photo_id
-                element["action"] = {"type": "open_photo"}
-
-        if "action" not in element:
-            element["action"] = {"type": "open_link", "link": "https://vk.com/market-219181948"}
-
-        elements.append(element)
-
-    if not elements:
+    if not items:
         try:
             await bot.api.messages.send(peer_id=peer_id, message="Раздел пуст.", random_id=0)
         except Exception:
             pass
         return
 
-    # Add navigation element directly into carousel
-    # We must ensure the nav element has EXACTLY the same number of buttons as the regular elements (1 button)
-    nav_button = {
-        "action": {"type": "callback", "payload": json.dumps({"cmd": "main_menu"}), "label": "🏠 ГЛАВНОЕ МЕНЮ"},
-        "color": "primary"
-    }
+    if idx < 0 or idx >= total_items:
+        idx = 0
 
-    if total_items > PAGE_SIZE:
-        if idx + PAGE_SIZE < total_items:
-            next_idx = idx + PAGE_SIZE
-            nav_button = {
-                "action": {"type": "callback", "payload": json.dumps({"cmd": f"{item_type}_page", "idx": next_idx}), "label": "ВПЕРЕД ➡️"},
-                "color": "secondary"
-            }
-        elif idx > 0:
-            prev_idx = max(0, idx - PAGE_SIZE)
-            nav_button = {
-                "action": {"type": "callback", "payload": json.dumps({"cmd": f"{item_type}_page", "idx": prev_idx}), "label": "⬅️ НАЗАД"},
-                "color": "secondary"
-            }
+    item = items[idx]
+    att = None
+    if item.get("image_name"):
+        try:
+            att = await upload_local_photo(bot.api, item["image_name"], peer_id=vk_id)
+        except Exception as e:
+            logger.error(f"Failed to upload photo {item['image_name']}: {str(e)}")
 
-    # To avoid VK API Error 100 (elements must have same fields), we must ensure
-    # the navigation element has a photo_id if other elements have one.
-    # We will use the photo_id of the first item in the page as a safe fallback.
-    nav_element = {
-        "title": "✦ НАВИГАЦИЯ ✦",
-        "description": "Перемещение по витрине",
-        "action": {"type": "open_link", "link": "https://vk.com/market-219181948"},
-        "buttons": [nav_button]
-    }
+    button_cmd = "buy" if item["key"] != "card_of_day" else "card_of_day"
+    button_label = "КУПИТЬ" if item["key"] != "card_of_day" else "ПОЛУЧИТЬ"
 
-    # VK requires uniform fields in carousels
-    if elements and "photo_id" in elements[0]:
-        nav_element["photo_id"] = elements[0]["photo_id"]
-        nav_element["action"] = {"type": "open_photo"}
+    kb = Keyboard(inline=True)
+    kb.add(Callback(button_label, payload={"cmd": button_cmd, "type": item_type, "key": item["key"]}), color=KeyboardButtonColor.POSITIVE)
 
-    elements.append(nav_element)
+    kb.row()
+    if idx > 0:
+        kb.add(Callback("⬅️ НАЗАД", payload={"cmd": f"{item_type}_page", "idx": idx - 1}), color=KeyboardButtonColor.SECONDARY)
+    if idx < total_items - 1:
+        kb.add(Callback("ВПЕРЕД ➡️", payload={"cmd": f"{item_type}_page", "idx": idx + 1}), color=KeyboardButtonColor.SECONDARY)
 
-    template = {
-        "type": "carousel",
-        "elements": elements
-    }
-    template_json = json.dumps(template, ensure_ascii=False)
+    kb.row()
+    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+
+    full_text = f"{header_text}\n\n📦 {item['title']}\n📜 {item['desc']}\n\nПозиция: {idx + 1} из {total_items}"
 
     try:
         if edit_msg_id:
-            await bot.api.messages.edit(peer_id=peer_id, message=header_text, template=template_json, conversation_message_id=edit_msg_id)
+            await bot.api.messages.edit(peer_id=peer_id, message=full_text, attachment=att, keyboard=kb.get_json(), conversation_message_id=edit_msg_id)
         else:
-            await bot.api.messages.send(peer_id=peer_id, message=header_text, template=template_json, random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message=full_text, attachment=att, keyboard=kb.get_json(), random_id=0)
     except Exception as e:
-        logger.error(f"Error sending carousel, triggering fallback: {str(e)}")
-        fallback_msg = f"{header_text}\n\n(Ошибка карусели. Используйте резервное меню)"
-        fallback_kb_json = await get_storefront_keyboard({})
-
-        try:
-            if edit_msg_id:
-                await bot.api.messages.edit(peer_id=peer_id, message=fallback_msg, conversation_message_id=edit_msg_id, keyboard=fallback_kb_json)
-            else:
-                await bot.api.messages.send(peer_id=peer_id, message=fallback_msg, keyboard=fallback_kb_json, random_id=0)
-        except Exception as fallback_e:
-            logger.error(f"Fallback also failed: {str(fallback_e)}")
+        logger.error(f"Error sending catalog page: {str(e)}")
 
 
 async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
@@ -187,7 +108,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         {"key": "card_of_day", "title": "Карта дня", "desc": "Бесплатно. Твоя персональная карта дня.", "image_name": "uslugi/cardofday.jpg"},
     ]
 
-    await _send_catalog_carousel(
+    await _send_catalog_page(
         vk_id=vk_id,
         peer_id=peer_id,
         items=services,
@@ -308,7 +229,7 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         {"key": "tariff_vip", "title": "VIP Архив", "desc": "5900 Энергии. Золотой архив + месяц транзитов.", "image_name": "uslugi/VIPTOP.jpg"},
     ]
 
-    await _send_catalog_carousel(
+    await _send_catalog_page(
         vk_id=vk_id,
         peer_id=peer_id,
         items=tariffs,
