@@ -20,8 +20,7 @@ from database import (
 from modules.bot_init import bot
 from modules.utils import (
     SKIN_ASSETS, generate_premium_pdf, get_fsm_step, get_main_keyboard,
-    get_sections_keyboard, ghost_edit, pdf_semaphore, start_dynamic_typing,
-    stop_dynamic_typing, THEATRICAL_PHRASES, upload_local_photo
+    get_sections_keyboard, ghost_edit, pdf_semaphore, THEATRICAL_PHRASES, upload_local_photo
 )
 from modules.admin import process_admin_cmd, show_admin_console
 from modules.profile import (

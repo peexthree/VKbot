@@ -2,7 +2,6 @@ import json
 import random
 from loguru import logger
 from cards_data import get_card_data
-from database import update_user
 from ai.logic import generate_text, clean_ai_json
 
 async def extract_tags(text: str) -> list[str]:

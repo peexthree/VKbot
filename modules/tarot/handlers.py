@@ -6,7 +6,6 @@ from database import set_user_state
 from modules.utils import get_fsm_step, acquire_lock, release_lock
 from modules.states import MyStates
 from .daily import card_of_day_logic
-from .oracle import process_oracle_final
 
 labeler = BotLabeler()
 
