@@ -136,8 +136,8 @@ async def message_event_handler(event: dict):
         elif cmd in ["set_skin", "buy_skin"]: await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day": await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "choose_onboarding_skin":
-            from modules.registration import process_onboarding_skin_logic
-            await process_onboarding_skin_logic(vk_id, peer_id, payload.get("skin"), conversation_message_id=obj.get("conversation_message_id"))
+            import modules.registration as reg
+            await reg.process_onboarding_skin_logic(vk_id, peer_id, payload.get("skin"), conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "gen_pdf":
             section, card_id = payload.get("section", "report"), payload.get("card", "")
             user = await get_user(vk_id)
