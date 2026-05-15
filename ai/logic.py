@@ -59,7 +59,13 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
             if json_mode:
                 final_prompt = f"{prompt.strip()}\nОтветь строго в формате JSON."
             else:
-                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}{prompt.strip()}"
+                # Премиальная инструкция для более глубоких ответов
+                premium_context = (
+                    "Используй метафоры высокого уровня, но сочетай их с современным технологическим или психологическим контекстом. "
+                    "Твой ответ должен казаться невероятно личным и глубоким. Избегай общих фраз. "
+                    "Структурируй ответ так, чтобы он был удобен для чтения в мессенджере (короткие абзацы, тире)."
+                )
+                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}"
 
             payload = {
                 "contents": [{"parts": [{"text": final_prompt}]}]
@@ -78,6 +84,10 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
 
                             if not json_mode:
                                 text = text.translate(SANITIZATION_TABLE)
+
+                            # Добавляем маркер для TTS если нужно (будущая фича)
+                            # text = "[VOICE_ENABLED] " + text
+
                             return text
                         except (KeyError, IndexError):
                             continue

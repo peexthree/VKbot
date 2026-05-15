@@ -60,12 +60,30 @@ async def main():
     import modules.admin as admin
     bot.labeler.load(admin.labeler)
 
-    # Фоновая задача для ежедневных прогнозов
+    # Фоновая задача для ежедневных прогнозов и реактивации
     async def daily_forecast_cron():
         while True:
             now = datetime.datetime.now(datetime.timezone.utc)
             if now.hour == 12 and now.minute == 0:
                 users = await get_all_users()
+
+                async def process_reactivation(user):
+                    vk_id = user.get("vk_id")
+                    last_active = user.get("last_active_date")
+                    if not last_active: return
+
+                    last_date = datetime.datetime.fromisoformat(last_active).date()
+                    days_since = (now.date() - last_date).days
+
+                    if days_since == 3:
+                        msg = "✦ ТВОЯ МАТРИЦА ЗАТУХАЕТ ✦\n\nТебя не было 3 дня. Потоки энергии слабеют. Вернись и забери свой ежедневный дар, пока связь не прервалась полностью."
+                        try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
+                        except Exception: pass
+                    elif days_since == 7:
+                        msg = "✦ КРИТИЧЕСКИЙ РАЗРЫВ ✦\n\nПрошла неделя. Твой Проводник ждет тебя. Сегодня я приготовил для тебя особенный инсайт, доступный только 24 часа. Не дай своим тайнам кануть в бездну."
+                        try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
+                        except Exception: pass
+
                 async def process_user_transit(user):
                     vk_id = user.get("vk_id")
                     if not vk_id or not user.get("birth_city"):
@@ -112,7 +130,9 @@ async def main():
                                     await update_user(vk_id, {"transit_trial_days": trial_days + 1})
                             except Exception as e:
                                 logger.error(f"Ошибка: {str(e)}")
-                    elif trial_days == 3:
+
+                    await process_reactivation(user)
+                    if trial_days == 3:
                         try:
                             keyboard_obj = {
                                 "inline": True,
@@ -138,9 +158,10 @@ async def main():
                     async with sem:
                         await process_user_transit(u)
                 await asyncio.gather(*(sem_process_user(u) for u in users))
-                await asyncio.sleep(3660)
+                # Ждем пока минута закончится, чтобы не запустить повторно в ту же минуту
+                await asyncio.sleep(61)
             else:
-                await asyncio.sleep(60)
+                await asyncio.sleep(30)
 
     # Запуск
     bot.loop_wrapper._running = True

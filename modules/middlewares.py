@@ -1,15 +1,21 @@
 import json
 
 from loguru import logger
+import datetime
+import asyncio
 from vkbottle import BaseMiddleware
 from vkbottle.bot import Message
 
 from cache import check_and_set_throttle_warning, check_throttle
+from database import update_user
 
 
 class ThrottleMiddleware(BaseMiddleware[Message]):
     async def pre(self):
         vk_id = self.event.from_id
+
+        # Обновляем дату последней активности асинхронно
+        asyncio.create_task(update_user(vk_id, {"last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat()}))
 
         # Check if the message contains payload (inline keyboards often send text+payload or just payload)
         # Or if it starts with heavy commands (we use ✦ prefix for heavy menu buttons or emojis like 🃏)

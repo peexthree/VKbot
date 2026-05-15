@@ -43,6 +43,9 @@ async def show_grimoire_page(
             if str(i) in unlocked_cards
         ]
 
+        major_arcana_unlocked = [str(i) for i in range(22) if str(i) in unlocked_cards]
+        major_count = len(major_arcana_unlocked)
+
         if not unlocked_items:
             await bot.api.messages.send(
                 peer_id=peer_id,
@@ -61,11 +64,13 @@ async def show_grimoire_page(
         # Текст
         lines = [
             f"✦ МОЙ ГРИМУАР ✦ (Страница {page + 1}/{total_pages})\n",
-            "Это твоя личная книга магии. Нажимай на карту, чтобы освежить её значение.\n",
+            f"Собрано Старших Арканов: {major_count} из 22",
+            "Собери все 22, чтобы открыть облик Магистра.\n",
+            "Нажимай на карту, чтобы освежить её значение.\n",
         ]
-        # Убираем дублирование списка в тексте, так как есть кнопки
-        # for item in current_items:
-        #    lines.append(f"[{item['id']}] {item['name']}")
+
+        if major_count == 22:
+            lines.insert(2, "👑 ТЫ СОБРАЛ ВСЕ СТАРШИЕ АРКАНЫ! Облик Магистра доступен в настройках.")
 
         text = "\n".join(lines)
 

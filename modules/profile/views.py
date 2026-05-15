@@ -88,24 +88,37 @@ async def show_profile_logic(
         balance = int(user.get("balance", 0) or 0)
         visit_streak = user.get("visit_streak", 0)
 
+        # Расчет уровня Адепта
+        unlocked_cards = user.get("unlocked_cards", {})
+        unlocked_count = len(unlocked_cards)
+
+        # Уровень зависит от карт и общей активности
+        total_cards_received = user.get("total_cards_received", 0)
+        level = 1 + (unlocked_count // 5) + (total_cards_received // 10)
+
+        rank_names = [
+            "Неофит", "Послушник", "Искатель", "Адепт", "Проводник",
+            "Мастер Теней", "Верховный Жрец", "Хранитель Ключей", "Магистр Матрицы"
+        ]
+        rank = rank_names[min(level // 3, len(rank_names)-1)]
+
         # Прогресс по реальным открытым картам
-        unlocked_count = len(user.get("unlocked_cards", {}))
-        total_cards = unlocked_count
         progress = min(10, int((unlocked_count / 78) * 10))
         progress_bar = "█" * progress + "░" * (10 - progress)
 
         profile_text = (
-            "💳 ЛИЧНЫЙ ПРОФИЛЬ АДЕПТА\n\n"
-            f"👤 {first_name}\n"
+            "💳 ЛИЧНЫЙ ПРОФИЛЬ\n\n"
+            f"👤 {first_name} | {rank}\n"
+            f"💠 Уровень: {level}\n"
             f"📍 {birth_date} — {birth_city}\n"
-            f"🔮 Личный оракул: {skin_display_name}\n\n"
+            f"🔮 Твой проводник: {skin_display_name}\n\n"
             f"✨ Баланс: {balance} Энергии звёзд\n"
-            f"🔥 Серия посещений: {visit_streak} дней\n"
-            f"🃏 Открыто карт: {total_cards} из 78\n"
+            f"🔥 Стрик: {visit_streak} дней\n"
+            f"🃏 Гримуар: {unlocked_count} из 78 карт\n"
             f"📊 ПРОГРЕСС: {progress_bar}\n\n"
             "Здесь ты можешь управлять своими данными, менять проводника "
             "и следить за ростом своей силы в матрице.\n\n"
-            "📜 Публичная оферта и пользовательское соглашение:\n"
+            "📜 Публичная оферта:\n"
             "https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
         )
 

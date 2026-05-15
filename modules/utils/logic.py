@@ -56,7 +56,10 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
                     visit_streak = 1
             else:
                 visit_streak = 1
-            new_balance = current_balance + 100
+            # Эскалация бонуса в зависимости от стрика
+            bonus_amount = 100 + min(visit_streak * 20, 400) # Макс бонус 500
+            new_balance = current_balance + bonus_amount
+
             await update_user(vk_id, {
                 "balance": new_balance,
                 "last_daily_bonus_date": now_date.isoformat(),
@@ -67,9 +70,14 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
             user["visit_streak"] = visit_streak
             try:
                 from modules.bot_init import bot
+                bonus_text = f"🎁 ТВОЙ ЕЖЕДНЕВНЫЙ ДАР: +{bonus_amount} Энергии звезд.\n"
+                if visit_streak > 1:
+                    bonus_text += f"🔥 Стрик: {visit_streak} дней! Бонус увеличен.\n"
+                bonus_text += f"Возвращайся завтра. Твой баланс: {new_balance} ✨."
+
                 await bot.api.messages.send(
                     peer_id=peer_id,
-                    message=f"🎁 Твой ежедневный дар: +100 Энергии звезд.\nВозвращайся завтра за новой порцией. Твой баланс: {new_balance}.",
+                    message=bonus_text,
                     random_id=0
                 )
             except Exception as e:

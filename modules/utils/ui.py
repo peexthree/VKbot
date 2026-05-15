@@ -42,7 +42,10 @@ async def ghost_edit(
             return
     except Exception as e:
         logger.warning(f"Ghost edit failed (id={conversation_message_id or message_id}): {e}")
+        # Если это ошибка 901 (no access), возможно сообщение слишком старое для редактирования
+        # В таком случае мы просто отправим новое.
 
+    # Если редактирование не удалось или не запрашивалось, отправляем новое сообщение
     return await bot_api.messages.send(
         peer_id=peer_id,
         message=message,
@@ -85,10 +88,17 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                         msg_id = resp
                         _typing_msg_ids[peer_id] = msg_id
                     else:
-                        if conversation_message_id and msg_id == conversation_message_id:
-                            await bot_api.messages.edit(peer_id=peer_id, message=phrase, conversation_message_id=msg_id)
-                        else:
-                            await bot_api.messages.edit(peer_id=peer_id, message=phrase, message_id=msg_id)
+                        try:
+                            if conversation_message_id and msg_id == conversation_message_id:
+                                await bot_api.messages.edit(peer_id=peer_id, message=phrase, conversation_message_id=msg_id)
+                            else:
+                                await bot_api.messages.edit(peer_id=peer_id, message=phrase, message_id=msg_id)
+                        except Exception as edit_err:
+                            # Если не удалось отредактировать (например, сообщение удалено), шлем новое
+                            logger.debug(f"Typing edit failed, sending new: {edit_err}")
+                            resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
+                            msg_id = resp
+                            _typing_msg_ids[peer_id] = msg_id
 
                     await bot_api.messages.set_activity(peer_id=peer_id, type="typing")
                 except asyncio.CancelledError:

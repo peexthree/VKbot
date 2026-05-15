@@ -84,15 +84,24 @@ async def message_event_handler(event: dict):
             if not state_dict or state_dict.get("step") != "confirm_data": return
             date, time, city = state_dict.get("date"), state_dict.get("time"), state_dict.get("city")
             await set_user_state(vk_id, "")
-            await bot.api.messages.edit(peer_id=peer_id, message="СИНХРОНИЗАЦИЯ ДАННЫХ...", conversation_message_id=obj.get("conversation_message_id"))
-            user = await update_user(vk_id, {"birth_date": date, "birth_time": time, "birth_city": city, "balance": 700, "welcome_bonus_received": True})
-            await bot.api.messages.send(peer_id=peer_id, message="БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: 700 Энергии звезд.", random_id=0)
-            await bot.api.messages.send(peer_id=peer_id, message="Анализирую состояние звезд...", random_id=0)
-            insight = await generate_section("base", date, time, city, "", user.get("purchased_sections", {}).get("first_name", ""), user.get("purchased_sections", {}).get("sex_val", 0))
-            first_name = user.get("purchased_sections", {}).get("first_name", "")
-            intro = f"Привет, {first_name}! Твоя натальная карта — это не просто звезды, это код твоего потенциала." if first_name else "Твоя натальная карта — это не просто звезды, это код твоего потенциала."
-            kb = Keyboard(inline=True).add(Callback("🃏 ПРИНЯТЬ ПЕРВУЮ КАРТУ ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
-            await bot.api.messages.send(peer_id=peer_id, message=f"Твоя матрица готова...\n\n{intro}\n\n{insight}\n\nПервый шаг: открой Карту Дня.", keyboard=kb.get_json(), random_id=0)
+            await bot.api.messages.edit(peer_id=peer_id, message="✦ СИНХРОНИЗАЦИЯ С МАТРИЦЕЙ...", conversation_message_id=obj.get("conversation_message_id"))
+
+            # Начисляем бонусы и сохраняем данные
+            await update_user(vk_id, {
+                "birth_date": date,
+                "birth_time": time,
+                "birth_city": city,
+                "balance": 700,
+                "welcome_bonus_received": True
+            })
+
+            from modules.registration import send_onboarding_teaser
+            user = await get_user(vk_id)
+            if user:
+                purchased = user.get("purchased_sections", {})
+                purchased["conversion_step"] = "onboarded"
+                await update_user(vk_id, {"purchased_sections": purchased})
+            await send_onboarding_teaser(vk_id, peer_id)
         elif cmd == "use_section":
             target_section = payload.get("key")
             user = await get_user(vk_id)
@@ -123,6 +132,9 @@ async def message_event_handler(event: dict):
         elif cmd == "skin_page": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, idx=payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd in ["set_skin", "buy_skin"]: await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day": await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "choose_onboarding_skin":
+            from modules.registration import process_onboarding_skin_logic
+            await process_onboarding_skin_logic(vk_id, peer_id, payload.get("skin"), conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "gen_pdf":
             section, card_id = payload.get("section", "report"), payload.get("card", "")
             user = await get_user(vk_id)
