@@ -1,6 +1,5 @@
 import json
 import asyncio
-import random
 from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
@@ -17,7 +16,6 @@ from database import (
 )
 from modules.bot_init import bot
 from modules.utils import (
-    get_main_keyboard,
     get_sections_keyboard,
     start_dynamic_typing,
     stop_dynamic_typing,

@@ -11,7 +11,6 @@ from vkbottle import (
 from vkbottle.bot import BotLabeler
 from vkbottle.tools.dev.keyboard.action import VKPay
 
-from ai_service import generate_section
 from cache import acquire_lock, check_throttle, release_lock, set_fsm_state
 from cards_data import get_card_data
 from database import (
