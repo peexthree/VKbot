@@ -19,7 +19,7 @@ from database import (
 from modules.bot_init import bot
 from modules.utils import (
     SKIN_ASSETS, generate_premium_pdf, get_fsm_step, get_main_keyboard,
-    get_sections_keyboard, ghost_edit, pdf_semaphore, THEATRICAL_PHRASES, upload_local_photo
+    get_sections_keyboard, ghost_edit, pdf_semaphore, upload_local_photo
 )
 from modules.admin import process_admin_cmd, show_admin_console
 from modules.profile import (
@@ -67,7 +67,7 @@ async def message_event_handler(event: dict):
         cmd = payload.get("cmd")
 
         if cmd in ["admin_cmd", "admin_nav", "admin_user_op"]:
-            await process_admin_cmd(vk_id, peer_id, payload)
+            await process_admin_cmd(vk_id, peer_id, payload, conversation_message_id=obj.get("conversation_message_id"))
             return
         elif cmd == "admin_cmd_cancel":
             await set_fsm_state(vk_id, "")

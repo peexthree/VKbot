@@ -261,7 +261,7 @@ async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
 
 # ==================== ОБРАБОТКА КОМАНД ====================
 
-async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict):
+async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversation_message_id: int = None):
     if vk_id != ADMIN_ID:
         return
 
@@ -269,13 +269,13 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict):
     nav_menu = payload.get("menu")
 
     if payload.get("cmd") == "admin_nav":
-        if nav_menu == "main": await show_admin_main(peer_id)
-        elif nav_menu == "system": await show_admin_system(peer_id)
-        elif nav_menu == "analytics": await show_admin_analytics(peer_id)
-        elif nav_menu == "users": await show_admin_users(peer_id)
-        elif nav_menu == "broadcast": await show_admin_broadcast(peer_id)
-        elif nav_menu == "logs": await show_admin_logs(peer_id)
-        elif nav_menu == "vip": await show_admin_vip(peer_id)
+        if nav_menu == "main": await show_admin_main(peer_id, conversation_message_id)
+        elif nav_menu == "system": await show_admin_system(peer_id, conversation_message_id)
+        elif nav_menu == "analytics": await show_admin_analytics(peer_id, conversation_message_id)
+        elif nav_menu == "users": await show_admin_users(peer_id, conversation_message_id)
+        elif nav_menu == "broadcast": await show_admin_broadcast(peer_id, conversation_message_id)
+        elif nav_menu == "logs": await show_admin_logs(peer_id, conversation_message_id)
+        elif nav_menu == "vip": await show_admin_vip(peer_id, conversation_message_id)
         return
 
     if action == "toggle_warmup":
