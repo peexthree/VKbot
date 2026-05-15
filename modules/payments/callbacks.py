@@ -179,8 +179,10 @@ async def message_event_handler(event: dict):
             if success and os.path.exists(pdf_name):
                 try:
                     doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
+
                     from modules.keyboards import get_main_reply_keyboard
                     await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0, keyboard=get_main_reply_keyboard(vk_id))
+
                 finally:
                     if os.path.exists(pdf_name): await asyncio.to_thread(os.remove, pdf_name)
             else: await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=0)
@@ -262,10 +264,11 @@ async def message_event_handler(event: dict):
                         for s in ["sex", "money", "shadow", "final"]: p[s] = True
                         updates["purchased_sections"], updates["has_full_chart"] = p, True
                     await update_user(vk_id, updates)
-                    await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=0)
+                    await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=0, keyboard=get_main_keyboard(vk_id))
             else:
                 diff_rubles = math.ceil((amount_needed - balance) / 10)
-                kb = Keyboard(inline=True).add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}")).row().add(Callback("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
+                kb = Keyboard(inline=True).add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}")).row()
+                kb.add(Callback("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
                 await ghost_edit(bot.api, peer_id=peer_id, message=f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\nТвой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\nСистема не может вскрыть этот слой матрицы.\n\nОплати недостающие {amount_needed - balance} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "get_referral":
             await ghost_edit(bot.api, peer_id=peer_id, message=f"Твоя персональная ссылка для друзей:\nhttps://vk.com/im?sel=-219181948&text=ПЕЧАТЬ-{vk_id}\n\nОтправь этот код/ссылку новому адепту. Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд.", conversation_message_id=obj.get("conversation_message_id"))
@@ -275,9 +278,9 @@ async def message_event_handler(event: dict):
             target = payload.get("target")
             if target: await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target}))
             kb = Keyboard(inline=True)
-            for i in range(10):
-                if i > 0 and i % 2 == 0: kb.row()
+            for _i in range(10):
                 kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
+                kb.row()
             await bot.api.messages.edit(peer_id=peer_id, message="Выбери карту из разложенных:", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "global_draw":
             # 1. Сразу убираем кнопки и показываем статус
@@ -347,8 +350,8 @@ async def message_event_handler(event: dict):
                 kb, b_cnt = Keyboard(inline=True), 0
                 for c_id in pool:
                     if c_id not in drawn:
-                        if b_cnt > 0 and b_cnt % 2 == 0: kb.row()
                         kb.add(Callback("🎴", payload={"oracle_card": c_id}))
+                        kb.row()
                         b_cnt += 1
                 await bot.api.messages.edit(peer_id=peer_id, message=f"Выбрано: {len(drawn)}/3...", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
             else:

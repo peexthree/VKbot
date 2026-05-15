@@ -34,14 +34,17 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
 
     kb = Keyboard(inline=True)
     kb.add(Callback("💻 СИСТЕМА", payload={"cmd": "admin_nav", "menu": "system"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     kb.add(Callback("📈 АНАЛИТИКА", payload={"cmd": "admin_nav", "menu": "analytics"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("👥 АДЕПТЫ", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     kb.add(Callback("📢 ВЕЩАНИЕ", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("💎 VIP ХАБ", payload={"cmd": "admin_nav", "menu": "vip"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
     kb.add(Callback("📜 ЛОГИ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
     kb.add(Callback("🏠 ВЫХОД", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
@@ -80,19 +83,21 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None):
     # Warmup
     label = "🔴 СТОП ПРОГРЕВ" if warmup_active else "🟢 СТАРТ ПРОГРЕВ"
     kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_warmup"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
 
     # Maintenance
     label = "🟢 ВЫКЛ ТЕХРАБОТЫ" if maintenance_mode else "🛠 ВКЛ ТЕХРАБОТЫ"
     kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_maintenance"}), color=KeyboardButtonColor.SECONDARY)
-
     kb.row()
+
     # Memory
     label = "🧠 ВЫКЛ ПАМЯТЬ" if tag_memory_active else "🧠 ВКЛ ПАМЯТЬ"
     kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_tag_memory"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
 
     kb.add(Callback("🧹 ОЧИСТИТЬ REDIS", payload={"cmd": "admin_cmd", "action": "clear_redis"}), color=KeyboardButtonColor.NEGATIVE)
-
     kb.row()
+
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
@@ -255,6 +260,7 @@ async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
 
     kb = Keyboard(inline=True)
     kb.add(Callback("🔄 ОБНОВИТЬ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
@@ -428,9 +434,11 @@ async def admin_fsm_handler(message: Message):
 
             kb = Keyboard(inline=True)
             kb.add(Callback("⚡️ БАЛАНС", payload={"cmd": "admin_user_op", "op": "edit_balance", "target": target_id}), color=KeyboardButtonColor.PRIMARY)
+            kb.row()
             kb.add(Callback("👑 FULL UNLOCK", payload={"cmd": "admin_user_op", "op": "full_unlock", "target": target_id}), color=KeyboardButtonColor.POSITIVE)
             kb.row()
             kb.add(Callback("🎁 КАРТА", payload={"cmd": "admin_user_op", "op": "give_card_start", "target": target_id}), color=KeyboardButtonColor.SECONDARY)
+            kb.row()
             kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.SECONDARY)
 
             await message.answer(text, keyboard=kb.get_json())
@@ -505,6 +513,7 @@ async def admin_fsm_handler(message: Message):
 
         kb = Keyboard(inline=True)
         kb.add(Callback("✅ ПОДТВЕРДИТЬ", payload={"cmd": "admin_cmd", "action": "broadcast_confirm"}), color=KeyboardButtonColor.POSITIVE)
+        kb.row()
         kb.add(Callback("❌ ОТМЕНА", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.NEGATIVE)
 
         await message.answer(f"ПРЕВЬЮ ПРИЗЫВА:\n\n📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{text}\n\nОтправить всем адептам?", keyboard=kb.get_json())

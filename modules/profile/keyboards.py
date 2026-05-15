@@ -7,10 +7,12 @@ from modules.keyboards import (
 
 # Прокси-функции для сохранения обратной совместимости по именам
 def get_profile_keyboard() -> str:
+
     return get_profile_inline_keyboard()
 
 def get_settings_keyboard() -> str:
     return get_settings_inline_keyboard()
+
 
 def get_skin_keyboard(skin_name: str, is_owned: bool) -> str:
     return get_skin_inline_keyboard(skin_name, is_owned)
@@ -31,6 +33,7 @@ def get_reset_confirm_keyboard() -> str:
     kb.row()
     kb.add(Callback("Назад в профиль 👤", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
+
 
 def get_cancel_seal_keyboard() -> str:
     from vkbottle import Keyboard, KeyboardButtonColor, Callback
