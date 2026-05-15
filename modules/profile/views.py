@@ -264,13 +264,13 @@ async def cancel_seal_logic(vk_id: int, peer_id: int, message: Message, skip_loc
     await syndicate_dashboard_logic(vk_id, peer_id, message, skip_lock=skip_lock)
 
 
-async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = False):
+async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = False, override_ref: str = None):
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
-        text = message.text.strip().upper()
+        text = override_ref.strip().upper() if override_ref else message.text.strip().upper()
         match = re.match(r"^(ПРОМО|ПЕЧАТЬ)-(\d+)$", text)
         if not match:
             return
@@ -311,7 +311,7 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         await message.answer(f"ПЕЧАТЬ АКТИВИРОВАНА! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
         if is_new:
             from modules.registration import start_handler
-            await start_handler(message)
+            await start_handler(message, skip_lock=True)
         try:
             first_name = purchased.get("first_name")
             if not first_name:

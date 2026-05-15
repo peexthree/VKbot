@@ -47,14 +47,20 @@ async def reset_user_handler(message: Message):
 # ==================== ГЛАВНЫЙ СТАРТ ====================
 @labeler.message(text=["Начать", "start", "/start"])
 @labeler.message(payload={"command": "start"})
-async def start_handler(message: Message):
+async def start_handler(message: Message, skip_lock: bool = False):
     vk_id = message.from_id
+
+    # Проверка на реферальную ссылку (deep link)
+    if hasattr(message, "ref") and message.ref and message.ref.upper().startswith(("ПЕЧАТЬ-", "ПРОМО-")) and not skip_lock:
+        from modules.profile.views import apply_promo_logic
+        await apply_promo_logic(vk_id, message, override_ref=message.ref)
+        return
 
     # Интерактивный старт
     await start_dynamic_typing(bot.api, vk_id)
     await asyncio.sleep(2) # Даем прочувствовать момент
 
-    if not await acquire_lock(vk_id):
+    if not skip_lock and not await acquire_lock(vk_id):
         return
 
     try:
@@ -114,7 +120,8 @@ async def start_handler(message: Message):
         logger.error(f"Ошибка в start_handler: {e}")
         await message.answer("Произошла ошибка при инициализации. Попробуй ещё раз.")
     finally:
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
         await stop_dynamic_typing(vk_id)
 
 
