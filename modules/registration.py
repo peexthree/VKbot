@@ -101,11 +101,11 @@ async def start_handler(message: Message):
         )
 
         kb = Keyboard(inline=True)
-        kb.add(Callback("💎 КИБЕР-ОЛЕСЯ", payload={"cmd": "choose_onboarding_skin", "skin": "olesya"}), color=KeyboardButtonColor.PRIMARY)
-        kb.add(Callback("🌑 СЕРЬЕЗНЫЙ АСКЕТ", payload={"cmd": "choose_onboarding_skin", "skin": "asket"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("💎 КИБЕР-ОЛЕСЯ", payload={"cmd": "choose_onboarding_skin", "skin": "Олеся Ивонченко"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🌑 СЕРЬЕЗНЫЙ АСКЕТ", payload={"cmd": "choose_onboarding_skin", "skin": "Серьезный Аскет"}), color=KeyboardButtonColor.PRIMARY)
 
         # Загружаем фото Олеси для велком-месседжа
-        att = await upload_local_photo(bot.api, SKIN_ASSETS["olesya"], peer_id=vk_id)
+        att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Ивонченко"], peer_id=vk_id)
 
         await message.answer(welcome_text, attachment=att, keyboard=kb.get_json())
         await set_user_state(vk_id, "onboarding_skin_selection")
@@ -122,9 +122,13 @@ async def start_handler(message: Message):
 
 async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, conversation_message_id: int = None):
     try:
-        await update_user(vk_id, {"active_skin": skin})
         user = await get_user(vk_id)
-        if not user: return
+        if not user:
+            # Если по какой-то причине пользователя нет, создаем его (подстраховка)
+            user = await create_user(vk_id=vk_id, birth_date="", birth_time="12:00", birth_city="", first_name="")
+            if not user: return
+
+        await update_user(vk_id, {"active_skin": skin})
 
         bdate = user.get("birth_date") or "Не указана"
         city = user.get("birth_city") or "Не указан"

@@ -44,33 +44,37 @@ async def message_event_handler(event: dict):
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
-        except Exception: pass
+        except Exception:
+            logger.error(f"Failed to parse payload: {payload}")
+
+    if not isinstance(payload, dict):
+        payload = {}
+
+    # Пытаемся ответить на событие сразу, чтобы убрать спиннер
+    try:
+        await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+    except Exception as e:
+        logger.debug(f"Could not answer event {event_id}: {e}")
 
     if vk_id and payload.get("cmd") != "profile_action":
         if await check_throttle(vk_id): return
 
-    if not await acquire_lock(vk_id, ttl=2): return
+    if not await acquire_lock(vk_id, ttl=5):
+        logger.warning(f"Could not acquire lock for vk_id={vk_id} in message_event_handler")
+        return
     try:
         if not vk_id or not payload: return
         cmd = payload.get("cmd")
 
         if cmd in ["admin_cmd", "admin_nav", "admin_user_op"]:
-            try: await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
-            except Exception: pass
             await process_admin_cmd(vk_id, peer_id, payload)
             return
         elif cmd == "admin_cmd_cancel":
-            try: await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
-            except Exception: pass
             await set_fsm_state(vk_id, "")
             await show_admin_console(peer_id)
             return
 
         logger.info(f"message_event_handler triggered by vk_id={vk_id}, cmd={cmd}")
-
-        try:
-            await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
-        except Exception: pass
 
         if cmd == "retry_registration":
             await set_user_state(vk_id, "waiting_for_onboarding_data")
