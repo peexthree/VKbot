@@ -57,18 +57,15 @@ async def _send_catalog_page(
     button_cmd = "buy" if item["key"] != "card_of_day" else "card_of_day"
     button_label = "КУПИТЬ" if item["key"] != "card_of_day" else "ПОЛУЧИТЬ"
 
-    kb = Keyboard(inline=True)
-    kb.add(Callback(button_label, payload={"cmd": button_cmd, "type": item_type, "key": item["key"]}), color=KeyboardButtonColor.POSITIVE)
-
-    if total_items > 1:
-        kb.row()
-        if idx > 0:
-            kb.add(Callback("⬅️ НАЗАД", payload={"cmd": f"{item_type}_page", "idx": idx - 1}), color=KeyboardButtonColor.SECONDARY)
-        if idx < total_items - 1:
-            kb.add(Callback("ВПЕРЕД ➡️", payload={"cmd": f"{item_type}_page", "idx": idx + 1}), color=KeyboardButtonColor.SECONDARY)
-
-    kb.row()
-    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    from modules.keyboards import get_catalog_inline_keyboard
+    kb_json = get_catalog_inline_keyboard(
+        idx=idx,
+        total_items=total_items,
+        item_type=item_type,
+        button_label=button_label,
+        button_cmd=button_cmd,
+        item_key=item["key"]
+    )
 
     full_text = f"{header_text}\n\n📦 {item['title']}\n📜 {item['desc']}\n\nПозиция: {idx + 1} из {total_items}"
 
@@ -78,7 +75,7 @@ async def _send_catalog_page(
         full_text,
         conversation_message_id=edit_msg_id,
         attachment=att,
-        keyboard=kb.get_json()
+        keyboard=kb_json
     )
 
 
