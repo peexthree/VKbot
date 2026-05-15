@@ -15,11 +15,12 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "has_priority_access": False, "bonuses": None, "last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat(), "active_skin": "olesya",
         "purchased_skins": [], "transit_trial_days": 0, "transit_sub_expires_at": None, "unlocked_cards": {},
         "weekly_log": [], "visit_streak": 0, "total_cards_received": 0, "last_daily_bonus_date": None,
-        "welcome_bonus_received": False, "tags": [], "latest_reading_text": None, "latest_reading_data": {},
-        "source": "organic" # Можно будет передавать из реф-ссылок
+        "welcome_bonus_received": False, "tags": [], "latest_reading_text": None, "latest_reading_data": {}
     }
+    headers = HEADERS.copy()
+    headers["Prefer"] = "return=representation"
     try:
-        async with core.session.post(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS, json=payload) as r:
+        async with core.session.post(f"{URL}/rest/v1/{TABLE_NAME}", headers=headers, json=payload) as r:
             if r.status in (200, 201):
                 data = await r.json()
                 if data:
@@ -30,8 +31,10 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
 
 async def update_user(vk_id: int, updates: Dict[str, Any]):
     if not URL or not KEY or core.session is None: return None
+    headers = HEADERS.copy()
+    headers["Prefer"] = "return=representation"
     try:
-        async with core.session.patch(f"{URL}/rest/v1/{TABLE_NAME}?vk_id=eq.{vk_id}", headers=HEADERS, json=updates) as r:
+        async with core.session.patch(f"{URL}/rest/v1/{TABLE_NAME}?vk_id=eq.{vk_id}", headers=headers, json=updates) as r:
             if r.status in (200, 204):
                 data = await r.json()
                 if data: return data[0]
