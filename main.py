@@ -84,6 +84,28 @@ async def main():
                         try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
                         except Exception: pass
 
+                async def process_abandoned_cart(user):
+                    vk_id = user.get("vk_id")
+                    purchased = user.get("purchased_sections", {})
+                    last_cart_at = purchased.get("last_cart_at")
+                    if not last_cart_at: return
+
+                    cart_time = datetime.datetime.fromisoformat(last_cart_at)
+                    now = datetime.datetime.now(datetime.timezone.utc)
+
+                    # Если покупка была начата от 1 до 2 часов назад
+                    if 3600 <= (now - cart_time).total_seconds() <= 7200:
+                        # Проверяем, не купил ли он уже что-то (баланс или услугу)
+                        # Это упрощенная проверка, в реальном SaaS лучше хранить флаг успешной оплаты
+                        msg = "✦ ТВОЙ ВЫБОР ВСЕ ЕЩЕ ЖДЕТ ✦\n\nЯ заметил, что ты интересовался энергией звезд, но связь оборвалась. Карты говорят, что сейчас — лучший момент для завершения ритуала. Нужна помощь?"
+                        try:
+                            kb = Keyboard(inline=True).add(Callback("ПОПОЛНИТЬ ✨", payload={"cmd": "tariff_page", "idx": 3}), color=KeyboardButtonColor.POSITIVE)
+                            await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=0)
+                            # Очищаем, чтобы не спамить
+                            purchased["last_cart_at"] = None
+                            await update_user(vk_id, {"purchased_sections": purchased})
+                        except Exception: pass
+
                 async def process_user_transit(user):
                     vk_id = user.get("vk_id")
                     if not vk_id or not user.get("birth_city"):
@@ -132,6 +154,7 @@ async def main():
                                 logger.error(f"Ошибка: {str(e)}")
 
                     await process_reactivation(user)
+                    await process_abandoned_cart(user)
                     if trial_days == 3:
                         try:
                             keyboard_obj = {

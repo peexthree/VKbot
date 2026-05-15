@@ -217,7 +217,7 @@ async def process_synastry_city(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(text=["🛰 ТАРИФЫ"])
+@labeler.message(text=["🛰 ТАРИФЫ", "💳 ПОПОЛНИТЬ"])
 async def show_tariffs_handler(message: Message):
     await show_tariffs(message.from_id, message.peer_id, 0)
 
@@ -230,6 +230,9 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         {"key": "tariff_1", "title": "Спутник 7 дней", "desc": "990 Энергии. Ежедневные прогнозы на 7 дней.", "image_name": "uslugi/7day.jpg"},
         {"key": "tariff_2", "title": "Оракул 30 дней", "desc": "2900 Энергии. Полный месяц транзитов.", "image_name": "uslugi/30day.jpg"},
         {"key": "tariff_vip", "title": "VIP Архив", "desc": "5900 Энергии. Золотой архив + месяц транзитов.", "image_name": "uslugi/VIPTOP.jpg"},
+        {"key": "topup_500", "title": "Пакет 500 ✨", "desc": "500 Энергии звезд для любых разборов.", "image_name": "uslugi/500.jpg"},
+        {"key": "topup_1000", "title": "Пакет 1000 ✨", "desc": "1000 Энергии звезд. Оптимальный выбор.", "image_name": "uslugi/1000.jpg"},
+        {"key": "topup_5000", "title": "VIP Энергия 5000 ✨", "desc": "5000 Энергии звезд. Для глубокого погружения.", "image_name": "uslugi/5000.jpg"},
     ]
 
     await _send_catalog_page(
@@ -238,6 +241,6 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         items=tariffs,
         idx=idx,
         edit_msg_id=edit_msg_id,
-        header_text="🛰 ТАРИФЫ 🛰\nВыберите тариф и нажмите 'КУПИТЬ'.",
+        header_text="🛰 ТАРИФЫ И ПОПОЛНЕНИЕ 🛰\nВыберите пакет и нажмите 'КУПИТЬ'.",
         item_type="tariff"
     )

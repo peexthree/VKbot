@@ -201,12 +201,32 @@ async def message_event_handler(event: dict):
                 await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
         elif cmd == "buy":
             buy_type, key = payload.get("type"), payload.get("key")
-            prices = {"sex": 1000, "money": 900, "shadow": 700, "final": 1200, "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500, "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900}
+            prices = {
+                "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
+                "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
+                "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900,
+                "topup_500": 500, "topup_1000": 1000, "topup_5000": 5000
+            }
             amount_needed = prices.get(key)
             if not amount_needed: return
             user = await get_user(vk_id)
             if not user: return
             balance = int(user.get("balance", 0) or 0)
+
+            # Для прямых пополнений сразу ведем на оплату
+            if key.startswith("topup_"):
+                rubles = amount_needed # Курс 1:1
+
+                # Трекинг брошенной корзины
+                p = user.get("purchased_sections", {})
+                p["last_cart_item"] = key
+                p["last_cart_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                await update_user(vk_id, {"purchased_sections": p})
+
+                kb = Keyboard(inline=True).add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={rubles}"))
+                await ghost_edit(bot.api, peer_id, f"💳 ПОПОЛНЕНИЕ БАЛАНСА\n\nВы выбрали пакет: {amount_needed} ✨\nСтоимость: {rubles} RUB\n\nНажмите кнопку ниже для оплаты через VK Pay.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+                return
+
             if balance >= amount_needed:
                 new_balance = balance - amount_needed
                 await update_user(vk_id, {"balance": new_balance})
@@ -238,33 +258,62 @@ async def message_event_handler(event: dict):
                 kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
             await bot.api.messages.edit(peer_id=peer_id, message="Выбери карту из разложенных:", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "global_draw":
-            await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Карта выбрана. Читаю линии вероятности...", keyboard=Keyboard(inline=True).get_json())
+            # 1. Сразу убираем кнопки и показываем статус
+            conv_id = obj.get("conversation_message_id")
+            await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="✦ КАРТА ВЫБРАНА. ИНИЦИАЦИЯ...", keyboard=Keyboard(inline=True).get_json())
+
             state_dict = await get_fsm_step(vk_id)
             if not state_dict: return
             target_section, p_name, p_date = state_dict.get("target_section", ""), state_dict.get("partner_name", ""), state_dict.get("partner_date", "")
             await set_user_state(vk_id, "")
+
             card_id = str(random.randint(0, 77))
             card_data = get_card_data(card_id)
             user = await get_user(vk_id)
+
             if user:
                 unlocked = user.get("unlocked_cards")
                 if not isinstance(unlocked, dict): unlocked = {str(c): "Первое касание" for c in unlocked} if isinstance(unlocked, list) else {}
                 if card_id not in unlocked: unlocked[card_id] = f"{card_data.get('name', 'Карта')} - {card_data.get('subtitle', 'Новое знание')}"
                 await update_user(vk_id, {"total_cards_received": user.get("total_cards_received", 0) + 1, "unlocked_cards": unlocked})
-            await bot.api.messages.edit(peer_id=peer_id, message=random.choice(THEATRICAL_PHRASES), conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json())
-            await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
+
+            # 2. Подготовка ассетов
             active_skin = user.get("active_skin", "olesya") if user else "olesya"
             skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
             card_att = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
-            if skin_att: await bot.api.messages.send(peer_id=peer_id, message="", attachment=skin_att, random_id=0)
+
+            atts = []
+            if skin_att: atts.append(skin_att)
+            if card_att: atts.append(card_att)
+
             p_display = "Проводник"
             for k, v in SKIN_ASSETS.items():
                 if v == SKIN_ASSETS.get(active_skin, "o.png") and k != active_skin:
                     p_display = k
                     break
-            await bot.api.messages.send(peer_id=peer_id, message=f"🔮 Проводник: {p_display}\n🃏 Твоя карта: {card_data.get('name')} — {card_data.get('subtitle')}\n📖 Значение: {card_data.get('description')}", attachment=card_att, random_id=0)
-            await bot.api.messages.send(peer_id=peer_id, message="Считываю поток для персонализированного разбора...", random_id=0)
-            if target_section: asyncio.create_task(execute_generation(vk_id, peer_id, target_section, p_name, p_date, card_id, card_data, conversation_message_id=obj.get("conversation_message_id")))
+
+            # 3. Обновляем ТЕКУЩЕЕ сообщение, добавляя информацию о карте и картинки
+            ritual_text = (
+                f"🔮 Проводник: {p_display}\n"
+                f"🃏 Твоя карта: {card_data.get('name')} — {card_data.get('subtitle')}\n"
+                f"📖 Значение: {card_data.get('description')}\n\n"
+                "------------------\n"
+                "✦ СЧИТЫВАЮ ПОТОК ДЛЯ ПЕРСОНАЛИЗИРОВАННОГО РАЗБОРА..."
+            )
+
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                conversation_message_id=conv_id,
+                message=ritual_text,
+                attachment=",".join(atts) if atts else None
+            )
+
+            # 4. Запускаем генерацию, передавая ТОТ ЖЕ conv_id для финального обновления
+            if target_section:
+                asyncio.create_task(execute_generation(
+                    vk_id, peer_id, target_section, p_name, p_date,
+                    card_id, card_data, conversation_message_id=conv_id
+                ))
         elif "oracle_card" in payload:
             card_id, state_dict = payload["oracle_card"], await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "oracle_draw": return
