@@ -38,6 +38,8 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     kb.add(Callback("👥 АДЕПТЫ", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.PRIMARY)
     kb.add(Callback("📢 ВЕЩАНИЕ", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
+    kb.add(Callback("💎 VIP ХАБ", payload={"cmd": "admin_nav", "menu": "vip"}), color=KeyboardButtonColor.POSITIVE)
+    kb.row()
     kb.add(Callback("📜 ЛОГИ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("🏠 ВЫХОД", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
@@ -110,6 +112,8 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
         new_today = 0
         total_balance = 0
         purchased_stats = {}
+        active_today = 0
+        revenue_est = 0
 
         for u in users:
             total_balance += int(u.get("balance", 0) or 0)
@@ -125,11 +129,25 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
             for key, val in purchased.items():
                 if val is True:
                     purchased_stats[key] = purchased_stats.get(key, 0) + 1
+                    # Эстимейт выручки: Курс 1:1. Если услуга стоит 1000 ✨, это 1000 RUB.
+                    # Это ориентировочный подсчет, т.к. часть энергии могла быть бонусной.
+                    prices = {"sex": 1000, "money": 900, "shadow": 700, "final": 1200, "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500}
+                    revenue_est += prices.get(key, 0)
+
+            last_active = u.get("last_active_date")
+            if last_active:
+                try:
+                    la_date = datetime.datetime.fromisoformat(last_active.replace('Z', '+00:00'))
+                    if la_date >= today_start:
+                        active_today += 1
+                except: pass
 
         stats = {
             "total_users": total_users,
             "new_today": new_today,
+            "active_today": active_today,
             "total_balance": total_balance,
+            "revenue_est": revenue_est,
             "purchased_stats": purchased_stats
         }
         # Cache for 10 minutes
@@ -137,15 +155,22 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
 
     total_users = stats["total_users"]
     new_today = stats["new_today"]
+    active_today = stats.get("active_today", 0)
     total_balance = stats["total_balance"]
+    revenue_est = stats.get("revenue_est", 0)
     purchased_stats = stats["purchased_stats"]
+
+    conversion_rate = (new_today / active_today * 100) if active_today > 0 else 0
 
     stats_text = (
         "📈 АНАЛИТИКА МАТРИЦЫ\n\n"
-        f"👥 Всего адептов: {total_users}\n"
-        f"✨ Новых за сегодня: {new_today}\n"
-        f"💰 Общий банк энергии: {total_balance} ✨\n\n"
-        "🔥 Популярные услуги:\n"
+        f"👥 ВСЕГО АДЕПТОВ: {total_users}\n"
+        f"✨ НОВЫХ СЕГОДНЯ: {new_today}\n"
+        f"🔥 АКТИВНЫХ СЕГОДНЯ: {active_today}\n"
+        f"📊 КОНВЕРСИЯ: {conversion_rate:.1f}%\n"
+        f"💰 ЭСТИМЕЙТ ВЫРУЧКИ: ~{revenue_est} RUB\n"
+        f"🔋 БАНК ЭНЕРГИИ: {total_balance} ✨\n\n"
+        "🔥 ТОП УСЛУГ:\n"
     )
 
     for key, count in sorted(purchased_stats.items(), key=lambda x: x[1], reverse=True)[:5]:
@@ -188,6 +213,28 @@ async def show_admin_broadcast(peer_id: int, conversation_message_id: int = None
 
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
+async def show_admin_vip(peer_id: int, conversation_message_id: int = None):
+    """Раздел управления VIP-клиентами"""
+    users = await get_all_users()
+    vip_users = [u for u in users if u.get("has_full_chart") or (u.get("balance", 0) or 0) > 5000]
+
+    text = (
+        "💎 VIP ХАБ: УПРАВЛЕНИЕ ЭЛИТОЙ 💎\n\n"
+        f"Количество VIP-адептов: {len(vip_users)}\n"
+        "--------------------------\n"
+        "VIP-статус имеют те, у кого открыт полный архив или баланс > 5000 ✨.\n\n"
+        "Выберите действие:"
+    )
+
+    kb = Keyboard(inline=True)
+    kb.add(Callback("👑 СПИСОК VIP", payload={"cmd": "admin_cmd", "action": "list_vips"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("🎁 ВЫДАТЬ VIP", payload={"cmd": "admin_cmd", "action": "search_user_start"}), color=KeyboardButtonColor.POSITIVE)
+    kb.row()
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+
+    await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
 async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
     """Просмотр последних логов"""
     log_dir = "logs"
@@ -214,7 +261,7 @@ async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
 
 # ==================== ОБРАБОТКА КОМАНД ====================
 
-async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict):
+async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversation_message_id: int = None):
     if vk_id != ADMIN_ID:
         return
 
@@ -222,12 +269,13 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict):
     nav_menu = payload.get("menu")
 
     if payload.get("cmd") == "admin_nav":
-        if nav_menu == "main": await show_admin_main(peer_id)
-        elif nav_menu == "system": await show_admin_system(peer_id)
-        elif nav_menu == "analytics": await show_admin_analytics(peer_id)
-        elif nav_menu == "users": await show_admin_users(peer_id)
-        elif nav_menu == "broadcast": await show_admin_broadcast(peer_id)
-        elif nav_menu == "logs": await show_admin_logs(peer_id)
+        if nav_menu == "main": await show_admin_main(peer_id, conversation_message_id)
+        elif nav_menu == "system": await show_admin_system(peer_id, conversation_message_id)
+        elif nav_menu == "analytics": await show_admin_analytics(peer_id, conversation_message_id)
+        elif nav_menu == "users": await show_admin_users(peer_id, conversation_message_id)
+        elif nav_menu == "broadcast": await show_admin_broadcast(peer_id, conversation_message_id)
+        elif nav_menu == "logs": await show_admin_logs(peer_id, conversation_message_id)
+        elif nav_menu == "vip": await show_admin_vip(peer_id, conversation_message_id)
         return
 
     if action == "toggle_warmup":
@@ -250,6 +298,19 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict):
         new_val = 0 if current and int(current) == 1 else 1
         await redis_client.set("system_config:tag_memory_active", str(new_val))
         await show_admin_system(peer_id)
+
+    elif action == "list_vips":
+        users = await get_all_users()
+        vip_users = [u for u in users if u.get("has_full_chart") or (u.get("balance", 0) or 0) > 5000]
+
+        text = "💎 СПИСОК VIP-АДЕПТОВ:\n\n"
+        for u in vip_users[:20]: # Лимит 20 для сообщения
+            text += f"- ID: {u['vk_id']} | {u.get('balance', 0)} ✨ | {'FULL' if u.get('has_full_chart') else 'RICH'}\n"
+
+        if not vip_users: text += "VIP-адепты не обнаружены."
+
+        kb = Keyboard(inline=True).add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "vip"}), color=KeyboardButtonColor.PRIMARY)
+        await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
     elif action == "clear_redis":
         await clear_photo_cache()

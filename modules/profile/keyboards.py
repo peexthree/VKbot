@@ -5,8 +5,9 @@ def get_profile_keyboard() -> str:
     """Главная клавиатура профиля (Настройки, Тарифы, Гримуар, Синдикат)"""
     kb = Keyboard(inline=True, one_time=False)
     kb.add(Callback("Настройка ⚙", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.SECONDARY)
-    kb.add(Callback("Тарифы 💎", payload={"cmd": "profile_action", "action": "tariffs"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("Пополнить ✨", payload={"cmd": "tariff_page", "idx": 3}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
+    kb.add(Callback("Тарифы 💎", payload={"cmd": "profile_action", "action": "tariffs"}), color=KeyboardButtonColor.PRIMARY)
     kb.add(Callback("Гримуар 📖", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("Мой Синдикат 🕸", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()

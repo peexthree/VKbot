@@ -119,27 +119,32 @@ async def execute_generation(
 
                     display_text += "\n\nПолный разбор со всеми 10 блоками доступен в PDF ниже."
 
-                typing_msg_id = await stop_dynamic_typing(peer_id)
+                await stop_dynamic_typing(peer_id)
+
+                # Сохраняем "шапку" с картой, если это был ghost-процесс
+                header = ""
+                if card_data:
+                    header = f"🃏 {card_data.get('name')} — {card_data.get('subtitle')}\n------------------\n\n"
+
                 await ghost_edit(
                     bot.api,
                     peer_id,
-                    display_text,
+                    header + display_text,
                     conversation_message_id=conversation_message_id,
-                    message_id=typing_msg_id,
                     keyboard=kb_str
                 )
             else:
-                await handle_generation_failure(vk_id, peer_id, target_section)
+                await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id)
         finally:
             await stop_dynamic_typing(peer_id)
     except Exception as e:
         await stop_dynamic_typing(peer_id)
         logger.error(f"Ошибка: {str(e)}")
-        await handle_generation_failure(vk_id, peer_id, target_section)
+        await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id)
     finally:
         await release_lock(lock_key)
 
-async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str):
+async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str, conversation_message_id: int = None):
     prices = {
         "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
         "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
@@ -149,8 +154,14 @@ async def handle_generation_failure(vk_id: int, peer_id: int, target_section: st
     user = await get_user(vk_id)
     if user and price_of_service > 0:
         await update_user(vk_id, {"balance": user.get("balance", 0) + price_of_service})
-    await bot.api.messages.send(
-        peer_id=peer_id,
-        message="Кажется, сегодня звёзды немного запутались. Связь прервалась, но твоя Энергия звезд возвращена на баланс. Попробуй ещё раз?",
-        random_id=0
+
+    msg = "🛑 КАНАЛ СВЯЗИ НЕСТАБИЛЕН\n\nЗвезды скрылись за облаками матрицы. Энергия возвращена на твой баланс. Попробуй инициировать ритуал снова через минуту."
+
+    await stop_dynamic_typing(peer_id)
+    await ghost_edit(
+        bot.api,
+        peer_id,
+        msg,
+        conversation_message_id=conversation_message_id,
+        keyboard=get_main_keyboard()
     )
