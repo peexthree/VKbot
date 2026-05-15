@@ -56,8 +56,9 @@ async def message_event_handler(event: dict):
     except Exception as e:
         logger.debug(f"Could not answer event {event_id}: {e}")
 
-    if vk_id and payload.get("cmd") != "profile_action":
-        if await check_throttle(vk_id): return
+    if vk_id and payload.get("cmd") not in ["profile_action", "main_menu", "services_menu", "profile_menu"]:
+        if await check_throttle(vk_id):
+            return
 
     if not await acquire_lock(vk_id, ttl=5):
         logger.warning(f"Could not acquire lock for vk_id={vk_id} in message_event_handler")
@@ -121,16 +122,36 @@ async def message_event_handler(event: dict):
         elif cmd == "main_menu":
             user = await get_user(vk_id)
             if not user: return
-            kb_json = await get_sections_keyboard(vk_id, user)
-            await ghost_edit(bot.api, peer_id, message="ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?", keyboard=kb_json, conversation_message_id=obj.get("conversation_message_id"))
+
+            from modules.keyboards import get_main_inline_keyboard
+            kb_json = await get_main_inline_keyboard(vk_id, user)
+
+            first_name = user.get("first_name") or "Адепт"
+            balance = int(user.get("balance", 0) or 0)
+            active_skin = user.get("active_skin", "olesya")
+
+            from modules.utils.logic import calculate_user_rank
+            level, rank = calculate_user_rank(user)
+
+            from modules.utils.consts import SKIN_STATUS_PHRASES
+            status_phrase = SKIN_STATUS_PHRASES.get(active_skin, "Система готова.")
+
+            main_menu_text = (
+                "✦ АНТИ-ТАР ✦\n\n"
+                f"Привет, {first_name}!\n"
+                f"Уровень {level} • {rank} ⭐ {balance} Энергии\n\n"
+                f"🔮 {status_phrase}"
+            )
+
+            await ghost_edit(bot.api, peer_id, message=main_menu_text, keyboard=kb_json, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day_menu":
             await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
-        elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
+        elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"))
         elif cmd == "profile_menu":
             from modules.profile.views import show_profile_logic
             await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "guide_menu" or cmd == "guide": await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=conv_id if (conv_id := obj.get("conversation_message_id")) else None)
-        elif cmd == "service_page": await show_services(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
+        elif cmd == "service_page": await show_services(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"))
         elif cmd == "tariff_page": await show_tariffs(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd == "skin_page": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, idx=payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd in ["set_skin", "buy_skin"]: await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload, conversation_message_id=obj.get("conversation_message_id"))
@@ -158,7 +179,10 @@ async def message_event_handler(event: dict):
             if success and os.path.exists(pdf_name):
                 try:
                     doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
-                    await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0, keyboard=get_main_keyboard(vk_id))
+
+                    from modules.keyboards import get_main_reply_keyboard
+                    await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0, keyboard=get_main_reply_keyboard(vk_id))
+
                 finally:
                     if os.path.exists(pdf_name): await asyncio.to_thread(os.remove, pdf_name)
             else: await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=0)

@@ -39,7 +39,7 @@ async def reset_user_handler(message: Message):
         await message.answer("СИСТЕМА ОБНУЛЕНА. Напиши 'Начать' для теста с нуля.")
         logger.success(f"Пользователь {vk_id} полностью сброшен")
     except Exception as e:
-        logger.error(f"Ошибка в reset_user_handler: {e}")
+        logger.error(f"Ошибка in reset_user_handler: {e}")
     finally:
         await release_lock(vk_id)
 
@@ -262,8 +262,12 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int):
         "Куда направимся первым делом?"
     )
 
-    kb_json = await get_sections_keyboard(vk_id, user)
+    from modules.keyboards import get_main_inline_keyboard, get_main_reply_keyboard
+    kb_json = await get_main_inline_keyboard(vk_id, user)
+    reply_kb = get_main_reply_keyboard(vk_id)
     await bot.api.messages.send(peer_id=peer_id, message=final_text, keyboard=kb_json, random_id=0)
+    # Отправляем reply-клавиатуру отдельным сообщением для фиксации интерфейса
+    await bot.api.messages.send(peer_id=peer_id, message="Нижняя панель навигации активирована.", keyboard=reply_kb, random_id=0)
 
 # ==================== ВОЗВРАТ В ГЛАВНОЕ МЕНЮ ====================
 @labeler.message(text=["Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
@@ -280,11 +284,32 @@ async def back_to_main_menu(message: Message):
             await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
             return
 
-        kb_json = await get_sections_keyboard(vk_id, user)
+        from modules.keyboards import get_main_inline_keyboard, get_main_reply_keyboard
+        kb_json = await get_main_inline_keyboard(vk_id, user)
+
+        first_name = user.get("first_name") or "Адепт"
+        balance = int(user.get("balance", 0) or 0)
+        active_skin = user.get("active_skin", "olesya")
+
+        from modules.utils.logic import calculate_user_rank
+        level, rank = calculate_user_rank(user)
+
+        from modules.utils.consts import SKIN_STATUS_PHRASES
+        status_phrase = SKIN_STATUS_PHRASES.get(active_skin, "Система готова.")
+
+        main_menu_text = (
+            "✦ АНТИ-ТАР ✦\n\n"
+            f"Привет, {first_name}!\n"
+            f"Уровень {level} • {rank} ⭐ {balance} Энергии\n\n"
+            f"🔮 {status_phrase}"
+        )
+
         await message.answer(
-            "ТВОИ ДАННЫЕ В СИСТЕМЕ. КУДА ДВИНЕМСЯ ДАЛЬШЕ?",
+            main_menu_text,
             keyboard=kb_json
         )
+        # Обновляем reply-клавиатуру при возврате в меню
+        await message.answer("Интерфейс обновлен.", keyboard=get_main_reply_keyboard(vk_id))
     except Exception as e:
         logger.error(f"Ошибка в back_to_main_menu: {e}")
     finally:

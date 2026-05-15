@@ -67,11 +67,8 @@ async def show_profile_logic(
         photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
 
         # Определение отображаемого имени персонажа
-        skin_display_name = active_skin
-        if active_skin == "olesya":
-            skin_display_name = "Олеся Ивонченко"
-        elif active_skin == "asket":
-            skin_display_name = "Серьезный Аскет"
+        from modules.utils.consts import SKIN_DISPLAY_NAMES
+        skin_display_name = SKIN_DISPLAY_NAMES.get(active_skin, active_skin)
 
         # Данные
         first_name = user.get("first_name") or "Адепт"
@@ -89,20 +86,12 @@ async def show_profile_logic(
         visit_streak = user.get("visit_streak", 0)
 
         # Расчет уровня Адепта
-        unlocked_cards = user.get("unlocked_cards", {})
-        unlocked_count = len(unlocked_cards)
-
-        # Уровень зависит от карт и общей активности
-        total_cards_received = user.get("total_cards_received", 0)
-        level = 1 + (unlocked_count // 5) + (total_cards_received // 10)
-
-        rank_names = [
-            "Неофит", "Послушник", "Искатель", "Адепт", "Проводник",
-            "Мастер Теней", "Верховный Жрец", "Хранитель Ключей", "Магистр Матрицы"
-        ]
-        rank = rank_names[min(level // 3, len(rank_names)-1)]
+        from modules.utils.logic import calculate_user_rank
+        level, rank = calculate_user_rank(user)
 
         # Прогресс по реальным открытым картам
+        unlocked_cards = user.get("unlocked_cards", {})
+        unlocked_count = len(unlocked_cards)
         progress = min(10, int((unlocked_count / 78) * 10))
         progress_bar = "█" * progress + "░" * (10 - progress)
 
@@ -192,7 +181,7 @@ async def syndicate_dashboard_logic(
             rank = "Одиночка"
             progress_text = "До статуса Вербовщик остался 1 адепт."
         text = (
-            "🕸 СИНДИКАТ АНТИ-ТАР 🕸\n\n"
+            "🕸 СИНДИКАТ 🕸\n\n"
             f"Твой текущий ранг: {rank}\n"
             f"Завербовано адептов: {syndicate_count}\n"
             f"Сгенерировано энергии: {syndicate_energy} ✨\n\n"
@@ -358,7 +347,7 @@ async def show_guide_logic(
             "Как получать энергию в дар:\n\n"
             "Ежедневный дар: Заходи ко мне каждый день и открывай Главное меню. Я буду начислять тебе 100 Энергии звезд.\n\n"
             "Приветственный дар: Ты получаешь 700 Энергии звезд при регистрации.\n\n"
-            "Мой Синдикат: В разделе Мой профиль есть кнопка Мой Синдикат. Передай Печать призыва новому адепту, и вы оба получите по 500 Энергии звезд.\n\n"
+            "Синдикат: В разделе Мой профиль есть кнопка Синдикат. Передай Печать призыва новому адепту, и вы оба получите по 500 Энергии звезд.\n\n"
             "Как открывать тайны: Перейди в Услуги, листай карточки и жми Купить. Если энергии не хватит, система сама рассчитает доплату. После покупки я выдам тебе личный PDF-файл.\n\n"
             "Карты и Гримуар: После каждой покупки ты вытягиваешь новую карту. Она навсегда сохранится в твоем Гримуаре в профиле."
         )
