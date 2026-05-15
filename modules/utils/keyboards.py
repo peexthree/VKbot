@@ -1,5 +1,6 @@
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
 from modules.utils.logic import check_and_give_daily_bonus
+from modules.utils.consts import ADMIN_ID
 
 def get_main_keyboard() -> str:
     kb = Keyboard(one_time=False, inline=False)
@@ -31,6 +32,11 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     kb.row()
     kb.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
+
+    if vk_id == ADMIN_ID:
+        kb.row()
+        kb.add(Callback("⚙️ КОНСОЛЬ МАГИСТРА", payload={"cmd": "profile_action", "action": "admin_console"}), color=KeyboardButtonColor.PRIMARY)
+
     sections = [
         ("sex", "👄 СЕКСУАЛЬНОСТЬ", purchased.get("sex") or has_all),
         ("money", "💰 БОГАТСТВО", purchased.get("money") or has_all),

@@ -55,7 +55,7 @@ async def message_event_handler(event: dict):
         if not vk_id or not payload: return
         cmd = payload.get("cmd")
 
-        if cmd == "admin_cmd":
+        if cmd in ["admin_cmd", "admin_nav", "admin_user_op"]:
             try: await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
             except Exception: pass
             await process_admin_cmd(vk_id, peer_id, payload)
@@ -170,7 +170,7 @@ async def message_event_handler(event: dict):
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "guide": await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=conv_id)
-            elif action == "admin_console": await show_admin_console(peer_id)
+            elif action == "admin_console": await show_admin_console(peer_id, conversation_message_id=conv_id)
             elif action == "syndicate": await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "grimoire": await show_grimoire_page(vk_id, peer_id, 0, skip_lock=True, conversation_message_id=conv_id)
             elif action == "tariffs": await show_tariffs(vk_id, peer_id, 0)
