@@ -108,6 +108,7 @@ async def start_handler(message: Message, skip_lock: bool = False):
 
         kb = Keyboard(inline=True)
         kb.add(Callback("💎 КИБЕР-ОЛЕСЯ", payload={"cmd": "choose_onboarding_skin", "skin": "Олеся Ивонченко"}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
         kb.add(Callback("🌑 СЕРЬЕЗНЫЙ АСКЕТ", payload={"cmd": "choose_onboarding_skin", "skin": "Серьезный Аскет"}), color=KeyboardButtonColor.PRIMARY)
 
         # Загружаем фото Олеси для велком-месседжа

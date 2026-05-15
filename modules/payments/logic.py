@@ -22,23 +22,23 @@ async def process_payment_and_generate(vk_id: int, section: str):
         if section == "all":
             purchased.update({"sex": True, "money": True, "shadow": True, "final": True})
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0, keyboard=get_main_keyboard())
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0, keyboard=get_main_keyboard(vk_id))
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_oracle_question"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0, keyboard=get_main_keyboard())
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0, keyboard=get_main_keyboard(vk_id))
             return
         elif section == "synastry":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_synastry_name"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0, keyboard=get_main_keyboard())
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0, keyboard=get_main_keyboard(vk_id))
             return
         else:
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0, keyboard=get_main_keyboard())
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0, keyboard=get_main_keyboard(vk_id))
 
         await set_user_state(vk_id, f'{{"step": "global_cut", "target_section": "{section}"}}')
         kb = Keyboard(inline=True)
@@ -163,5 +163,5 @@ async def handle_generation_failure(vk_id: int, peer_id: int, target_section: st
         peer_id,
         msg,
         conversation_message_id=conversation_message_id,
-        keyboard=get_main_keyboard()
+        keyboard=get_main_keyboard(vk_id)
     )
