@@ -25,17 +25,14 @@ async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     purchased = user.get("purchased_sections", {}) if user else {}
     has_all = purchased.get("all") or (user and user.get("has_full_chart"))
     kb = Keyboard(inline=True)
+    # Группируем по 2 в ряд для экономии места (лимит 10 рядов)
     kb.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
-    kb.row()
     kb.add(Callback("🔮 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
     kb.add(Callback("💳 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
     kb.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
 
-    if vk_id == ADMIN_ID:
-        kb.row()
-        kb.add(Callback("⚙️ КОНСОЛЬ МАГИСТРА", payload={"cmd": "profile_action", "action": "admin_console"}), color=KeyboardButtonColor.PRIMARY)
+    # Админку убираем отсюда по просьбе юзера (она теперь в нижней кнопке)
 
     sections = [
         ("sex", "👄 СЕКСУАЛЬНОСТЬ", purchased.get("sex") or has_all),

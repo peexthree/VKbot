@@ -27,7 +27,7 @@ async def process_oracle_cut_handler(message: Message):
         pool = pool[:10]
         await set_user_state(vk_id, json.dumps({"step": "oracle_draw", "question": state.get("question", ""), "drawn_cards": [], "pool": pool}))
         kb = Keyboard(inline=True)
-        for i, cid in enumerate(pool):
+        for _i, cid in enumerate(pool):
             kb.add(Callback("🎴", payload={"oracle_card": cid}))
             kb.row()
         await message.answer("ШАГ 3 ИЗ 3: ВЫБОР КАРТ. Выбери из своей стопки ровно 3 карты", keyboard=kb.get_json())
