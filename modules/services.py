@@ -60,11 +60,12 @@ async def _send_catalog_page(
     kb = Keyboard(inline=True)
     kb.add(Callback(button_label, payload={"cmd": button_cmd, "type": item_type, "key": item["key"]}), color=KeyboardButtonColor.POSITIVE)
 
-    kb.row()
-    if idx > 0:
-        kb.add(Callback("⬅️ НАЗАД", payload={"cmd": f"{item_type}_page", "idx": idx - 1}), color=KeyboardButtonColor.SECONDARY)
-    if idx < total_items - 1:
-        kb.add(Callback("ВПЕРЕД ➡️", payload={"cmd": f"{item_type}_page", "idx": idx + 1}), color=KeyboardButtonColor.SECONDARY)
+    if total_items > 1:
+        kb.row()
+        if idx > 0:
+            kb.add(Callback("⬅️ НАЗАД", payload={"cmd": f"{item_type}_page", "idx": idx - 1}), color=KeyboardButtonColor.SECONDARY)
+        if idx < total_items - 1:
+            kb.add(Callback("ВПЕРЕД ➡️", payload={"cmd": f"{item_type}_page", "idx": idx + 1}), color=KeyboardButtonColor.SECONDARY)
 
     kb.row()
     kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)

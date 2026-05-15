@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, Dict
 from loguru import logger
 from database.config import URL, KEY, HEADERS, TABLE_NAME
@@ -9,12 +10,13 @@ async def create_user(vk_id: int, birth_date: str, birth_time: str, birth_city: 
         "vk_id": vk_id, "birth_date": birth_date, "birth_time": birth_time, "birth_city": birth_city,
         "free_teaser_used": False, "is_subscribed": False, "compatibility_balance": 0, "core_profile": "",
         "partners": [], "free_card_used": False,
-        "purchased_sections": {"sex": False, "money": False, "shadow": False, "final": False, "sex_val": 0, "first_name": first_name, "oracle_access": False, "card_of_day_last_used": None},
+        "purchased_sections": {"sex": False, "money": False, "shadow": False, "final": False, "sex_val": 0, "first_name": first_name, "oracle_access": False, "card_of_day_last_used": None, "conversion_step": "started"},
         "has_full_chart": False, "forecast_time": None, "balance": 0, "oracle_last_used": None,
-        "has_priority_access": False, "bonuses": None, "last_active_date": None, "active_skin": "olesya",
+        "has_priority_access": False, "bonuses": None, "last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat(), "active_skin": "olesya",
         "purchased_skins": [], "transit_trial_days": 0, "transit_sub_expires_at": None, "unlocked_cards": {},
         "weekly_log": [], "visit_streak": 0, "total_cards_received": 0, "last_daily_bonus_date": None,
-        "welcome_bonus_received": False, "tags": [], "latest_reading_text": None, "latest_reading_data": {}
+        "welcome_bonus_received": False, "tags": [], "latest_reading_text": None, "latest_reading_data": {},
+        "source": "organic" # Можно будет передавать из реф-ссылок
     }
     try:
         async with core.session.post(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS, json=payload) as r:
