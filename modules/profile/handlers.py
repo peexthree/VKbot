@@ -123,7 +123,7 @@ async def view_grimoire_card(message: Message):
 async def god_mode_handler(message: Message):
     await god_mode_logic(message.from_id, message)
 
-@labeler.message(text=["🕸 Синдикат", "Синдикат", "Мой Синдикат", "Мой синдикат"])
+@labeler.message(text=["🕸 Синдикат", "Синдикат"])
 async def syndicate_dashboard_handler(
     message: Message = None,
     vk_id: int = None,

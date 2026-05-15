@@ -84,3 +84,23 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
                 logger.error(f"Ошибка: {str(e)}")
         finally:
             await release_lock(lock_key)
+
+def calculate_user_rank(user: dict) -> tuple[int, str]:
+    """Рассчитывает уровень и ранг пользователя"""
+    unlocked_cards = user.get("unlocked_cards", {})
+    if isinstance(unlocked_cards, list):
+        unlocked_count = len(unlocked_cards)
+    elif isinstance(unlocked_cards, dict):
+        unlocked_count = len(unlocked_cards)
+    else:
+        unlocked_count = 0
+
+    total_cards_received = user.get("total_cards_received", 0) or 0
+    level = 1 + (unlocked_count // 5) + (total_cards_received // 10)
+
+    rank_names = [
+        "Неофит", "Послушник", "Искатель", "Адепт", "Проводник",
+        "Мастер Теней", "Верховный Жрец", "Хранитель Ключей", "Магистр Матрицы"
+    ]
+    rank = rank_names[min(level // 3, len(rank_names)-1)]
+    return level, rank

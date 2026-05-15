@@ -90,7 +90,13 @@ async def settings_handler_logic(
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        text = "✦ НАСТРОЙКИ И ЮРИДИЧЕСКИЙ ЩИТ ✦"
+        user = await get_user(vk_id)
+        balance = user.get("balance", 0) if user else 0
+        text = (
+            "⚙️ НАСТРОЙКИ\n"
+            f"✨ Баланс: {balance} Энергии звезд\n\n"
+            "✦ ЮРИДИЧЕСКИЙ ЩИТ ✦"
+        )
         kb_json = get_settings_keyboard()
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, keyboard=kb_json)
     finally:

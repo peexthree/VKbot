@@ -34,6 +34,7 @@ async def _send_catalog_page(
     edit_msg_id: int | None,
     header_text: str,
     item_type: str, # "service" or "tariff"
+    filter_val: str = None
 ):
     total_items = len(items)
     if not items:
@@ -64,7 +65,8 @@ async def _send_catalog_page(
         item_type=item_type,
         button_label=button_label,
         button_cmd=button_cmd,
-        item_key=item["key"]
+        item_key=item["key"],
+        filter_val=filter_val
     )
 
     full_text = f"{header_text}\n\n📦 {item['title']}\n📜 {item['desc']}\n\nПозиция: {idx + 1} из {total_items}"
@@ -91,22 +93,27 @@ async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
         return False
     return True
 
-async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
+async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None, filter_val: str = None):
 
     if not await _ensure_user_state(vk_id, peer_id):
         return
 
     services = [
-        {"key": "sex", "title": "Твоя сексуальная энергия", "desc": "1000 Энергии. Раскроет матрицу страсти.", "image_name": "uslugi/sex.jpg"},
-        {"key": "money", "title": "Код твоего богатства", "desc": "900 Энергии. Пробьет финансовый потолок.", "image_name": "uslugi/Money.jpg"},
-        {"key": "shadow", "title": "Твои скрытые грани", "desc": "700 Энергии. Раскроет подавленные эмоции.", "image_name": "uslugi/DEMONS.jpg"},
-        {"key": "final", "title": "Твой истинный путь", "desc": "1200 Энергии. Вектор развития.", "image_name": "uslugi/WAYLIFE.jpg"},
-        {"key": "synastry", "title": "Тайна ваших отношений", "desc": "1500 Энергии. Жесткий разбор совместимости.", "image_name": "uslugi/SINISTRY.jpg"},
-        {"key": "oracle", "title": "Вопрос судьбе (Оракул)", "desc": "500 Энергии. Ответ судьбы без воды.", "image_name": "uslugi/QUEST.jpg"},
-        {"key": "antitaro", "title": "Антитаро (Разрыв иллюзий)", "desc": "500 Энергии. Разбор иллюзий.", "image_name": "uslugi/ANTITARO.jpg"},
-        {"key": "all", "title": "Золотой архив всех откровений", "desc": "3000 Энергии. Полный доступ ко всем тайнам.", "image_name": "uslugi/VIP.jpg"},
-        {"key": "card_of_day", "title": "Карта дня", "desc": "Бесплатно. Твоя персональная карта дня.", "image_name": "uslugi/cardofday.jpg"},
+        {"key": "sex", "title": "Твоя сексуальная энергия", "desc": "1000 Энергии. Раскроет матрицу страсти.", "image_name": "uslugi/sex.jpg", "category": "deep"},
+        {"key": "money", "title": "Код твоего богатства", "desc": "900 Энергии. Пробьет финансовый потолок.", "image_name": "uslugi/Money.jpg", "category": "deep"},
+        {"key": "shadow", "title": "Твои скрытые грани", "desc": "700 Энергии. Раскроет подавленные эмоции.", "image_name": "uslugi/DEMONS.jpg", "category": "deep"},
+        {"key": "final", "title": "Твой истинный путь", "desc": "1200 Энергии. Вектор развития.", "image_name": "uslugi/WAYLIFE.jpg", "category": "deep"},
+        {"key": "synastry", "title": "Тайна ваших отношений", "desc": "1500 Энергии. Жесткий разбор совместимости.", "image_name": "uslugi/SINISTRY.jpg", "category": "tarot"},
+        {"key": "oracle", "title": "Вопрос судьбе (Оракул)", "desc": "500 Энергии. Ответ судьбы без воды.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
+        {"key": "antitaro", "title": "Антитаро (Разрыв иллюзий)", "desc": "500 Энергии. Разбор иллюзий.", "image_name": "uslugi/ANTITARO.jpg", "category": "tarot"},
+        {"key": "all", "title": "Золотой архив всех откровений", "desc": "3000 Энергии. Полный доступ ко всем тайнам.", "image_name": "uslugi/VIP.jpg", "category": "deep"},
+        {"key": "card_of_day", "title": "Карта дня", "desc": "Бесплатно. Твоя персональная карта дня.", "image_name": "uslugi/cardofday.jpg", "category": "tarot"},
     ]
+
+    if filter_val:
+        services = [s for s in services if s.get("category") == filter_val]
+
+    header = "🃏 ТАРО И АНТИТАРО 🃏" if filter_val == "tarot" else "✦ ВИТРИНА УСЛУГ ✦"
 
     await _send_catalog_page(
         vk_id=vk_id,
@@ -114,8 +121,9 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         items=services,
         idx=idx,
         edit_msg_id=edit_msg_id,
-        header_text="✦ ВИТРИНА УСЛУГ ✦\nВыберите услугу и нажмите 'КУПИТЬ'.",
-        item_type="service"
+        header_text=f"{header}\nВыберите услугу и нажмите 'КУПИТЬ'.",
+        item_type="service",
+        filter_val=filter_val
     )
 
 async def is_waiting_synastry_name(message: Message) -> bool:

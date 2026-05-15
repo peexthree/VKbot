@@ -130,25 +130,28 @@ async def message_event_handler(event: dict):
             balance = int(user.get("balance", 0) or 0)
             active_skin = user.get("active_skin", "olesya")
 
+            from modules.utils.logic import calculate_user_rank
+            level, rank = calculate_user_rank(user)
+
             from modules.utils.consts import SKIN_STATUS_PHRASES
             status_phrase = SKIN_STATUS_PHRASES.get(active_skin, "Система готова.")
 
             main_menu_text = (
                 "✦ АНТИ-ТАР ✦\n\n"
                 f"Привет, {first_name}!\n"
-                f"✨ Баланс: {balance} Энергии звезд\n"
+                f"Уровень {level} • {rank} ⭐ {balance} Энергии\n\n"
                 f"🔮 {status_phrase}"
             )
 
             await ghost_edit(bot.api, peer_id, message=main_menu_text, keyboard=kb_json, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day_menu":
             await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
-        elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
+        elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"))
         elif cmd == "profile_menu":
             from modules.profile.views import show_profile_logic
             await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "guide_menu" or cmd == "guide": await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=conv_id if (conv_id := obj.get("conversation_message_id")) else None)
-        elif cmd == "service_page": await show_services(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
+        elif cmd == "service_page": await show_services(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"))
         elif cmd == "tariff_page": await show_tariffs(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd == "skin_page": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, idx=payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd in ["set_skin", "buy_skin"]: await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload, conversation_message_id=obj.get("conversation_message_id"))

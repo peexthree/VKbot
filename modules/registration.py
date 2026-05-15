@@ -290,13 +290,16 @@ async def back_to_main_menu(message: Message):
         balance = int(user.get("balance", 0) or 0)
         active_skin = user.get("active_skin", "olesya")
 
+        from modules.utils.logic import calculate_user_rank
+        level, rank = calculate_user_rank(user)
+
         from modules.utils.consts import SKIN_STATUS_PHRASES
         status_phrase = SKIN_STATUS_PHRASES.get(active_skin, "Система готова.")
 
         main_menu_text = (
             "✦ АНТИ-ТАР ✦\n\n"
             f"Привет, {first_name}!\n"
-            f"✨ Баланс: {balance} Энергии звезд\n"
+            f"Уровень {level} • {rank} ⭐ {balance} Энергии\n\n"
             f"🔮 {status_phrase}"
         )
 
