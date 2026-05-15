@@ -17,10 +17,6 @@
 
         @page {
             size: A4;
-            margin: 60px 50px;
-        }
-
-        @page :first {
             margin: 0;
         }
 
@@ -78,10 +74,10 @@
 
         /* ====================== ОСНОВНОЕ СОДЕРЖИМОЕ ====================== */
         .content-wrapper {
-            background: rgba(20, 15, 35, 0.88);
+            background: rgba(20, 15, 35, 0.7);
             border-radius: 20px;
             padding: 45px 50px;
-            margin: 20px 0;
+            margin: 60px 50px;
             box-shadow: 0 12px 45px rgba(0,0,0,0.7);
         }
 
@@ -141,7 +137,7 @@
 
         /* ====================== КРЕАТИВНЫЕ БЛОКИ ====================== */
         .creative-block {
-            background: rgba(30, 20, 45, 0.82);
+            background: rgba(30, 20, 45, 0.6);
             border-radius: 16px;
             padding: 26px 30px;
             margin: 42px 0;
@@ -169,16 +165,6 @@
             box-shadow: 0 0 12px #ffe8a3;
         }
 
-        /* QR Код */
-        .qr-code-container {
-            text-align: center;
-            margin: 30px 0;
-        }
-        .qr-code-container img {
-            max-width: 150px;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
-        }
 
         /* Финальная печать */
         .final-seal {
@@ -275,16 +261,7 @@
                 {{ energy_map | safe }}
             </div>
 
-            <!-- 9. QR-код на продолжение -->
-            <div class="creative-block" style="text-align: center;">
-                <strong>9. ВХОД В ГРИМУАР</strong>
-                <p style="font-size: 12.5pt;">Отсканируй или нажми, чтобы получить полный разбор.</p>
-                <div class="qr-code-container">
-                    <img src="cards/uslugi/qr_placeholder.png" alt="QR Code">
-                </div>
-            </div>
-
-            <!-- 10. Финальная печать ANTI-TAR -->
+            <!-- 9. Финальная печать ANTI-TAR -->
             <div class="final-seal">
                 <h2 style="color:#f4d48c; letter-spacing: 6px; font-size: 28pt; margin: 0;">ANTI-TAR</h2>
                 <p style="font-size: 11.5pt; margin-top: 8px;">Персональный разбор • {{ current_date }}</p>
