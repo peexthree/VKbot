@@ -18,7 +18,8 @@ from modules.profile.keyboards import get_syndicate_keyboard, get_cancel_seal_ke
 
 async def show_balance_logic(
     vk_id: int,
-    message: Message,
+    peer_id: int,
+    message: Message = None,
     skip_lock: bool = False,
     conversation_message_id: int = None
 ):
@@ -26,18 +27,20 @@ async def show_balance_logic(
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, message.peer_id, conversation_message_id=conversation_message_id)
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         user = await get_user(vk_id)
         if not user:
-            await ghost_edit(bot.api, message.peer_id, "ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", conversation_message_id=conversation_message_id)
+            await ghost_edit(bot.api, peer_id, "ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", conversation_message_id=conversation_message_id)
             return
         balance = int(user.get("balance", 0) or 0)
         text = f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд"
 
-        typing_msg_id = await stop_dynamic_typing(message.peer_id)
-        await ghost_edit(bot.api, message.peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id)
+        kb = Keyboard(inline=True)
+        kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.PRIMARY)
+        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb.get_json())
     finally:
-        await stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(peer_id)
         if not skip_lock:
             await release_lock(vk_id)
 
@@ -186,7 +189,7 @@ async def syndicate_dashboard_logic(
             f"Завербовано адептов: {syndicate_count}\n"
             f"Сгенерировано энергии: {syndicate_energy} ✨\n\n"
             f"{progress_text}\n\n"
-            "Расширяй свою матрицу. За каждого нового адепта ты получаешь 500 чистой Энергии звезд."
+            "Расширяй свою сеть. За каждого нового адепта ты получаешь 500 чистой Энергии звезд."
         )
         is_veteran = False
         created_at_str = user.get("created_at")
@@ -353,12 +356,16 @@ async def show_guide_logic(
         )
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
+        kb = Keyboard(inline=True)
+        kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.PRIMARY)
         await ghost_edit(
             bot.api,
             peer_id,
             text,
             conversation_message_id=conversation_message_id,
-            message_id=typing_msg_id
+            message_id=typing_msg_id,
+            keyboard=kb.get_json()
         )
     finally:
         await stop_dynamic_typing(peer_id)

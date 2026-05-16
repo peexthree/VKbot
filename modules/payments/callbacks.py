@@ -11,7 +11,7 @@ from vkbottle import (
 from vkbottle.bot import BotLabeler
 from vkbottle.tools.dev.keyboard.action import VKPay
 
-from cache import acquire_lock, check_throttle, release_lock, set_fsm_state
+from cache import acquire_lock, check_throttle, release_lock, set_fsm_state, redis_client
 from cards_data import get_card_data
 from database import (
     delete_user, get_user, set_user_state, update_user
@@ -50,11 +50,16 @@ async def message_event_handler(event: dict):
     if not isinstance(payload, dict):
         payload = {}
 
-    # Пытаемся ответить на событие сразу, чтобы убрать спиннер
-    try:
-        await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
-    except Exception as e:
-        logger.debug(f"Could not answer event {event_id}: {e}")
+    # Пытаемся ответить на событие сразу, чтобы убрать спиннер, но только один раз
+    if event_id:
+        lock_key = f"event_answered:{event_id}"
+        if not await redis_client.set(lock_key, "1", ex=30, nx=True):
+            logger.debug(f"Event {event_id} already answered or being processed")
+            return
+        try:
+            await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+        except Exception as e:
+            logger.debug(f"Could not answer event {event_id}: {e}")
 
     if vk_id and payload.get("cmd") not in ["profile_action", "main_menu", "services_menu", "profile_menu"]:
         if await check_throttle(vk_id):
@@ -278,9 +283,11 @@ async def message_event_handler(event: dict):
             target = payload.get("target")
             if target: await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target}))
             kb = Keyboard(inline=True)
+            # 2x5 grid to fit within 6 rows limit
             for _i in range(10):
                 kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
-                kb.row()
+                if (_i + 1) % 2 == 0:
+                    kb.row()
             await bot.api.messages.edit(peer_id=peer_id, message="Выбери карту из разложенных:", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "global_draw":
             # 1. Сразу убираем кнопки и показываем статус
@@ -351,8 +358,9 @@ async def message_event_handler(event: dict):
                 for c_id in pool:
                     if c_id not in drawn:
                         kb.add(Callback("🎴", payload={"oracle_card": c_id}))
-                        kb.row()
                         b_cnt += 1
+                        if b_cnt % 2 == 0:
+                            kb.row()
                 await bot.api.messages.edit(peer_id=peer_id, message=f"Выбрано: {len(drawn)}/3...", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
             else:
                 await set_user_state(vk_id, "")
