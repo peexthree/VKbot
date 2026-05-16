@@ -34,7 +34,6 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
 
     kb = Keyboard(inline=True)
     kb.add(Callback("💻 СИСТЕМА", payload={"cmd": "admin_nav", "menu": "system"}), color=KeyboardButtonColor.PRIMARY)
-    kb.row()
     kb.add(Callback("📈 АНАЛИТИКА", payload={"cmd": "admin_nav", "menu": "analytics"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("👥 АДЕПТЫ", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.PRIMARY)
