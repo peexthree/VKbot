@@ -125,9 +125,10 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
 
         if idx > 0:
             kb.add(Callback("⬅️ НАЗАД", payload=prev_payload), color=KeyboardButtonColor.SECONDARY)
-            kb.row()
         if idx < total_items - 1:
             kb.add(Callback("ВПЕРЕД ➡️", payload=next_payload), color=KeyboardButtonColor.SECONDARY)
+
+        if idx > 0 or idx < total_items - 1:
             kb.row()
 
     kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
