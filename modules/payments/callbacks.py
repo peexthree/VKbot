@@ -83,10 +83,10 @@ async def message_event_handler(event: dict):
         logger.info(f"message_event_handler triggered by vk_id={vk_id}, cmd={cmd}")
 
         if cmd == "retry_registration":
-            await set_user_state(vk_id, "waiting_for_onboarding_data")
+            await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": obj.get("conversation_message_id")}))
             await bot.api.messages.edit(peer_id=peer_id, message="Понял. Попробуй еще раз. Напиши дату, время и город рождения максимально четко.", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "edit_onboarding_data":
-            await set_user_state(vk_id, "waiting_for_onboarding_data")
+            await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": obj.get("conversation_message_id")}))
             await bot.api.messages.edit(peer_id=peer_id, message="Для калибровки профиля и начисления 700 Энергии звезд напиши свою дату, время и город рождения одним текстом (например: 15 мая 1990, 14:30, Казань).", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "confirm_registration":
             state_dict = await get_fsm_step(vk_id)
@@ -155,6 +155,8 @@ async def message_event_handler(event: dict):
         elif cmd == "profile_menu":
             from modules.profile.views import show_profile_logic
             await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "admin_console":
+            await show_admin_console(peer_id, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "guide_menu" or cmd == "guide": await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=conv_id if (conv_id := obj.get("conversation_message_id")) else None)
         elif cmd == "service_page": await show_services(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"))
         elif cmd == "tariff_page": await show_tariffs(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
@@ -195,7 +197,7 @@ async def message_event_handler(event: dict):
             action, conv_id = payload.get("action"), obj.get("conversation_message_id")
             if action == "settings": await settings_handler(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "change_data":
-                await set_user_state(vk_id, "waiting_for_onboarding_data")
+                await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": conv_id}))
                 kb = Keyboard(inline=True).add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
                 await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json())
             elif action == "change_skin": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=conv_id)
@@ -219,8 +221,8 @@ async def message_event_handler(event: dict):
             elif action == "grimoire": await show_grimoire_page(vk_id, peer_id, 0, skip_lock=True, conversation_message_id=conv_id)
             elif action == "tariffs": await show_tariffs(vk_id, peer_id, 0)
             elif action == "get_seal":
-                await set_user_state(vk_id, "")
-                await bot.api.messages.send(peer_id=peer_id, message=f"📜 ТВОЯ ПЕЧАТЬ ПРИЗЫВА\n\nКод твоей Печати: ПЕЧАТЬ-{vk_id}\n\nОтправь этот код новому адепту, или скинь ему прямую ссылку: https://vk.com/im?sel=-219181948&text=ПЕЧАТЬ-{vk_id}\n\nКак только он интегрируется в матрицу, ты получишь 500 Энергии звезд.", random_id=0)
+                from modules.profile.views import get_seal_logic
+                await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "enter_seal":
                 await set_user_state(vk_id, "waiting_for_seal")
                 kb = Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
@@ -276,7 +278,8 @@ async def message_event_handler(event: dict):
                 kb.add(Callback("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
                 await ghost_edit(bot.api, peer_id=peer_id, message=f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\nТвой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\nСистема не может вскрыть этот слой матрицы.\n\nОплати недостающие {amount_needed - balance} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "get_referral":
-            await ghost_edit(bot.api, peer_id=peer_id, message=f"Твоя персональная ссылка для друзей:\nhttps://vk.com/im?sel=-219181948&text=ПЕЧАТЬ-{vk_id}\n\nОтправь этот код/ссылку новому адепту. Как только он интегрируется в матрицу, ты получишь 500 Энергии звезд.", conversation_message_id=obj.get("conversation_message_id"))
+            from modules.profile.views import get_seal_logic
+            await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "grimoire_page": await show_grimoire_page(vk_id, peer_id, payload.get("page", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "view_card": await view_card_direct(vk_id, peer_id, str(payload.get("id")), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "global_cut":

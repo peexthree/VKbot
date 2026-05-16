@@ -219,12 +219,17 @@ async def syndicate_dashboard_logic(
             await release_lock(vk_id)
 
 
-async def get_seal_logic(vk_id: int, message: Message, skip_lock: bool = False):
+async def get_seal_logic(
+    vk_id: int,
+    peer_id: int,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, message.peer_id)
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         group_id = "219181948"
         text = (
             "🕸 ТВОЯ ПЕРСОНАЛЬНАЯ ПЕЧАТЬ 🕸\n"
@@ -240,9 +245,20 @@ async def get_seal_logic(vk_id: int, message: Message, skip_lock: bool = False):
             "4. ОН получает +500 ✨ на старт.\n\n"
             "Призови 5 адептов, чтобы стать Теневым Кардиналом."
         )
-        await message.answer(text)
+
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        kb = Keyboard(inline=True)
+        kb.add(Callback("⬅️ НАЗАД В СИНДИКАТ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            text,
+            conversation_message_id=conversation_message_id,
+            message_id=typing_msg_id,
+            keyboard=kb.get_json()
+        )
     finally:
-        await stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(peer_id)
         if not skip_lock:
             await release_lock(vk_id)
 

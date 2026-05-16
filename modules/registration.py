@@ -186,7 +186,15 @@ async def process_onboarding_data(message: Message):
         return
     try:
         user_text = message.text.strip()
-        await start_dynamic_typing(bot.api, vk_id)
+        # Ищем conv_id в состоянии, если он там есть
+        state = await get_user_state(vk_id)
+        conv_id = None
+        try:
+            data_state = json.loads(state)
+            conv_id = data_state.get("conv_id")
+        except: pass
+
+        await start_dynamic_typing(bot.api, vk_id, conversation_message_id=conv_id)
 
         data = await extract_birth_data(user_text)
         await stop_dynamic_typing(vk_id)
@@ -225,7 +233,16 @@ async def process_onboarding_data(message: Message):
             f"Город: {city}\n\n"
             "Проверь точность. Алгоритм не прощает ошибок."
         )
-        await message.answer(verification_text, keyboard=kb.get_json())
+
+        typing_msg_id = await stop_dynamic_typing(vk_id)
+        await ghost_edit(
+            bot.api,
+            message.peer_id,
+            verification_text,
+            conversation_message_id=conv_id,
+            message_id=typing_msg_id,
+            keyboard=kb.get_json()
+        )
 
     except Exception as e:
         logger.error(f"Ошибка в process_onboarding_data: {e}")
