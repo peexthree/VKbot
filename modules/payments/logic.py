@@ -20,7 +20,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
 
         purchased = user.get("purchased_sections", {})
         if section == "all":
-            purchased.update({"sex": True, "money": True, "shadow": True, "final": True})
+            purchased.update({"sex": True, "money": True, "shadow": True, "final": True, "all": True})
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
             await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0, keyboard=get_main_keyboard(vk_id))
         elif section == "oracle":
@@ -84,7 +84,35 @@ async def execute_generation(
 
             if res_text:
                 display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
-                save_data = {"latest_reading_text": display_text}
+
+                # Сохраняем в историю
+                history = user.get("readings_history", [])
+                if not isinstance(history, list): history = []
+
+                titles = {
+                    "sex": "Сексуальность", "money": "Богатство", "shadow": "Тень",
+                    "final": "Путь", "synastry": "Синастрия", "oracle": "Оракул",
+                    "antitaro": "Антитаро", "report": "Разбор"
+                }
+
+                history.append({
+                    "title": titles.get(target_section, "Разбор"),
+                    "date": datetime.datetime.now().strftime("%d.%m.%Y"),
+                    "text": display_text,
+                    "section": target_section
+                })
+
+                save_data = {
+                    "latest_reading_text": display_text,
+                    "readings_history": history
+                }
+
+                # Сбрасываем флаг покупки, так как услуга использована
+                purchased = user.get("purchased_sections", {})
+                if target_section in purchased:
+                    purchased[target_section] = False
+                    save_data["purchased_sections"] = purchased
+
                 if isinstance(res_data, dict):
                     res_data["text"] = display_text
                     save_data["latest_reading_data"] = res_data

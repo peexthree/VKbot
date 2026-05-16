@@ -11,98 +11,76 @@ def get_main_reply_keyboard(vk_id: int) -> str:
     return kb.get_json()
 
 async def get_main_inline_keyboard(vk_id: int, user: dict | None) -> str:
-    """SaaS Главное меню (inline)"""
+    """SaaS Главное меню (inline) - Вертикальное"""
     # Ежедневный бонус при каждом открытии меню
     await check_and_give_daily_bonus(vk_id, user, vk_id)
 
     kb = Keyboard(inline=True)
 
-    # Первая строка: Карта дня и Таро/Анти-Таро
     kb.add(Callback("🔮 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     kb.add(Callback("🃏 ТАРО / АНТИТАРО", payload={"cmd": "services_menu", "filter": "tarot"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-
-    # Вторая строка: Услуги и Мой профиль
     kb.add(Callback("🛒 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
-    kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
 
-    # Третья строка: Путеводитель и Админка (если админ)
-    kb.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
-    if vk_id == ADMIN_ID:
-        kb.add(Callback("⚙️ АДМИНКА", payload={"cmd": "admin_console"}), color=KeyboardButtonColor.SECONDARY)
-
-    # Динамические кнопки
+    # Кнопка Натальной карты (если куплена 'all')
     purchased = user.get("purchased_sections", {}) if user else {}
     has_all = purchased.get("all") or (user and user.get("has_full_chart"))
-
-    # Кнопка Натальной карты (если куплена)
     if has_all:
+        kb.add(Callback("🔮 МОЯ НАТАЛЬНАЯ КАРТА", payload={"cmd": "natal_chart_menu"}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
-        kb.add(Callback("🔮 МОЯ НАТАЛЬНАЯ КАРТА", payload={"cmd": "use_section", "key": "all"}), color=KeyboardButtonColor.POSITIVE)
 
-    # Остальные динамические купленные разборы
-    sections = [
-        ("sex", "👄 СЕКСУАЛЬНОСТЬ", purchased.get("sex") or has_all),
-        ("money", "💰 БОГАТСТВО", purchased.get("money") or has_all),
-        ("shadow", "🌘 ТЕНЬ", purchased.get("shadow") or has_all),
-        ("final", "🏁 ПУТЬ", purchased.get("final") or has_all),
-        ("synastry", "👨‍❤️‍👨 СИНАСТРИЯ", purchased.get("synastry"))
-    ]
+    kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+    kb.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
 
-    # Исключаем 'all' из списка sections так как мы его уже добавили отдельно выше
-    active_sections = [s for s in sections if s[2]]
-    if active_sections:
-        buttons_in_row = 0
-        for key, label, _ in active_sections:
-            if buttons_in_row == 0:
-                kb.row()
-            kb.add(Callback(label, payload={"cmd": "use_section", "key": key}), color=KeyboardButtonColor.POSITIVE)
-            buttons_in_row += 1
-            if buttons_in_row == 2:
-                buttons_in_row = 0
+    if vk_id == ADMIN_ID:
+        kb.row()
+        kb.add(Callback("⚙️ АДМИНКА", payload={"cmd": "admin_console"}), color=KeyboardButtonColor.SECONDARY)
 
     return kb.get_json()
 
 def get_profile_inline_keyboard() -> str:
-    """Клавиатура личного профиля"""
+    """Клавиатура личного профиля - Вертикальная"""
     kb = Keyboard(inline=True)
 
-    # Первая строка: Мои разборы и Настройки
-    kb.add(Callback("📚 МОИ РАЗБОРЫ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("📚 МОИ РАЗБОРЫ", payload={"cmd": "history_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     kb.add(Callback("⚙️ НАСТРОЙКИ", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
-
-    # Вторая строка: Тарифы и Пополнить
     kb.add(Callback("💎 ТАРИФЫ", payload={"cmd": "profile_action", "action": "tariffs"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     kb.add(Callback("✨ ПОПОЛНИТЬ", payload={"cmd": "tariff_page", "idx": 3}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
-
-    # Третья строка: Синдикат и Гримуар
     kb.add(Callback("🕸 СИНДИКАТ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     kb.add(Callback("📖 ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-
-    # Четвертая строка: Путеводитель и Назад
     kb.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
     kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
     return kb.get_json()
 
 def get_settings_inline_keyboard() -> str:
-    """Клавиатура настроек"""
+    """Клавиатура настроек - Вертикальная"""
     kb = Keyboard(inline=True)
     kb.add(Callback("Изменить свои данные", payload={"cmd": "profile_action", "action": "change_data"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
     kb.add(Callback("Выбрать персонажа", payload={"cmd": "profile_action", "action": "change_skin"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("Отменить подписку", payload={"cmd": "profile_action", "action": "cancel_sub"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
     kb.add(Callback("СБРОС АККАУНТА", payload={"cmd": "profile_action", "action": "reset_account"}), color=KeyboardButtonColor.NEGATIVE)
     kb.row()
+    kb.add(Callback("👤 НАЗАД В ПРОФИЛЬ", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
-    kb.add(Callback("Назад в профиль 👤", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
 def get_skin_inline_keyboard(skin_name: str, is_owned: bool) -> str:
-    """Выбор/покупка скина"""
+    """Выбор/покупка скина - Вертикальная"""
     kb = Keyboard(inline=True)
     if is_owned:
         kb.add(Callback("ВЫБРАТЬ", payload={"cmd": "set_skin", "skin": skin_name}), color=KeyboardButtonColor.POSITIVE)
@@ -113,24 +91,27 @@ def get_skin_inline_keyboard(skin_name: str, is_owned: bool) -> str:
     return kb.get_json()
 
 def get_syndicate_inline_keyboard(is_veteran: bool) -> str:
-    """Синдикат"""
+    """Синдикат - Вертикальная"""
     kb = Keyboard(inline=True)
     kb.add(Callback("Получить Печать 📜", payload={"cmd": "profile_action", "action": "get_seal"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     if not is_veteran:
         kb.add(Callback("Ввести Печать ✒", payload={"cmd": "profile_action", "action": "enter_seal"}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
+    kb.add(Callback("👤 НАЗАД В ПРОФИЛЬ", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
-    kb.add(Callback("Назад в профиль 👤", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
 def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, button_label: str, button_cmd: str, item_key: str, filter_val: str = None) -> str:
-    """Универсальная клавиатура каталога (Услуги/Тарифы)"""
+    """Универсальная клавиатура каталога - Вертикальная"""
     kb = Keyboard(inline=True)
     kb.add(Callback(button_label, payload={"cmd": button_cmd, "type": item_type, "key": item_key}), color=KeyboardButtonColor.POSITIVE)
+    kb.row()
     kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
 
     if total_items > 1:
-        kb.row()
         prev_payload = {"cmd": f"{item_type}_page", "idx": idx - 1}
         next_payload = {"cmd": f"{item_type}_page", "idx": idx + 1}
         if filter_val:
@@ -139,9 +120,51 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
 
         if idx > 0:
             kb.add(Callback("⬅️ НАЗАД", payload=prev_payload), color=KeyboardButtonColor.SECONDARY)
+            kb.row()
         if idx < total_items - 1:
             kb.add(Callback("ВПЕРЕД ➡️", payload=next_payload), color=KeyboardButtonColor.SECONDARY)
+            kb.row()
 
-    kb.row()
     kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    return kb.get_json()
+
+def get_natal_chart_inline_keyboard(purchased: dict) -> str:
+    """Клавиатура выбора раздела Натальной карты"""
+    kb = Keyboard(inline=True)
+
+    # Показываем только те, что КУПЛЕНЫ и еще НЕ использованы (True в purchased)
+    sections = [
+        ("sex", "👄 СЕКСУАЛЬНОСТЬ"),
+        ("money", "💰 БОГАТСТВО"),
+        ("shadow", "🌘 ТЕНЬ"),
+        ("final", "🏁 ПУТЬ"),
+    ]
+
+    has_any = False
+    for key, label in sections:
+        if purchased.get(key):
+            kb.add(Callback(label, payload={"cmd": "use_section", "key": key}), color=KeyboardButtonColor.POSITIVE)
+            kb.row()
+            has_any = True
+
+    if not has_any:
+        kb.add(Callback("🛒 КУПИТЬ ЕЩЕ РАЗ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+        kb.row()
+
+    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    return kb.get_json()
+
+def get_history_inline_keyboard(history: list) -> str:
+    """Клавиатура истории разборов"""
+    kb = Keyboard(inline=True)
+
+    # Показываем последние 8 разборов (лимит ВК 10 рядов, 1 ряд для меню)
+    for i, item in enumerate(history[-8:][::-1]):
+        label = f"📜 {item.get('title', 'Разбор')} ({item.get('date', '')})"
+        kb.add(Callback(label[:40], payload={"cmd": "view_history", "idx": i}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+
+    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+    kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()

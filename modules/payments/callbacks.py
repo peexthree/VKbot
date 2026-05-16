@@ -155,6 +155,18 @@ async def message_event_handler(event: dict):
         elif cmd == "profile_menu":
             from modules.profile.views import show_profile_logic
             await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "natal_chart_menu":
+            user = await get_user(vk_id)
+            if not user: return
+            from modules.keyboards import get_natal_chart_inline_keyboard
+            kb_json = get_natal_chart_inline_keyboard(user.get("purchased_sections", {}))
+            await ghost_edit(bot.api, peer_id, "🔮 ТВОЯ НАТАЛЬНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb_json)
+        elif cmd == "history_menu":
+            from modules.profile.views import show_history_logic
+            await show_history_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "view_history":
+            from modules.profile.views import show_history_item_logic
+            await show_history_item_logic(vk_id=vk_id, peer_id=peer_id, idx=payload.get("idx", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "admin_console":
             await show_admin_console(peer_id, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "guide_menu" or cmd == "guide": await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=conv_id if (conv_id := obj.get("conversation_message_id")) else None)
