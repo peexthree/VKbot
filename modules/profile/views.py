@@ -350,6 +350,87 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
             await release_lock(vk_id)
 
 
+async def show_history_logic(
+    vk_id: int,
+    peer_id: int,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
+    """Отображение истории разборов"""
+    if not skip_lock and not await acquire_lock(vk_id):
+        return
+    try:
+        user = await get_user(vk_id)
+        if not user: return
+
+        history = user.get("readings_history", [])
+        if not history:
+            text = "ТВОЙ СПИСОК ОТКРОВЕНИЙ ПОКА ПУСТ.\n\nЗакажи свой первый разбор в меню 'Услуги', чтобы он сохранился здесь."
+        else:
+            text = f"📜 ТВОИ ПРОШЛЫЕ РАЗБОРЫ ({len(history)})\n\nЗдесь хранятся все твои обращения к системе. Ты можешь перечитать их в любой момент."
+
+        from modules.keyboards import get_history_inline_keyboard
+        kb_json = get_history_inline_keyboard(history)
+
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            text,
+            conversation_message_id=conversation_message_id,
+            keyboard=kb_json
+        )
+    finally:
+        if not skip_lock:
+            await release_lock(vk_id)
+
+
+async def show_history_item_logic(
+    vk_id: int,
+    peer_id: int,
+    idx: int,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
+    """Отображение конкретного разбора из истории"""
+    if not skip_lock and not await acquire_lock(vk_id):
+        return
+    try:
+        user = await get_user(vk_id)
+        if not user: return
+
+        history = user.get("readings_history", [])
+        if not history or idx >= len(history):
+            return
+
+        # История хранится в прямом порядке, но отображаем мы последние сначала (через [::-1])
+        # Чтобы правильно сопоставить индекс, нужно учесть это.
+        # Однако проще передавать индекс в прямом списке.
+        # В get_history_inline_keyboard я использую enumerate(history[-8:][::-1])
+        # Это значит idx 0 соответствует последнему элементу и т.д.
+
+        real_idx = len(history) - 1 - idx
+        if real_idx < 0: return
+
+        item = history[real_idx]
+        text = f"📜 {item.get('title')} от {item.get('date')}\n\n{item.get('text')}"
+
+        kb = Keyboard(inline=True)
+        kb.add(Callback("⬅️ НАЗАД В СПИСОК", payload={"cmd": "history_menu"}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+        kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            text,
+            conversation_message_id=conversation_message_id,
+            keyboard=kb.get_json()
+        )
+    finally:
+        if not skip_lock:
+            await release_lock(vk_id)
+
+
 async def show_guide_logic(
     vk_id: int,
     peer_id: int,
