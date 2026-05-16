@@ -15,11 +15,9 @@ def get_dynamic_keyboard(user: dict | None = None) -> str:
 
 
 # Для обратной совместимости
-def get_main_keyboard() -> str:
-    # Этот метод теперь должен принимать vk_id, но для совместимости с кодом,
-    # который его вызывает без аргументов, мы возвращаем дефолтную reply-клавиатуру.
-    # В идеале нужно будет обновить все вызовы.
-    return get_main_reply_keyboard(0)
+def get_main_keyboard(vk_id: int = 0) -> str:
+    """Возвращает основную reply-клавиатуру"""
+    return get_main_reply_keyboard(vk_id)
 
 async def get_sections_keyboard(vk_id: int, user: dict | None) -> str:
     return await get_main_inline_keyboard(vk_id, user)

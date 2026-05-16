@@ -21,6 +21,7 @@ from modules.utils import (
     SKIN_ASSETS, generate_premium_pdf, get_fsm_step, get_main_keyboard,
     ghost_edit, pdf_semaphore, upload_local_photo
 )
+from modules.utils.consts import MYSTIC_STATUS_PHRASES
 from modules.admin import process_admin_cmd, show_admin_console
 from modules.profile import (
     settings_handler, settings_choose_character, show_grimoire_page, view_card_direct
@@ -141,24 +142,15 @@ async def message_event_handler(event: dict):
             from modules.utils.consts import SKIN_STATUS_PHRASES
             status_phrase = SKIN_STATUS_PHRASES.get(active_skin, "Система готова.")
 
-            # Кэширование динамического статуса
+            # Кэширование динамического статуса (случайный из базы)
             cache_key = f"dynamic_status:{vk_id}"
             cached_status = await redis_client.get(cache_key)
             if cached_status:
                 status_phrase = cached_status
             else:
-                from ai_service import generate_text
-                core_profile = f"{user.get('birth_date')} {user.get('birth_city')}"
-                prompt = (
-                    f"Сгенерируй ОДНУ короткую (до 10 слов) загадочную фразу о текущем состоянии 'Матрицы' для пользователя. "
-                    f"Используй его данные: {core_profile}. Учитывай его уровень {level}. "
-                    f"Стиль: {active_skin}. Без приветствий. Без жирного шрифта. Без точек в конце."
-                )
                 try:
-                    dynamic_status = await generate_text(prompt, skin=active_skin)
-                    if dynamic_status and len(dynamic_status) < 100:
-                        status_phrase = dynamic_status
-                        await redis_client.set(cache_key, status_phrase, ex=21600)
+                    status_phrase = random.choice(MYSTIC_STATUS_PHRASES)
+                    await redis_client.set(cache_key, status_phrase, ex=21600)
                 except: pass
 
             # Визуальный стрик (Лунный цикл)
