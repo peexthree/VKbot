@@ -30,7 +30,7 @@ async def process_oracle_cut_handler(message: Message):
         for _i, cid in enumerate(pool):
             kb.add(Callback("🎴", payload={"oracle_card": cid}))
             kb.row()
-        await message.answer("ШАГ 3 ИЗ 3: ВЫБОР КАРТ. Выбери из своей стопки ровно 3 карты", keyboard=kb.get_json())
+        await message.answer("✨ ШАГ 3 ИЗ 3: ТВОЙ ВЫБОР ✨\nПрислушайся к интуиции и выбери 3 карты, которые откликаются тебе сейчас.", keyboard=kb.get_json())
     finally: await release_lock(vk_id)
 
 @labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня", "🃏 КАРТА ДНЯ"])
@@ -44,5 +44,5 @@ async def process_oracle_question(message: Message):
     try:
         await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": message.text.strip()}))
         kb = Keyboard(inline=True).add(Callback("✦ ОБРЕЗАТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.PRIMARY)
-        await message.answer("ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже, чтобы обрезать колоду", keyboard=kb.get_json())
+        await message.answer("✨ ШАГ 2 ИЗ 3: СОПРИКОСНОВЕНИЕ ✨\nКоснись колоды, чтобы она почувствовала твое присутствие.", keyboard=kb.get_json())
     finally: await release_lock(vk_id)

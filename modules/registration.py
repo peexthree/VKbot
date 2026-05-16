@@ -101,16 +101,16 @@ async def start_handler(message: Message, skip_lock: bool = False):
         await stop_dynamic_typing(vk_id)
 
         welcome_text = (
-            "✦ ИНИЦИАЦИЯ В МАТРИЦУ АНТИ-ТАР ✦\n\n"
-            f"Приветствую, {first_name}. Я — АНТИ-ТАР. Твой проводник в мир, где алгоритмы встречаются с судьбой.\n\n"
-            "Здесь нет места иллюзиям. Только чистый код твоей души и жесткие факты.\n\n"
-            "Прежде чем мы начнем, выбери своего Проводника, который будет вести тебя через тернии матрицы:"
+            "✨ ДОБРО ПОЖАЛОВАТЬ В АНТИ-ТАР ✨\n\n"
+            f"Здравствуй, {first_name}. Я — твой проводник в мир самопознания и глубоких инсайтов.\n\n"
+            "Здесь мы отбросим лишнее, чтобы услышать истинный голос твоего сердца и шепот звезд.\n\n"
+            "Прежде чем мы начнем наше путешествие, выбери своего Проводника, который будет оберегать тебя на этом пути:"
         )
 
         kb = Keyboard(inline=True)
-        kb.add(Callback("💎 КИБЕР-ОЛЕСЯ", payload={"cmd": "choose_onboarding_skin", "skin": "Олеся Ивонченко"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🌸 ОЛЕСЯ ИВАНЧЕНКО", payload={"cmd": "choose_onboarding_skin", "skin": "Олеся Ивонченко"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
-        kb.add(Callback("🌑 СЕРЬЕЗНЫЙ АСКЕТ", payload={"cmd": "choose_onboarding_skin", "skin": "Серьезный Аскет"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🕯 СЕРЬЕЗНЫЙ АСКЕТ", payload={"cmd": "choose_onboarding_skin", "skin": "Серьезный Аскет"}), color=KeyboardButtonColor.PRIMARY)
 
         # Загружаем фото Олеси для велком-месседжа
         att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Ивонченко"], peer_id=vk_id)
@@ -158,11 +158,11 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
         kb.add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
 
         text = (
-            f"Твой выбор принят. Теперь синхронизируем координаты твоего появления в системе.\n\n"
-            f"Данные из профиля:\n"
-            f"Дата рождения: {bdate}\n"
-            f"Город рождения: {city}\n\n"
-            "Алгоритмы требуют точности. Эти данные верны?"
+            f"Твой выбор согревает сердце. Теперь давай настроим твою личную карту звездного неба.\n\n"
+            f"Твои данные:\n"
+            f"☾ Дата рождения: {bdate}\n"
+            f"☾ Город рождения: {city}\n\n"
+            "Скажи, всё ли верно указано?"
         )
 
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
@@ -202,7 +202,7 @@ async def process_onboarding_data(message: Message):
         await stop_dynamic_typing(vk_id)
 
         if not data:
-            await message.answer("Не удалось считать координаты. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
+            await message.answer("Не удалось распознать данные. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.")
             return
 
         date = data.get("date", "")
@@ -210,7 +210,7 @@ async def process_onboarding_data(message: Message):
         city = data.get("city", "")
 
         if not date or not time or not city:
-            await message.answer("Не удалось считать координаты. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
+            await message.answer("Мне нужно чуть больше точности для верного прогноза. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
             return
 
         await set_user_state(
@@ -229,11 +229,11 @@ async def process_onboarding_data(message: Message):
         kb.add(Callback("🔄 ОШИБКА. ИСПРАВИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
 
         verification_text = (
-            f"✦ КООРДИНАТЫ РАСПОЗНАНЫ ✦\n\n"
-            f"Дата: {date}\n"
-            f"Время: {time}\n"
-            f"Город: {city}\n\n"
-            "Проверь точность. Алгоритм не прощает ошибок."
+            f"✨ ТВОИ ДАННЫЕ ПРИНЯТЫ ✨\n\n"
+            f"☾ Дата: {date}\n"
+            f"☾ Время: {time}\n"
+            f"☾ Город: {city}\n\n"
+            "Посмотри внимательно, всё ли правильно? Точность важна для верного предсказания."
         )
 
         typing_msg_id = await stop_dynamic_typing(vk_id)
@@ -263,22 +263,22 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
 
     # Ритуал интеграции
     ritual_steps = [
-        "🧬 Анализ генетического кода судьбы...",
-        "🛰 Синхронизация с планетарными транзитами...",
-        "🃏 Калибровка колоды под твою частоту...",
-        "👁 Доступ к хроникам Акаши разрешен."
+        "✨ Настраиваюсь на твою уникальную энергию...",
+        "🌙 Изучаю положение звезд в момент твоего рождения...",
+        "🔮 Перемешиваю карты для твоего первого расклада...",
+        "🕯 Вхожу в поток твоего предназначения..."
     ]
 
     for step in ritual_steps:
-        await ghost_edit(bot.api, peer_id, f"✦ ИНИЦИАЦИЯ ✦\n\n{step}", conversation_message_id=conversation_message_id)
+        await ghost_edit(bot.api, peer_id, f"✨ ТВОЕ ПУТЕШЕСТВИЕ НАЧИНАЕТСЯ ✨\n\n{step}", conversation_message_id=conversation_message_id)
         await asyncio.sleep(1.5)
 
     await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
     teaser_prompt = (
         f"Пользователь только что зарегистрировался. Его данные: {core_profile}. "
-        f"Сгенерируй ОДНУ короткую, но шокирующе точную фразу о его главной теневой черте или таланте на основе даты рождения. "
-        f"Это должен быть 'крючок', чтобы он захотел узнать больше. "
+        f"Сгенерируй ОДНУ короткую, нежную, но попадающую в самое сердце фразу о его главной силе или таланте на основе даты рождения. "
+        f"Это должен быть светлый 'инсайт', чтобы он почувствовал твою глубину. "
         f"Стиль: {active_skin}. Коротко, без приветствий. Без жирного шрифта."
     )
 
@@ -286,10 +286,10 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
     await stop_dynamic_typing(peer_id)
 
     final_text = (
-        "✦ ИНТЕГРАЦИЯ ЗАВЕРШЕНА ✦\n\n"
+        "✨ ТВОЙ ПУТЬ ОТКРЫТ ✨\n\n"
         f"{teaser_text}\n\n"
-        "Твоя матрица теперь в системе. Тебе начислено 700 Энергии звезд для первого погружения.\n\n"
-        "Куда направимся первым делом?"
+        "Я дарю тебе 700 Энергии звезд для первых шагов к познанию себя.\n\n"
+        "С чего начнем наш разговор?"
     )
 
     from modules.keyboards import get_main_inline_keyboard, get_main_reply_keyboard
@@ -298,7 +298,7 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
 
     await ghost_edit(bot.api, peer_id, final_text, conversation_message_id=conversation_message_id, keyboard=kb_json)
     # Отправляем reply-клавиатуру отдельным сообщением для фиксации интерфейса
-    await bot.api.messages.send(peer_id=peer_id, message="Нижняя панель навигации активирована.", keyboard=reply_kb, random_id=0)
+    await bot.api.messages.send(peer_id=peer_id, message="Твоя панель навигации активирована ✨", keyboard=reply_kb, random_id=0)
 
 # ==================== ВОЗВРАТ В ГЛАВНОЕ МЕНЮ ====================
 @labeler.message(text=["Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
@@ -345,10 +345,10 @@ async def back_to_main_menu(message: Message):
         streak_visual = "".join(moons[i % len(moons)] if i < visit_streak else "○" for i in range(7))
 
         main_menu_text = (
-            "✦ АНТИ-ТАР ✦\n\n"
-            f"Привет, {first_name}!\n"
-            f"Уровень {level} • {rank} ⭐ {balance} Энергии\n"
-            f"Цикл: {streak_visual} ({visit_streak} дн.)\n\n"
+            "✨ АНТИ-ТАР ✨\n\n"
+            f"Здравствуй, {first_name}!\n"
+            f"Твой уровень: {level} • {rank} ✨ {balance} Энергии\n"
+            f"Лунный цикл: {streak_visual} ({visit_streak} дн.)\n\n"
             f"🔮 {status_phrase}"
         )
 
@@ -357,7 +357,7 @@ async def back_to_main_menu(message: Message):
             keyboard=kb_json
         )
         # Обновляем reply-клавиатуру при возврате в меню
-        await message.answer("Интерфейс обновлен.", keyboard=get_main_reply_keyboard(vk_id))
+        await message.answer("Я обновила твое меню ✨", keyboard=get_main_reply_keyboard(vk_id))
     except Exception as e:
         logger.error(f"Ошибка в back_to_main_menu: {e}")
     finally:

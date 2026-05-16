@@ -25,20 +25,20 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         if last_used_str:
             last_time = datetime.datetime.fromisoformat(last_used_str)
             if (datetime.datetime.now(datetime.timezone.utc) - last_time).total_seconds() < 24 * 3600:
-                err_msg = "Твой лимит на сегодня исчерпан. Попробуй завтра или спроси Оракула."
+                err_msg = "Ты уже получил напутствие на сегодня. Возвращайся завтра или спроси совета у Оракула ✨"
                 if conv_msg_id: await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=err_msg)
                 else: await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=0)
                 return
 
         # Интерактивное перемешивание
         shuffle_steps = [
-            "🃏 Тасовка колоды...",
-            "🌀 Настройка частоты...",
-            "✨ Извлечение карты..."
+            "✨ Перемешиваю колоду твоей судьбы...",
+            "🌙 Настраиваюсь на твое сердце...",
+            "🔮 Извлекаю твое послание..."
         ]
         curr_msg_id = None
         for step in shuffle_steps:
-            text = f"✦ КАРТА ДНЯ ✦\n\n{step}"
+            text = f"✨ ТВОЯ КАРТА ДНЯ ✨\n\n{step}"
             if conv_msg_id:
                 await bot.api.messages.edit(peer_id=peer_id, message=text, conversation_message_id=conv_msg_id)
             elif curr_msg_id:
@@ -90,10 +90,10 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         except: pass
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
-        await ghost_edit(bot.api, peer_id, message=result_text + "\n\nПолный разбор со всеми 10 блоками доступен в PDF.", conversation_message_id=conv_msg_id, message_id=message_id or typing_msg_id, attachment=photo, keyboard=final_kb)
+        await ghost_edit(bot.api, peer_id, message=result_text + "\n\nТвой подробный разбор с аффирмациями и советами уже ждет тебя в PDF ✨", conversation_message_id=conv_msg_id, message_id=message_id or typing_msg_id, attachment=photo, keyboard=final_kb)
     except Exception as e:
         logger.error(f"Ошибка в Карте Дня: {e}")
-        err_msg = "Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже."
+        err_msg = "Кажется, Вселенная сейчас хранит молчание. Попробуй заглянуть чуть позже ✨"
         if conv_msg_id: await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=err_msg)
         else: await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=0)
     finally:

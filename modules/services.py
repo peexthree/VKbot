@@ -99,16 +99,16 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         return
 
     services = [
-        {"key": "sex", "title": "Твоя сексуальная энергия", "desc": "1000 Энергии. Раскроет матрицу страсти.", "image_name": "uslugi/sex.jpg", "category": "deep"},
-        {"key": "money", "title": "Код твоего богатства", "desc": "900 Энергии. Пробьет финансовый потолок.", "image_name": "uslugi/Money.jpg", "category": "deep"},
-        {"key": "shadow", "title": "Твои скрытые грани", "desc": "700 Энергии. Раскроет подавленные эмоции.", "image_name": "uslugi/DEMONS.jpg", "category": "deep"},
-        {"key": "final", "title": "Твой истинный путь", "desc": "1200 Энергии. Вектор развития.", "image_name": "uslugi/WAYLIFE.jpg", "category": "deep"},
-        {"key": "synastry", "title": "Тайна ваших отношений", "desc": "1500 Энергии. Жесткий разбор совместимости.", "image_name": "uslugi/SINISTRY.jpg", "category": "tarot"},
-        {"key": "oracle", "title": "Вопрос судьбе (Оракул)", "desc": "500 Энергии. Ответ судьбы без воды.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
-        {"key": "antitaro", "title": "Антитаро (Разрыв иллюзий)", "desc": "500 Энергии. Разбор иллюзий.", "image_name": "uslugi/ANTITARO.jpg", "category": "tarot"},
-        {"key": "all", "title": "Золотой архив всех откровений", "desc": "3000 Энергии. Полный доступ ко всем тайнам.", "image_name": "uslugi/VIP.jpg", "category": "deep"},
-        {"key": "micro_insight", "title": "Микро-инсайт (Шепот Матрицы)", "desc": "100 Энергии. Молниеносный совет от твоего Проводника.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
-        {"key": "card_of_day", "title": "Карта дня", "desc": "Бесплатно. Твоя персональная карта дня.", "image_name": "uslugi/cardofday.jpg", "category": "tarot"},
+        {"key": "sex", "title": "Твоя сексуальная энергия (СТРАСТЬ)", "desc": "1000 Энергии. Погружение в мир твоих чувств и желаний.", "image_name": "uslugi/sex.jpg", "category": "deep"},
+        {"key": "money", "title": "Энергия процветания (ИЗОБИЛИЕ)", "desc": "900 Энергии. Раскрой свой путь к финансовой свободе.", "image_name": "uslugi/Money.jpg", "category": "deep"},
+        {"key": "shadow", "title": "Теневые грани души (ТЕНЬ)", "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя.", "image_name": "uslugi/DEMONS.jpg", "category": "deep"},
+        {"key": "final", "title": "Твое истинное предназначение (ПУТЬ)", "desc": "1200 Энергии. Главный вектор твоей жизни.", "image_name": "uslugi/WAYLIFE.jpg", "category": "deep"},
+        {"key": "synastry", "title": "Магия вашего союза (СОЮЗ)", "desc": "1500 Энергии. Глубокий разбор отношений и совместимости.", "image_name": "uslugi/SINISTRY.jpg", "category": "tarot"},
+        {"key": "oracle", "title": "Послание Вселенной (Оракул)", "desc": "500 Энергии. Ответ на твой самый важный вопрос.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
+        {"key": "antitaro", "title": "Честное откровение (ОТКРОВЕНИЕ)", "desc": "500 Энергии. Взгляд на ситуацию без розовых очков.", "image_name": "uslugi/ANTITARO.jpg", "category": "tarot"},
+        {"key": "all", "title": "Золотой архив откровений", "desc": "3000 Энергии. Полный доступ ко всем твоим тайнам.", "image_name": "uslugi/VIP.jpg", "category": "deep"},
+        {"key": "micro_insight", "title": "Микро-инсайт (Шепот души)", "desc": "100 Энергии. Быстрый совет от твоего Проводника.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
+        {"key": "card_of_day", "title": "Карта дня", "desc": "Бесплатно. Твое личное напутствие на сегодня.", "image_name": "uslugi/cardofday.jpg", "category": "tarot"},
     ]
 
     if filter_val:
@@ -134,7 +134,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
                 other_items = [s for s in services if s["key"] not in rel_keys]
                 services = rel_items + other_items
 
-    header = "🃏 ТАРО И АНТИТАРО 🃏" if filter_val == "tarot" else "✦ ВИТРИНА УСЛУГ ✦"
+    header = "🔮 ПОСЛАНИЯ ТАРО" if filter_val == "tarot" else "✨ ВИТРИНА УСЛУГ ✨"
 
     await _send_catalog_page(
         vk_id=vk_id,
@@ -142,7 +142,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         items=services,
         idx=idx,
         edit_msg_id=edit_msg_id,
-        header_text=f"{header}\nВыберите услугу и нажмите 'КУПИТЬ'.",
+        header_text=f"{header}\nВыбери то, что откликается твоему сердцу.",
         item_type="service",
         filter_val=filter_val
     )
@@ -166,7 +166,7 @@ async def process_synastry_name(message: Message):
 
         partner_name = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_date", "partner_name": partner_name}))
-        await message.answer(f"Имя {partner_name} принято. Теперь введите ДАТУ РОЖДЕНИЯ партнера (например, 15.04.1990):")
+        await message.answer(f"Имя {partner_name} согрело колоду ✨ Теперь введи, пожалуйста, дату рождения партнера (например, 15.04.1990):")
     finally:
         await release_lock(vk_id)
 
@@ -185,7 +185,7 @@ async def process_synastry_date(message: Message):
             "partner_name": partner_name,
             "partner_date": partner_date
         }))
-        await message.answer(f"Дата {partner_date} принята. Теперь введите ВРЕМЯ РОЖДЕНИЯ партнера (например, 14:30 или 'не знаю'):")
+        await message.answer(f"Дата {partner_date} принята. Теперь напиши время рождения партнера (например, 14:30 или 'не знаю'):")
     finally:
         await release_lock(vk_id)
 
@@ -206,7 +206,7 @@ async def process_synastry_time(message: Message):
             "partner_date": partner_date,
             "partner_time": partner_time
         }))
-        await message.answer(f"Время {partner_time} принято. Теперь введите ГОРОД РОЖДЕНИЯ партнера (например, Москва или 'не знаю'):")
+        await message.answer(f"Время {partner_time} принято. И последнее — в какой городе родился партнер (например, Москва или 'не знаю')?")
     finally:
         await release_lock(vk_id)
 
@@ -235,7 +235,7 @@ async def process_synastry_city(message: Message):
         kb = Keyboard(inline=True)
         kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
         await message.answer(
-            "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.",
+            "✨ ШАГ 2 ИЗ 3: НАСТРОЙКА ✨\nПрикоснись к колоде, чтобы настроиться на вашу связь.",
             keyboard=kb.get_json()
         )
     except Exception as e:
@@ -253,12 +253,12 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         return
 
     tariffs = [
-        {"key": "tariff_1", "title": "Спутник 7 дней", "desc": "990 Энергии. Ежедневные прогнозы на 7 дней.", "image_name": "uslugi/7day.jpg"},
-        {"key": "tariff_2", "title": "Оракул 30 дней", "desc": "2900 Энергии. Полный месяц транзитов.", "image_name": "uslugi/30day.jpg"},
-        {"key": "tariff_vip", "title": "VIP Архив", "desc": "5900 Энергии. Золотой архив + месяц транзитов.", "image_name": "uslugi/VIPTOP.jpg"},
-        {"key": "topup_500", "title": "Пакет 500 ✨", "desc": "500 Энергии звезд для любых разборов.", "image_name": "uslugi/500.jpg"},
-        {"key": "topup_1000", "title": "Пакет 1000 ✨", "desc": "1000 Энергии звезд. Оптимальный выбор.", "image_name": "uslugi/1000.jpg"},
-        {"key": "topup_5000", "title": "VIP Энергия 5000 ✨", "desc": "5000 Энергии звезд. Для глубокого погружения.", "image_name": "uslugi/5000.jpg"},
+        {"key": "tariff_1", "title": "Спутник 7 дней", "desc": "990 Энергии. Твое ежедневное напутствие на неделю.", "image_name": "uslugi/7day.jpg"},
+        {"key": "tariff_2", "title": "Оракул 30 дней", "desc": "2900 Энергии. Целый месяц под защитой звезд.", "image_name": "uslugi/30day.jpg"},
+        {"key": "tariff_vip", "title": "VIP Архив", "desc": "5900 Энергии. Вечный доступ к мудрости + месяц прогнозов.", "image_name": "uslugi/VIPTOP.jpg"},
+        {"key": "topup_500", "title": "Пакет 500 ✨", "desc": "500 Энергии звезд для твоих открытий.", "image_name": "uslugi/500.jpg"},
+        {"key": "topup_1000", "title": "Пакет 1000 ✨", "desc": "1000 Энергии звезд. Твой лучший выбор.", "image_name": "uslugi/1000.jpg"},
+        {"key": "topup_5000", "title": "VIP Энергия 5000 ✨", "desc": "5000 Энергии звезд. Для тех, кто идет в глубину.", "image_name": "uslugi/5000.jpg"},
     ]
 
     await _send_catalog_page(
@@ -267,6 +267,6 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         items=tariffs,
         idx=idx,
         edit_msg_id=edit_msg_id,
-        header_text="🛰 ТАРИФЫ И ПОПОЛНЕНИЕ 🛰\nВыберите пакет и нажмите 'КУПИТЬ'.",
+        header_text="✨ ДАРЫ И ЭНЕРГИЯ ✨\nВыбери подходящий объем энергии для своего пути.",
         item_type="tariff"
     )
