@@ -14,10 +14,10 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
     try:
         conv_msg_id, message_id = kwargs.get("conversation_message_id"), kwargs.get("message_id")
         if conv_msg_id:
-            try: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="Раскладываю карты...", keyboard=Keyboard(inline=True).get_json())
+            try: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="✨ Раскладываю карты для тебя...", keyboard=Keyboard(inline=True).get_json())
             except: pass
         elif message_id:
-            try: await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message="Раскладываю карты...", keyboard=Keyboard(inline=True).get_json())
+            try: await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message="✨ Раскладываю карты для тебя...", keyboard=Keyboard(inline=True).get_json())
             except: pass
 
         user = await get_user(vk_id)
@@ -39,8 +39,8 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
 
         res = await generate_text(prompt, skin=user.get("active_skin", "olesya"))
         if not res:
-            if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="Оракул молчит. Попробуй позже.")
-            else: await bot.api.messages.send(peer_id=vk_id, message="Оракул молчит. Попробуй позже.", random_id=0)
+            if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨")
+            else: await bot.api.messages.send(peer_id=vk_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨", random_id=0)
             return
 
         unlocked = user.get("unlocked_cards", {}) or {}
@@ -65,7 +65,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         else: await bot.api.messages.send(peer_id=vk_id, message=res, keyboard=kb_json, random_id=0, attachment=att)
     except Exception as e:
         logger.error(f"Ошибка в Оракуле: {e}")
-        err = "Кажется, сегодня звёзды немного запутались. Попробуем ещё раз позже."
+        err = "Звезды сегодня немного запутались. Попробуем еще раз чуть позже ✨"
         if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=err)
         else: await bot.api.messages.send(peer_id=vk_id, message=err, random_id=0)
     finally:
