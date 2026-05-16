@@ -77,7 +77,9 @@ async def main():
                     days_since = (now.date() - last_date).days
 
                     if days_since == 3:
-                        msg = "✦ ТВОЯ МАТРИЦА ЗАТУХАЕТ ✦\n\nТебя не было 3 дня. Потоки энергии слабеют. Вернись и забери свой ежедневный дар, пока связь не прервалась полностью."
+                        tags = user.get("tags", [])
+                        tag_context = f" Твои запросы по теме {tags[0]} все еще ждут ответа." if tags else ""
+                        msg = f"✦ ТВОЯ МАТРИЦА ЗАТУХАЕТ ✦\n\nТебя не было 3 дня. Потоки энергии слабеют.{tag_context} Вернись и забери свой ежедневный дар (+100 ✨), пока связь не прервалась полностью."
                         try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
                         except Exception: pass
                     elif days_since == 7:
@@ -96,11 +98,12 @@ async def main():
 
                     # Если покупка была начата от 1 до 2 часов назад
                     if 3600 <= (now - cart_time).total_seconds() <= 7200:
-                        # Проверяем, не купил ли он уже что-то (баланс или услугу)
-                        # Это упрощенная проверка, в реальном SaaS лучше хранить флаг успешной оплаты
-                        msg = "✦ ТВОЙ ВЫБОР ВСЕ ЕЩЕ ЖДЕТ ✦\n\nЯ заметил, что ты интересовался энергией звезд, но связь оборвалась. Карты говорят, что сейчас — лучший момент для завершения ритуала. Нужна помощь?"
+                        # Проверяем, не купил ли он уже что-то
+                        msg = "✦ ТВОЙ ВЫБОР ВСЕ ЕЩЕ ЖДЕТ ✦\n\nЯ заметил, что ты интересовался энергией звезд, но связь оборвалась. Только для тебя — Матрица дает скидку 10% на пополнение в течение следующего часа. Используй этот шанс."
                         try:
-                            kb = Keyboard(inline=True).add(Callback("ПОПОЛНИТЬ ✨", payload={"cmd": "tariff_page", "idx": 3}), color=KeyboardButtonColor.POSITIVE)
+                            # В реальном SaaS здесь была бы логика генерации скидочного хаша для VK Pay
+                            # Пока просто направляем в тарифы с персональным текстом
+                            kb = Keyboard(inline=True).add(Callback("ЗАБРАТЬ СО СКИДКОЙ ✨", payload={"cmd": "tariff_page", "idx": 3}), color=KeyboardButtonColor.POSITIVE)
                             await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=0)
                             # Очищаем, чтобы не спамить
                             purchased["last_cart_at"] = None

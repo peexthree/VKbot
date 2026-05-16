@@ -30,6 +30,25 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
                 else: await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=0)
                 return
 
+        # Интерактивное перемешивание
+        shuffle_steps = [
+            "🃏 Тасовка колоды...",
+            "🌀 Настройка частоты...",
+            "✨ Извлечение карты..."
+        ]
+        curr_msg_id = None
+        for step in shuffle_steps:
+            text = f"✦ КАРТА ДНЯ ✦\n\n{step}"
+            if conv_msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, message=text, conversation_message_id=conv_msg_id)
+            elif curr_msg_id:
+                await bot.api.messages.edit(peer_id=peer_id, message=text, message_id=curr_msg_id)
+            else:
+                curr_msg_id = await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
+                from modules.utils.consts import _typing_msg_ids
+                _typing_msg_ids[peer_id] = curr_msg_id
+            await asyncio.sleep(1)
+
         card_id = str(random.randint(0, 77))
         res_data = await generate_section(
             section="card_of_day", date=user.get("birth_date", ""), time=user.get("birth_time", "12:00"),

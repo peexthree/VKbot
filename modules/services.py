@@ -107,11 +107,32 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         {"key": "oracle", "title": "Вопрос судьбе (Оракул)", "desc": "500 Энергии. Ответ судьбы без воды.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
         {"key": "antitaro", "title": "Антитаро (Разрыв иллюзий)", "desc": "500 Энергии. Разбор иллюзий.", "image_name": "uslugi/ANTITARO.jpg", "category": "tarot"},
         {"key": "all", "title": "Золотой архив всех откровений", "desc": "3000 Энергии. Полный доступ ко всем тайнам.", "image_name": "uslugi/VIP.jpg", "category": "deep"},
+        {"key": "micro_insight", "title": "Микро-инсайт (Шепот Матрицы)", "desc": "100 Энергии. Молниеносный совет от твоего Проводника.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
         {"key": "card_of_day", "title": "Карта дня", "desc": "Бесплатно. Твоя персональная карта дня.", "image_name": "uslugi/cardofday.jpg", "category": "tarot"},
     ]
 
     if filter_val:
         services = [s for s in services if s.get("category") == filter_val]
+
+    # Умные рекомендации на основе тегов
+    user = await get_user(vk_id)
+    if user and not filter_val:
+        tags = user.get("tags", [])
+        if tags:
+            tags_lower = [t.lower() for t in tags]
+            # Если в тегах есть 'отношения' или 'любовь', поднимаем синастрию
+            if any(x in " ".join(tags_lower) for x in ["люб", "отнош", "секс", "партнер"]):
+                # Перемещаем 'synastry' и 'sex' в начало
+                rel_keys = ["synastry", "sex"]
+                rel_items = [s for s in services if s["key"] in rel_keys]
+                other_items = [s for s in services if s["key"] not in rel_keys]
+                services = rel_items + other_items
+            # Если есть 'деньги' или 'карьера'
+            elif any(x in " ".join(tags_lower) for x in ["ден", "фин", "раб", "бизнес", "карьер"]):
+                rel_keys = ["money"]
+                rel_items = [s for s in services if s["key"] in rel_keys]
+                other_items = [s for s in services if s["key"] not in rel_keys]
+                services = rel_items + other_items
 
     header = "🃏 ТАРО И АНТИТАРО 🃏" if filter_val == "tarot" else "✦ ВИТРИНА УСЛУГ ✦"
 

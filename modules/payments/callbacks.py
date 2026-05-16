@@ -110,7 +110,7 @@ async def message_event_handler(event: dict):
                 purchased = user.get("purchased_sections", {})
                 purchased["conversion_step"] = "onboarded"
                 await update_user(vk_id, {"purchased_sections": purchased})
-            await send_onboarding_teaser(vk_id, peer_id)
+            await send_onboarding_teaser(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "use_section":
             target_section = payload.get("key")
             user = await get_user(vk_id)
@@ -141,10 +141,36 @@ async def message_event_handler(event: dict):
             from modules.utils.consts import SKIN_STATUS_PHRASES
             status_phrase = SKIN_STATUS_PHRASES.get(active_skin, "Система готова.")
 
+            # Кэширование динамического статуса
+            cache_key = f"dynamic_status:{vk_id}"
+            cached_status = await redis_client.get(cache_key)
+            if cached_status:
+                status_phrase = cached_status
+            else:
+                from ai_service import generate_text
+                core_profile = f"{user.get('birth_date')} {user.get('birth_city')}"
+                prompt = (
+                    f"Сгенерируй ОДНУ короткую (до 10 слов) загадочную фразу о текущем состоянии 'Матрицы' для пользователя. "
+                    f"Используй его данные: {core_profile}. Учитывай его уровень {level}. "
+                    f"Стиль: {active_skin}. Без приветствий. Без жирного шрифта. Без точек в конце."
+                )
+                try:
+                    dynamic_status = await generate_text(prompt, skin=active_skin)
+                    if dynamic_status and len(dynamic_status) < 100:
+                        status_phrase = dynamic_status
+                        await redis_client.set(cache_key, status_phrase, ex=21600)
+                except: pass
+
+            # Визуальный стрик (Лунный цикл)
+            visit_streak = user.get("visit_streak", 0)
+            moons = ["🌑", "🌘", "🌗", "🌖", "🌕", "✨", "🔥"]
+            streak_visual = "".join(moons[i % len(moons)] if i < visit_streak else "○" for i in range(7))
+
             main_menu_text = (
                 "✦ АНТИ-ТАР ✦\n\n"
                 f"Привет, {first_name}!\n"
-                f"Уровень {level} • {rank} ⭐ {balance} Энергии\n\n"
+                f"Уровень {level} • {rank} ⭐ {balance} Энергии\n"
+                f"Цикл: {streak_visual} ({visit_streak} дн.)\n\n"
                 f"🔮 {status_phrase}"
             )
 
@@ -250,6 +276,7 @@ async def message_event_handler(event: dict):
             prices = {
                 "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
                 "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
+                "micro_insight": 100,
                 "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900,
                 "topup_500": 500, "topup_1000": 1000, "topup_5000": 5000
             }
