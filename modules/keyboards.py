@@ -27,8 +27,10 @@ async def get_main_inline_keyboard(vk_id: int, user: dict | None) -> str:
     kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
 
-    # Третья строка: Путеводитель
+    # Третья строка: Путеводитель и Админка (если админ)
     kb.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
+    if vk_id == ADMIN_ID:
+        kb.add(Callback("⚙️ АДМИНКА", payload={"cmd": "admin_console"}), color=KeyboardButtonColor.SECONDARY)
 
     # Динамические кнопки
     purchased = user.get("purchased_sections", {}) if user else {}
@@ -125,6 +127,7 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
     """Универсальная клавиатура каталога (Услуги/Тарифы)"""
     kb = Keyboard(inline=True)
     kb.add(Callback(button_label, payload={"cmd": button_cmd, "type": item_type, "key": item_key}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
 
     if total_items > 1:
         kb.row()
