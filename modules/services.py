@@ -34,7 +34,8 @@ async def _send_catalog_page(
     edit_msg_id: int | None,
     header_text: str,
     item_type: str, # "service" or "tariff"
-    filter_val: str = None
+    filter_val: str = None,
+    fallback_att: str = None
 ):
     total_items = len(items)
     if not items:
@@ -54,6 +55,9 @@ async def _send_catalog_page(
             att = await upload_local_photo(bot.api, item["image_name"], peer_id=vk_id)
         except Exception as e:
             logger.error(f"Failed to upload photo {item['image_name']}: {str(e)}")
+
+    if not att:
+        att = fallback_att
 
     button_cmd = "buy" if item["key"] != "card_of_day" else "card_of_day"
     button_label = "КУПИТЬ" if item["key"] != "card_of_day" else "ПОЛУЧИТЬ"
@@ -97,6 +101,8 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
 
     if not await _ensure_user_state(vk_id, peer_id):
         return
+
+    header_att = await upload_local_photo(bot.api, "uslugi/services.jpg", peer_id=vk_id)
 
     services = [
         {"key": "sex", "title": "Твоя сексуальная энергия (СТРАСТЬ)", "desc": "1000 Энергии. Погружение в мир твоих чувств и желаний.", "image_name": "uslugi/sex.jpg", "category": "deep"},
@@ -144,7 +150,8 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         edit_msg_id=edit_msg_id,
         header_text=f"{header}\nВыбери то, что откликается твоему сердцу.",
         item_type="service",
-        filter_val=filter_val
+        filter_val=filter_val,
+        fallback_att=header_att
     )
 
 async def is_waiting_synastry_name(message: Message) -> bool:
@@ -252,6 +259,8 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     if not await _ensure_user_state(vk_id, peer_id):
         return
 
+    header_att = await upload_local_photo(bot.api, "uslugi/tariffs.jpg", peer_id=vk_id)
+
     tariffs = [
         {"key": "tariff_1", "title": "Спутник 7 дней", "desc": "990 Энергии. Твое ежедневное напутствие на неделю.", "image_name": "uslugi/7day.jpg"},
         {"key": "tariff_2", "title": "Оракул 30 дней", "desc": "2900 Энергии. Целый месяц под защитой звезд.", "image_name": "uslugi/30day.jpg"},
@@ -268,5 +277,6 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         idx=idx,
         edit_msg_id=edit_msg_id,
         header_text="✨ ДАРЫ И ЭНЕРГИЯ ✨\nВыбери подходящий объем энергии для своего пути.",
-        item_type="tariff"
+        item_type="tariff",
+        fallback_att=header_att
     )

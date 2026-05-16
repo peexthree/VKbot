@@ -166,7 +166,9 @@ async def message_event_handler(event: dict):
                 f"🔮 {status_phrase}"
             )
 
-            await ghost_edit(bot.api, peer_id, message=main_menu_text, keyboard=kb_json, conversation_message_id=obj.get("conversation_message_id"))
+            att = await upload_local_photo(bot.api, "uslugi/main_menu.jpg", peer_id=vk_id)
+
+            await ghost_edit(bot.api, peer_id, message=main_menu_text, keyboard=kb_json, attachment=att, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day_menu":
             await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"))
@@ -178,7 +180,8 @@ async def message_event_handler(event: dict):
             if not user: return
             from modules.keyboards import get_natal_chart_inline_keyboard
             kb_json = get_natal_chart_inline_keyboard(user.get("purchased_sections", {}))
-            await ghost_edit(bot.api, peer_id, "🔮 ТВОЯ НАТАЛЬНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb_json)
+            att = await upload_local_photo(bot.api, "uslugi/services.jpg", peer_id=vk_id)
+            await ghost_edit(bot.api, peer_id, "🔮 ТВОЯ НАТАЛЬНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb_json, attachment=att)
         elif cmd == "history_menu":
             from modules.profile.views import show_history_logic
             await show_history_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
@@ -232,7 +235,8 @@ async def message_event_handler(event: dict):
             elif action == "change_data":
                 await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": conv_id}))
                 kb = Keyboard(inline=True).add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json())
+                att = await upload_local_photo(bot.api, "uslugi/settings.jpg", peer_id=vk_id)
+                await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json(), attachment=att)
             elif action == "change_skin": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=conv_id)
             elif action == "cancel_sub":
                 await update_user(vk_id, {"transit_sub_expires_at": None})
@@ -240,7 +244,8 @@ async def message_event_handler(event: dict):
             elif action == "reset_account":
                 await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
                 kb = Keyboard(inline=True).add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE).row().add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?", keyboard=kb.get_json())
+                att = await upload_local_photo(bot.api, "uslugi/settings.jpg", peer_id=vk_id)
+                await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?", keyboard=kb.get_json(), attachment=att)
             elif action == "confirm_reset":
                 await delete_user(vk_id)
                 await set_user_state(vk_id, "")
@@ -323,7 +328,7 @@ async def message_event_handler(event: dict):
             # 2x5 grid to fit within 6 rows limit
             for _i in range(10):
                 kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
-                if (_i + 1) % 2 == 0:
+                if (_i + 1) % 2 == 0 and _i < 9:
                     kb.row()
             await bot.api.messages.edit(peer_id=peer_id, message="Выбери карту из разложенных:", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "global_draw":
