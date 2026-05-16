@@ -81,7 +81,8 @@ def get_profile_inline_keyboard() -> str:
     kb.add(Callback("📖 ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
-    # Четвертая строка: Назад
+    # Четвертая строка: Путеводитель и Назад
+    kb.add(Callback("📖 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
 
@@ -94,6 +95,7 @@ def get_settings_inline_keyboard() -> str:
     kb.add(Callback("Отменить подписку", payload={"cmd": "profile_action", "action": "cancel_sub"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("СБРОС АККАУНТА", payload={"cmd": "profile_action", "action": "reset_account"}), color=KeyboardButtonColor.NEGATIVE)
     kb.row()
+    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("Назад в профиль 👤", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
@@ -115,6 +117,7 @@ def get_syndicate_inline_keyboard(is_veteran: bool) -> str:
     if not is_veteran:
         kb.add(Callback("Ввести Печать ✒", payload={"cmd": "profile_action", "action": "enter_seal"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
+    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("Назад в профиль 👤", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 

@@ -16,7 +16,6 @@ from database import (
 )
 from modules.bot_init import bot
 from modules.utils import (
-    get_sections_keyboard,
     start_dynamic_typing,
     stop_dynamic_typing,
     ghost_edit,

@@ -1,8 +1,7 @@
 
 from modules.keyboards import (
     get_main_reply_keyboard,
-    get_main_inline_keyboard,
-    get_catalog_inline_keyboard
+    get_main_inline_keyboard
 )
 
 def get_dynamic_keyboard(user: dict | None = None) -> str:
