@@ -1,6 +1,7 @@
 import datetime
 import re
 from loguru import logger
+from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state, create_user
@@ -35,6 +36,7 @@ async def show_balance_logic(
         balance = int(user.get("balance", 0) or 0)
         text = f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд"
 
+        typing_msg_id = await stop_dynamic_typing(peer_id)
         kb = Keyboard(inline=True)
         kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
         kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.PRIMARY)
