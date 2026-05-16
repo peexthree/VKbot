@@ -502,26 +502,21 @@ async def show_guide_logic(
     skip_lock: bool = False,
     conversation_message_id: int = None
 ):
+    """Главный экран Путеводителя"""
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         text = (
-            "ПУТЕВОДИТЕЛЬ ПО СИСТЕМЕ\n"
-            "Здесь собраны ответы на все вопросы.\n\n"
-            "Энергообмен: Вся система работает на Энергии звезд. 10 Энергии звезд равны 1 рублю. Ты можешь копить энергию или покупать ее.\n\n"
-            "Как получать энергию в дар:\n\n"
-            "Ежедневный дар: Заходи ко мне каждый день и открывай Главное меню. Я буду начислять тебе 100 Энергии звезд.\n\n"
-            "Приветственный дар: Ты получаешь 700 Энергии звезд при регистрации.\n\n"
-            "Синдикат: В разделе Мой профиль есть кнопка Синдикат. Передай Печать призыва новому адепту, и вы оба получите по 500 Энергии звезд.\n\n"
-            "Как открывать тайны: Перейди в Услуги, листай карточки и жми Купить. Если энергии не хватит, система сама рассчитает доплату. После покупки я выдам тебе личный PDF-файл.\n\n"
-            "Карты и Гримуар: После каждой покупки ты вытягиваешь новую карту. Она навсегда сохранится в твоем Гримуаре в профиле."
+            "📖 ПУТЕВОДИТЕЛЬ ПО МАТРИЦЕ\n\n"
+            "Приветствую тебя, искатель. Здесь собраны ключи к пониманию того, как устроено наше пространство. "
+            "Это не просто бот — это твой личный мост между звездами и реальностью.\n\n"
+            "Выбери раздел, чтобы узнать больше о своей силе:"
         )
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
-        kb = Keyboard(inline=True)
-        kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
-        kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.PRIMARY)
+        from modules.keyboards import get_guide_main_keyboard
+        kb_json = get_guide_main_keyboard()
 
         att = await upload_local_photo(bot.api, "uslugi/guide.jpg", peer_id=vk_id)
 
@@ -531,10 +526,112 @@ async def show_guide_logic(
             text,
             conversation_message_id=conversation_message_id,
             message_id=typing_msg_id,
-            keyboard=kb.get_json(),
+            keyboard=kb_json,
             attachment=att
         )
     finally:
         await stop_dynamic_typing(peer_id)
         if not skip_lock:
             await release_lock(vk_id)
+
+
+async def show_guide_energy_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
+    """Раздел Энергии в Путеводителе"""
+    if not await acquire_lock(vk_id): return
+    try:
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
+        text = (
+            "✨ ЭНЕРГИЯ И ДАРЫ\n\n"
+            "Энергия звезд — это топливо для наших ритуалов. Она позволяет системе считывать твои вибрации. "
+            "Курс обмена прост: 10 ✨ = 1 рубль.\n\n"
+            "🤫 СЕКРЕТ ПРОВОДНИКА:\n"
+            "Если ты заходишь в систему каждый день, твой дар растет. Стрик в 7 дней увеличит твой ежедневный бонус до 500 ✨. "
+            "Не прерывай цикл, чтобы не потерять поток.\n\n"
+            "Как получить энергию:\n"
+            "• 700 ✨ — приветственный дар при первой синхронизации.\n"
+            "• Ежедневно — забирай подарок в Главном меню.\n"
+            "• Мой Круг — делись Печатью и получай по 500 ✨ за каждого адепта."
+        )
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        from modules.keyboards import get_guide_sub_keyboard
+        kb_json = get_guide_sub_keyboard("💳 ПОПОЛНИТЬ", {"cmd": "profile_action", "action": "tariffs"})
+
+        att = await upload_local_photo(bot.api, "uslugi/tariffs.jpg", peer_id=vk_id)
+        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
+    finally:
+        await stop_dynamic_typing(peer_id)
+        await release_lock(vk_id)
+
+
+async def show_guide_services_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
+    """Раздел Услуг в Путеводителе"""
+    if not await acquire_lock(vk_id): return
+    try:
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
+        text = (
+            "🔮 ГЛУБОКИЕ РАЗБОРЫ\n\n"
+            "Это не просто текст. Это реальные расклады на колодах Таро, которые я проживаю для тебя. "
+            "Мы объединяем древнюю мудрость карт и точность твоих астрологических данных.\n\n"
+            "Что ты получаешь:\n"
+            "✅ Глубокий PDF-отчет (сохраняется навсегда).\n"
+            "✅ Детальный разбор ситуации по всем слоям матрицы.\n"
+            "✅ Персональные советы от твоего Проводника.\n\n"
+            "Это инвестиция в твое будущее. После каждого разбора твоя связь с системой становится крепче, а ответы — точнее."
+        )
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        from modules.keyboards import get_guide_sub_keyboard
+        kb_json = get_guide_sub_keyboard("🛒 В КАТАЛОГ", {"cmd": "services_menu"})
+
+        att = await upload_local_photo(bot.api, "uslugi/services.jpg", peer_id=vk_id)
+        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
+    finally:
+        await stop_dynamic_typing(peer_id)
+        await release_lock(vk_id)
+
+
+async def show_guide_syndicate_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
+    """Раздел Синдиката в Путеводителе"""
+    if not await acquire_lock(vk_id): return
+    try:
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
+        text = (
+            "🤝 МОЙ КРУГ (СИНДИКАТ)\n\n"
+            "Твоя сила — в твоих последователях. В профиле ты найдешь свою уникальную 'Печать' (реферальный код).\n\n"
+            "Как это работает:\n"
+            "1. Передай Печать или ссылку новому адепту.\n"
+            "2. При её активации вы ОБА мгновенно получите по 500 ✨.\n"
+            "3. Твой ранг растет с каждым приглашенным. Призови 5 адептов, чтобы стать 'Теневым Кардиналом' и открыть скрытые возможности системы."
+        )
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        from modules.keyboards import get_guide_sub_keyboard
+        kb_json = get_guide_sub_keyboard("🤝 В МОЙ КРУГ", {"cmd": "profile_action", "action": "syndicate"})
+
+        att = await upload_local_photo(bot.api, "uslugi/syndicate.jpg", peer_id=vk_id)
+        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
+    finally:
+        await stop_dynamic_typing(peer_id)
+        await release_lock(vk_id)
+
+
+async def show_guide_grimoire_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
+    """Раздел Гримуара в Путеводителе"""
+    if not await acquire_lock(vk_id): return
+    try:
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
+        text = (
+            "🃏 ГРИМУАР И РАНГИ\n\n"
+            "Каждый разбор открывает новую карту Таро. Всего в колоде 78 карт. "
+            "Твой Гримуар в профиле — это летопись твоего духовного пути.\n\n"
+            "Зачем повышать уровень:\n"
+            "Чем выше твой ранг (от Неофита до Магистра Матрицы), тем более глубокие и редкие послания ты сможешь считывать. "
+            "Твой уровень растет автоматически с каждой новой открытой картой и за регулярное посещение системы."
+        )
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        from modules.keyboards import get_guide_sub_keyboard
+        kb_json = get_guide_sub_keyboard("📖 В ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"})
+
+        att = await upload_local_photo(bot.api, "uslugi/history.jpg", peer_id=vk_id)
+        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
+    finally:
+        await stop_dynamic_typing(peer_id)
+        await release_lock(vk_id)
