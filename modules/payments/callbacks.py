@@ -69,7 +69,9 @@ async def message_event_handler(event: dict):
         except Exception as e:
             logger.debug(f"Could not answer event {event_id}: {e}")
 
-    if vk_id and payload.get("cmd") not in ["profile_action", "main_menu", "services_menu", "profile_menu"]:
+    if not vk_id: return
+
+    if payload.get("cmd") not in ["profile_action", "main_menu", "services_menu", "profile_menu"]:
         if await check_throttle(vk_id):
             return
 
@@ -208,8 +210,8 @@ async def message_event_handler(event: dict):
         elif cmd in ["set_skin", "buy_skin"]: await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day": await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "choose_onboarding_skin":
-            import modules.registration as reg
-            await reg.process_onboarding_skin_logic(vk_id, peer_id, payload.get("skin"), conversation_message_id=obj.get("conversation_message_id"))
+            from modules import registration as reg_mod
+            await reg_mod.process_onboarding_skin_logic(vk_id, peer_id, payload.get("skin"), conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "gen_pdf":
             section, card_id = payload.get("section", "report"), payload.get("card", "")
             user = await get_user(vk_id)

@@ -47,14 +47,16 @@ async def show_grimoire_page(
         major_count = len(major_arcana_unlocked)
 
         if not unlocked_items:
-            await bot.api.messages.send(
-                peer_id=peer_id,
+            await ghost_edit(
+                bot.api,
+                peer_id,
                 message="✦ МОЙ ГРИМУАР ✦\n\nТвой гримуар пока пуст. Открой первую карту в Услугах.",
-                random_id=0
+                conversation_message_id=conversation_message_id,
+                keyboard=Keyboard(inline=True).add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE).get_json()
             )
             return
 
-        ITEMS_PER_PAGE = 5
+        ITEMS_PER_PAGE = 4
         total_pages = (len(unlocked_items) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
         page = max(0, min(page, total_pages - 1))
 
@@ -77,17 +79,16 @@ async def show_grimoire_page(
         # Красивая клавиатура через vkbottle
         kb = Keyboard(inline=True, one_time=False)
 
-        # Кнопки карт (по 2 в ряд)
-        for i, item in enumerate(current_items):
-            if i % 2 == 0 and i != 0:
-                kb.row()
+        # Кнопки карт (1 в ряд по правилам AGENTS.md)
+        for item in current_items:
             kb.add(
                 Callback(
-                    f"Карта {item['id']}",
+                    f"Карта {item['id']}: {item['name']}",
                     payload={"cmd": "view_card", "id": item['id']},
                 ),
                 color=KeyboardButtonColor.SECONDARY,
             )
+            kb.row()
 
         # Навигация
         if total_pages > 1:

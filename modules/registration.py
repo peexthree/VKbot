@@ -104,16 +104,17 @@ async def start_handler(message: Message, skip_lock: bool = False):
             "✨ ДОБРО ПОЖАЛОВАТЬ В АНТИ-ТАР ✨\n\n"
             f"Здравствуй, {first_name}. Я — твой проводник в мир самопознания и глубоких инсайтов.\n\n"
             "Здесь мы отбросим лишнее, чтобы услышать истинный голос твоего сердца и шепот звезд.\n\n"
-            "Прежде чем мы начнем наше путешествие, выбери своего Проводника, который будет оберегать тебя на этом пути:"
+            "Выбери того, кто будет оберегать тебя на этом пути. Сейчас тебе доступны двое, но помни — "
+            "великие мастера вроде Шэпса или Распутина откроются тебе позже, когда твоя связь с матрицей окрепнет."
         )
 
         kb = Keyboard(inline=True)
-        kb.add(Callback("🌸 ОЛЕСЯ ИВАНЧЕНКО", payload={"cmd": "choose_onboarding_skin", "skin": "Олеся Ивонченко"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🌸 ОЛЕСЯ ИВАНЧЕНКО", payload={"cmd": "choose_onboarding_skin", "skin": "Олеся Иванченко"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
         kb.add(Callback("🕯 СЕРЬЕЗНЫЙ АСКЕТ", payload={"cmd": "choose_onboarding_skin", "skin": "Серьезный Аскет"}), color=KeyboardButtonColor.PRIMARY)
 
         # Загружаем фото Олеси для велком-месседжа
-        att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Ивонченко"], peer_id=vk_id)
+        att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Иванченко"], peer_id=vk_id)
 
         await message.answer(welcome_text, attachment=att, keyboard=kb.get_json())
         await set_user_state(vk_id, "onboarding_skin_selection")

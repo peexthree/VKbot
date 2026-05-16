@@ -1,4 +1,3 @@
-import datetime
 import re
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
@@ -211,16 +210,8 @@ async def syndicate_dashboard_logic(
             f"{progress_text}\n\n"
             "Расширяй свою сеть. За каждого нового адепта ты получаешь 500 чистой Энергии звезд."
         )
-        is_veteran = False
-        created_at_str = user.get("created_at")
-        if created_at_str:
-            created_at = datetime.datetime.fromisoformat(created_at_str)
-            now = datetime.datetime.now(datetime.timezone.utc)
-            if (now - created_at).total_seconds() / 3600 > 24:
-                is_veteran = True
-        if purchased.get("promo_used"):
-            is_veteran = True
-        kb_json = get_syndicate_keyboard(is_veteran)
+        is_promo_used = purchased.get("promo_used", False)
+        kb_json = get_syndicate_keyboard(is_promo_used)
 
         att = await upload_local_photo(bot.api, "uslugi/syndicate.jpg", peer_id=vk_id)
 
@@ -319,18 +310,9 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         if not user:
             user = await create_user(vk_id, "", "", "")
             is_new = True
-        is_veteran = False
-        created_at_str = user.get("created_at")
-        if created_at_str:
-            created_at = datetime.datetime.fromisoformat(created_at_str)
-            now = datetime.datetime.now(datetime.timezone.utc)
-            if (now - created_at).total_seconds() / 3600 > 24:
-                is_veteran = True
         purchased = user.get("purchased_sections", {})
         if purchased.get("promo_used"):
-            is_veteran = True
-        if is_veteran:
-            await message.answer("Доступ отклонен. Твоя матрица уже давно интегрирована в систему. Печать призыва работает только для новых адептов. Выстраивай свой личный Синдикат.")
+            await message.answer("Твоя матрица уже была усилена Печатью ранее. Путь открыт лишь однажды. Выстраивай свой личный Синдикат, чтобы получить больше энергии.")
             return
         if referrer_id == vk_id:
             await message.answer("Ты не можешь использовать свою собственную Печать.")

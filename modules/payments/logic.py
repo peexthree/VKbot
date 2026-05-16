@@ -152,7 +152,9 @@ async def execute_generation(
                 asyncio.create_task(extract_and_save_tags(vk_id, res_text))
 
                 light_kb = Keyboard(inline=True)
-                light_kb.add(Callback("СГЕНЕРИРОВАТЬ PDF 📄", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)
+                light_kb.add(Callback("📜 ЗАБРАТЬ ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)
+                light_kb.row()
+                light_kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
                 kb_str = light_kb.get_json()
 
                 if isinstance(res_data, dict):
@@ -168,7 +170,7 @@ async def execute_generation(
                             affirmations = "\n".join([f"- {a}" for a in affirmations])
                         display_text += f"\n\nТвои аффирмации:\n{affirmations}"
 
-                    display_text += "\n\nПолный разбор со всеми 10 блоками доступен в PDF ниже."
+                    display_text += "\n\n------------------\n✨ Твой сакральный отчет со всеми деталями, кодами и картой энергии готов к загрузке. Нажми на кнопку ниже, чтобы сохранить это знание навсегда."
 
                 await stop_dynamic_typing(peer_id)
 

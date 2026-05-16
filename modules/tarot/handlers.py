@@ -29,7 +29,8 @@ async def process_oracle_cut_handler(message: Message):
         kb = Keyboard(inline=True)
         for _i, cid in enumerate(pool):
             kb.add(Callback("🎴", payload={"oracle_card": cid}))
-            kb.row()
+            if (_i + 1) % 2 == 0:
+                kb.row()
         await message.answer("✨ ШАГ 3 ИЗ 3: ТВОЙ ВЫБОР ✨\nПрислушайся к интуиции и выбери 3 карты, которые откликаются тебе сейчас.", keyboard=kb.get_json())
     finally: await release_lock(vk_id)
 

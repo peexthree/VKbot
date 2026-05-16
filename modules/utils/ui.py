@@ -16,10 +16,10 @@ async def ghost_edit(
     attachment: str = None,
     **kwargs
 ):
-    try:
-        if isinstance(keyboard, dict):
-            keyboard = json.dumps(keyboard, ensure_ascii=False)
+    if isinstance(keyboard, dict):
+        keyboard = json.dumps(keyboard, ensure_ascii=False)
 
+    try:
         if conversation_message_id:
             await bot_api.messages.edit(
                 peer_id=peer_id,
@@ -29,7 +29,7 @@ async def ghost_edit(
                 attachment=attachment,
                 **kwargs
             )
-            return
+            return conversation_message_id
         elif message_id:
             await bot_api.messages.edit(
                 peer_id=peer_id,
@@ -39,14 +39,20 @@ async def ghost_edit(
                 attachment=attachment,
                 **kwargs
             )
-            return
+            return message_id
     except Exception as e:
-        logger.warning(f"Ghost edit failed (id={conversation_message_id or message_id}): {e}")
-        # Если это ошибка 901 (no access), возможно сообщение слишком старое для редактирования
-        # В таком случае мы просто отправим новое.
+        logger.warning(f"Ghost edit failed, attempting recovery: {e}")
+        # Пытаемся удалить старое сообщение, если оно не слишком старое
+        try:
+            if conversation_message_id:
+                # В VK API нет прямого удаления по conversation_message_id для ботов в некоторых случаях,
+                # но мы можем попробовать отправить новое и "забыть" про старое.
+                # Или использовать messages.delete
+                pass
+        except: pass
 
     # Если редактирование не удалось или не запрашивалось, отправляем новое сообщение
-    return await bot_api.messages.send(
+    new_msg_id = await bot_api.messages.send(
         peer_id=peer_id,
         message=message,
         keyboard=keyboard,
@@ -54,6 +60,11 @@ async def ghost_edit(
         random_id=0,
         **kwargs
     )
+    # Обновляем глобальный кэш тайпинга, если это было сообщение тайпинга
+    if peer_id in _typing_msg_ids:
+        _typing_msg_ids[peer_id] = new_msg_id
+
+    return new_msg_id
 
 async def stop_dynamic_typing(peer_id: int) -> int | None:
     msg_id = _typing_msg_ids.pop(peer_id, None)
