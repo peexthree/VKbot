@@ -40,7 +40,10 @@ async def show_balance_logic(
         kb = Keyboard(inline=True)
         kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
         kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.PRIMARY)
-        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb.get_json())
+
+        att = await upload_local_photo(bot.api, "uslugi/tariffs.jpg", peer_id=vk_id)
+
+        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb.get_json(), attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
         if not skip_lock:
@@ -219,6 +222,8 @@ async def syndicate_dashboard_logic(
             is_veteran = True
         kb_json = get_syndicate_keyboard(is_veteran)
 
+        att = await upload_local_photo(bot.api, "uslugi/syndicate.jpg", peer_id=vk_id)
+
         typing_msg_id = await stop_dynamic_typing(peer_id)
         await ghost_edit(
             bot.api,
@@ -226,7 +231,8 @@ async def syndicate_dashboard_logic(
             text,
             conversation_message_id=conversation_message_id,
             message_id=typing_msg_id,
-            keyboard=kb_json
+            keyboard=kb_json,
+            attachment=att
         )
     finally:
         await stop_dynamic_typing(peer_id)
@@ -387,12 +393,15 @@ async def show_history_logic(
         from modules.keyboards import get_history_inline_keyboard
         kb_json = get_history_inline_keyboard(history)
 
+        att = await upload_local_photo(bot.api, "uslugi/history.jpg", peer_id=vk_id)
+
         await ghost_edit(
             bot.api,
             peer_id,
             text,
             conversation_message_id=conversation_message_id,
-            keyboard=kb_json
+            keyboard=kb_json,
+            attachment=att
         )
     finally:
         if not skip_lock:
@@ -468,6 +477,8 @@ async def show_advanced_settings_logic(
         from modules.profile.keyboards import get_advanced_settings_keyboard
         kb_json = get_advanced_settings_keyboard(vk_id)
 
+        att = await upload_local_photo(bot.api, "uslugi/settings.jpg", peer_id=vk_id)
+
         typing_msg_id = await stop_dynamic_typing(peer_id)
         await ghost_edit(
             bot.api,
@@ -475,7 +486,8 @@ async def show_advanced_settings_logic(
             text,
             conversation_message_id=conversation_message_id,
             message_id=typing_msg_id,
-            keyboard=kb_json
+            keyboard=kb_json,
+            attachment=att
         )
     finally:
         await stop_dynamic_typing(peer_id)
@@ -510,13 +522,17 @@ async def show_guide_logic(
         kb = Keyboard(inline=True)
         kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
         kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.PRIMARY)
+
+        att = await upload_local_photo(bot.api, "uslugi/guide.jpg", peer_id=vk_id)
+
         await ghost_edit(
             bot.api,
             peer_id,
             text,
             conversation_message_id=conversation_message_id,
             message_id=typing_msg_id,
-            keyboard=kb.get_json()
+            keyboard=kb.get_json(),
+            attachment=att
         )
     finally:
         await stop_dynamic_typing(peer_id)

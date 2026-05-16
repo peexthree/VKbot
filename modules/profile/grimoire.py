@@ -111,13 +111,17 @@ async def show_grimoire_page(
         )
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
+
+        att = await upload_local_photo(bot.api, "uslugi/grimoire.jpg", peer_id=vk_id)
+
         await ghost_edit(
             bot.api,
             peer_id,
             message=text,
             conversation_message_id=conversation_message_id,
             message_id=typing_msg_id,
-            keyboard=kb.get_json()
+            keyboard=kb.get_json(),
+            attachment=att
         )
 
     except Exception as e:
