@@ -66,7 +66,8 @@ async def _send_skins_page(
     if idx < total_items - 1:
         kb.add(Callback("ВПЕРЕД ➡️", payload={"cmd": "skin_page", "idx": idx + 1}), color=KeyboardButtonColor.SECONDARY)
 
-    kb.row()
+    if idx > 0 or idx < total_items - 1:
+        kb.row()
     kb.add(Callback("⚙️ НАСТРОЙКИ", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.PRIMARY)
 
     header_text = f"✦ ВЫБОР ПЕРСОНАЖА ({idx + 1}/{total_items}) ✦\n\n👤 Персонаж: {skin_name}\n🎭 Стиль: {skin['style']}\n\nВыберите своего проводника."
