@@ -15,7 +15,7 @@ from modules.profile.views import (
     god_mode_logic, syndicate_dashboard_logic,
     get_seal_logic, enter_seal_logic,
     cancel_seal_logic, apply_promo_logic,
-    show_guide_logic
+    show_guide_logic, show_advanced_settings_logic
 )
 from modules.profile.grimoire import (
     show_grimoire_page, view_card_direct
@@ -157,8 +157,30 @@ async def apply_promo_handler(message: Message):
     await apply_promo_logic(message.from_id, message)
 
 @labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 ПУТЕВОДИТЕЛЬ", "📖 Путеводитель"])
-async def show_guide(message: Message):
-    await show_guide_logic(message.from_id, message.peer_id, message)
+async def show_guide(
+    message: Message = None,
+    vk_id: int = None,
+    peer_id: int = None,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
+    v_id = vk_id or (message.from_id if message else None)
+    p_id = peer_id or (message.peer_id if message else None)
+    if not v_id or not p_id: return
+    await show_guide_logic(v_id, p_id, message, skip_lock=skip_lock, conversation_message_id=conversation_message_id)
+
+@labeler.message(text=["⚙️ СИСТЕМА"])
+async def show_advanced_settings(
+    message: Message = None,
+    vk_id: int = None,
+    peer_id: int = None,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
+    v_id = vk_id or (message.from_id if message else None)
+    p_id = peer_id or (message.peer_id if message else None)
+    if not v_id or not p_id: return
+    await show_advanced_settings_logic(v_id, p_id, message, skip_lock=skip_lock, conversation_message_id=conversation_message_id)
 @labeler.message(text=["Профиль", "Мой профиль", "✦ Мой профиль", "💳 МОЙ ПРОФИЛЬ", "👤 МОЙ ПРОФИЛЬ"])
 async def show_profile(message: Message):
     """Просто вызывает новый красивый профиль"""

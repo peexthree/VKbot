@@ -208,6 +208,9 @@ async def message_event_handler(event: dict):
         elif cmd == "profile_action":
             action, conv_id = payload.get("action"), obj.get("conversation_message_id")
             if action == "settings": await settings_handler(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
+            elif action == "advanced_settings":
+                from modules.profile.handlers import show_advanced_settings
+                await show_advanced_settings(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "change_data":
                 await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": conv_id}))
                 kb = Keyboard(inline=True).add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)

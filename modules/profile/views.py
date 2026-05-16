@@ -431,6 +431,43 @@ async def show_history_item_logic(
             await release_lock(vk_id)
 
 
+async def show_advanced_settings_logic(
+    vk_id: int,
+    peer_id: int,
+    message: Message = None,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
+    """Отображение расширенных настроек и системы"""
+    await set_user_state(vk_id, "")
+    if not skip_lock and not await acquire_lock(vk_id):
+        return
+    try:
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
+
+        text = (
+            "⚙️ СИСТЕМНЫЕ НАСТРОЙКИ\n\n"
+            "Здесь ты можешь управлять своим аккаунтом и подписками."
+        )
+
+        from modules.profile.keyboards import get_advanced_settings_keyboard
+        kb_json = get_advanced_settings_keyboard(vk_id)
+
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            text,
+            conversation_message_id=conversation_message_id,
+            message_id=typing_msg_id,
+            keyboard=kb_json
+        )
+    finally:
+        await stop_dynamic_typing(peer_id)
+        if not skip_lock:
+            await release_lock(vk_id)
+
+
 async def show_guide_logic(
     vk_id: int,
     peer_id: int,

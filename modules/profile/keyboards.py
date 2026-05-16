@@ -13,6 +13,10 @@ def get_profile_keyboard() -> str:
 def get_settings_keyboard() -> str:
     return get_settings_inline_keyboard()
 
+def get_advanced_settings_keyboard(vk_id: int) -> str:
+    from modules.keyboards import get_advanced_settings_inline_keyboard
+    return get_advanced_settings_inline_keyboard(vk_id)
+
 
 def get_skin_keyboard(skin_name: str, is_owned: bool) -> str:
     return get_skin_inline_keyboard(skin_name, is_owned)
