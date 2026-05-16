@@ -174,3 +174,27 @@ def get_history_inline_keyboard(history: list) -> str:
     kb.row()
     kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
+
+def get_guide_main_keyboard() -> str:
+    """Главная клавиатура Путеводителя"""
+    kb = Keyboard(inline=True)
+    kb.add(Callback("✨ ЭНЕРГИЯ И ДАРЫ", payload={"cmd": "guide_energy"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "guide_services"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("🤝 МОЙ КРУГ", payload={"cmd": "guide_syndicate"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("🃏 ГРИМУАР И РАНГИ", payload={"cmd": "guide_grimoire"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+    kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    return kb.get_json()
+
+def get_guide_sub_keyboard(action_label: str, action_payload: dict) -> str:
+    """Клавиатура для подразделов Путеводителя"""
+    kb = Keyboard(inline=True)
+    kb.add(Callback("⬅️ НАЗАД В ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback(action_label, payload=action_payload), color=KeyboardButtonColor.POSITIVE)
+    return kb.get_json()

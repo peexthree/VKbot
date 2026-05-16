@@ -2,6 +2,10 @@
 from modules.profile.views import (
     show_profile_logic,
     show_guide_logic,
+    show_guide_energy_logic,
+    show_guide_services_logic,
+    show_guide_syndicate_logic,
+    show_guide_grimoire_logic,
     syndicate_dashboard_logic,
 )
 
@@ -20,6 +24,10 @@ __all__ = [
     "labeler",                     
     "show_profile_logic",
     "show_guide_logic",
+    "show_guide_energy_logic",
+    "show_guide_services_logic",
+    "show_guide_syndicate_logic",
+    "show_guide_grimoire_logic",
     "syndicate_dashboard_logic",
     "settings_handler",
     "settings_choose_character",
