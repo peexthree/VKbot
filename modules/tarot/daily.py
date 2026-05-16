@@ -3,7 +3,6 @@ import datetime
 import json
 import asyncio
 from loguru import logger
-from modules.utils import ghost_edit
 from database import get_user, update_user
 from ai_service import generate_section, extract_tags, clean_ai_json
 from modules.bot_init import bot

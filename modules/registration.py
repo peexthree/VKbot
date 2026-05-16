@@ -4,7 +4,6 @@ from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
-import asyncio
 from ai_service import extract_birth_data, generate_text
 from cache import acquire_lock, release_lock, redis_client
 from database import (
