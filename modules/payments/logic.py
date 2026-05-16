@@ -19,6 +19,28 @@ async def process_payment_and_generate(vk_id: int, section: str):
         user = await get_user(vk_id)
         if not user: return
 
+        if section == "micro_insight":
+            active_skin = user.get("active_skin", "olesya")
+            from ai_service import generate_text
+            prompt = (
+                f"Пользователь купил микро-инсайт. Его данные: {user.get('birth_date')} {user.get('birth_city')}. "
+                f"Теги: {user.get('tags', [])}. "
+                f"Дай ОДИН короткий, дерзкий и точный совет или предсказание на ближайший час. "
+                f"Стиль: {active_skin}. Максимум 2 предложения. Без жирного шрифта."
+            )
+            insight = await generate_text(prompt, skin=active_skin)
+            from modules.keyboards import get_main_reply_keyboard
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message=f"✦ ШЕПОТ МАТРИЦЫ ✦\n\n{insight}",
+                random_id=0,
+                keyboard=get_main_reply_keyboard(vk_id)
+            )
+            # Призрачный интерфейс: возвращаем пользователя в меню услуг
+            from modules.services import show_services
+            await show_services(vk_id, vk_id, 0)
+            return
+
         purchased = user.get("purchased_sections", {})
         if section == "all":
             purchased.update({"sex": True, "money": True, "shadow": True, "final": True, "all": True})

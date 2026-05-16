@@ -4,8 +4,9 @@ from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
+import asyncio
 from ai_service import extract_birth_data, generate_text
-from cache import acquire_lock, release_lock
+from cache import acquire_lock, release_lock, redis_client
 from database import (
     create_user,
     delete_user,
@@ -252,14 +253,26 @@ async def process_onboarding_data(message: Message):
 
 # ==================== ФИНАЛЬНЫЙ ТИЗЕР ====================
 
-async def send_onboarding_teaser(vk_id: int, peer_id: int):
+async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_id: int = None):
     user = await get_user(vk_id)
     if not user: return
 
     active_skin = user.get("active_skin", "olesya")
     core_profile = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
 
-    await start_dynamic_typing(bot.api, peer_id)
+    # Ритуал интеграции
+    ritual_steps = [
+        "🧬 Анализ генетического кода судьбы...",
+        "🛰 Синхронизация с планетарными транзитами...",
+        "🃏 Калибровка колоды под твою частоту...",
+        "👁 Доступ к хроникам Акаши разрешен."
+    ]
+
+    for step in ritual_steps:
+        await ghost_edit(bot.api, peer_id, f"✦ ИНИЦИАЦИЯ ✦\n\n{step}", conversation_message_id=conversation_message_id)
+        await asyncio.sleep(1.5)
+
+    await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
     teaser_prompt = (
         f"Пользователь только что зарегистрировался. Его данные: {core_profile}. "
@@ -281,7 +294,8 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int):
     from modules.keyboards import get_main_inline_keyboard, get_main_reply_keyboard
     kb_json = await get_main_inline_keyboard(vk_id, user)
     reply_kb = get_main_reply_keyboard(vk_id)
-    await bot.api.messages.send(peer_id=peer_id, message=final_text, keyboard=kb_json, random_id=0)
+
+    await ghost_edit(bot.api, peer_id, final_text, conversation_message_id=conversation_message_id, keyboard=kb_json)
     # Отправляем reply-клавиатуру отдельным сообщением для фиксации интерфейса
     await bot.api.messages.send(peer_id=peer_id, message="Нижняя панель навигации активирована.", keyboard=reply_kb, random_id=0)
 
@@ -313,10 +327,37 @@ async def back_to_main_menu(message: Message):
         from modules.utils.consts import SKIN_STATUS_PHRASES
         status_phrase = SKIN_STATUS_PHRASES.get(active_skin, "Система готова.")
 
+        # Кэширование динамического статуса (чтобы не дергать AI на каждый чих)
+        cache_key = f"dynamic_status:{vk_id}"
+        cached_status = await redis_client.get(cache_key)
+        if cached_status:
+            status_phrase = cached_status
+        else:
+            # Раз в 6 часов или при первом входе генерим новый статус
+            from ai_service import generate_text
+            core_profile = f"{user.get('birth_date')} {user.get('birth_city')}"
+            prompt = (
+                f"Сгенерируй ОДНУ короткую (до 10 слов) загадочную фразу о текущем состоянии 'Матрицы' для пользователя. "
+                f"Используй его данные: {core_profile}. Учитывай его уровень {level}. "
+                f"Стиль: {active_skin}. Без приветствий. Без жирного шрифта. Без точек в конце."
+            )
+            try:
+                dynamic_status = await generate_text(prompt, skin=active_skin)
+                if dynamic_status and len(dynamic_status) < 100:
+                    status_phrase = dynamic_status
+                    await redis_client.set(cache_key, status_phrase, ex=21600) # 6 часов
+            except: pass
+
+        # Визуальный стрик (Лунный цикл)
+        visit_streak = user.get("visit_streak", 0)
+        moons = ["🌑", "🌘", "🌗", "🌖", "🌕", "✨", "🔥"]
+        streak_visual = "".join(moons[i % len(moons)] if i < visit_streak else "○" for i in range(7))
+
         main_menu_text = (
             "✦ АНТИ-ТАР ✦\n\n"
             f"Привет, {first_name}!\n"
-            f"Уровень {level} • {rank} ⭐ {balance} Энергии\n\n"
+            f"Уровень {level} • {rank} ⭐ {balance} Энергии\n"
+            f"Цикл: {streak_visual} ({visit_streak} дн.)\n\n"
             f"🔮 {status_phrase}"
         )
 

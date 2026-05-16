@@ -102,5 +102,13 @@ def calculate_user_rank(user: dict) -> tuple[int, str]:
         "Неофит", "Послушник", "Искатель", "Адепт", "Проводник",
         "Мастер Теней", "Верховный Жрец", "Хранитель Ключей", "Магистр Матрицы"
     ]
-    rank = rank_names[min(level // 3, len(rank_names)-1)]
+    rank = rank_names[min(max(0, level - 1) // 3, len(rank_names)-1)]
     return level, rank
+
+def get_syndicate_rank(count: int) -> str:
+    """Возвращает ранг в Синдикате"""
+    if count >= 10: return "Теневой Архитектор"
+    if count >= 5: return "Теневой Кардинал"
+    if count >= 3: return "Мастер Вербовки"
+    if count >= 1: return "Вербовщик"
+    return "Одиночка"

@@ -100,12 +100,19 @@ async def show_profile_logic(
         progress = min(10, int((unlocked_count / 78) * 10))
         progress_bar = "█" * progress + "░" * (10 - progress)
 
+        # Динамическое приветствие от проводника
+        greeting = "Я слежу за твоим прогрессом."
+        if visit_streak > 5: greeting = "Твоя связь с матрицей впечатляет."
+        if balance > 2000: greeting = "Твой энергетический потенциал огромен."
+        if unlocked_count > 20: greeting = "Ты уже не просто гость, ты часть системы."
+
         profile_text = (
             "💳 ЛИЧНЫЙ ПРОФИЛЬ\n\n"
             f"👤 {first_name} | {rank}\n"
             f"💠 Уровень: {level}\n"
             f"📍 {birth_date} — {birth_city}\n"
             f"🔮 Твой проводник: {skin_display_name}\n\n"
+            f"💬 {greeting}\n\n"
             f"✨ Баланс: {balance} Энергии звёзд\n"
             f"🔥 Стрик: {visit_streak} дней\n"
             f"🃏 Гримуар: {unlocked_count} из 78 карт\n"
@@ -175,16 +182,24 @@ async def syndicate_dashboard_logic(
         purchased = user.get("purchased_sections", {})
         syndicate_count = purchased.get("syndicate_count", 0)
         syndicate_energy = purchased.get("syndicate_energy", 0)
-        if syndicate_count >= 5:
-            rank = "Теневой Кардинал"
-            progress_text = "Ты достиг вершины синдиката."
-        elif syndicate_count >= 1:
-            rank = "Вербовщик"
+
+        from modules.utils.logic import get_syndicate_rank
+        rank = get_syndicate_rank(syndicate_count)
+
+        if syndicate_count >= 10:
+            progress_text = "Ты достиг абсолютного доминирования в Синдикате."
+        elif syndicate_count >= 5:
+            left = 10 - syndicate_count
+            progress_text = f"До статуса Теневой Архитектор осталось {left} адепт(а)."
+        elif syndicate_count >= 3:
             left = 5 - syndicate_count
             progress_text = f"До статуса Теневой Кардинал осталось {left} адепт(а)."
+        elif syndicate_count >= 1:
+            left = 3 - syndicate_count
+            progress_text = f"До статуса Мастер Вербовки осталось {left} адепт(а)."
         else:
-            rank = "Одиночка"
             progress_text = "До статуса Вербовщик остался 1 адепт."
+
         text = (
             "🕸 СИНДИКАТ 🕸\n\n"
             f"Твой текущий ранг: {rank}\n"
