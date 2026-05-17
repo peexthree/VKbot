@@ -1,0 +1,6 @@
+2026-05-17 19:50:31.449 | INFO     | vkbottle.framework.base:polling:20 - Starting BotPolling for <API token_generator=<<class 'vkbottle.api.token_generator.single.SingleTokenGenerator'>>...>
+2026-05-17 19:50:31.449 | DEBUG    | vkbottle.polling.bot_polling:get_server:49 - Getting polling server...
+2026-05-17 19:50:31.449 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:50:31.451 | INFO     | __main__:main:211 - Сервер запущен на порту 10000. Бот слушает сообщения...
+2026-05-17 19:50:31.567 | DEBUG    | vkbottle.api.api:request:78 - Request groups.getById with {} data returned {"error":{"error_code":15,"error_msg":"Access denied: token required","request_params":[{"key":"v","value":"5.199"},{"key":"method","value":"groups.getById"},{"key":"oauth","value":"1"}]}}
+2026-05-17 19:52:17.758 | ERROR    | __main__:main:224 - Error cleaning up typing tasks: cannot import name '_typing_tasks' from 'modules.utils' (D:\vk\vk\modules\utils\__init__.py)

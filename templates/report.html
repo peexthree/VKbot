@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        /* Основной шрифт */
+        @font-face {
+            font-family: 'AdventureIndiana';
+            src: url('ofont.ru_Adventure Indiana.ttf') format('truetype');
+            font-weight: 400;
+        }
+        @font-face {
+            font-family: 'AdventureIndiana';
+            src: url('ofont.ru_Adventure Indiana.ttf') format('truetype');
+            font-weight: 700;
+        }
+
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'AdventureIndiana', sans-serif;
+            background: url('cards/uslugi/pdf_background_final.png') no-repeat center center;
+            background-size: cover;
+            color: #f0e6d2;
+        }
+
+        .container {
+            padding: 0;
+            min-height: 100vh;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* ====================== ПЕРВАЯ СТРАНИЦА ====================== */
+        .cover {
+            height: 100vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cover img.head {
+            width: 100%;
+            height: auto;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+
+        .user-info-wrapper {
+            position: absolute;
+            top: 71%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 15, 35, 0.85);
+            padding: 18px 75px;
+            border-radius: 16px;
+            box-shadow: 0 0 45px rgba(212, 175, 55, 0.78);
+            z-index: 2;
+            text-align: center;
+            min-width: 460px;
+            max-width: 520px;
+        }
+        .user-info {
+            font-size: 16.8pt;
+            color: #f4d48c;
+            line-height: 1.65;
+        }
+        .highlight { color: #ffe8a3; font-weight: 700; }
+
+        /* ====================== ОСНОВНОЕ СОДЕРЖИМОЕ ====================== */
+        .content-wrapper {
+            background: rgba(20, 15, 35, 0.7);
+            border-radius: 20px;
+            padding: 45px 50px;
+            margin: 60px 50px;
+            box-shadow: 0 12px 45px rgba(0,0,0,0.7);
+        }
+
+        .section-divider img {
+            width: 92%;
+            display: block;
+            margin: 40px auto 38px auto;
+        }
+
+        .content {
+            font-size: 13.4pt;
+            text-align: justify;
+            line-height: 1.78;
+        }
+
+        /* ====================== КАРТА ====================== */
+        .card-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 59vh;
+            margin: 100px 0 75px 0;
+            text-align: center;
+            page-break-inside: avoid;
+        }
+
+        .card-background {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 435px;
+            z-index: 3;
+        }
+
+        .card-image {
+            position: relative;
+            max-width: 298px;
+            z-index: 2;
+        }
+
+        .card-info {
+            text-align: center;
+            margin-top: 130px;
+            margin-bottom: 40px;
+            color: #f4d48c;
+            font-size: 14.5pt;
+        }
+
+        .card-name {
+            font-size: 22pt;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: 1.6px;
+        }
+
+        /* ====================== КРЕАТИВНЫЕ БЛОКИ ====================== */
+        .creative-block {
+            background: rgba(30, 20, 45, 0.6);
+            border-radius: 16px;
+            padding: 26px 30px;
+            margin: 42px 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+
+        .creative-block strong {
+            font-size: 15.5pt;
+            color: #ffe8a3;
+            display: block;
+            margin-bottom: 14px;
+        }
+
+        /* Энергетическая шкала */
+        .scale-bar {
+            height: 14px;
+            background: #3a2a55;
+            border-radius: 30px;
+            overflow: hidden;
+            margin: 14px 0 8px 0;
+        }
+        .scale-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f4d48c, #ffe8a3);
+            box-shadow: 0 0 12px #ffe8a3;
+        }
+
+
+        /* Финальная печать */
+        .final-seal {
+            text-align: center;
+            margin-top: 70px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(244, 212, 140, 0.3);
+        }
+
+        .seal-container {
+            text-align: right;
+            margin-top: 60px;
+            padding-right: 20px;
+        }
+        .seal-image {
+            width: 200px;
+            height: 200px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <!-- ПЕРВАЯ СТРАНИЦА -->
+    <div class="container cover">
+        <img src="cards/uslugi/head2.png" class="head" alt="Персональный разбор">
+        <div class="user-info-wrapper">
+            <div class="user-info">
+                ИМЯ: <span class="highlight">{{ user_name }}</span><br>
+                ТОЧКА ВХОДА: {{ birth_info }}
+            </div>
+        </div>
+    </div>
+    <div style="page-break-before: always;"></div>
+
+    <!-- ОСНОВНОЕ СОДЕРЖИМОЕ -->
+    <div class="container">
+        <div class="content-wrapper">
+            <div class="section-divider">
+                <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ">
+            </div>
+            
+            <div class="content">{{ text_content | safe }}</div>
+
+            <!-- КАРТА -->
+            {% if card_image_path %}
+            <div class="card-container">
+                <img src="cards/uslugi/bac.png" class="card-background">
+                <img src="{{ card_image_path }}" class="card-image">
+            </div>
+            <div class="card-info">
+                <div class="card-name">{{ card_name }}</div>
+                {{ card_description | safe }}
+            </div>
+            {% endif %}
+
+            <!-- 1. Твоя магическая печать / Звёздный код -->
+            <div class="creative-block">
+                <strong>1. ТВОЙ ЗВЁЗДНЫЙ КОД (МАГИЧЕСКАЯ ПЕЧАТЬ)</strong>
+                {{ star_code | safe }}
+            </div>
+
+            <!-- 2. Энергетическая шкала -->
+            <div class="creative-block">
+                <strong>2. ЭНЕРГЕТИЧЕСКАЯ ШКАЛА</strong>
+                Уровень активации: <strong>{{ activation_level }}%</strong>
+                <div class="scale-bar"><div class="scale-fill" style="width: {{ activation_level }}%;"></div></div>
+                {% if activation_comment %}
+                <p style="margin-top: 12px; font-size: 12.5pt;">{{ activation_comment | safe }}</p>
+                {% endif %}
+            </div>
+
+            <!-- 3. Теневая сторона -->
+            <div class="creative-block">
+                <strong>3. ТЕНЕВАЯ СТОРОНА КАРТЫ</strong>
+                {{ shadow_side | safe }}
+            </div>
+
+            <!-- 4. Аффирмации -->
+            <div class="creative-block">
+                <strong>4. ТВОИ ЛИЧНЫЕ АФФИРМАЦИИ / МАНТРЫ</strong>
+                {{ affirmations | safe }}
+            </div>
+
+            <!-- 5. Дата активации -->
+            <div class="creative-block">
+                <strong>5. СЛЕДУЮЩАЯ МОЩНАЯ АКТИВАЦИЯ</strong>
+                {{ next_activation_date | safe }}
+            </div>
+
+            <!-- 6. Прогноз на 30 дней -->
+            <div class="creative-block">
+                <strong>6. МИНИ-ПРОГНОЗ НА БЛИЖАЙШИЕ 30 ДНЕЙ</strong>
+                {{ thirty_day_forecast | safe }}
+            </div>
+
+            <!-- 7. Рекомендации по активации -->
+            <div class="creative-block">
+                <strong>7. РЕКОМЕНДАЦИИ ПО АКТИВАЦИИ</strong>
+                {{ activation_recommendations | safe }}
+            </div>
+
+            <!-- 8. Карта энергий -->
+            <div class="creative-block">
+                <strong>8. ВИЗУАЛЬНАЯ КАРТА ЭНЕРГИЙ</strong>
+                {{ energy_map | safe }}
+            </div>
+
+            <!-- 9. Финальная печать ANTI-TAR -->
+            <div class="final-seal">
+                <h2 style="color:#f4d48c; letter-spacing: 6px; font-size: 28pt; margin: 0;">ANTI-TAR</h2>
+                <p style="font-size: 11.5pt; margin-top: 8px;">Персональный разбор • {{ current_date }}</p>
+            </div>
+
+            <div class="content">{{ advice_content | safe }}</div>
+
+            <div class="seal-container">
+                <img src="cards/uslugi/pe.png" class="seal-image" alt="Печать">
+            </div>
+        </div>
+    </div>
+</body>
+</html>

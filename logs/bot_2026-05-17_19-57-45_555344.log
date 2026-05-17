@@ -1,0 +1,305 @@
+2026-05-17 19:57:46.230 | INFO     | vkbottle.framework.base:polling:20 - Starting BotPolling for <API token_generator=<<class 'vkbottle.api.token_generator.single.SingleTokenGenerator'>>...>
+2026-05-17 19:57:46.231 | DEBUG    | vkbottle.polling.bot_polling:get_server:49 - Getting polling server...
+2026-05-17 19:57:46.231 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:57:46.293 | INFO     | __main__:main:213 - Сервер запущен на порту 10000. Бот слушает сообщения...
+2026-05-17 19:57:46.423 | DEBUG    | vkbottle.api.api:request:78 - Request groups.getById with {} data returned {"response":{"groups":[{"id":219181948,"name":"АНТИ-ТАР  Натальная карта","screen_name":"taroanti","is_closed":0,"type":"group","photo_50":"https:\/\/sun36-1.vkuserphoto.ru\/s\/v1\/ig2\/Uj7IzoeTpzY-8WcrzJ9eMmeX9LZ5dCIsPB-_o_rc9c6PcqBVPYnuD5EhPo3TttIMHnBNKYl2FLv9eng_AiOWSVy_.jpg?quality=95&crop=470,372,409,409&as=32x32,48x48,72x72,108x108,160x160,240x240,360x360&ava=1&cs=50x50","photo_100":"https:\/\/sun36-1.vkuserphoto.ru\/s\/v1\/ig2\/Uj7IzoeTpzY-8WcrzJ9eMmeX9LZ5dCIsPB-_o_rc9c6PcqBVPYnuD5EhPo3TttIMHnBNKYl2FLv9eng_AiOWSVy_.jpg?quality=95&crop=470,372,409,409&as=32x32,48x48,72x72,108x108,160x160,240x240,360x360&ava=1&cs=100x100","photo_200":"https:\/\/sun36-1.vkuserphoto.ru\/s\/v1\/ig2\/Uj7IzoeTpzY-8WcrzJ9eMmeX9LZ5dCIsPB-_o_rc9c6PcqBVPYnuD5EhPo3TttIMHnBNKYl2FLv9eng_AiOWSVy_.jpg?quality=95&crop=470,372,409,409&as=32x32,48x48,72x72,108x108,160x160,240x240,360x360&ava=1&cs=200x200"}],"profiles":[]}}
+2026-05-17 19:57:46.425 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:57:46.427 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:57:46.505 | DEBUG    | vkbottle.api.api:request:78 - Request groups.getLongPollServer with {'group_id': 219181948} data returned {"response":{"key":"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJxdWV1ZV9pZCI6IjIxOTE4MTk0OCIsInVudGlsIjoxNzc5MDQwNjY2Mzc0ODE4Mjk3fQ.eeAWMdTKpZHxyqea14ffqTHx03FKsuk0VpptvC77jr1Uwmmp83UqNvuFkDVAxpYoGVv2i1jd8VBUOIk3vcGjCg","server":"https:\/\/lp.vk.ru\/whp\/219181948","ts":"4818"}}
+2026-05-17 19:57:46.506 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:57:46.507 | DEBUG    | vkbottle.polling.base:listen:73 - Starting listening to BotPolling longpoll
+2026-05-17 19:57:46.508 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 19:57:47.276 | INFO     | modules.utils.photos:warmup_task:101 - Синхронизация ассетов ожидала ручного запуска. Режим тишины активен.
+2026-05-17 19:58:08.482 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4818', 'updates': []}
+2026-05-17 19:58:08.483 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 19:58:18.426 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4819', 'updates': [{'group_id': 219181948, 'type': 'message_new', 'event_id': 'efabcdf0aa5e68e56c1935fb1006fb66a8d833a1', 'v': '5.199', 'object': {'client_info': {'button_actions': ['text', 'vkpay', 'open_app', 'location', 'open_link', 'open_photo', 'callback', 'intent_subscribe', 'intent_unsubscribe'], 'keyboard': True, 'inline_keyboard': True, 'carousel': True, 'lang_id': 0}, 'message': {'date': 1779037098, 'from_id': 27260796, 'id': 7131, 'version': 10025258, 'out': 0, 'fwd_messages': [], 'important': False, 'is_hidden': False, 'attachments': [], 'conversation_message_id': 6877, 'payload': '{"cmd":"admin_console"}', 'text': '⚙️ КОНСОЛЬ МАГИСТРА', 'peer_id': 27260796, 'random_id': 0}}}]}
+2026-05-17 19:58:18.427 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 19:58:18.462 | DEBUG    | vkbottle.dispatch.base:route:18 - Routing update {'group_id': 219181948, 'type': 'message_new', 'event_id': 'efabcdf0aa5e68e56c1935fb1006fb66a8d833a1', 'v': '5.199', 'object': {'client_info': {'button_actions': ['text', 'vkpay', 'open_app', 'location', 'open_link', 'open_photo', 'callback', 'intent_subscribe', 'intent_unsubscribe'], 'keyboard': True, 'inline_keyboard': True, 'carousel': True, 'lang_id': 0}, 'message': {'date': 1779037098, 'from_id': 27260796, 'id': 7131, 'version': 10025258, 'out': 0, 'fwd_messages': [], 'important': False, 'is_hidden': False, 'attachments': [], 'conversation_message_id': 6877, 'payload': '{"cmd":"admin_console"}', 'text': '⚙️ КОНСОЛЬ МАГИСТРА', 'peer_id': 27260796, 'random_id': 0}}}
+2026-05-17 19:58:18.462 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:51 - Handling event (message_new) with message view
+2026-05-17 19:58:18.463 | DEBUG    | vkbottle.dispatch.dispenser.abc:cast:27 - Casting state for peer_id 27260796
+2026-05-17 19:58:18.465 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:18.624 | DEBUG    | vkbottle.api.api:request:78 - Request messages.delete with {'delete_for_all': 1, 'peer_id': 27260796, 'conversation_message_ids': '6877'} data returned {"response":[{"peer_id":27260796,"conversation_message_id":6877,"error":{"code":15,"description":"Access denied: message can not be deleted (peer message)"}}]}
+2026-05-17 19:58:18.625 | INFO     | vkbottle.api.response_validator.vk_api_error_validator:validate:35 - API error(s) in response wasn't handled: [{'peer_id': 27260796, 'conversation_message_id': 6877, 'error': {'code': 15, 'description': 'Access denied: message can not be deleted (peer message)'}}]
+2026-05-17 19:58:18.628 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:19.456 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler reset_user_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.457 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler start_handler blocking=True rules=(<vkbottle.dispatch.rules.base.PayloadRule>,)> returned False
+2026-05-17 19:58:19.459 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler start_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.719 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_onboarding_data blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:19.720 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler back_to_main_menu blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.721 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler show_balance blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.721 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler settings_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.721 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler settings_change_data blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.722 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_change_date blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:19.722 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_change_time blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:19.722 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_change_city blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:19.723 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler settings_cancel_subscription blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.723 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler settings_reset_account blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.723 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler confirm_reset_account blocking=True rules=(<vkbottle.dispatch.rules.base.StateRule>, <vkbottle.dispatch.rules.base.VBMLRule>)> returned False
+2026-05-17 19:58:19.724 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler cancel_reset_account blocking=True rules=(<vkbottle.dispatch.rules.base.StateRule>, <vkbottle.dispatch.rules.base.VBMLRule>)> returned False
+2026-05-17 19:58:19.724 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler settings_back_to_profile blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.724 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler settings_choose_character blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.724 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_skin_action blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:19.724 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler show_grimoire blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.725 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler view_grimoire_card blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:19.725 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler god_mode_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.725 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler syndicate_dashboard_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.725 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler back_to_profile blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.725 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler get_seal_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.725 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler enter_seal_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.725 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler cancel_seal_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.726 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler apply_promo_handler blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:19.726 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler show_guide blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.726 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler show_advanced_settings blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.726 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler show_profile blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.726 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler show_services_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.726 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_synastry_name blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:19.726 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_synastry_date blocking=True rules=(<vkbottle.dispatch.rules.base.StateRule>,)> returned False
+2026-05-17 19:58:19.727 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_synastry_time blocking=True rules=(<vkbottle.dispatch.rules.base.StateRule>,)> returned False
+2026-05-17 19:58:19.727 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_synastry_city blocking=True rules=(<vkbottle.dispatch.rules.base.StateRule>,)> returned False
+2026-05-17 19:58:19.727 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler show_tariffs_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.727 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_oracle_cut_handler blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:19.727 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler card_of_day_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:19.727 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_oracle_question blocking=True rules=(<vkbottle.dispatch.rules.base.StateRule>,)> returned False
+2026-05-17 19:58:19.727 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler admin_console_handler blocking=True rules=(<vkbottle.dispatch.rules.base.PayloadRule>,)> returned {}
+2026-05-17 19:58:20.117 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4820', 'updates': [{'group_id': 219181948, 'type': 'message_new', 'event_id': '31f9f89e34191893f5cd1e71a521384c63d6cba4', 'v': '5.199', 'object': {'client_info': {'button_actions': ['text', 'vkpay', 'open_app', 'location', 'open_link', 'open_photo', 'callback', 'intent_subscribe', 'intent_unsubscribe'], 'keyboard': True, 'inline_keyboard': True, 'carousel': True, 'lang_id': 0}, 'message': {'date': 1779037099, 'from_id': 27260796, 'id': 7132, 'version': 10025259, 'out': 0, 'fwd_messages': [], 'important': False, 'is_hidden': False, 'attachments': [], 'conversation_message_id': 6878, 'payload': '{"cmd":"main_menu"}', 'text': 'Главное меню', 'peer_id': 27260796, 'random_id': 0}}}]}
+2026-05-17 19:58:20.118 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 19:58:20.125 | DEBUG    | vkbottle.dispatch.base:route:18 - Routing update {'group_id': 219181948, 'type': 'message_new', 'event_id': '31f9f89e34191893f5cd1e71a521384c63d6cba4', 'v': '5.199', 'object': {'client_info': {'button_actions': ['text', 'vkpay', 'open_app', 'location', 'open_link', 'open_photo', 'callback', 'intent_subscribe', 'intent_unsubscribe'], 'keyboard': True, 'inline_keyboard': True, 'carousel': True, 'lang_id': 0}, 'message': {'date': 1779037099, 'from_id': 27260796, 'id': 7132, 'version': 10025259, 'out': 0, 'fwd_messages': [], 'important': False, 'is_hidden': False, 'attachments': [], 'conversation_message_id': 6878, 'payload': '{"cmd":"main_menu"}', 'text': 'Главное меню', 'peer_id': 27260796, 'random_id': 0}}}
+2026-05-17 19:58:20.125 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:51 - Handling event (message_new) with message view
+2026-05-17 19:58:20.125 | DEBUG    | vkbottle.dispatch.dispenser.abc:cast:27 - Casting state for peer_id 27260796
+2026-05-17 19:58:20.126 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:20.218 | DEBUG    | vkbottle.api.api:request:78 - Request messages.delete with {'delete_for_all': 1, 'peer_id': 27260796, 'conversation_message_ids': '6878'} data returned {"response":[{"peer_id":27260796,"conversation_message_id":6878,"error":{"code":15,"description":"Access denied: message can not be deleted (peer message)"}}]}
+2026-05-17 19:58:20.219 | INFO     | vkbottle.api.response_validator.vk_api_error_validator:validate:35 - API error(s) in response wasn't handled: [{'peer_id': 27260796, 'conversation_message_id': 6878, 'error': {'code': 15, 'description': 'Access denied: message can not be deleted (peer message)'}}]
+2026-05-17 19:58:20.221 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:20.749 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler reset_user_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:20.750 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler start_handler blocking=True rules=(<vkbottle.dispatch.rules.base.PayloadRule>,)> returned False
+2026-05-17 19:58:20.751 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler start_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:21.011 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler process_onboarding_data blocking=True rules=(<vkbottle.dispatch.rules.base.FuncRule>,)> returned False
+2026-05-17 19:58:21.012 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler back_to_main_menu blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned {}
+2026-05-17 19:58:21.014 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:21.090 | DEBUG    | vkbottle.api.api:request:78 - Request messages.delete with {'delete_for_all': 1, 'peer_id': 27260796, 'conversation_message_ids': '6878'} data returned {"response":[{"peer_id":27260796,"conversation_message_id":6878,"error":{"code":15,"description":"Access denied: message can not be deleted (peer message)"}}]}
+2026-05-17 19:58:21.090 | INFO     | vkbottle.api.response_validator.vk_api_error_validator:validate:35 - API error(s) in response wasn't handled: [{'peer_id': 27260796, 'conversation_message_id': 6878, 'error': {'code': 15, 'description': 'Access denied: message can not be deleted (peer message)'}}]
+2026-05-17 19:58:21.092 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:26.773 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4821', 'updates': [{'group_id': 219181948, 'type': 'message_new', 'event_id': '844ded89db1f31bad66bc678fb059319625af1e6', 'v': '5.199', 'object': {'client_info': {'button_actions': ['text', 'vkpay', 'open_app', 'location', 'open_link', 'open_photo', 'callback', 'intent_subscribe', 'intent_unsubscribe'], 'keyboard': True, 'inline_keyboard': True, 'carousel': True, 'lang_id': 0}, 'message': {'date': 1779037106, 'from_id': 27260796, 'id': 7133, 'version': 10025260, 'out': 0, 'fwd_messages': [], 'important': False, 'is_hidden': False, 'attachments': [], 'conversation_message_id': 6879, 'text': 'Начать', 'peer_id': 27260796, 'random_id': 0}}}]}
+2026-05-17 19:58:26.774 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 19:58:26.777 | DEBUG    | vkbottle.dispatch.base:route:18 - Routing update {'group_id': 219181948, 'type': 'message_new', 'event_id': '844ded89db1f31bad66bc678fb059319625af1e6', 'v': '5.199', 'object': {'client_info': {'button_actions': ['text', 'vkpay', 'open_app', 'location', 'open_link', 'open_photo', 'callback', 'intent_subscribe', 'intent_unsubscribe'], 'keyboard': True, 'inline_keyboard': True, 'carousel': True, 'lang_id': 0}, 'message': {'date': 1779037106, 'from_id': 27260796, 'id': 7133, 'version': 10025260, 'out': 0, 'fwd_messages': [], 'important': False, 'is_hidden': False, 'attachments': [], 'conversation_message_id': 6879, 'text': 'Начать', 'peer_id': 27260796, 'random_id': 0}}}
+2026-05-17 19:58:26.777 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:51 - Handling event (message_new) with message view
+2026-05-17 19:58:26.778 | DEBUG    | vkbottle.dispatch.dispenser.abc:cast:27 - Casting state for peer_id 27260796
+2026-05-17 19:58:26.782 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:26.858 | DEBUG    | vkbottle.api.api:request:78 - Request messages.delete with {'delete_for_all': 1, 'peer_id': 27260796, 'conversation_message_ids': '6879'} data returned {"response":[{"peer_id":27260796,"conversation_message_id":6879,"error":{"code":15,"description":"Access denied: message can not be deleted (peer message)"}}]}
+2026-05-17 19:58:26.858 | INFO     | vkbottle.api.response_validator.vk_api_error_validator:validate:35 - API error(s) in response wasn't handled: [{'peer_id': 27260796, 'conversation_message_id': 6879, 'error': {'code': 15, 'description': 'Access denied: message can not be deleted (peer message)'}}]
+2026-05-17 19:58:26.859 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:27.475 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler reset_user_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned False
+2026-05-17 19:58:27.476 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler start_handler blocking=True rules=(<vkbottle.dispatch.rules.base.PayloadRule>,)> returned False
+2026-05-17 19:58:27.479 | DEBUG    | vkbottle.dispatch.views.abc.message:handle_event:69 - Handler <FromFuncHandler start_handler blocking=True rules=(<vkbottle.dispatch.rules.base.VBMLRule>,)> returned {}
+2026-05-17 19:58:27.750 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:27.852 | DEBUG    | vkbottle.api.api:request:78 - Request messages.delete with {'delete_for_all': 1, 'message_ids': '6869', 'peer_id': 27260796} data returned {"response":[{"peer_id":27260796,"message_id":6869,"conversation_message_id":6644,"error":{"code":15,"description":"Access denied: message can not be deleted (peer message)"}}]}
+2026-05-17 19:58:27.854 | INFO     | vkbottle.api.response_validator.vk_api_error_validator:validate:35 - API error(s) in response wasn't handled: [{'peer_id': 27260796, 'message_id': 6869, 'conversation_message_id': 6644, 'error': {'code': 15, 'description': 'Access denied: message can not be deleted (peer message)'}}]
+2026-05-17 19:58:27.855 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:28.154 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:28.257 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Запрашиваю ответ у самой Вселенной...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:58:28.257 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:28.489 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:28.580 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Считываю твой запрос из потока... ✨', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:58:28.581 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:28.619 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:28.706 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:58:28.707 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:32.716 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:32.823 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Карты уже летят в руки...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:58:32.824 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:33.130 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:33.224 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:58:33.225 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:37.228 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:37.329 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Настраиваюсь на твой поток...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:58:37.330 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:37.702 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:37.795 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:58:37.796 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:41.816 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:41.925 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Карты уже летят в руки...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:58:41.926 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:42.197 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:42.284 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:58:42.285 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:46.292 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:46.420 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Запрашиваю ответ у самой Вселенной...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:58:46.421 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:46.694 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:46.805 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:58:46.807 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:48.685 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4821', 'updates': []}
+2026-05-17 19:58:48.685 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 19:58:50.811 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:50.905 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Дарю свет и ясность...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:58:50.906 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:51.179 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:51.400 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:58:51.402 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:55.418 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:55.515 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Карты уже летят в руки...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:58:55.516 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:55.788 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:55.872 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:58:55.873 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:58:59.884 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:58:59.999 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Собираю знаки грядущего...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:00.000 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:00.271 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:00.368 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:00.368 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:04.386 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:04.531 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Раскладываю карты для тебя...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:04.531 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:04.802 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:04.913 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:04.913 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:08.930 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:09.027 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Нити твоей жизни переплетаются...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:09.028 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:09.400 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:09.507 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:09.508 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:10.596 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4821', 'updates': []}
+2026-05-17 19:59:10.597 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 19:59:13.516 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:13.618 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Приподнимаю завесу тайны...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:13.619 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:13.893 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:13.991 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:13.992 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:17.999 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:18.103 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Настраиваюсь на твой поток...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:18.104 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:18.372 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:18.461 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:18.462 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:22.466 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:22.562 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Приподнимаю завесу тайны...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:22.562 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:22.833 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:22.923 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:22.924 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:26.934 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:27.024 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Извлекаю скрытые смыслы твоего пути...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:27.025 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:27.293 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:27.386 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:27.387 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:31.401 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:31.507 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Карты уже летят в руки...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:31.508 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:31.775 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:31.914 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:31.915 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:32.507 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4821', 'updates': []}
+2026-05-17 19:59:32.508 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 19:59:35.917 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:36.021 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Вслушиваюсь в нежный шепот звезд...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:36.021 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:36.294 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:36.389 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:36.390 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:40.393 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:40.554 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Настраиваюсь на твой поток...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:40.555 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:40.828 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:40.938 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:40.939 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:44.945 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:45.042 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Слушаю шепот твоей души...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:45.043 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:45.318 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:45.415 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:45.416 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:49.420 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:49.508 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Твоя интуиция сейчас на пике...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:49.509 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:49.783 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:49.896 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:49.897 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:53.899 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:54.002 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Раскладываю карты для тебя...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:54.003 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:54.275 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:54.372 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:54.373 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:54.416 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4821', 'updates': []}
+2026-05-17 19:59:54.417 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 19:59:58.377 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:58.549 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Дарю свет и ясность...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 19:59:58.550 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 19:59:58.822 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 19:59:58.919 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 19:59:58.920 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:02.923 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:03.070 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Спрашиваю совета у духов рода...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:03.071 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:03.343 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:03.434 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:03.434 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:07.450 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:07.694 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Собираю знаки грядущего...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:07.696 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:07.971 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:08.123 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:08.124 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:12.133 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:12.225 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Чувствую линии твоей судьбы...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:12.226 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:12.598 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:12.689 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:12.690 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:16.328 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4821', 'updates': []}
+2026-05-17 20:00:16.329 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 20:00:16.707 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:16.821 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Звёзды выстраиваются в твою пользу...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:16.823 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:17.197 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:17.299 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:17.299 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:21.309 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:21.432 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Запрашиваю ответ у самой Вселенной...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:21.433 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:21.707 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:21.797 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:21.798 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:25.802 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:26.106 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Карты уже летят в руки...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:26.107 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:26.379 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:26.474 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:26.474 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:30.486 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:30.580 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Обращаюсь к древним арканам...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:30.581 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:30.954 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:31.051 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:31.051 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:35.053 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:35.149 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Вслушиваюсь в нежный шепот звезд...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:35.150 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:35.423 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:35.550 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:35.551 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:38.239 | DEBUG    | vkbottle.framework.base:polling:23 - New event was received: {'ts': '4821', 'updates': []}
+2026-05-17 20:00:38.240 | DEBUG    | vkbottle.polling.bot_polling:get_event:36 - Making long request to get event with longpoll...
+2026-05-17 20:00:39.555 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:39.645 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Обращаюсь к древним арканам...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:39.646 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:39.916 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:40.011 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:40.012 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:44.023 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:44.112 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Проникаю в глубины твоего подсознания...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:44.113 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:44.385 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:44.491 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:44.492 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:48.499 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:48.602 | DEBUG    | vkbottle.api.api:request:78 - Request messages.edit with {'peer_id': 27260796, 'message': 'Настраиваюсь на твой поток...', 'conversation_message_id': 6869} data returned {"response":1}
+2026-05-17 20:00:48.603 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:48.874 | DEBUG    | vkbottle.api.api:validate_request:116 - API request was validated
+2026-05-17 20:00:48.996 | DEBUG    | vkbottle.api.api:request:78 - Request messages.setActivity with {'peer_id': 27260796, 'type': 'typing'} data returned {"response":1}
+2026-05-17 20:00:48.997 | DEBUG    | vkbottle.api.api:validate_response:108 - API response was validated
+2026-05-17 20:00:49.289 | ERROR    | __main__:main:226 - Error cleaning up typing tasks: cannot import name '_typing_tasks' from 'modules.utils' (D:\vk\vk\modules\utils\__init__.py)
