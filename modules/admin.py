@@ -262,52 +262,59 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
     elif action == "clear_redis":
         await clear_photo_cache()
-        await bot.api.messages.send(peer_id=peer_id, message="Кэш фото в Redis очищен.", random_id=0)
+        await ghost_edit(bot.api, peer_id, "Кэш фото в Redis очищен.", conversation_message_id=conversation_message_id)
+        await asyncio.sleep(2)
         await show_admin_system(peer_id, conversation_message_id)
     elif action == "search_user_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_user_search", "conv_id": conversation_message_id}))
-        await bot.api.messages.send(peer_id=peer_id, message="Введите VK ID адепта для поиска:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=0)
+        await ghost_edit(bot.api, peer_id, "Введите VK ID адепта для поиска:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), conversation_message_id=conversation_message_id)
     elif action == "broadcast_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_broadcast_message", "conv_id": conversation_message_id}))
-        await bot.api.messages.send(peer_id=peer_id, message="📝 Введите текст призыва (рассылки).\n\nОн будет отправлен всем адептам Синдиката.", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "broadcast"})).get_json(), random_id=0)
+        await ghost_edit(bot.api, peer_id, "📝 Введите текст призыва (рассылки).\n\nОн будет отправлен всем адептам Синдиката.", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "broadcast"})).get_json(), conversation_message_id=conversation_message_id)
     elif action == "broadcast_confirm":
         bt = await redis_client.get(f"admin:broadcast_text:{vk_id}")
         if not bt:
-            await bot.api.messages.send(peer_id=peer_id, message="❌ Текст призыва утерян. Начните заново.", random_id=0)
+            await ghost_edit(bot.api, peer_id, "❌ Текст призыва утерян. Начните заново.", conversation_message_id=conversation_message_id)
+            await asyncio.sleep(2)
             await show_admin_broadcast(peer_id, conversation_message_id)
             return
         bt = bt.decode('utf-8') if isinstance(bt, bytes) else bt
-        await bot.api.messages.send(peer_id=peer_id, message="🚀 Запуск трансмиссии...", random_id=0)
+        await ghost_edit(bot.api, peer_id, "🚀 Запуск трансмиссии...", conversation_message_id=conversation_message_id)
         users = await get_all_users()
         success = 0
         for u in users:
             try:
+                # Рассылка — это исключение, тут мы шлем новые сообщения
                 await bot.api.messages.send(peer_id=u["vk_id"], message=f"📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{bt}", random_id=0)
                 success += 1
                 await asyncio.sleep(0.05)
             except: pass
-        await bot.api.messages.send(peer_id=peer_id, message=f"✅ Рассылка завершена. Доставлено: {success}/{len(users)}", random_id=0)
+        await ghost_edit(bot.api, peer_id, f"✅ Рассылка завершена. Доставлено: {success}/{len(users)}", conversation_message_id=conversation_message_id)
+        await asyncio.sleep(3)
         await show_admin_broadcast(peer_id, conversation_message_id)
     elif action == "mass_energy_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_energy_target", "conv_id": conversation_message_id}))
-        await bot.api.messages.send(peer_id=peer_id, message="Введите ID и количество энергии через пробел (например: 12345 500):", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=0)
+        await ghost_edit(bot.api, peer_id, "Введите ID и количество энергии через пробел (например: 12345 500):", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), conversation_message_id=conversation_message_id)
     elif payload.get("cmd") == "admin_user_op":
         op, target = payload.get("op"), payload.get("target")
         if op == "edit_balance":
             await set_fsm_state(vk_id, json.dumps({"step": "admin_user_edit_balance", "target": target, "conv_id": conversation_message_id}))
-            await bot.api.messages.send(peer_id=peer_id, message=f"Введите НОВОЕ значение баланса для {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=0)
+            await ghost_edit(bot.api, peer_id, f"Введите НОВОЕ значение баланса для {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), conversation_message_id=conversation_message_id)
         elif op == "full_unlock":
             user = await get_user(target)
             if user:
                 p = user.get("purchased_sections", {})
                 for s in ["sex", "money", "shadow", "final", "synastry", "antitaro"]: p[s] = True
                 await update_user(target, {"purchased_sections": p, "has_full_chart": True})
-                await bot.api.messages.send(peer_id=peer_id, message=f"✅ Все услуги разблокированы для {target}", random_id=0)
-                await bot.api.messages.send(peer_id=target, message="🌟 Магистр даровал вам полный доступ ко всем тайнам Синдиката!", random_id=0)
+                await ghost_edit(bot.api, peer_id, f"✅ Все услуги разблокированы для {target}", conversation_message_id=conversation_message_id)
+                # Уведомление пользователю — новое сообщение
+                try: await bot.api.messages.send(peer_id=target, message="🌟 Магистр даровал вам полный доступ ко всем тайнам Синдиката!", random_id=0)
+                except: pass
+                await asyncio.sleep(2)
                 await show_admin_users(peer_id, conversation_message_id)
         elif op == "give_card_start":
             await set_fsm_state(vk_id, json.dumps({"step": "admin_user_give_card", "target": target, "conv_id": conversation_message_id}))
-            await bot.api.messages.send(peer_id=peer_id, message=f"Введите ID карты (0-77) для выдачи адепту {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=0)
+            await ghost_edit(bot.api, peer_id, f"Введите ID карты (0-77) для выдачи адепту {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), conversation_message_id=conversation_message_id)
 
 async def _is_admin_fsm(message: Message) -> bool:
     if message.from_id != ADMIN_ID: return False
@@ -328,7 +335,7 @@ async def admin_fsm_handler(message: Message):
             target_id = int(message.text.strip())
             user = await get_user(target_id)
             if not user:
-                await message.answer("Адепт не найден в матрице.")
+                await ghost_edit(bot.api, message.peer_id, "Адепт не найден в матрице.", conversation_message_id=conv_id)
                 return
             await set_fsm_state(vk_id, "")
             purchased, skins, has_full = user.get("purchased_sections", {}), user.get("purchased_skins", []), user.get("has_full_chart", False)
@@ -342,15 +349,16 @@ async def admin_fsm_handler(message: Message):
             kb.row()
             kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.SECONDARY)
             await ghost_edit(bot.api, message.peer_id, text, keyboard=kb.get_json(), conversation_message_id=conv_id)
-        except ValueError: await message.answer("Введите корректный числовой ID.")
+        except ValueError: await ghost_edit(bot.api, message.peer_id, "Введите корректный числовой ID.", conversation_message_id=conv_id)
     elif step == "admin_user_edit_balance":
         try:
             target_id, new_bal = fsm_data.get("target"), int(message.text.strip())
             await update_user(target_id, {"balance": new_bal})
             await set_fsm_state(vk_id, "")
-            await message.answer(f"Баланс пользователя {target_id} изменен на {new_bal} ✨")
+            await ghost_edit(bot.api, message.peer_id, f"Баланс пользователя {target_id} изменен на {new_bal} ✨", conversation_message_id=conv_id)
+            await asyncio.sleep(2)
             await show_admin_users(message.peer_id, conv_id)
-        except: await message.answer("Введите число.")
+        except: await ghost_edit(bot.api, message.peer_id, "Введите число.", conversation_message_id=conv_id)
     elif step == "admin_user_give_card":
         try:
             target_id, card_id = fsm_data.get("target"), str(int(message.text.strip()))
@@ -360,34 +368,38 @@ async def admin_fsm_handler(message: Message):
             from cards_data import get_card_data
             card_data = get_card_data(card_id)
             if not card_data:
-                await message.answer("Такой карты не существует.")
+                await ghost_edit(bot.api, message.peer_id, "Такой карты не существует.", conversation_message_id=conv_id)
                 return
             unlocked[card_id] = f"{card_data.get('name')} - ДАР МАГИСТРА"
             await update_user(target_id, {"unlocked_cards": unlocked})
             await set_fsm_state(vk_id, "")
-            await message.answer(f"✅ Карта {card_id} выдана адепту {target_id}")
-            await bot.api.messages.send(peer_id=target_id, message=f"🎁 Магистр Синдиката даровал вам новую карту в Гримуар: {card_data.get('name')}!", random_id=0)
+            await ghost_edit(bot.api, message.peer_id, f"✅ Карта {card_id} выдана адепту {target_id}", conversation_message_id=conv_id)
+            # Пользователю новое
+            try: await bot.api.messages.send(peer_id=target_id, message=f"🎁 Магистр Синдиката даровал вам новую карту в Гримуар: {card_data.get('name')}!", random_id=0)
+            except: pass
+            await asyncio.sleep(2)
             await show_admin_users(message.peer_id, conv_id)
-        except: await message.answer("Введите число ID карты (0-77).")
+        except: await ghost_edit(bot.api, message.peer_id, "Введите число ID карты (0-77).", conversation_message_id=conv_id)
     elif step == "admin_energy_target":
         parts = message.text.strip().split()
         if len(parts) != 2:
-            await message.answer("Формат: ID КОЛИЧЕСТВО")
+            await ghost_edit(bot.api, message.peer_id, "Формат: ID КОЛИЧЕСТВО", conversation_message_id=conv_id)
             return
         try:
             target_id, amount = int(parts[0]), int(parts[1])
             target_user = await get_user(target_id)
             if not target_user:
-                await message.answer("Пользователь не найден.")
+                await ghost_edit(bot.api, message.peer_id, "Пользователь не найден.", conversation_message_id=conv_id)
                 return
             new_balance = int(target_user.get("balance", 0) or 0) + amount
             await update_user(target_id, {"balance": new_balance})
             await set_fsm_state(vk_id, "")
-            await message.answer(f"Зачислено {amount} ✨ пользователю {target_id}. Итого: {new_balance}")
+            await ghost_edit(bot.api, message.peer_id, f"Зачислено {amount} ✨ пользователю {target_id}. Итого: {new_balance}", conversation_message_id=conv_id)
             try: await bot.api.messages.send(peer_id=target_id, message=f"⚡️ Магистр даровал вам {amount} Энергии звезд!\nВаш баланс: {new_balance}", random_id=0)
             except: pass
+            await asyncio.sleep(2)
             await show_admin_users(message.peer_id, conv_id)
-        except: await message.answer("Ошибка в числах.")
+        except: await ghost_edit(bot.api, message.peer_id, "Ошибка в числах.", conversation_message_id=conv_id)
     elif step == "admin_broadcast_message":
         text = message.text.strip()
         await set_fsm_state(vk_id, "")

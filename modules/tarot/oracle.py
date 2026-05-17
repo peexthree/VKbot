@@ -40,8 +40,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
 
         res = await generate_text(prompt, skin=user.get("active_skin", "olesya"), sex=sex_val)
         if not res:
-            if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨")
-            else: await bot.api.messages.send(peer_id=vk_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨", random_id=0)
+            await ghost_edit(bot.api, vk_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨", conversation_message_id=conv_msg_id)
             return
 
         unlocked = user.get("unlocked_cards", {}) or {}
@@ -60,15 +59,11 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         except: pass
 
         att = ",".join(attachments) if attachments else None
-        if conv_msg_id:
-            try: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=res, keyboard=kb_json, attachment=att)
-            except: await bot.api.messages.send(peer_id=vk_id, message=res, keyboard=kb_json, random_id=0, attachment=att)
-        else: await bot.api.messages.send(peer_id=vk_id, message=res, keyboard=kb_json, random_id=0, attachment=att)
+        await ghost_edit(bot.api, vk_id, message=res, keyboard=kb_json, attachment=att, conversation_message_id=conv_msg_id)
     except Exception as e:
         logger.error(f"Ошибка в Оракуле: {e}")
         err = "Звезды сегодня немного запутались. Попробуем еще раз чуть позже ✨"
-        if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=err)
-        else: await bot.api.messages.send(peer_id=vk_id, message=err, random_id=0)
+        await ghost_edit(bot.api, vk_id, message=err, conversation_message_id=conv_msg_id)
     finally:
         await stop_dynamic_typing(vk_id)
         if not skip_lock: await release_lock(vk_id)

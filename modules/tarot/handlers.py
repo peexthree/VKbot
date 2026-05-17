@@ -3,9 +3,10 @@ import random
 from vkbottle import Keyboard, Callback, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 from database import set_user_state
-from modules.utils import get_fsm_step, acquire_lock, release_lock
+from modules.utils import get_fsm_step, acquire_lock, release_lock, ghost_edit
 from modules.states import MyStates
 from .daily import card_of_day_logic
+from modules.bot_init import bot
 
 labeler = BotLabeler()
 
@@ -31,7 +32,7 @@ async def process_oracle_cut_handler(message: Message):
             kb.add(Callback("🎴", payload={"oracle_card": cid}))
             if (_i + 1) % 2 == 0:
                 kb.row()
-        await message.answer("✨ ШАГ 3 ИЗ 3: ТВОЙ ВЫБОР ✨\nПрислушайся к интуиции и выбери 3 карты, которые откликаются тебе сейчас.", keyboard=kb.get_json())
+        await ghost_edit(bot.api, message.peer_id, "✨ ШАГ 3 ИЗ 3: ТВОЙ ВЫБОР ✨\nПрислушайся к интуиции и выбери 3 карты, которые откликаются тебе сейчас.", keyboard=kb.get_json())
     finally: await release_lock(vk_id)
 
 @labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня", "🃏 КАРТА ДНЯ"])
@@ -45,5 +46,5 @@ async def process_oracle_question(message: Message):
     try:
         await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": message.text.strip()}))
         kb = Keyboard(inline=True).add(Callback("✦ ОБРЕЗАТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.PRIMARY)
-        await message.answer("✨ ШАГ 2 ИЗ 3: СОПРИКОСНОВЕНИЕ ✨\nКоснись колоды, чтобы она почувствовала твое присутствие.", keyboard=kb.get_json())
+        await ghost_edit(bot.api, message.peer_id, "✨ ШАГ 2 ИЗ 3: СОПРИКОСНОВЕНИЕ ✨\nКоснись колоды, чтобы она почувствовала твое присутствие.", keyboard=kb.get_json())
     finally: await release_lock(vk_id)

@@ -26,7 +26,7 @@ labeler = BotLabeler()
 
 @labeler.message(text=["✦ Баланс", "Баланс", "💳 БАЛАНС"])
 async def show_balance(message: Message):
-    await show_balance_logic(message.from_id, message)
+    await show_balance_logic(message.from_id, message.peer_id, message)
 
 @labeler.message(text=["✦ Настройки ⚙", "Настройки", "⚙ НАСТРОЙКИ"])
 async def settings_handler(
@@ -43,7 +43,7 @@ async def settings_handler(
 
 @labeler.message(text="Изменить свои данные")
 async def settings_change_data(message: Message):
-    await settings_change_data_logic(message.from_id, message)
+    await settings_change_data_logic(message.from_id, message, skip_lock=False)
 
 async def is_waiting_change_date(message: Message) -> bool:
     if message.text and any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️"]):
@@ -77,15 +77,15 @@ async def process_change_city(message: Message):
 
 @labeler.message(text="Отменить подписку")
 async def settings_cancel_subscription(message: Message):
-    await settings_cancel_subscription_logic(message.from_id, message)
+    await settings_cancel_subscription_logic(message.from_id, message, skip_lock=False)
 
 @labeler.message(text="СБРОС АККАУНТА")
 async def settings_reset_account(message: Message):
-    await settings_reset_account_logic(message.from_id, message)
+    await settings_reset_account_logic(message.from_id, message, skip_lock=False)
 
 @labeler.message(state=MyStates.WAITING_RESET_CONFIRM, text="ПОДТВЕРДИТЬ СБРОС")
 async def confirm_reset_account(message: Message):
-    await confirm_reset_account_logic(message.from_id, message)
+    await confirm_reset_account_logic(message.from_id, message, skip_lock=False)
 
 @labeler.message(state=MyStates.WAITING_RESET_CONFIRM, text="Назад в профиль")
 async def cancel_reset_account(message: Message):
@@ -121,7 +121,7 @@ async def view_grimoire_card(message: Message):
 
 @labeler.message(text=["ЛАЙН ГОЛОС"])
 async def god_mode_handler(message: Message):
-    await god_mode_logic(message.from_id, message)
+    await god_mode_logic(message.from_id, message.peer_id, message)
 
 @labeler.message(text=["🕸 Синдикат", "Синдикат"])
 async def syndicate_dashboard_handler(
@@ -142,19 +142,19 @@ async def back_to_profile(message: Message):
 
 @labeler.message(text=["Получить Печать 📜"])
 async def get_seal_handler(message: Message):
-    await get_seal_logic(message.from_id, message)
+    await get_seal_logic(message.from_id, message.peer_id)
 
 @labeler.message(text=["Ввести Печать ✒"])
 async def enter_seal_handler(message: Message):
-    await enter_seal_logic(message.from_id, message)
+    await enter_seal_logic(message.from_id, message.peer_id, message, skip_lock=False)
 
 @labeler.message(text=["Отмена"])
 async def cancel_seal_handler(message: Message):
-    await cancel_seal_logic(message.from_id, message.peer_id, message)
+    await cancel_seal_logic(message.from_id, message.peer_id, message, skip_lock=False)
 
 @labeler.message(func=lambda m: m.text and re.match(r"(?i)^(ПРОМО|ПЕЧАТЬ)-\d+$", m.text.strip()))
 async def apply_promo_handler(message: Message):
-    await apply_promo_logic(message.from_id, message)
+    await apply_promo_logic(message.from_id, message.peer_id, message, skip_lock=False)
 
 @labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 ПУТЕВОДИТЕЛЬ", "📖 Путеводитель"])
 async def show_guide(
