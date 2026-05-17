@@ -1,9 +1,9 @@
-import ast
+import modules.compat.ast_shim  # noqa: F401
+
 import asyncio
 import datetime
 import json
 import os
-import warnings
 import sentry_sdk
 from aiohttp import web
 from loguru import logger
@@ -21,13 +21,6 @@ if sentry_dsn:
 
 # Настройка логирования loguru (отключаем enqueue из-за проблем с пиклингом динамических исключений vkbottle)
 logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=False)
-
-# КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", DeprecationWarning)
-    for attr in ("Num", "Str", "Bytes", "NameConstant", "Ellipsis"):
-        if not hasattr(ast, attr):
-            setattr(ast, attr, type(attr, (ast.Constant,), {}))
 
 async def handle_ping(request):
     return web.Response(text="Bot is alive")
