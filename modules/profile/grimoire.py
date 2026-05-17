@@ -80,7 +80,7 @@ async def show_grimoire_page(
         kb = Keyboard(inline=True, one_time=False)
 
         # Кнопки карт (1 в ряд по правилам AGENTS.md)
-        for i, item in enumerate(current_items):
+        for item in current_items:
             kb.add(
                 Callback(
                     f"Карта {item['id']}: {item['name']}",
