@@ -115,7 +115,7 @@ async def execute_generation(
                 titles = {
                     "sex": "Сексуальность", "money": "Богатство", "shadow": "Тень",
                     "final": "Путь", "synastry": "Синастрия", "oracle": "Оракул",
-                    "antitaro": "Антитаро", "report": "Разбор"
+                    "antitaro": "Антитаро", "report": "Разбор", "card_of_day": "Карта дня"
                 }
 
                 history.append({
@@ -134,6 +134,13 @@ async def execute_generation(
                 purchased = user.get("purchased_sections", {})
                 if target_section in purchased:
                     purchased[target_section] = False
+                    save_data["purchased_sections"] = purchased
+
+                # Награда за Карту Дня
+                if target_section == "card_of_day":
+                    save_data["balance"] = user.get("balance", 0) + 100
+                    save_data["visit_streak"] = user.get("visit_streak", 0) + 1
+                    purchased["card_of_day_last_used"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                     save_data["purchased_sections"] = purchased
 
                 if isinstance(res_data, dict):
