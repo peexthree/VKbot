@@ -21,6 +21,8 @@ async def process_payment_and_generate(vk_id: int, section: str):
 
         if section == "micro_insight":
             active_skin = user.get("active_skin", "olesya")
+            purchased = user.get("purchased_sections", {})
+            sex_val = purchased.get("sex_val", 0)
             from ai_service import generate_text
             prompt = (
                 f"Пользователь купил микро-инсайт. Его данные: {user.get('birth_date')} {user.get('birth_city')}. "
@@ -28,7 +30,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 f"Дай ОДИН короткий, дерзкий и точный совет или предсказание на ближайший час. "
                 f"Стиль: {active_skin}. Максимум 2 предложения. Без жирного шрифта."
             )
-            insight = await generate_text(prompt, skin=active_skin)
+            insight = await generate_text(prompt, skin=active_skin, sex=sex_val)
             from modules.keyboards import get_main_reply_keyboard
             await bot.api.messages.send(
                 peer_id=vk_id,

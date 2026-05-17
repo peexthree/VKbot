@@ -37,7 +37,7 @@ async def get_gemini_api_keys() -> list[str]:
     _cached_api_keys = keys
     return keys
 
-async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya") -> str | None:
+async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya", sex: int = 0) -> str | None:
     if not json_mode:
         prompt_lower = prompt.lower()
         if any(word in prompt_lower for word in STOP_WORDS_18PLUS):
@@ -56,16 +56,18 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
         for api_key in api_keys:
             url = f"https://generativelanguage.googleapis.com/{version}/{model}:generateContent?key={api_key}"
 
+            gender_context = "ЖЕНЩИНА" if sex == 1 else "МУЖЧИНА" if sex == 2 else "ПОЛ НЕИЗВЕСТЕН (используй нейтральные обращения)"
+
             if json_mode:
-                final_prompt = f"{prompt.strip()}\nОтветь строго в формате JSON."
+                final_prompt = f"ПОЛЬЗОВАТЕЛЬ: {gender_context}\n{prompt.strip()}\nОтветь строго в формате JSON."
             else:
-                # Премиальная инструкция для более глубоких ответов
-                premium_context = (
-                    "Используй метафоры высокого уровня, но сочетай их с современным технологическим или психологическим контекстом. "
+                # Универсальная инструкция для глубоких ответов, уважающая стиль персонажа
+                context_instruction = (
+                    f"ПОЛЬЗОВАТЕЛЬ: {gender_context}. ОБРАЩАЙСЯ СТРОГО В ПРАВИЛЬНОМ РОДЕ.\n"
                     "Твой ответ должен казаться невероятно личным и глубоким. Избегай общих фраз. "
                     "Структурируй ответ так, чтобы он был удобен для чтения в мессенджере (короткие абзацы, тире)."
                 )
-                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}"
+                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{context_instruction}\n{prompt.strip()}"
 
             payload = {
                 "contents": [{"parts": [{"text": final_prompt}]}]

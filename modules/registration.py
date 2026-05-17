@@ -286,6 +286,9 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
 
     await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
+    purchased = user.get("purchased_sections", {})
+    sex_val = purchased.get("sex_val", 0)
+
     teaser_prompt = (
         f"Пользователь только что зарегистрировался. Его данные: {core_profile}. "
         f"Сгенерируй ОДНУ короткую, нежную, но попадающую в самое сердце фразу о его главной силе или таланте на основе даты рождения. "
@@ -293,7 +296,7 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
         f"Стиль: {active_skin}. Коротко, без приветствий. Без жирного шрифта."
     )
 
-    teaser_text = await generate_text(teaser_prompt, skin=active_skin)
+    teaser_text = await generate_text(teaser_prompt, skin=active_skin, sex=sex_val)
     await stop_dynamic_typing(peer_id)
 
     final_text = (

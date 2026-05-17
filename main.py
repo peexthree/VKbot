@@ -7,6 +7,7 @@ import warnings
 import sentry_sdk
 from aiohttp import web
 from loguru import logger
+from vkbottle import Keyboard, KeyboardButtonColor, Callback
 
 sentry_dsn = os.environ.get("SENTRY_DSN", "")
 if sentry_dsn:
@@ -35,7 +36,6 @@ async def main():
     from ai_service import close_session, generate_text, init_session
     from database import get_all_users, init_db, update_user
     from modules.bot_init import bot
-    from vkbottle import Keyboard, KeyboardButtonColor, Callback
 
     # Инициализация глобальной сессии aiohttp
     init_session()
@@ -128,10 +128,12 @@ async def main():
                     if has_sub or trial_days < 3:
                         core_profile = user.get("core_profile", "")
                         active_skin = user.get("active_skin", "olesya")
+                        purchased = user.get("purchased_sections", {})
+                        sex_val = purchased.get("sex_val", 0)
                         tags = user.get("tags", [])
                         tags_str = ", ".join(tags) if tags else "отсутствует"
                         prompt = (
-                            f"Сгенерируй мягкий, эмпатичный геймифицированный прогноз на день в стиле Оракула-проводника (Олеси Иванченко). "
+                            f"Сгенерируй мягкий, эмпатичный геймифицированный прогноз на день в стиле выбранного персонажа. "
                             f"Используй метафоры звезд, энергетических потоков и внутреннего света. "
                             f"В начале добавь шкалу энергии: '🌕 Энергия: [Случайное число 1-10]/10'. "
                             f"Укажи '✨ Фокус дня:' и '🌙 Уязвимость:'. "
@@ -140,7 +142,7 @@ async def main():
                             f"Сделай к ним тонкую, поддерживающую отсылку. "
                             f"КРИТИЧЕСКОЕ ПРАВИЛО: Строгий запрет на выделение текста маркерами. Никаких звездочек. Никакого жирного шрифта. Используй только короткие тире (-) для создания списков и структуры."
                         )
-                        forecast = await generate_text(prompt, skin=active_skin)
+                        forecast = await generate_text(prompt, skin=active_skin, sex=sex_val)
                         if forecast:
                             from ai_service import extract_tags
                             async def extract_and_save_tags(v_id: int, text: str):
@@ -152,9 +154,11 @@ async def main():
                             try:
                                 # Форматирование даты
                                 date_str = now.strftime("%d.%m")
+                                kb = Keyboard(inline=True).add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
                                 await bot.api.messages.send(
                                     peer_id=vk_id,
                                     message=f"✦ ШЕПОТ ЗВЕЗД ✦\n📅 {date_str}\n-----------------\n{forecast}\n-----------------\n✨ Твой Проводник всегда рядом.",
+                                    keyboard=kb.get_json(),
                                     random_id=0
                                 )
                                 if not has_sub:
@@ -171,7 +175,8 @@ async def main():
                                 "buttons": [
                                     [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 0}), "label": "Спутник 7 дней"}, "color": "secondary"}],
                                     [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 1}), "label": "Оракул 30 дней"}, "color": "primary"}],
-                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 2}), "label": "VIP Архив"}, "color": "positive"}]
+                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 2}), "label": "VIP Архив"}, "color": "positive"}],
+                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "main_menu"}), "label": "🏠 В ГЛАВНОЕ МЕНЮ"}, "color": "secondary"}]
                                 ]
                             }
                             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)

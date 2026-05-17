@@ -32,12 +32,13 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         tarot_names = await get_tarot_names()
         c_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in card_ids]
         p = user.get("purchased_sections", {})
-        gender = "ЖЕНЩИНА" if p.get("sex_val", 0) == 1 else "МУЖЧИНА"
+        sex_val = p.get("sex_val", 0)
+        gender = "ЖЕНЩИНА" if sex_val == 1 else "МУЖЧИНА" if sex_val == 2 else "НЕЙТРАЛЬНО"
         core, tags = user.get("core_profile", ""), user.get("tags", [])
         prompt = f"КОНТЕКСТ: {gender}. " + (f"Прошлый анализ: {core}. " if core else "") + (f"Фокус: [{', '.join(tags)}]. " if tags else "")
         prompt += f"Пользователь задает вопрос: {text}. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
 
-        res = await generate_text(prompt, skin=user.get("active_skin", "olesya"))
+        res = await generate_text(prompt, skin=user.get("active_skin", "olesya"), sex=sex_val)
         if not res:
             if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨")
             else: await bot.api.messages.send(peer_id=vk_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨", random_id=0)
@@ -47,7 +48,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         for cid_int in card_ids:
             cid = str(cid_int)
             if cid not in unlocked:
-                sig = await generate_text(f"Краткая суть карты {tarot_names.get(cid)}. Мистично, для личного Гримуара.", skin=user.get("active_skin", "olesya"))
+                sig = await generate_text(f"Краткая суть карты {tarot_names.get(cid)}. Мистично, для личного Гримуара.", skin=user.get("active_skin", "olesya"), sex=sex_val)
                 unlocked[cid] = sig if sig else "Первое касание"
 
         await update_user(vk_id, {"unlocked_cards": unlocked, "total_cards_received": user.get("total_cards_received", 0) + 3})

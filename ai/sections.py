@@ -121,7 +121,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
                   "10. 'energy_map': Описание визуальной Карты энергий (какие планеты влияют).\n\n" \
                   "Отвечай только JSON."
 
-        res = await generate_text(prompt, json_mode=True, skin=skin)
+        res = await generate_text(prompt, json_mode=True, skin=skin, sex=sex)
         if res:
             try:
                 clean = clean_ai_json(res)
@@ -131,4 +131,4 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
                 return {"text": res}
         return {"text": "Ошибка генерации."}
     else:
-        return await generate_text(prompt, skin=skin)
+        return await generate_text(prompt, skin=skin, sex=sex)
