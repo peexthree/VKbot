@@ -1,5 +1,4 @@
-import sys
-import modules.compat.ast_shim
+import modules.compat.ast_shim  # noqa: F401
 
 import asyncio
 import datetime
