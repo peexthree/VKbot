@@ -210,8 +210,14 @@ async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
             latest_file = sorted(files)[-1]
             with open(os.path.join(log_dir, latest_file), "r", encoding="utf-8") as f:
                 lines = f.readlines()
-                log_text = "".join(lines[-15:])
+                log_text = "".join(lines[-5:])
     except Exception as e: log_text = f"Ошибка при чтении логов: {e}"
+
+    # Ensure log_text is not too long to avoid VKAPIError_914 (Message is too long)
+    # The limit is normally ~4096, but we leave room for the header.
+    if len(log_text) > 3500:
+        log_text = log_text[-3500:]
+
     text = f"📜 ПОСЛЕДНИЕ СОБЫТИЯ:\n\n{log_text}"
     kb = Keyboard(inline=True)
     kb.add(Callback("🔄 ОБНОВИТЬ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)

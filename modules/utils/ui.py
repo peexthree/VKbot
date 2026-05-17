@@ -136,6 +136,7 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
     await stop_dynamic_typing(peer_id)
 
     async def _typing_loop():
+        nonlocal conversation_message_id
         last_phrase = None
         msg_id = None
         if conversation_message_id:
