@@ -517,9 +517,9 @@ async def show_guide_logic(
             await release_lock(vk_id)
 
 
-async def show_guide_energy_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
+async def show_guide_energy_logic(vk_id: int, peer_id: int, conversation_message_id: int = None, skip_lock: bool = False):
     """Раздел Энергии в Путеводителе"""
-    if not await acquire_lock(vk_id): return
+    if not skip_lock and not await acquire_lock(vk_id): return
     try:
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         text = (
@@ -542,12 +542,13 @@ async def show_guide_energy_logic(vk_id: int, peer_id: int, conversation_message
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
-async def show_guide_services_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
+async def show_guide_services_logic(vk_id: int, peer_id: int, conversation_message_id: int = None, skip_lock: bool = False):
     """Раздел Услуг в Путеводителе"""
-    if not await acquire_lock(vk_id): return
+    if not skip_lock and not await acquire_lock(vk_id): return
     try:
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         text = (
@@ -568,12 +569,13 @@ async def show_guide_services_logic(vk_id: int, peer_id: int, conversation_messa
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
-async def show_guide_syndicate_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
+async def show_guide_syndicate_logic(vk_id: int, peer_id: int, conversation_message_id: int = None, skip_lock: bool = False):
     """Раздел Синдиката в Путеводителе"""
-    if not await acquire_lock(vk_id): return
+    if not skip_lock and not await acquire_lock(vk_id): return
     try:
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         text = (
@@ -592,12 +594,13 @@ async def show_guide_syndicate_logic(vk_id: int, peer_id: int, conversation_mess
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
 
 
-async def show_guide_grimoire_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
+async def show_guide_grimoire_logic(vk_id: int, peer_id: int, conversation_message_id: int = None, skip_lock: bool = False):
     """Раздел Гримуара в Путеводителе"""
-    if not await acquire_lock(vk_id): return
+    if not skip_lock and not await acquire_lock(vk_id): return
     try:
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         text = (
@@ -616,4 +619,5 @@ async def show_guide_grimoire_logic(vk_id: int, peer_id: int, conversation_messa
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
-        await release_lock(vk_id)
+        if not skip_lock:
+            await release_lock(vk_id)
