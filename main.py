@@ -130,8 +130,20 @@ async def main():
                         active_skin = user.get("active_skin", "olesya")
                         tags = user.get("tags", [])
                         tags_str = ", ".join(tags) if tags else "отсутствует"
+
+                        purchased = user.get("purchased_sections", {})
+                        sex_val = purchased.get("sex_val", 0)
+
+                        if sex_val == 1:
+                            gender_instruction = "ПОЛЬЗОВАТЕЛЬ - ЖЕНЩИНА. ОБРАЩАЙСЯ К НЕЙ В ЖЕНСКОМ РОДЕ."
+                        elif sex_val == 2:
+                            gender_instruction = "ПОЛЬЗОВАТЕЛЬ - МУЖЧИНА. ОБРАЩАЙСЯ К НЕМУ В МУЖСКОМ РОДЕ."
+                        else:
+                            gender_instruction = "ОБРАЩАЙСЯ К ПОЛЬЗОВАТЕЛЮ НЕЙТРАЛЬНО, БЕЗ УКАЗАНИЯ ПОЛА."
+
                         prompt = (
-                            f"Сгенерируй мягкий, эмпатичный геймифицированный прогноз на день в стиле Оракула-проводника (Олеси Иванченко). "
+                            f"Сгенерируй геймифицированный прогноз на день. "
+                            f"{gender_instruction} "
                             f"Используй метафоры звезд, энергетических потоков и внутреннего света. "
                             f"В начале добавь шкалу энергии: '🌕 Энергия: [Случайное число 1-10]/10'. "
                             f"Укажи '✨ Фокус дня:' и '🌙 Уязвимость:'. "
@@ -152,9 +164,13 @@ async def main():
                             try:
                                 # Форматирование даты
                                 date_str = now.strftime("%d.%m")
+
+                                kb = Keyboard(inline=True).add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
                                 await bot.api.messages.send(
                                     peer_id=vk_id,
                                     message=f"✦ ШЕПОТ ЗВЕЗД ✦\n📅 {date_str}\n-----------------\n{forecast}\n-----------------\n✨ Твой Проводник всегда рядом.",
+                                    keyboard=kb.get_json(),
                                     random_id=0
                                 )
                                 if not has_sub:
