@@ -88,11 +88,12 @@ async def show_grimoire_page(
                 ),
                 color=KeyboardButtonColor.SECONDARY,
             )
+            # Добавляем разделитель ряда, если это не последняя карта
+            # или если дальше точно будут еще кнопки (навигация или услуги)
             kb.row()
 
         # Навигация
         if total_pages > 1:
-            kb.row()
             if page > 0:
                 kb.add(
                     Callback("◀️ Назад", payload={"cmd": "grimoire_page", "page": page - 1}),
@@ -103,9 +104,9 @@ async def show_grimoire_page(
                     Callback("Вперёд ▶️", payload={"cmd": "grimoire_page", "page": page + 1}),
                     color=KeyboardButtonColor.PRIMARY,
                 )
+            kb.row()
 
         # Кнопка в Услуги
-        kb.row()
         kb.add(
             Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}),
             color=KeyboardButtonColor.POSITIVE,
@@ -127,6 +128,15 @@ async def show_grimoire_page(
 
     except Exception as e:
         logger.error(f"Ошибка в show_grimoire_page: {e}")
+        try:
+            await ghost_edit(
+                bot.api,
+                peer_id,
+                "⚠️ Произошла ошибка при открытии Гримуара. Попробуйте еще раз или обратитесь в поддержку.",
+                conversation_message_id=conversation_message_id,
+                keyboard=Keyboard(inline=True).add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY).get_json()
+            )
+        except: pass
     finally:
         await stop_dynamic_typing(peer_id)
         if not skip_lock:
