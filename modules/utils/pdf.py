@@ -1,7 +1,5 @@
 import os
 from loguru import logger
-from modules.utils.consts import jinja_env
-
 def generate_premium_pdf(
     user_name: str,
     birth_info: str,
@@ -24,6 +22,7 @@ def generate_premium_pdf(
     current_date: str = ""
 ):
     try:
+        from modules.utils.consts import jinja_env
         template = jinja_env.get_template('report.html')
 
         def safe_br(val):

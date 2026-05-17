@@ -1,7 +1,5 @@
 import os
 import asyncio
-from jinja2 import Environment, FileSystemLoader
-
 THEATRICAL_PHRASES = [
     "Настраиваюсь на твой поток...",
     "Открываю тайный гримуар...",
@@ -112,5 +110,14 @@ _anchor_batch: list[str] = []
 
 # PDF related
 templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'templates')
-jinja_env = Environment(loader=FileSystemLoader('templates'))
+_jinja_env = None
 pdf_semaphore = asyncio.Semaphore(1)
+
+def __getattr__(name):
+    if name == "jinja_env":
+        global _jinja_env
+        if _jinja_env is None:
+            from jinja2 import Environment, FileSystemLoader
+            _jinja_env = Environment(loader=FileSystemLoader('templates'))
+        return _jinja_env
+    raise AttributeError(f"module {__name__} has no attribute {name}")
