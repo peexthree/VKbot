@@ -65,7 +65,8 @@ async def main():
     async def daily_forecast_cron():
         while True:
             now = datetime.datetime.now(datetime.timezone.utc)
-            if now.hour == 12 and now.minute == 0:
+            # Перенос на 13:00 по Москве (10:00 UTC)
+            if now.hour == 10 and now.minute == 0:
                 users = await get_all_users()
 
                 async def process_reactivation(user):
@@ -130,11 +131,13 @@ async def main():
                         tags = user.get("tags", [])
                         tags_str = ", ".join(tags) if tags else "отсутствует"
                         prompt = (
-                            f"Сгенерируй геймифицированный прогноз на день. "
-                            f"В начале добавь шкалу энергии: 'Энергия [Случайное число 1-10]/10'. "
-                            f"Укажи 'Фокус:' и 'Уязвимость:'. Опирайся на этот профиль: {core_profile}. "
+                            f"Сгенерируй мягкий, эмпатичный геймифицированный прогноз на день в стиле Оракула-проводника (Олеси Иванченко). "
+                            f"Используй метафоры звезд, энергетических потоков и внутреннего света. "
+                            f"В начале добавь шкалу энергии: '🌕 Энергия: [Случайное число 1-10]/10'. "
+                            f"Укажи '✨ Фокус дня:' и '🌙 Уязвимость:'. "
+                            f"Опирайся на этот профиль: {core_profile}. "
                             f"Учитывай текущие теги пользователя (его главные боли/запросы): {tags_str}. "
-                            f"Сделай к ним тонкую отсылку. Коротко, жестко. "
+                            f"Сделай к ним тонкую, поддерживающую отсылку. "
                             f"КРИТИЧЕСКОЕ ПРАВИЛО: Строгий запрет на выделение текста маркерами. Никаких звездочек. Никакого жирного шрифта. Используй только короткие тире (-) для создания списков и структуры."
                         )
                         forecast = await generate_text(prompt, skin=active_skin)
@@ -147,9 +150,11 @@ async def main():
                                     await update_user(v_id, {"tags": new_tags})
                             asyncio.create_task(extract_and_save_tags(vk_id, forecast))
                             try:
+                                # Форматирование даты
+                                date_str = now.strftime("%d.%m")
                                 await bot.api.messages.send(
                                     peer_id=vk_id,
-                                    message=f"✦ ЕЖЕДНЕВНЫЙ ТРАНЗИТ ✦\n-----------------\n{forecast}\n-----------------",
+                                    message=f"✦ ШЕПОТ ЗВЕЗД ✦\n📅 {date_str}\n-----------------\n{forecast}\n-----------------\n✨ Твой Проводник всегда рядом.",
                                     random_id=0
                                 )
                                 if not has_sub:
