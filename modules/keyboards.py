@@ -19,9 +19,13 @@ async def get_main_inline_keyboard(vk_id: int, user: dict | None) -> str:
 
     kb.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("🔮 ПОСЛАНИЯ ТАРО", payload={"cmd": "services_menu", "filter": "tarot"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🔮 УСЛУГИ И РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("✨ ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("📖 ТАЙНЫЙ ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("🤝 МОЙ КРУГ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("✨ ЭНЕРГИЯ ЗВЕЗД", payload={"cmd": "profile_action", "action": "tariffs"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
 
     # Кнопка Натальной карты (если куплена 'all')
@@ -36,16 +40,10 @@ async def get_main_inline_keyboard(vk_id: int, user: dict | None) -> str:
     return kb.get_json()
 
 def get_profile_inline_keyboard() -> str:
-    """Клавиатура личного профиля - Вертикальная (макс 6 рядов)"""
+    """Клавиатура личного профиля - Компактная"""
     kb = Keyboard(inline=True)
 
     kb.add(Callback("📜 МОИ РАЗБОРЫ", payload={"cmd": "history_menu"}), color=KeyboardButtonColor.PRIMARY)
-    kb.row()
-    kb.add(Callback("📖 ТАЙНЫЙ ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
-    kb.row()
-    kb.add(Callback("🤝 МОЙ КРУГ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
-    kb.row()
-    kb.add(Callback("✨ ЭНЕРГИЯ И ДАРЫ", payload={"cmd": "profile_action", "action": "tariffs"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
     kb.add(Callback("🌙 НАСТРОЙКИ", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
@@ -113,6 +111,11 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
     kb = Keyboard(inline=True)
     kb.add(Callback(button_label, payload={"cmd": button_cmd, "type": item_type, "key": item_key}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
+
+    if item_type == "tariff":
+        kb.add(Callback("📜 ПУБЛИЧНАЯ ОФЕРТА", payload={"cmd": "show_offer"}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
+
     kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
 

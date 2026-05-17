@@ -111,18 +111,11 @@ async def show_profile_logic(
         profile_text = (
             "💳 ЛИЧНЫЙ ПРОФИЛЬ\n\n"
             f"👤 {first_name} | {rank}\n"
-            f"💠 Уровень: {level}\n"
-            f"📍 {birth_date} — {birth_city}\n"
-            f"🔮 Твой проводник: {skin_display_name}\n\n"
+            f"💠 Уровень: {level} | 🔥 Стрик: {visit_streak} дней\n"
+            f"📍 {birth_date} — {birth_city}\n\n"
             f"💬 {greeting}\n\n"
-            f"✨ Баланс: {balance} Энергии звёзд\n"
-            f"🔥 Стрик: {visit_streak} дней\n"
-            f"🃏 Гримуар: {unlocked_count} из 78 карт\n"
-            f"📊 ПРОГРЕСС: {progress_bar}\n\n"
-            "Здесь ты можешь управлять своими данными, менять проводника "
-            "и следить за ростом своей силы в матрице.\n\n"
-            "📜 Публичная оферта:\n"
-            "https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
+            f"✨ БАЛАНС: {balance} Энергии звезд\n"
+            f"🃏 ГРИМУАР: {unlocked_count}/78 [{progress_bar}]"
         )
 
         keyboard = get_profile_keyboard()
