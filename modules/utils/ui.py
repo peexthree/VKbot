@@ -155,9 +155,11 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                         await set_last_bot_msg(peer_id, msg_id)
                     else:
                         try:
+                            # Если мы редактируем существующее сообщение по CMID
                             if conversation_message_id and msg_id == conversation_message_id:
                                 await bot_api.messages.edit(peer_id=peer_id, message=phrase, conversation_message_id=msg_id)
                             else:
+                                # Иначе по MID (message_id)
                                 await bot_api.messages.edit(peer_id=peer_id, message=phrase, message_id=msg_id)
                             await set_last_bot_msg(peer_id, msg_id)
                         except Exception as edit_err:
@@ -165,6 +167,10 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                             logger.debug(f"Typing edit failed, sending new: {edit_err}")
                             resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
                             msg_id = resp
+                            # Важно: если мы перешли на новое сообщение, больше не используем старый conversation_message_id
+                            if conversation_message_id == msg_id:
+                                conversation_message_id = None
+
                             _typing_msg_ids[peer_id] = msg_id
                             await set_last_bot_msg(peer_id, msg_id)
 
