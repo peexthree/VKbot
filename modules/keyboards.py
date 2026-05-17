@@ -24,7 +24,7 @@ async def get_main_inline_keyboard(vk_id: int, user: dict | None) -> str:
     kb.add(Callback("📖 ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
     kb.add(Callback("🤝 МОЙ КРУГ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("✨ ЭНЕРГИЯ ЗВЕЗД", payload={"cmd": "profile_action", "action": "tariffs"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("✨ ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
     # Кнопка Натальной карты (если куплена 'all')
@@ -56,8 +56,6 @@ def get_settings_inline_keyboard() -> str:
     kb.add(Callback("Изменить данные", payload={"cmd": "profile_action", "action": "change_data"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
     kb.add(Callback("Сменить Проводника", payload={"cmd": "profile_action", "action": "change_skin"}), color=KeyboardButtonColor.PRIMARY)
-    kb.row()
-    kb.add(Callback("✨ ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
     kb.add(Callback("⚙️ ТЕХ. РАЗДЕЛ", payload={"cmd": "profile_action", "action": "advanced_settings"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
@@ -116,6 +114,9 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
 
     if item_type == "tariff":
         kb.add(Callback("📜 ПУБЛИЧНАЯ ОФЕРТА", payload={"cmd": "show_offer"}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
+    elif item_type == "service":
+        kb.add(Callback("✨ ЭНЕРГИЯ ЗВЕЗД", payload={"cmd": "tariff_page", "idx": 0}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
 
     kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
