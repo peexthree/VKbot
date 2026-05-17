@@ -167,7 +167,7 @@ async def view_card_direct(
         unlocked_cards = _normalize_unlocked_cards(user.get("unlocked_cards"))
 
         if str(card_id) not in unlocked_cards:
-            await bot.api.messages.send(peer_id=peer_id, message="Эта карта ещё не открыта.", random_id=0)
+            await ghost_edit(bot.api, peer_id, "Эта карта ещё не открыта.", conversation_message_id=conversation_message_id)
             return
 
         # Проводник (скин)

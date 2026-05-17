@@ -139,22 +139,22 @@ async def show_profile_logic(
             await release_lock(vk_id)
 
 
-async def god_mode_logic(vk_id: int, message: Message, skip_lock: bool = False):
+async def god_mode_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, message.peer_id)
+        await start_dynamic_typing(bot.api, peer_id)
         user = await get_user(vk_id)
         if not user:
-            await message.answer("Сначала напиши 'Начать'")
+            await ghost_edit(bot.api, peer_id, "Сначала напиши 'Начать'")
             return
         new_balance = int(user.get("balance", 0) or 0) + 100000
         await update_user(vk_id, {"balance": new_balance})
         kb_json = await get_sections_keyboard(vk_id, user)
-        await message.answer("ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.", keyboard=kb_json)
+        await ghost_edit(bot.api, peer_id, "ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.", keyboard=kb_json)
     finally:
-        await stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(peer_id)
         if not skip_lock:
             await release_lock(vk_id)
 
@@ -268,16 +268,16 @@ async def get_seal_logic(
             await release_lock(vk_id)
 
 
-async def enter_seal_logic(vk_id: int, message: Message, skip_lock: bool = False):
+async def enter_seal_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False):
     await set_user_state(vk_id, "waiting_for_seal")
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, message.peer_id)
+        await start_dynamic_typing(bot.api, peer_id)
         kb_json = get_cancel_seal_keyboard()
-        await message.answer("Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb_json)
+        await ghost_edit(bot.api, peer_id, "Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb_json)
     finally:
-        await stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(peer_id)
         if not skip_lock:
             await release_lock(vk_id)
 
@@ -287,13 +287,13 @@ async def cancel_seal_logic(vk_id: int, peer_id: int, message: Message, skip_loc
     await syndicate_dashboard_logic(vk_id, peer_id, message, skip_lock=skip_lock)
 
 
-async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = False, override_ref: str = None):
+async def apply_promo_logic(vk_id: int, peer_id: int, message: Message = None, skip_lock: bool = False, override_ref: str = None):
     await set_user_state(vk_id, "")
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await start_dynamic_typing(bot.api, message.peer_id)
-        text = override_ref.strip().upper() if override_ref else message.text.strip().upper()
+        await start_dynamic_typing(bot.api, peer_id)
+        text = override_ref.strip().upper() if override_ref else (message.text.strip().upper() if message else "")
         match = re.match(r"^(ПРОМО|ПЕЧАТЬ)-(\d+)$", text)
         if not match:
             return
@@ -305,14 +305,14 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
             is_new = True
         purchased = user.get("purchased_sections", {})
         if purchased.get("promo_used"):
-            await message.answer("Твоя матрица уже была усилена Печатью ранее. Путь открыт лишь однажды. Выстраивай свой личный Синдикат, чтобы получить больше энергии.")
+            await ghost_edit(bot.api, peer_id, "Твоя матрица уже была усилена Печатью ранее. Путь открыт лишь однажды. Выстраивай свой личный Синдикат, чтобы получить больше энергии.")
             return
         if referrer_id == vk_id:
-            await message.answer("Ты не можешь использовать свою собственную Печать.")
+            await ghost_edit(bot.api, peer_id, "Ты не можешь использовать свою собственную Печать.")
             return
         referrer = await get_user(referrer_id)
         if not referrer:
-            await message.answer("Такой Печати не существует.")
+            await ghost_edit(bot.api, peer_id, "Такой Печати не существует.")
             return
         user_balance = int(user.get("balance", 0) or 0) + 500
         referrer_balance = int(referrer.get("balance", 0) or 0) + 500
@@ -322,8 +322,8 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         ref_purchased["syndicate_count"] = ref_purchased.get("syndicate_count", 0) + 1
         ref_purchased["syndicate_energy"] = ref_purchased.get("syndicate_energy", 0) + 500
         await update_user(referrer_id, {"balance": referrer_balance, "purchased_sections": ref_purchased})
-        await message.answer(f"ПЕЧАТЬ АКТИВИРОВАНА! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
-        if is_new:
+        await ghost_edit(bot.api, peer_id, f"ПЕЧАТЬ АКТИВИРОВАНА! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
+        if is_new and message:
             from modules.registration import start_handler
             await start_handler(message, skip_lock=True)
         try:
@@ -341,7 +341,7 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
     finally:
-        await stop_dynamic_typing(message.peer_id)
+        await stop_dynamic_typing(peer_id)
         if not skip_lock:
             await release_lock(vk_id)
 

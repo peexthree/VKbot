@@ -6,7 +6,7 @@ from database import (
 )
 from modules.bot_init import bot
 from cache import acquire_lock
-from modules.utils import ADMIN_ID
+from modules.utils import ADMIN_ID, ghost_edit
 
 labeler = BotLabeler()
 
@@ -42,10 +42,10 @@ async def money_transfer_handler(event: dict):
         new_balance = current_balance + added_energy
         await update_user(vk_id, {"balance": new_balance})
 
-        await bot.api.messages.send(
-            peer_id=vk_id,
-            message=f"БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: {added_energy} Энергии звезд.\nНА ТВОЕМ СЧЕТУ: {new_balance} Энергии звезд.",
-            random_id=0
+        await ghost_edit(
+            bot.api,
+            vk_id,
+            f"БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: {added_energy} Энергии звезд.\nНА ТВОЕМ СЧЕТУ: {new_balance} Энергии звезд."
         )
     except Exception as e:
         logger.error(f"Ошибка: {str(e)}")
@@ -81,10 +81,10 @@ async def donut_handler(event: dict):
         await update_user(vk_id, {"balance": new_balance, "purchased_sections": purchased})
         action = "оформлена" if event_type == "donut_subscription_create" else "продлена"
         try:
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message=f"🌟 VK Donut подписка успешно {action}!\nТебе начислено {energy_added} Энергии звезд.\nТвой баланс: {new_balance} ✨.",
-                random_id=0
+            await ghost_edit(
+                bot.api,
+                vk_id,
+                f"🌟 VK Donut подписка успешно {action}!\nТебе начислено {energy_added} Энергии звезд.\nТвой баланс: {new_balance} ✨."
             )
             await bot.api.messages.send(
                 peer_id=ADMIN_ID,
@@ -98,9 +98,9 @@ async def donut_handler(event: dict):
         await update_user(vk_id, {"purchased_sections": purchased})
         action = "истекла" if event_type == "donut_subscription_expired" else "отменена"
         try:
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message=f"🥀 Твоя VK Donut подписка {action}. Ты больше не получаешь регулярную Энергию звезд.",
-                random_id=0
+            await ghost_edit(
+                bot.api,
+                vk_id,
+                f"🥀 Твоя VK Donut подписка {action}. Ты больше не получаешь регулярную Энергию звезд."
             )
         except Exception: pass

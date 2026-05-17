@@ -70,16 +70,13 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
             user["visit_streak"] = visit_streak
             try:
                 from modules.bot_init import bot
+                from modules.utils import send_temp_message
                 bonus_text = f"🎁 ТВОЙ ЕЖЕДНЕВНЫЙ ДАР: +{bonus_amount} Энергии звезд.\n"
                 if visit_streak > 1:
                     bonus_text += f"🔥 Стрик: {visit_streak} дней! Бонус увеличен.\n"
                 bonus_text += f"Возвращайся завтра. Твой баланс: {new_balance} ✨."
 
-                await bot.api.messages.send(
-                    peer_id=peer_id,
-                    message=bonus_text,
-                    random_id=0
-                )
+                await send_temp_message(bot.api, peer_id, bonus_text, delay=7)
             except Exception as e:
                 logger.error(f"Ошибка: {str(e)}")
         finally:

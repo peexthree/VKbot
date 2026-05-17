@@ -10,14 +10,40 @@ from cache import check_and_set_throttle_warning, check_throttle
 from database import update_user
 
 
-from modules.utils.ui import delete_bot_message
+from modules.utils.ui import delete_bot_message, ghost_edit
+from database import get_user
 
 class ThrottleMiddleware(BaseMiddleware[Message]):
     async def pre(self):
         vk_id = self.event.from_id
 
+        # Призрачный отклик: редактируем последнее сообщение бота
+        if self.event.text and not self.event.payload:
+            async def ghost_respond():
+                user = await get_user(vk_id)
+                skin = user.get("active_skin", "olesya") if user else "olesya"
+
+                # Приводим к каноническому имени через SKIN_DISPLAY_NAMES
+                from modules.utils.consts import SKIN_DISPLAY_NAMES
+                display_name = SKIN_DISPLAY_NAMES.get(skin, skin)
+
+                phrases = {
+                    "Олеся Иванченко": "Считываю твой запрос из потока... ✨",
+                    "Серьезный Аскет": "Тишина принимает твой вопрос. Жди. 🕯",
+                    "Григорий Распутин": "Твое слово услышано. Силы пробуждаются... ☦",
+                    "Магистр": "Матрица обрабатывает твой сигнал. Один момент... 💠",
+                    "Олег Шэпс": "Энергия запроса принята. Считываю ответ... 🔮",
+                    "Влад Череватов": "Твой вопрос в работе. Сейчас всё узнаем... 💀",
+                    "Виктория Райдес": "Запрос направлен предкам. Жди ответа... 🕯"
+                }
+                phrase = phrases.get(display_name, "Считываю твой запрос... ✨")
+
+                # Пытаемся отредактировать последнее сообщение бота
+                await ghost_edit(self.event.ctx_api, self.event.peer_id, phrase)
+
+            asyncio.create_task(ghost_respond())
+
         # Попытка удалить сообщение пользователя, если это команда или текст
-        # В личке это часто невозможно, но в беседе с правами админа - сработает.
         if self.event.text:
             asyncio.create_task(delete_bot_message(self.event.ctx_api, self.event.peer_id, cmid=self.event.conversation_message_id))
 

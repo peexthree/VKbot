@@ -62,7 +62,8 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
     if not locked:
         if peer_id:
             try:
-                await bot_api.messages.send(peer_id=peer_id, message="Открываю гримуар...", random_id=0)
+                from modules.utils.ui import ghost_edit
+                await ghost_edit(bot_api, peer_id, "Открываю гримуар...")
             except Exception: pass
         for _ in range(15):
             await asyncio.sleep(2)

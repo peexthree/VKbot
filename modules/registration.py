@@ -23,8 +23,7 @@ from modules.utils import (
     SKIN_ASSETS,
     send_temp_message,
     delete_bot_message,
-    get_last_bot_msg,
-    set_last_bot_msg
+    get_last_bot_msg
 )
 from modules.utils.consts import MYSTIC_STATUS_PHRASES
 import random
@@ -41,7 +40,7 @@ async def reset_user_handler(message: Message):
     try:
         await delete_user(vk_id)
         await set_user_state(vk_id, "")
-        await message.answer("СИСТЕМА ОБНУЛЕНА. Напиши 'Начать' для теста с нуля.")
+        await ghost_edit(bot.api, message.peer_id, "СИСТЕМА ОБНУЛЕНА. Напиши 'Начать' для теста с нуля.")
         logger.success(f"Пользователь {vk_id} полностью сброшен")
     except Exception as e:
         logger.error(f"Ошибка in reset_user_handler: {e}")
@@ -125,13 +124,12 @@ async def start_handler(message: Message, skip_lock: bool = False):
         # Загружаем фото Олеси для велком-месседжа
         att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Иванченко"], peer_id=vk_id)
 
-        msg_id = await message.answer(welcome_text, attachment=att, keyboard=kb.get_json())
-        await set_last_bot_msg(vk_id, msg_id)
+        await ghost_edit(bot.api, message.peer_id, welcome_text, attachment=att, keyboard=kb.get_json())
         await set_user_state(vk_id, "onboarding_skin_selection")
 
     except Exception as e:
         logger.error(f"Ошибка в start_handler: {e}")
-        await message.answer("Произошла ошибка при инициализации. Попробуй ещё раз.")
+        await ghost_edit(bot.api, message.peer_id, "Произошла ошибка при инициализации. Попробуй ещё раз.")
     finally:
         if not skip_lock:
             await release_lock(vk_id)
@@ -213,7 +211,7 @@ async def process_onboarding_data(message: Message):
         await stop_dynamic_typing(vk_id)
 
         if not data:
-            await message.answer("Не удалось распознать данные. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.")
+            await ghost_edit(bot.api, message.peer_id, "Не удалось распознать данные. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.", conversation_message_id=conv_id)
             return
 
         date = data.get("date", "")
@@ -221,7 +219,7 @@ async def process_onboarding_data(message: Message):
         city = data.get("city", "")
 
         if not date or not time or not city:
-            await message.answer("Мне нужно чуть больше точности для верного прогноза. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
+            await ghost_edit(bot.api, message.peer_id, "Мне нужно чуть больше точности для верного прогноза. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
             return
 
         await set_user_state(
@@ -259,7 +257,7 @@ async def process_onboarding_data(message: Message):
 
     except Exception as e:
         logger.error(f"Ошибка в process_onboarding_data: {e}")
-        await message.answer("Произошла ошибка. Попробуй ещё раз.")
+        await ghost_edit(bot.api, message.peer_id, "Произошла ошибка. Попробуй ещё раз.", conversation_message_id=conv_id)
     finally:
         await release_lock(vk_id)
 
@@ -282,7 +280,7 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
 
     for step in ritual_steps:
         await ghost_edit(bot.api, peer_id, f"✨ ТВОЕ ПУТЕШЕСТВИЕ НАЧИНАЕТСЯ ✨\n\n{step}", conversation_message_id=conversation_message_id)
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(4)
 
     await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
@@ -329,7 +327,7 @@ async def back_to_main_menu(message: Message):
     try:
         user = await get_user(vk_id)
         if not user:
-            await message.answer("ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
+            await ghost_edit(bot.api, message.peer_id, "ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
             return
 
         from modules.keyboards import get_main_inline_keyboard, get_main_reply_keyboard

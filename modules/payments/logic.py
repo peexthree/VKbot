@@ -32,13 +32,17 @@ async def process_payment_and_generate(vk_id: int, section: str):
             )
             insight = await generate_text(prompt, skin=active_skin, sex=sex_val)
             from modules.keyboards import get_main_reply_keyboard
-            await bot.api.messages.send(
+            await ghost_edit(
+                bot.api,
                 peer_id=vk_id,
                 message=f"✦ ШЕПОТ МАТРИЦЫ ✦\n\n{insight}",
-                random_id=0,
-                keyboard=get_main_reply_keyboard(vk_id)
             )
-            # Призрачный интерфейс: возвращаем пользователя в меню услуг
+            # Отправляем reply-клавиатуру временным сообщением для фиксации интерфейса
+            from modules.utils import send_temp_message
+            await send_temp_message(bot.api, vk_id, "Твоя панель навигации ✨", delay=3, keyboard=get_main_reply_keyboard(vk_id))
+
+            # Призрачный интерфейс: возвращаем пользователя в меню услуг через 5 секунд
+            await asyncio.sleep(5)
             from modules.services import show_services
             await show_services(vk_id, vk_id, 0)
             return
@@ -47,35 +51,28 @@ async def process_payment_and_generate(vk_id: int, section: str):
         if section == "all":
             purchased.update({"sex": True, "money": True, "shadow": True, "final": True, "all": True})
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await ghost_edit(bot.api, peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", keyboard=get_main_keyboard(vk_id))
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_oracle_question"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await ghost_edit(bot.api, peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", keyboard=get_main_keyboard(vk_id))
             return
         elif section == "synastry":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_synastry_name"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await ghost_edit(bot.api, peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", keyboard=get_main_keyboard(vk_id))
             return
         else:
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
-            # Призрачный интерфейс: удаляем старое и шлем подтверждение
-            from modules.utils import delete_bot_message, get_last_bot_msg, set_last_bot_msg
-            last_mid = await get_last_bot_msg(vk_id)
-            if last_mid:
-                await delete_bot_message(bot.api, vk_id, mid=last_mid)
-
-            msg_id = await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0, keyboard=get_main_keyboard(vk_id))
-            await set_last_bot_msg(vk_id, msg_id)
+            await ghost_edit(bot.api, peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", keyboard=get_main_keyboard(vk_id))
 
         await set_user_state(vk_id, f'{{"step": "global_cut", "target_section": "{section}"}}')
         kb = Keyboard(inline=True)
         kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        await bot.api.messages.send(peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+        await ghost_edit(bot.api, peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json())
     finally:
         await release_lock(lock_key)
 

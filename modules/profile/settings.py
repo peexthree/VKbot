@@ -73,10 +73,14 @@ async def _send_skins_page(
     header_text = f"✦ ВЫБОР ПЕРСОНАЖА ({idx + 1}/{total_items}) ✦\n\n👤 Персонаж: {skin_name}\n🎭 Стиль: {skin['style']}\n\nВыберите своего проводника."
 
     try:
-        if edit_msg_id:
-            await bot.api.messages.edit(peer_id=peer_id, message=header_text, attachment=att, keyboard=kb.get_json(), conversation_message_id=edit_msg_id)
-        else:
-            await bot.api.messages.send(peer_id=peer_id, message=header_text, attachment=att, keyboard=kb.get_json(), random_id=0)
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            header_text,
+            conversation_message_id=edit_msg_id,
+            attachment=att,
+            keyboard=kb.get_json()
+        )
     except Exception as e:
         logger.error(f"Error sending skin page: {e}")
 
@@ -111,7 +115,7 @@ async def settings_change_data_logic(vk_id: int, message: Message, skip_lock: bo
         return
     try:
         await set_user_state(vk_id, json.dumps({"step": "date"}))
-        await message.answer("Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):")
+        await ghost_edit(bot.api, message.peer_id, "Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):")
     finally:
         if not skip_lock:
             await release_lock(vk_id)
@@ -121,7 +125,7 @@ async def process_change_date_logic(vk_id: int, message: Message, skip_lock: boo
     try:
         new_date = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "time", "date": new_date}))
-        await message.answer(f"Дата {new_date} принята. Теперь введите ВРЕМЯ вашего рождения (например, 14:30 или 'не знаю'):")
+        await ghost_edit(bot.api, message.peer_id, f"Дата {new_date} принята. Теперь введите ВРЕМЯ вашего рождения (например, 14:30 или 'не знаю'):")
     finally:
         if not skip_lock:
             await release_lock(vk_id)
@@ -133,7 +137,7 @@ async def process_change_time_logic(vk_id: int, message: Message, skip_lock: boo
         state_dict = await get_fsm_step(vk_id)
         new_date = state_dict.get("date", "")
         await set_user_state(vk_id, json.dumps({"step": "city", "date": new_date, "time": new_time}))
-        await message.answer(f"Время {new_time} принято. Теперь введите ГОРОД вашего рождения:")
+        await ghost_edit(bot.api, message.peer_id, f"Время {new_time} принято. Теперь введите ГОРОД вашего рождения:")
     finally:
         if not skip_lock:
             await release_lock(vk_id)
@@ -154,7 +158,7 @@ async def process_change_city_logic(vk_id: int, message: Message, skip_lock: boo
         await set_user_state(vk_id, "")
 
         kb_json = get_change_data_keyboard()
-        await message.answer(f"Твои данные обновлены: {new_date}, {new_time}, г. {new_city}", keyboard=kb_json)
+        await ghost_edit(bot.api, message.peer_id, f"Твои данные обновлены: {new_date}, {new_time}, г. {new_city}", keyboard=kb_json)
     finally:
         if not skip_lock:
             await release_lock(vk_id)
@@ -164,7 +168,7 @@ async def settings_cancel_subscription_logic(vk_id: int, message: Message, skip_
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await message.answer("Ваш аккаунт не имеет активных рекуррентных подписок. Все платежи разовые. Для прекращения получения транзитов просто не пополняйте баланс. Отвязка карт не требуется по ФЗ №376-ФЗ.")
+        await ghost_edit(bot.api, message.peer_id, "Ваш аккаунт не имеет активных рекуррентных подписок. Все платежи разовые. Для прекращения получения транзитов просто не пополняйте баланс. Отвязка карт не требуется по ФЗ №376-ФЗ.")
     finally:
         if not skip_lock:
             await release_lock(vk_id)
@@ -175,7 +179,7 @@ async def settings_reset_account_logic(vk_id: int, message: Message, skip_lock: 
     try:
         await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
         kb_json = get_reset_confirm_keyboard()
-        await message.answer(
+        await ghost_edit(bot.api, message.peer_id,
             "⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?",
             keyboard=kb_json
         )
@@ -189,7 +193,7 @@ async def confirm_reset_account_logic(vk_id: int, message: Message, skip_lock: b
     try:
         await delete_user(vk_id)
         await set_user_state(vk_id, "")
-        await message.answer("Система обнулена. Напишите 'Начать', чтобы заново войти в матрицу.")
+        await ghost_edit(bot.api, message.peer_id, "Система обнулена. Напишите 'Начать', чтобы заново войти в матрицу.")
     finally:
         if not skip_lock:
             await release_lock(vk_id)

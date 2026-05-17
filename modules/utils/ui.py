@@ -37,14 +37,24 @@ async def ghost_edit(
     delete_last: bool = False,
     **kwargs
 ):
+    """
+    Умное редактирование сообщения («Призрачный интерфейс 2.0»).
+    Если ID не передан, пытается найти последнее сообщение бота в Redis.
+    Если редактирование не удается, удаляет старое и шлет новое.
+    """
     if isinstance(keyboard, dict):
         keyboard = json.dumps(keyboard, ensure_ascii=False)
 
-    # Если просят удалить последнее сообщение перед отправкой нового
-    if delete_last and not conversation_message_id and not message_id:
-        last_mid = await get_last_bot_msg(peer_id)
-        if last_mid:
-            await delete_bot_message(bot_api, peer_id, mid=last_mid)
+    # Пытаемся получить ID из Redis, если не передано явно
+    if not conversation_message_id and not message_id:
+        conversation_message_id = await get_last_bot_msg(peer_id)
+
+    # Если просят явно удалить перед отправкой
+    if delete_last:
+        last_id = conversation_message_id or message_id or await get_last_bot_msg(peer_id)
+        if last_id:
+            await delete_bot_message(bot_api, peer_id, cmid=last_id if conversation_message_id else None, mid=last_id if message_id else None)
+            conversation_message_id = message_id = None
 
     try:
         if conversation_message_id:
@@ -59,7 +69,6 @@ async def ghost_edit(
             await set_last_bot_msg(peer_id, conversation_message_id)
             return conversation_message_id
         elif message_id:
-            # message_id в VK для ботов работает хуже чем CMID, но оставим для совместимости
             await bot_api.messages.edit(
                 peer_id=peer_id,
                 message=message,
@@ -68,36 +77,32 @@ async def ghost_edit(
                 attachment=attachment,
                 **kwargs
             )
+            await set_last_bot_msg(peer_id, message_id)
             return message_id
     except Exception as e:
         logger.warning(f"Ghost edit failed, attempting recovery: {e}")
+        # Если не удалось отредактировать, пробуем удалить "битое" сообщение
         if conversation_message_id:
             await delete_bot_message(bot_api, peer_id, cmid=conversation_message_id)
         elif message_id:
             await delete_bot_message(bot_api, peer_id, mid=message_id)
 
-    # Если редактирование не удалось или не запрашивалось, отправляем новое сообщение
-    # Мы используем API напрямую, чтобы получить CMID из ответа, если это возможно.
-    # В vkbottle bot.api.messages.send возвращает ID сообщения (mid), но нам нужен CMID для надежного редактирования.
-
-    # Но так как vkbottle возвращает mid, а нам часто нужен CMID, попробуем получить его.
-    # Большинство методов в проекте используют mid как cmid (ошибка в именовании аргументов),
-    # так как в личке они часто совпадают или vkbottle их подменяет.
-
+    # Отправка нового сообщения
+    if "random_id" not in kwargs:
+        kwargs["random_id"] = 0
     resp = await bot_api.messages.send(
         peer_id=peer_id,
         message=message,
         keyboard=keyboard,
         attachment=attachment,
-        random_id=0,
         **kwargs
     )
 
-    # Пытаемся сохранить как последнее
+    # Сохраняем ID нового сообщения (vkbottle возвращает mid)
     if isinstance(resp, int):
         await set_last_bot_msg(peer_id, resp)
 
-    # Обновляем глобальный кэш тайпинга, если это было сообщение тайпинга
+    # Обновляем кэш тайпинга
     if peer_id in _typing_msg_ids:
         _typing_msg_ids[peer_id] = resp
 
@@ -106,12 +111,12 @@ async def ghost_edit(
 async def send_temp_message(bot_api, peer_id: int, message: str, delay: int = 5, **kwargs):
     """Отправляет временное сообщение, которое удаляется через delay секунд"""
     try:
-        mid = await bot_api.messages.send(peer_id=peer_id, message=message, random_id=0, **kwargs)
+        if "random_id" not in kwargs:
+            kwargs["random_id"] = 0
+        mid = await bot_api.messages.send(peer_id=peer_id, message=message, **kwargs)
 
         async def _delete_after():
             await asyncio.sleep(delay)
-            # В VK для удаления своего сообщения в ЛС часто нужны message_ids (mid)
-            # а в беседах можно и CMID. Попробуем оба варианта через общую функцию.
             await delete_bot_message(bot_api, peer_id, mid=mid)
 
         asyncio.create_task(_delete_after())
@@ -133,13 +138,12 @@ async def stop_dynamic_typing(peer_id: int) -> int | None:
     return msg_id
 
 async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: int = None) -> asyncio.Task:
+    """Запускает цикл театральных фраз с обновлением последнего сообщения"""
     await stop_dynamic_typing(peer_id)
 
     async def _typing_loop():
         last_phrase = None
-        msg_id = None
-        if conversation_message_id:
-            msg_id = conversation_message_id
+        msg_id = conversation_message_id
 
         try:
             while True:
@@ -149,31 +153,23 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                     last_phrase = phrase
 
                     if msg_id is None:
-                        resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
-                        msg_id = resp
-                        _typing_msg_ids[peer_id] = msg_id
-                        await set_last_bot_msg(peer_id, msg_id)
-                    else:
+                        # Ищем последнее сообщение в Redis перед отправкой нового
+                        msg_id = await get_last_bot_msg(peer_id)
+
+                    if msg_id:
                         try:
-                            # Если мы редактируем существующее сообщение по CMID
-                            if conversation_message_id and msg_id == conversation_message_id:
-                                await bot_api.messages.edit(peer_id=peer_id, message=phrase, conversation_message_id=msg_id)
-                            else:
-                                # Иначе по MID (message_id)
-                                await bot_api.messages.edit(peer_id=peer_id, message=phrase, message_id=msg_id)
+                            # Пробуем редактировать
+                            await bot_api.messages.edit(peer_id=peer_id, message=phrase, conversation_message_id=msg_id)
                             await set_last_bot_msg(peer_id, msg_id)
-                        except Exception as edit_err:
-                            # Если не удалось отредактировать (например, сообщение удалено), шлем новое
-                            logger.debug(f"Typing edit failed, sending new: {edit_err}")
-                            resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
-                            msg_id = resp
-                            # Важно: если мы перешли на новое сообщение, больше не используем старый conversation_message_id
-                            if conversation_message_id == msg_id:
-                                conversation_message_id = None
-
-                            _typing_msg_ids[peer_id] = msg_id
+                        except Exception:
+                            # Если не вышло — шлем новое
+                            msg_id = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
                             await set_last_bot_msg(peer_id, msg_id)
+                    else:
+                        msg_id = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
+                        await set_last_bot_msg(peer_id, msg_id)
 
+                    _typing_msg_ids[peer_id] = msg_id
                     await bot_api.messages.set_activity(peer_id=peer_id, type="typing")
                 except asyncio.CancelledError:
                     raise

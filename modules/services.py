@@ -45,7 +45,7 @@ async def _send_catalog_page(
     total_items = len(items)
     if not items:
         try:
-            await bot.api.messages.send(peer_id=peer_id, message="Раздел пуст.", random_id=0)
+            await ghost_edit(bot.api, peer_id, "Раздел пуст.", conversation_message_id=edit_msg_id)
         except Exception:
             pass
         return
@@ -96,7 +96,7 @@ async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
     if not user:
         try:
             from modules.bot_init import bot
-            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
+            await ghost_edit(bot.api, peer_id, "ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
         return False
@@ -178,7 +178,7 @@ async def process_synastry_name(message: Message):
 
         partner_name = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_date", "partner_name": partner_name}))
-        await message.answer(f"Имя {partner_name} согрело колоду ✨ Теперь введи, пожалуйста, дату рождения партнера (например, 15.04.1990):")
+        await ghost_edit(bot.api, message.peer_id, f"Имя {partner_name} согрело колоду ✨ Теперь введи, пожалуйста, дату рождения партнера (например, 15.04.1990):")
     finally:
         await release_lock(vk_id)
 
@@ -197,7 +197,7 @@ async def process_synastry_date(message: Message):
             "partner_name": partner_name,
             "partner_date": partner_date
         }))
-        await message.answer(f"Дата {partner_date} принята. Теперь напиши время рождения партнера (например, 14:30 или 'не знаю'):")
+        await ghost_edit(bot.api, message.peer_id, f"Дата {partner_date} принята. Теперь напиши время рождения партнера (например, 14:30 или 'не знаю'):")
     finally:
         await release_lock(vk_id)
 
@@ -218,7 +218,7 @@ async def process_synastry_time(message: Message):
             "partner_date": partner_date,
             "partner_time": partner_time
         }))
-        await message.answer(f"Время {partner_time} принято. И последнее — в какой городе родился партнер (например, Москва или 'не знаю')?")
+        await ghost_edit(bot.api, message.peer_id, f"Время {partner_time} принято. И последнее — в какой городе родился партнер (например, Москва или 'не знаю')?")
     finally:
         await release_lock(vk_id)
 
@@ -246,7 +246,9 @@ async def process_synastry_city(message: Message):
 
         kb = Keyboard(inline=True)
         kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        await message.answer(
+        await ghost_edit(
+            bot.api,
+            message.peer_id,
             "✨ ШАГ 2 ИЗ 3: НАСТРОЙКА ✨\nПрикоснись к колоде, чтобы настроиться на вашу связь.",
             keyboard=kb.get_json()
         )
