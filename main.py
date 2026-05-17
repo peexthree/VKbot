@@ -66,7 +66,7 @@ async def main():
         while True:
             now = datetime.datetime.now(datetime.timezone.utc)
             # Перенос на 13:00 по Москве (10:00 UTC)
-            if now.hour == 10 and now.minute == 0:
+            if now.hour == 10 and now.minute == 30:
                 users = await get_all_users()
 
                 async def process_reactivation(user):
