@@ -1,14 +1,5 @@
-import ast
-import warnings
-
-# КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+ (Должен быть в самом начале!)
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", DeprecationWarning)
-    for attr in ("Num", "Str", "Bytes", "NameConstant", "Ellipsis"):
-        if not hasattr(ast, attr):
-            # Создаем уникальный класс для каждого отсутствующего атрибута,
-            # наследуясь от ast.Constant для совместимости
-            setattr(ast, attr, type(attr, (ast.Constant,), {}))
+import sys
+import modules.compat.ast_shim
 
 import asyncio
 import datetime
