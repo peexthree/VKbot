@@ -32,9 +32,17 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         tarot_names = await get_tarot_names()
         c_names = [tarot_names.get(str(cid), f"Карта {cid}") for cid in card_ids]
         p = user.get("purchased_sections", {})
-        gender = "ЖЕНЩИНА" if p.get("sex_val", 0) == 1 else "МУЖЧИНА"
+
+        sex_val = p.get("sex_val", 0)
+        if sex_val == 1:
+            gender_instruction = "ПОЛЬЗОВАТЕЛЬ - ЖЕНЩИНА. ОБРАЩАЙСЯ К НЕЙ В ЖЕНСКОМ РОДЕ."
+        elif sex_val == 2:
+            gender_instruction = "ПОЛЬЗОВАТЕЛЬ - МУЖЧИНА. ОБРАЩАЙСЯ К НЕМУ В МУЖСКОМ РОДЕ."
+        else:
+            gender_instruction = "ОБРАЩАЙСЯ К ПОЛЬЗОВАТЕЛЮ НЕЙТРАЛЬНО, БЕЗ УКАЗАНИЯ ПОЛА."
+
         core, tags = user.get("core_profile", ""), user.get("tags", [])
-        prompt = f"КОНТЕКСТ: {gender}. " + (f"Прошлый анализ: {core}. " if core else "") + (f"Фокус: [{', '.join(tags)}]. " if tags else "")
+        prompt = f"{gender_instruction} " + (f"Прошлый анализ: {core}. " if core else "") + (f"Фокус: [{', '.join(tags)}]. " if tags else "")
         prompt += f"Пользователь задает вопрос: {text}. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
 
         res = await generate_text(prompt, skin=user.get("active_skin", "olesya"))
