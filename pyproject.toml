@@ -15,7 +15,7 @@ WeasyPrint = "68.1"
 upstash-redis = "1.7.0"
 loguru = "0.7.3"
 sentry-sdk = "2.59.0"
-aiofiles = "24.1.0"
+aiofiles = "^24.1.0"
 watchfiles = "0.18.1"
 
 [tool.ruff]
