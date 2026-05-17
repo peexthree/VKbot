@@ -23,8 +23,7 @@ from modules.utils import (
     SKIN_ASSETS,
     send_temp_message,
     delete_bot_message,
-    get_last_bot_msg,
-    set_last_bot_msg
+    get_last_bot_msg
 )
 from modules.utils.consts import MYSTIC_STATUS_PHRASES
 import random

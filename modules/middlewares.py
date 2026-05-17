@@ -10,7 +10,7 @@ from cache import check_and_set_throttle_warning, check_throttle
 from database import update_user
 
 
-from modules.utils.ui import delete_bot_message, ghost_edit, get_last_bot_msg
+from modules.utils.ui import delete_bot_message, ghost_edit
 from database import get_user
 
 class ThrottleMiddleware(BaseMiddleware[Message]):
