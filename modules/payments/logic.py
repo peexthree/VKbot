@@ -61,7 +61,14 @@ async def process_payment_and_generate(vk_id: int, section: str):
         else:
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            # Призрачный интерфейс: удаляем старое и шлем подтверждение
+            from modules.utils import delete_bot_message, get_last_bot_msg, set_last_bot_msg
+            last_mid = await get_last_bot_msg(vk_id)
+            if last_mid:
+                await delete_bot_message(bot.api, vk_id, mid=last_mid)
+
+            msg_id = await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await set_last_bot_msg(vk_id, msg_id)
 
         await set_user_state(vk_id, f'{{"step": "global_cut", "target_section": "{section}"}}')
         kb = Keyboard(inline=True)

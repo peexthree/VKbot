@@ -6,7 +6,7 @@ from database import get_user, set_user_state
 from modules.bot_init import bot
 from modules.utils import (
     ghost_edit, start_dynamic_typing, stop_dynamic_typing,
-    upload_local_photo
+    upload_local_photo, get_last_bot_msg, delete_bot_message
 )
 from cache import acquire_lock, release_lock
 
@@ -34,6 +34,13 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         att = await upload_local_photo(bot.api, "uslugi/cardofday.jpg", peer_id=peer_id)
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
+
+        # Если это вызов из текстового хендлера, пытаемся почистить старое
+        if not conv_msg_id:
+            last_mid = await get_last_bot_msg(vk_id)
+            if last_mid:
+                await delete_bot_message(bot.api, vk_id, mid=last_mid)
+
         await ghost_edit(bot.api, peer_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", conversation_message_id=conv_msg_id, message_id=typing_msg_id, attachment=att, keyboard=kb.get_json())
     except Exception as e:
         logger.error(f"Ошибка в Карте Дня: {e}")
