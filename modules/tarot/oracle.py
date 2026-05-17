@@ -1,11 +1,12 @@
 import json
+import asyncio
 from loguru import logger
 from vkbottle import Keyboard
 from database import get_user, update_user
 from ai_service import generate_text
 from modules.bot_init import bot
 from modules.utils import (
-    start_dynamic_typing, stop_dynamic_typing, upload_local_photo, get_sections_keyboard
+    start_dynamic_typing, stop_dynamic_typing, upload_local_photo, get_sections_keyboard, ghost_edit
 )
 from cache import acquire_lock, release_lock, get_tarot_names
 
@@ -13,16 +14,19 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
     if not skip_lock and not await acquire_lock(vk_id): return
     try:
         conv_msg_id, message_id = kwargs.get("conversation_message_id"), kwargs.get("message_id")
-        if conv_msg_id:
-            try: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="✨ Раскладываю карты для тебя...", keyboard=Keyboard(inline=True).get_json())
-            except: pass
-        elif message_id:
-            try: await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message="✨ Раскладываю карты для тебя...", keyboard=Keyboard(inline=True).get_json())
-            except: pass
+
+        await ghost_edit(
+            bot.api,
+            vk_id,
+            message="✨ Раскладываю карты для тебя...",
+            conversation_message_id=conv_msg_id,
+            message_id=message_id,
+            keyboard=Keyboard(inline=True).get_json()
+        )
 
         user = await get_user(vk_id)
         if not user: return
-        await start_dynamic_typing(bot.api, vk_id)
+        await start_dynamic_typing(bot.api, vk_id, conversation_message_id=conv_msg_id)
 
         attachments = []
         for cid in card_ids:
@@ -38,9 +42,13 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         prompt += f"Пользователь задает вопрос: {text}. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
 
         res = await generate_text(prompt, skin=user.get("active_skin", "olesya"))
+
+        # РИТУАЛ (4 секунды)
+        await asyncio.sleep(4)
+
         if not res:
-            if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨")
-            else: await bot.api.messages.send(peer_id=vk_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨", random_id=0)
+            await stop_dynamic_typing(vk_id)
+            await ghost_edit(bot.api, vk_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨", conversation_message_id=conv_msg_id)
             return
 
         unlocked = user.get("unlocked_cards", {}) or {}
@@ -59,15 +67,22 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         except: pass
 
         att = ",".join(attachments) if attachments else None
-        if conv_msg_id:
-            try: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=res, keyboard=kb_json, attachment=att)
-            except: await bot.api.messages.send(peer_id=vk_id, message=res, keyboard=kb_json, random_id=0, attachment=att)
-        else: await bot.api.messages.send(peer_id=vk_id, message=res, keyboard=kb_json, random_id=0, attachment=att)
+        typing_msg_id = await stop_dynamic_typing(vk_id)
+
+        await ghost_edit(
+            bot.api,
+            vk_id,
+            message=res,
+            conversation_message_id=conv_msg_id,
+            message_id=typing_msg_id,
+            keyboard=kb_json,
+            attachment=att
+        )
     except Exception as e:
         logger.error(f"Ошибка в Оракуле: {e}")
         err = "Звезды сегодня немного запутались. Попробуем еще раз чуть позже ✨"
-        if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=err)
-        else: await bot.api.messages.send(peer_id=vk_id, message=err, random_id=0)
+        await stop_dynamic_typing(vk_id)
+        await ghost_edit(bot.api, vk_id, message=err, conversation_message_id=conv_msg_id)
     finally:
         await stop_dynamic_typing(vk_id)
         if not skip_lock: await release_lock(vk_id)

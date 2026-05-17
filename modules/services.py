@@ -1,5 +1,4 @@
 import json
-
 from loguru import logger
 from vkbottle import (
     Callback,
@@ -25,9 +24,6 @@ labeler = BotLabeler()
 @labeler.message(text=["🔮 ГЛУБОКИЕ РАЗБОРЫ", "ГЛУБОКИЕ РАЗБОРЫ", "✦ Услуги", "Услуги", "✦ УСЛУГИ 🛒"])
 async def show_services_handler(message: Message):
     logger.info(f"show_services_handler triggered by from_id={message.from_id}")
-    last_mid = await get_last_bot_msg(message.from_id)
-    if last_mid:
-        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
     await show_services(message.from_id, message.peer_id, 0)
 
 
@@ -44,10 +40,7 @@ async def _send_catalog_page(
 ):
     total_items = len(items)
     if not items:
-        try:
-            await bot.api.messages.send(peer_id=peer_id, message="Раздел пуст.", random_id=0)
-        except Exception:
-            pass
+        await ghost_edit(bot.api, peer_id, "Раздел пуст.", conversation_message_id=edit_msg_id)
         return
 
     if idx < 0 or idx >= total_items:
@@ -94,11 +87,7 @@ async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
     await set_user_state(vk_id, "")
     user = await get_user(vk_id)
     if not user:
-        try:
-            from modules.bot_init import bot
-            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=0)
-        except Exception as e:
-            logger.error(f"Ignored Exception: {str(e)}")
+        await ghost_edit(bot.api, peer_id, "ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.")
         return False
     return True
 
@@ -125,20 +114,16 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     if filter_val:
         services = [s for s in services if s.get("category") == filter_val]
 
-    # Умные рекомендации на основе тегов
     user = await get_user(vk_id)
     if user and not filter_val:
         tags = user.get("tags", [])
         if tags:
             tags_lower = [t.lower() for t in tags]
-            # Если в тегах есть 'отношения' или 'любовь', поднимаем синастрию
             if any(x in " ".join(tags_lower) for x in ["люб", "отнош", "секс", "партнер"]):
-                # Перемещаем 'synastry' и 'sex' в начало
                 rel_keys = ["synastry", "sex"]
                 rel_items = [s for s in services if s["key"] in rel_keys]
                 other_items = [s for s in services if s["key"] not in rel_keys]
                 services = rel_items + other_items
-            # Если есть 'деньги' или 'карьера'
             elif any(x in " ".join(tags_lower) for x in ["ден", "фин", "раб", "бизнес", "карьер"]):
                 rel_keys = ["money"]
                 rel_items = [s for s in services if s["key"] in rel_keys]
@@ -175,10 +160,9 @@ async def process_synastry_name(message: Message):
         return
 
     try:
-
         partner_name = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_date", "partner_name": partner_name}))
-        await message.answer(f"Имя {partner_name} согрело колоду ✨ Теперь введи, пожалуйста, дату рождения партнера (например, 15.04.1990):")
+        await ghost_edit(bot.api, message.peer_id, f"Имя {partner_name} согрело колоду ✨ Теперь введи, пожалуйста, дату рождения партнера (например, 15.04.1990):")
     finally:
         await release_lock(vk_id)
 
@@ -197,7 +181,7 @@ async def process_synastry_date(message: Message):
             "partner_name": partner_name,
             "partner_date": partner_date
         }))
-        await message.answer(f"Дата {partner_date} принята. Теперь напиши время рождения партнера (например, 14:30 или 'не знаю'):")
+        await ghost_edit(bot.api, message.peer_id, f"Дата {partner_date} принята. Теперь напиши время рождения партнера (например, 14:30 или 'не знаю'):")
     finally:
         await release_lock(vk_id)
 
@@ -218,7 +202,7 @@ async def process_synastry_time(message: Message):
             "partner_date": partner_date,
             "partner_time": partner_time
         }))
-        await message.answer(f"Время {partner_time} принято. И последнее — в какой городе родился партнер (например, Москва или 'не знаю')?")
+        await ghost_edit(bot.api, message.peer_id, f"Время {partner_time} принято. И последнее — в какой городе родился партнер (например, Москва или 'не знаю')?")
     finally:
         await release_lock(vk_id)
 
@@ -246,7 +230,9 @@ async def process_synastry_city(message: Message):
 
         kb = Keyboard(inline=True)
         kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        await message.answer(
+        await ghost_edit(
+            bot.api,
+            message.peer_id,
             "✨ ШАГ 2 ИЗ 3: НАСТРОЙКА ✨\nПрикоснись к колоде, чтобы настроиться на вашу связь.",
             keyboard=kb.get_json()
         )
@@ -257,9 +243,6 @@ async def process_synastry_city(message: Message):
 
 @labeler.message(text=["🛰 ТАРИФЫ", "💳 ПОПОЛНИТЬ"])
 async def show_tariffs_handler(message: Message):
-    last_mid = await get_last_bot_msg(message.from_id)
-    if last_mid:
-        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
     await show_tariffs(message.from_id, message.peer_id, 0)
 
 async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):

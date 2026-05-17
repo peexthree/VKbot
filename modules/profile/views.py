@@ -68,16 +68,13 @@ async def show_profile_logic(
             await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id)
             return
 
-        # Фото текущего скина (маскот никогда не используется)
         active_skin = user.get("active_skin", "olesya")
         skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
         photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
 
-        # Определение отображаемого имени персонажа
         from modules.utils.consts import SKIN_DISPLAY_NAMES
         skin_display_name = SKIN_DISPLAY_NAMES.get(active_skin, active_skin)
 
-        # Данные
         first_name = user.get("first_name") or "Адепт"
         if first_name == "Адепт":
             try:
@@ -92,17 +89,14 @@ async def show_profile_logic(
         balance = int(user.get("balance", 0) or 0)
         visit_streak = user.get("visit_streak", 0)
 
-        # Расчет уровня Адепта
         from modules.utils.logic import calculate_user_rank
         level, rank = calculate_user_rank(user)
 
-        # Прогресс по реальным открытым картам
         unlocked_cards = user.get("unlocked_cards", {})
         unlocked_count = len(unlocked_cards)
         progress = min(10, int((unlocked_count / 78) * 10))
         progress_bar = "█" * progress + "░" * (10 - progress)
 
-        # Динамическое приветствие от проводника
         greeting = "Я слежу за твоим прогрессом."
         if visit_streak > 5: greeting = "Твоя связь с матрицей впечатляет."
         if balance > 2000: greeting = "Твой энергетический потенциал огромен."
@@ -119,11 +113,8 @@ async def show_profile_logic(
         )
 
         keyboard = get_profile_keyboard()
-
-        # Stop typing and get message_id used if any
         typing_msg_id = await stop_dynamic_typing(peer_id)
 
-        # Если у нас уже было сообщение от тайпинга или нам передали conv_id — редактируем
         await ghost_edit(
             bot.api,
             peer_id,
@@ -147,12 +138,12 @@ async def god_mode_logic(vk_id: int, message: Message, skip_lock: bool = False):
         await start_dynamic_typing(bot.api, message.peer_id)
         user = await get_user(vk_id)
         if not user:
-            await message.answer("Сначала напиши 'Начать'")
+            await ghost_edit(bot.api, message.peer_id, "Сначала напиши 'Начать'")
             return
         new_balance = int(user.get("balance", 0) or 0) + 100000
         await update_user(vk_id, {"balance": new_balance})
         kb_json = await get_sections_keyboard(vk_id, user)
-        await message.answer("ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.", keyboard=kb_json)
+        await ghost_edit(bot.api, message.peer_id, "ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.", keyboard=kb_json)
     finally:
         await stop_dynamic_typing(message.peer_id)
         if not skip_lock:
@@ -275,7 +266,7 @@ async def enter_seal_logic(vk_id: int, message: Message, skip_lock: bool = False
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
         kb_json = get_cancel_seal_keyboard()
-        await message.answer("Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb_json)
+        await ghost_edit(bot.api, message.peer_id, "Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb_json)
     finally:
         await stop_dynamic_typing(message.peer_id)
         if not skip_lock:
@@ -305,14 +296,14 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
             is_new = True
         purchased = user.get("purchased_sections", {})
         if purchased.get("promo_used"):
-            await message.answer("Твоя матрица уже была усилена Печатью ранее. Путь открыт лишь однажды. Выстраивай свой личный Синдикат, чтобы получить больше энергии.")
+            await ghost_edit(bot.api, message.peer_id, "Твоя матрица уже была усилена Печатью ранее. Путь открыт лишь однажды. Выстраивай свой личный Синдикат, чтобы получить больше энергии.")
             return
         if referrer_id == vk_id:
-            await message.answer("Ты не можешь использовать свою собственную Печать.")
+            await ghost_edit(bot.api, message.peer_id, "Ты не можешь использовать свою собственную Печать.")
             return
         referrer = await get_user(referrer_id)
         if not referrer:
-            await message.answer("Такой Печати не существует.")
+            await ghost_edit(bot.api, message.peer_id, "Такой Печати не существует.")
             return
         user_balance = int(user.get("balance", 0) or 0) + 500
         referrer_balance = int(referrer.get("balance", 0) or 0) + 500
@@ -322,7 +313,7 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         ref_purchased["syndicate_count"] = ref_purchased.get("syndicate_count", 0) + 1
         ref_purchased["syndicate_energy"] = ref_purchased.get("syndicate_energy", 0) + 500
         await update_user(referrer_id, {"balance": referrer_balance, "purchased_sections": ref_purchased})
-        await message.answer(f"ПЕЧАТЬ АКТИВИРОВАНА! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
+        await ghost_edit(bot.api, message.peer_id, f"ПЕЧАТЬ АКТИВИРОВАНА! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
         if is_new:
             from modules.registration import start_handler
             await start_handler(message, skip_lock=True)
@@ -400,12 +391,6 @@ async def show_history_item_logic(
         history = user.get("readings_history", [])
         if not history or idx >= len(history):
             return
-
-        # История хранится в прямом порядке, но отображаем мы последние сначала (через [::-1])
-        # Чтобы правильно сопоставить индекс, нужно учесть это.
-        # Однако проще передавать индекс в прямом списке.
-        # В get_history_inline_keyboard я использую enumerate(history[-8:][::-1])
-        # Это значит idx 0 соответствует последнему элементу и т.д.
 
         real_idx = len(history) - 1 - idx
         if real_idx < 0: return

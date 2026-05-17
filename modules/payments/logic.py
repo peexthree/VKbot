@@ -29,6 +29,13 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 f"Стиль: {active_skin}. Максимум 2 предложения. Без жирного шрифта."
             )
             insight = await generate_text(prompt, skin=active_skin)
+
+            await start_dynamic_typing(bot.api, vk_id)
+            try:
+                await asyncio.sleep(4)
+            finally:
+                await stop_dynamic_typing(vk_id)
+
             from modules.keyboards import get_main_reply_keyboard
             await bot.api.messages.send(
                 peer_id=vk_id,
@@ -36,7 +43,6 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 random_id=0,
                 keyboard=get_main_reply_keyboard(vk_id)
             )
-            # Призрачный интерфейс: возвращаем пользователя в меню услуг
             from modules.services import show_services
             await show_services(vk_id, vk_id, 0)
             return
@@ -45,35 +51,30 @@ async def process_payment_and_generate(vk_id: int, section: str):
         if section == "all":
             purchased.update({"sex": True, "money": True, "shadow": True, "final": True, "all": True})
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await ghost_edit(bot.api, vk_id, "УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", keyboard=get_main_keyboard(vk_id))
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_oracle_question"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await ghost_edit(bot.api, vk_id, "УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", keyboard=get_main_keyboard(vk_id))
             return
         elif section == "synastry":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_synastry_name"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await ghost_edit(bot.api, vk_id, "УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", keyboard=get_main_keyboard(vk_id))
             return
         else:
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
-            # Призрачный интерфейс: удаляем старое и шлем подтверждение
-            from modules.utils import delete_bot_message, get_last_bot_msg, set_last_bot_msg
-            last_mid = await get_last_bot_msg(vk_id)
-            if last_mid:
-                await delete_bot_message(bot.api, vk_id, mid=last_mid)
-
-            msg_id = await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0, keyboard=get_main_keyboard(vk_id))
-            await set_last_bot_msg(vk_id, msg_id)
+            await ghost_edit(bot.api, vk_id, "УСЛУГА АКТИВИРОВАНА.", keyboard=get_main_keyboard(vk_id))
 
         await set_user_state(vk_id, f'{{"step": "global_cut", "target_section": "{section}"}}')
         kb = Keyboard(inline=True)
         kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        await bot.api.messages.send(peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+
+        await asyncio.sleep(2)
+        await ghost_edit(bot.api, vk_id, "ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json())
     finally:
         await release_lock(lock_key)
 
@@ -93,7 +94,7 @@ async def execute_generation(
         user = await get_user(vk_id)
         if not user: return
 
-        typing_task = await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
         try:
             p = user.get("purchased_sections", {})
@@ -113,9 +114,10 @@ async def execute_generation(
             res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
 
             if res_text:
+                await asyncio.sleep(4)
+
                 display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
 
-                # Сохраняем в историю
                 history = user.get("readings_history", [])
                 if not isinstance(history, list): history = []
 
@@ -137,13 +139,11 @@ async def execute_generation(
                     "readings_history": history
                 }
 
-                # Сбрасываем флаг покупки, так как услуга использована
                 purchased = user.get("purchased_sections", {})
                 if target_section in purchased:
                     purchased[target_section] = False
                     save_data["purchased_sections"] = purchased
 
-                # Награда за Карту Дня
                 if target_section == "card_of_day":
                     save_data["balance"] = user.get("balance", 0) + 100
                     save_data["visit_streak"] = user.get("visit_streak", 0) + 1
@@ -188,7 +188,6 @@ async def execute_generation(
 
                 await stop_dynamic_typing(peer_id)
 
-                # Сохраняем "шапку" с картой, если это был ghost-процесс
                 header = ""
                 if card_data:
                     header = f"🃏 {card_data.get('name')} — {card_data.get('subtitle')}\n------------------\n\n"
@@ -205,10 +204,10 @@ async def execute_generation(
         finally:
             await stop_dynamic_typing(peer_id)
     except Exception as e:
-        await stop_dynamic_typing(peer_id)
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Ошибка в execute_generation: {str(e)}")
         await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id)
     finally:
+        await stop_dynamic_typing(peer_id)
         await release_lock(lock_key)
 
 async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str, conversation_message_id: int = None):

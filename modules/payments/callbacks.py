@@ -58,7 +58,6 @@ async def message_event_handler(event: dict):
     if not isinstance(payload, dict):
         payload = {}
 
-    # Пытаемся ответить на событие сразу, чтобы убрать спиннер, но только один раз
     if event_id:
         lock_key = f"event_answered:{event_id}"
         if not await redis_client.set(lock_key, "1", ex=30, nx=True):
@@ -94,18 +93,17 @@ async def message_event_handler(event: dict):
 
         if cmd == "retry_registration":
             await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": obj.get("conversation_message_id")}))
-            await bot.api.messages.edit(peer_id=peer_id, message="Понял. Попробуй еще раз. Напиши дату, время и город рождения максимально четко.", conversation_message_id=obj.get("conversation_message_id"))
+            await ghost_edit(bot.api, peer_id, message="Понял. Попробуй еще раз. Напиши дату, время и город рождения максимально четко.", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "edit_onboarding_data":
             await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": obj.get("conversation_message_id")}))
-            await bot.api.messages.edit(peer_id=peer_id, message="Для калибровки профиля и начисления 700 Энергии звезд напиши свою дату, время и город рождения одним текстом (например: 15 мая 1990, 14:30, Казань).", conversation_message_id=obj.get("conversation_message_id"))
+            await ghost_edit(bot.api, peer_id, message="Для калибровки профиля и начисления 700 Энергии звезд напиши свою дату, время и город рождения одним текстом (например: 15 мая 1990, 14:30, Казань).", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "confirm_registration":
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "confirm_data": return
             date, time, city = state_dict.get("date"), state_dict.get("time"), state_dict.get("city")
             await set_user_state(vk_id, "")
-            await bot.api.messages.edit(peer_id=peer_id, message="✦ СИНХРОНИЗАЦИЯ С МАТРИЦЕЙ...", conversation_message_id=obj.get("conversation_message_id"))
+            await ghost_edit(bot.api, peer_id, message="✦ СИНХРОНИЗАЦИЯ С МАТРИЦЕЙ...", conversation_message_id=obj.get("conversation_message_id"))
 
-            # Начисляем бонусы и сохраняем данные
             await update_user(vk_id, {
                 "birth_date": date,
                 "birth_time": time,
@@ -132,7 +130,7 @@ async def message_event_handler(event: dict):
                 if has_access:
                     await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target_section}))
                     kb = Keyboard(inline=True).add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-                    await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json())
+                    await ghost_edit(bot.api, peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json())
                 else: await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
         elif cmd == "main_menu":
             user = await get_user(vk_id)
@@ -151,7 +149,6 @@ async def message_event_handler(event: dict):
             from modules.utils.consts import SKIN_STATUS_PHRASES
             status_phrase = SKIN_STATUS_PHRASES.get(active_skin, "Система готова.")
 
-            # Кэширование динамического статуса (случайный из базы)
             cache_key = f"dynamic_status:{vk_id}"
             cached_status = await redis_client.get(cache_key)
             if cached_status:
@@ -162,7 +159,6 @@ async def message_event_handler(event: dict):
                     await redis_client.set(cache_key, status_phrase, ex=21600)
                 except: pass
 
-            # Визуальный стрик (Лунный цикл)
             visit_streak = user.get("visit_streak", 0)
             moons = ["🌑", "🌘", "🌗", "🌖", "🌕", "✨", "🔥"]
             streak_visual = "".join(moons[i % len(moons)] if i < visit_streak else "○" for i in range(7))
@@ -179,7 +175,7 @@ async def message_event_handler(event: dict):
 
             await ghost_edit(bot.api, peer_id, message=main_menu_text, keyboard=kb_json, attachment=att, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day_menu":
-            await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
+            await card_of_day_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"))
         elif cmd == "profile_menu":
             from modules.profile.views import show_profile_logic
@@ -199,7 +195,7 @@ async def message_event_handler(event: dict):
             await show_history_item_logic(vk_id=vk_id, peer_id=peer_id, idx=payload.get("idx", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "admin_console":
             await show_admin_console(peer_id, conversation_message_id=obj.get("conversation_message_id"))
-        elif cmd == "guide_menu" or cmd == "guide": await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=conv_id if (conv_id := obj.get("conversation_message_id")) else None)
+        elif cmd == "guide_menu" or cmd == "guide": await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "guide_energy": await show_guide_energy_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"), skip_lock=True)
         elif cmd == "guide_services": await show_guide_services_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"), skip_lock=True)
         elif cmd == "guide_syndicate": await show_guide_syndicate_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"), skip_lock=True)
@@ -208,7 +204,7 @@ async def message_event_handler(event: dict):
         elif cmd == "tariff_page": await show_tariffs(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd == "skin_page": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, idx=payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd in ["set_skin", "buy_skin"]: await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload, conversation_message_id=obj.get("conversation_message_id"))
-        elif cmd == "card_of_day": await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "card_of_day": await card_of_day_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "choose_onboarding_skin":
             from modules import registration as reg_mod
             await reg_mod.process_onboarding_skin_logic(vk_id, peer_id, payload.get("skin"), conversation_message_id=obj.get("conversation_message_id"))
@@ -219,9 +215,9 @@ async def message_event_handler(event: dict):
             latest_data = user.get("latest_reading_data", {})
             if not latest_data and user.get("latest_reading_text"): latest_data = {"text": user.get("latest_reading_text")}
             if not latest_data or "text" not in latest_data:
-                await bot.api.messages.send(peer_id=peer_id, message="Текст разбора не найден. Сгенерируйте разбор заново.", random_id=0)
+                await ghost_edit(bot.api, peer_id, message="Текст разбора не найден. Сгенерируйте разбор заново.", conversation_message_id=obj.get("conversation_message_id"))
                 return
-            await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=0)
+            await ghost_edit(bot.api, peer_id, message="Создаю PDF-файл, подожди секунду...", conversation_message_id=obj.get("conversation_message_id"))
             pdf_name = f"report_{vk_id}_{section}.pdf"
             b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
             first_name = user.get("purchased_sections", {}).get("first_name", "Странник")
@@ -232,13 +228,12 @@ async def message_event_handler(event: dict):
             if success and os.path.exists(pdf_name):
                 try:
                     doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
-
                     from modules.keyboards import get_main_reply_keyboard
+                    # PDF шлем новым сообщением, так как вложение doc часто требует этого
                     await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0, keyboard=get_main_reply_keyboard(vk_id))
-
                 finally:
                     if os.path.exists(pdf_name): await asyncio.to_thread(os.remove, pdf_name)
-            else: await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=0)
+            else: await ghost_edit(bot.api, peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "profile_action":
             action, conv_id = payload.get("action"), obj.get("conversation_message_id")
             if action == "settings": await settings_handler(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
@@ -253,7 +248,7 @@ async def message_event_handler(event: dict):
             elif action == "change_skin": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=conv_id)
             elif action == "cancel_sub":
                 await update_user(vk_id, {"transit_sub_expires_at": None})
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="Транзит (Подписка) успешно отменен.")
+                await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="Транзит (Подписка) успешно отменен.")
             elif action == "reset_account":
                 await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
                 kb = Keyboard(inline=True).add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE).row().add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
@@ -262,7 +257,7 @@ async def message_event_handler(event: dict):
             elif action == "confirm_reset":
                 await delete_user(vk_id)
                 await set_user_state(vk_id, "")
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
+                await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
             elif action == "back_to_profile":
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
@@ -270,17 +265,17 @@ async def message_event_handler(event: dict):
             elif action == "admin_console": await show_admin_console(peer_id, conversation_message_id=conv_id)
             elif action == "syndicate": await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "grimoire": await show_grimoire_page(vk_id, peer_id, 0, skip_lock=True, conversation_message_id=conv_id)
-            elif action == "tariffs": await show_tariffs(vk_id, peer_id, 0)
+            elif action == "tariffs": await show_tariffs(vk_id, peer_id, 0, edit_msg_id=conv_id)
             elif action == "get_seal":
                 from modules.profile.views import get_seal_logic
                 await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "enter_seal":
                 await set_user_state(vk_id, "waiting_for_seal")
                 kb = Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
+                await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
             elif action == "cancel_seal":
                 await set_user_state(vk_id, "")
-                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
+                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
         elif cmd == "buy":
             buy_type, key = payload.get("type"), payload.get("key")
             prices = {
@@ -296,11 +291,8 @@ async def message_event_handler(event: dict):
             if not user: return
             balance = int(user.get("balance", 0) or 0)
 
-            # Для прямых пополнений сразу ведем на оплату
             if key.startswith("topup_"):
-                rubles = amount_needed # Курс 1:1
-
-                # Трекинг брошенной корзины
+                rubles = amount_needed
                 p = user.get("purchased_sections", {})
                 p["last_cart_item"] = key
                 p["last_cart_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -323,7 +315,7 @@ async def message_event_handler(event: dict):
                         for s in ["sex", "money", "shadow", "final"]: p[s] = True
                         updates["purchased_sections"], updates["has_full_chart"] = p, True
                     await update_user(vk_id, updates)
-                    await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=0, keyboard=get_main_keyboard(vk_id))
+                    await ghost_edit(bot.api, peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", conversation_message_id=obj.get("conversation_message_id"), keyboard=get_main_keyboard(vk_id))
             else:
                 diff_rubles = math.ceil((amount_needed - balance) / 10)
                 kb = Keyboard(inline=True).add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}")).row()
@@ -342,16 +334,14 @@ async def message_event_handler(event: dict):
             target = payload.get("target")
             if target: await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target}))
             kb = Keyboard(inline=True)
-            # 2x5 grid to fit within 6 rows limit
             for _i in range(10):
                 kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
                 if (_i + 1) % 2 == 0 and _i < 9:
                     kb.row()
-            await bot.api.messages.edit(peer_id=peer_id, message="Выбери карту из разложенных:", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+            await ghost_edit(bot.api, peer_id, message="Выбери карту из разложенных:", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "global_draw":
-            # 1. Сразу убираем кнопки и показываем статус
             conv_id = obj.get("conversation_message_id")
-            await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="✦ КАРТА ВЫБРАНА. ИНИЦИАЦИЯ...", keyboard=Keyboard(inline=True).get_json())
+            await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="✦ КАРТА ВЫБРАНА. ИНИЦИАЦИЯ...", keyboard=Keyboard(inline=True).get_json())
 
             state_dict = await get_fsm_step(vk_id)
             if not state_dict: return
@@ -368,7 +358,6 @@ async def message_event_handler(event: dict):
                 if card_id not in unlocked: unlocked[card_id] = f"{card_data.get('name', 'Карта')} - {card_data.get('subtitle', 'Новое знание')}"
                 await update_user(vk_id, {"total_cards_received": user.get("total_cards_received", 0) + 1, "unlocked_cards": unlocked})
 
-            # 2. Подготовка ассетов
             active_skin = user.get("active_skin", "olesya") if user else "olesya"
             skin_att = await upload_local_photo(bot.api, SKIN_ASSETS.get(active_skin, "o.png"), peer_id=vk_id)
             card_att = await upload_local_photo(bot.api, f"{card_id}.jpeg", peer_id=vk_id)
@@ -383,7 +372,6 @@ async def message_event_handler(event: dict):
                     p_display = k
                     break
 
-            # 3. Обновляем ТЕКУЩЕЕ сообщение, добавляя информацию о карте и картинки
             ritual_text = (
                 f"🔮 Проводник: {p_display}\n"
                 f"🃏 Твоя карта: {card_data.get('name')} — {card_data.get('subtitle')}\n"
@@ -392,21 +380,24 @@ async def message_event_handler(event: dict):
                 "✦ СЧИТЫВАЮ ПОТОК ДЛЯ ПЕРСОНАЛИЗИРОВАННОГО РАЗБОРА..."
             )
 
-            await bot.api.messages.edit(
-                peer_id=peer_id,
+            # РИТУАЛ (4 секунды)
+            await asyncio.sleep(4)
+
+            await ghost_edit(
+                bot.api,
+                peer_id,
                 conversation_message_id=conv_id,
                 message=ritual_text,
                 attachment=",".join(atts) if atts else None
             )
 
-            # 4. Запускаем генерацию, передавая ТОТ ЖЕ conv_id для финального обновления
             if target_section:
                 asyncio.create_task(execute_generation(
                     vk_id, peer_id, target_section, p_name, p_date,
                     card_id, card_data, conversation_message_id=conv_id
                 ))
         elif "oracle_card" in payload:
-            card_id, state_dict = payload["oracle_card"], await get_fsm_step(vk_id)
+            card_id, state_dict, conv_id = payload["oracle_card"], await get_fsm_step(vk_id), obj.get("conversation_message_id")
             if not state_dict or state_dict.get("step") != "oracle_draw": return
             drawn, pool = state_dict.get("drawn_cards", []), state_dict.get("pool", [])
             if card_id not in drawn: drawn.append(card_id)
@@ -420,9 +411,9 @@ async def message_event_handler(event: dict):
                         b_cnt += 1
                         if b_cnt % 2 == 0:
                             kb.row()
-                await bot.api.messages.edit(peer_id=peer_id, message=f"Выбрано: {len(drawn)}/3...", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+                await ghost_edit(bot.api, peer_id, message=f"Выбрано: {len(drawn)}/3...", conversation_message_id=conv_id, keyboard=kb.get_json())
             else:
                 await set_user_state(vk_id, "")
-                await bot.api.messages.edit(peer_id=peer_id, message="Выбрано: 3/3. Карты собраны.", conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json())
-                asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn))
+                await ghost_edit(bot.api, peer_id, message="Выбрано: 3/3. Карты собраны.", conversation_message_id=conv_id, keyboard=Keyboard(inline=True).get_json())
+                asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn, conversation_message_id=conv_id))
     finally: await release_lock(vk_id)

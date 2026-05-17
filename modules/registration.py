@@ -63,17 +63,18 @@ async def start_handler(message: Message, skip_lock: bool = False):
 
     # Интерактивный старт
     await start_dynamic_typing(bot.api, vk_id)
-    # Удаляем старое меню, если оно было
-    last_mid = await get_last_bot_msg(vk_id)
-    if last_mid:
-        await delete_bot_message(bot.api, vk_id, mid=last_mid)
-
-    await asyncio.sleep(2) # Даем прочувствовать момент
-
-    if not skip_lock and not await acquire_lock(vk_id):
-        return
 
     try:
+        # Удаляем старое меню, если оно было
+        last_mid = await get_last_bot_msg(vk_id)
+        if last_mid:
+            await delete_bot_message(bot.api, vk_id, mid=last_mid)
+
+        await asyncio.sleep(4) # РИТУАЛ (4 секунды)
+
+        if not skip_lock and not await acquire_lock(vk_id):
+            return
+
         users_info = await bot.api.users.get(
             user_ids=[vk_id], fields=["sex", "bdate", "city"]
         )
@@ -107,7 +108,7 @@ async def start_handler(message: Message, skip_lock: bool = False):
             purchased["sex_val"] = sex
             await update_user(vk_id, {"purchased_sections": purchased})
 
-        await stop_dynamic_typing(vk_id)
+        typing_msg_id = await stop_dynamic_typing(vk_id)
 
         welcome_text = (
             "✨ ДОБРО ПОЖАЛОВАТЬ В АНТИ-ТАР ✨\n\n"
@@ -125,7 +126,7 @@ async def start_handler(message: Message, skip_lock: bool = False):
         # Загружаем фото Олеси для велком-месседжа
         att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Иванченко"], peer_id=vk_id)
 
-        msg_id = await message.answer(welcome_text, attachment=att, keyboard=kb.get_json())
+        msg_id = await ghost_edit(bot.api, vk_id, welcome_text, message_id=typing_msg_id, attachment=att, keyboard=kb.get_json())
         await set_last_bot_msg(vk_id, msg_id)
         await set_user_state(vk_id, "onboarding_skin_selection")
 
@@ -144,7 +145,6 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
     try:
         user = await get_user(vk_id)
         if not user:
-            # Если по какой-то причине пользователя нет, создаем его (подстраховка)
             user = await create_user(vk_id=vk_id, birth_date="", birth_time="12:00", birth_city="", first_name="")
             if not user: return
 
@@ -199,7 +199,6 @@ async def process_onboarding_data(message: Message):
         return
     try:
         user_text = message.text.strip()
-        # Ищем conv_id в состоянии, если он там есть
         state = await get_user_state(vk_id)
         conv_id = None
         try:
@@ -210,9 +209,11 @@ async def process_onboarding_data(message: Message):
         await start_dynamic_typing(bot.api, vk_id, conversation_message_id=conv_id)
 
         data = await extract_birth_data(user_text)
-        await stop_dynamic_typing(vk_id)
+        # РИТУАЛ 4 секунды
+        await asyncio.sleep(4)
 
         if not data:
+            await stop_dynamic_typing(vk_id)
             await message.answer("Не удалось распознать данные. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.")
             return
 
@@ -221,6 +222,7 @@ async def process_onboarding_data(message: Message):
         city = data.get("city", "")
 
         if not date or not time or not city:
+            await stop_dynamic_typing(vk_id)
             await message.answer("Мне нужно чуть больше точности для верного прогноза. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
             return
 
@@ -261,55 +263,57 @@ async def process_onboarding_data(message: Message):
         logger.error(f"Ошибка в process_onboarding_data: {e}")
         await message.answer("Произошла ошибка. Попробуй ещё раз.")
     finally:
+        await stop_dynamic_typing(vk_id)
         await release_lock(vk_id)
 
 # ==================== ФИНАЛЬНЫЙ ТИЗЕР ====================
 
 async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_id: int = None):
-    user = await get_user(vk_id)
-    if not user: return
+    try:
+        user = await get_user(vk_id)
+        if not user: return
 
-    active_skin = user.get("active_skin", "olesya")
-    core_profile = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
+        active_skin = user.get("active_skin", "olesya")
+        core_profile = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
 
-    # Ритуал интеграции
-    ritual_steps = [
-        "✨ Настраиваюсь на твою уникальную энергию...",
-        "🌙 Изучаю положение звезд в момент твоего рождения...",
-        "🔮 Перемешиваю карты для твоего первого расклада...",
-        "🕯 Вхожу в поток твоего предназначения..."
-    ]
+        ritual_steps = [
+            "✨ Настраиваюсь на твою уникальную энергию...",
+            "🌙 Изучаю положение звезд в момент твоего рождения...",
+            "🔮 Перемешиваю карты для твоего первого расклада...",
+            "🕯 Вхожу в поток твоего предназначения..."
+        ]
 
-    for step in ritual_steps:
-        await ghost_edit(bot.api, peer_id, f"✨ ТВОЕ ПУТЕШЕСТВИЕ НАЧИНАЕТСЯ ✨\n\n{step}", conversation_message_id=conversation_message_id)
-        await asyncio.sleep(1.5)
+        for step in ritual_steps:
+            await ghost_edit(bot.api, peer_id, f"✨ ТВОЕ ПУТЕШЕСТВИЕ НАЧИНАЕТСЯ ✨\n\n{step}", conversation_message_id=conversation_message_id)
+            await asyncio.sleep(4) # РИТУАЛ (4 секунды)
 
-    await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
-    teaser_prompt = (
-        f"Пользователь только что зарегистрировался. Его данные: {core_profile}. "
-        f"Сгенерируй ОДНУ короткую, нежную, но попадающую в самое сердце фразу о его главной силе или таланте на основе даты рождения. "
-        f"Это должен быть светлый 'инсайт', чтобы он почувствовал твою глубину. "
-        f"Стиль: {active_skin}. Коротко, без приветствий. Без жирного шрифта."
-    )
+        teaser_prompt = (
+            f"Пользователь только что зарегистрировался. Его данные: {core_profile}. "
+            f"Сгенерируй ОДНУ короткую, нежную, но попадающую в самое сердце фразу о его главной силе или таланте на основе даты рождения. "
+            f"Это должен быть светлый 'инсайт', чтобы он почувствовал твою глубину. "
+            f"Стиль: {active_skin}. Коротко, без приветствий. Без жирного шрифта."
+        )
 
-    teaser_text = await generate_text(teaser_prompt, skin=active_skin)
-    await stop_dynamic_typing(peer_id)
+        teaser_text = await generate_text(teaser_prompt, skin=active_skin)
+        await stop_dynamic_typing(peer_id)
 
-    final_text = (
-        "✨ ТВОЙ ПУТЬ ОТКРЫТ ✨\n\n"
-        f"{teaser_text}\n\n"
-        "Я дарю тебе 700 Энергии звезд для первых шагов к познанию себя.\n\n"
-        "С чего начнем наш разговор?"
-    )
+        final_text = (
+            "✨ ТВОЙ ПУТЬ ОТКРЫТ ✨\n\n"
+            f"{teaser_text}\n\n"
+            "Я дарю тебе 700 Энергии звезд для первых шагов к познанию себя.\n\n"
+            "С чего начнем наш разговор?"
+        )
 
-    from modules.keyboards import get_main_inline_keyboard, get_main_reply_keyboard
-    kb_json = await get_main_inline_keyboard(vk_id, user)
-    reply_kb = get_main_reply_keyboard(vk_id)
+        from modules.keyboards import get_main_inline_keyboard, get_main_reply_keyboard
+        kb_json = await get_main_inline_keyboard(vk_id, user)
+        reply_kb = get_main_reply_keyboard(vk_id)
 
-    await ghost_edit(bot.api, peer_id, final_text, conversation_message_id=conversation_message_id, keyboard=kb_json)
-    # Отправляем reply-клавиатуру отдельным сообщением для фиксации интерфейса
-    await send_temp_message(bot.api, peer_id, "Твоя панель навигации активирована ✨", delay=3, keyboard=reply_kb)
+        await ghost_edit(bot.api, peer_id, final_text, conversation_message_id=conversation_message_id, keyboard=kb_json)
+        await send_temp_message(bot.api, peer_id, "Я обновила твою панель управления ✨", delay=4, keyboard=reply_kb)
+    finally:
+        await stop_dynamic_typing(peer_id)
 
 # ==================== ВОЗВРАТ В ГЛАВНОЕ МЕНЮ ====================
 @labeler.message(text=["Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
@@ -342,7 +346,6 @@ async def back_to_main_menu(message: Message):
         from modules.utils.consts import SKIN_STATUS_PHRASES
         status_phrase = SKIN_STATUS_PHRASES.get(active_skin, "Система готова.")
 
-        # Кэширование динамического статуса (случайный из базы)
         cache_key = f"dynamic_status:{vk_id}"
         cached_status = await redis_client.get(cache_key)
         if cached_status:
@@ -350,10 +353,9 @@ async def back_to_main_menu(message: Message):
         else:
             try:
                 status_phrase = random.choice(MYSTIC_STATUS_PHRASES)
-                await redis_client.set(cache_key, status_phrase, ex=21600) # 6 часов
+                await redis_client.set(cache_key, status_phrase, ex=21600)
             except: pass
 
-        # Визуальный стрик (Лунный цикл)
         visit_streak = user.get("visit_streak", 0)
         moons = ["🌑", "🌘", "🌗", "🌖", "🌕", "✨", "🔥"]
         streak_visual = "".join(moons[i % len(moons)] if i < visit_streak else "○" for i in range(7))
@@ -373,8 +375,7 @@ async def back_to_main_menu(message: Message):
             keyboard=kb_json,
             delete_last=True
         )
-        # Обновляем reply-клавиатуру при возврате в меню
-        await send_temp_message(bot.api, message.peer_id, "Я обновила твое меню ✨", delay=3, keyboard=get_main_reply_keyboard(vk_id))
+        await send_temp_message(bot.api, message.peer_id, "Я обновила твое меню ✨", delay=4, keyboard=get_main_reply_keyboard(vk_id))
     except Exception as e:
         logger.error(f"Ошибка в back_to_main_menu: {e}")
     finally:

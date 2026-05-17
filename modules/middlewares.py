@@ -1,5 +1,4 @@
 import json
-
 from loguru import logger
 import datetime
 import asyncio
@@ -8,25 +7,18 @@ from vkbottle.bot import Message
 
 from cache import check_and_set_throttle_warning, check_throttle
 from database import update_user
-
-
-from modules.utils.ui import delete_bot_message
+from modules.utils.ui import delete_bot_message, ghost_edit, get_last_bot_msg
 
 class ThrottleMiddleware(BaseMiddleware[Message]):
     async def pre(self):
         vk_id = self.event.from_id
 
-        # Попытка удалить сообщение пользователя, если это команда или текст
-        # В личке это часто невозможно, но в беседе с правами админа - сработает.
+        # Попытка удалить сообщение пользователя
         if self.event.text:
             asyncio.create_task(delete_bot_message(self.event.ctx_api, self.event.peer_id, cmid=self.event.conversation_message_id))
 
-        # Обновляем дату последней активности асинхронно
+        # Обновляем дату последней активности
         asyncio.create_task(update_user(vk_id, {"last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat()}))
-
-        # Check if the message contains payload (inline keyboards often send text+payload or just payload)
-        # Or if it starts with heavy commands (we use ✦ prefix for heavy menu buttons or emojis like 🃏)
-        # Standard texts might just be chat
 
         from cache import redis_client
         from modules.utils import ADMIN_ID
@@ -53,17 +45,29 @@ class ThrottleMiddleware(BaseMiddleware[Message]):
                 is_heavy = True
         elif self.event.text:
             text = self.event.text.strip()
-            # Emojis or specific prefixes used for menu buttons:
             if any(text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "⚙️", "👤", "🎴", "⚡️", "📢"]):
+                is_heavy = True
+            # Специальные команды тоже считаем тяжелыми
+            if text.lower() in ["начать", "start", "/start", "меню", "профиль"]:
                 is_heavy = True
 
         if is_heavy:
+            # Ghost Interface 2.0: Мгновенная реакция
+            # Мы сразу редактируем последнее сообщение бота, показывая, что запрос принят
+            last_mid = await get_last_bot_msg(vk_id)
+            if last_mid:
+                asyncio.create_task(ghost_edit(self.event.ctx_api, self.event.peer_id, "✨ Считываю твой запрос из потока...", conversation_message_id=last_mid))
+
             is_throttled = await check_throttle(vk_id)
             if is_throttled:
                 should_warn = await check_and_set_throttle_warning(vk_id)
                 if should_warn:
                     try:
-                        await self.event.answer("ТЫ СЛИШКОМ ТОРОПИШЬСЯ, ЭНЕРГИЯ НЕ УСПЕВАЕТ ВОССТАНОВИТЬСЯ")
+                        # Используем ghost_edit вместо answer для предупреждения, чтобы не спамить
+                        if last_mid:
+                            await ghost_edit(self.event.ctx_api, self.event.peer_id, "⚠️ ТЫ СЛИШКОМ ТОРОПИШЬСЯ, ЭНЕРГИЯ НЕ УСПЕВАЕТ ВОССТАНОВИТЬСЯ", conversation_message_id=last_mid)
+                        else:
+                            await self.event.answer("ТЫ СЛИШКОМ ТОРОПИШЬСЯ, ЭНЕРГИЯ НЕ УСПЕВАЕТ ВОССТАНОВИТЬСЯ")
                     except Exception as e:
-                        logger.error(f"Ошибка отправки предупреждения о троттлинге: {str(e)}")
+                        logger.error(f"Ошибка предупреждения: {str(e)}")
                 self.stop("Throttled")
