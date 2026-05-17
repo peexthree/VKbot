@@ -16,6 +16,8 @@ from modules.utils import (
     get_fsm_step,
     upload_local_photo,
     ghost_edit,
+    get_last_bot_msg,
+    delete_bot_message
 )
 
 labeler = BotLabeler()
@@ -23,6 +25,9 @@ labeler = BotLabeler()
 @labeler.message(text=["🔮 ГЛУБОКИЕ РАЗБОРЫ", "ГЛУБОКИЕ РАЗБОРЫ", "✦ Услуги", "Услуги", "✦ УСЛУГИ 🛒"])
 async def show_services_handler(message: Message):
     logger.info(f"show_services_handler triggered by from_id={message.from_id}")
+    last_mid = await get_last_bot_msg(message.from_id)
+    if last_mid:
+        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
     await show_services(message.from_id, message.peer_id, 0)
 
 
@@ -252,6 +257,9 @@ async def process_synastry_city(message: Message):
 
 @labeler.message(text=["🛰 ТАРИФЫ", "💳 ПОПОЛНИТЬ"])
 async def show_tariffs_handler(message: Message):
+    last_mid = await get_last_bot_msg(message.from_id)
+    if last_mid:
+        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
     await show_tariffs(message.from_id, message.peer_id, 0)
 
 async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):

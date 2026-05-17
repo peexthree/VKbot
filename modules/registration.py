@@ -20,7 +20,11 @@ from modules.utils import (
     stop_dynamic_typing,
     ghost_edit,
     upload_local_photo,
-    SKIN_ASSETS
+    SKIN_ASSETS,
+    send_temp_message,
+    delete_bot_message,
+    get_last_bot_msg,
+    set_last_bot_msg
 )
 from modules.utils.consts import MYSTIC_STATUS_PHRASES
 import random
@@ -59,6 +63,11 @@ async def start_handler(message: Message, skip_lock: bool = False):
 
     # Интерактивный старт
     await start_dynamic_typing(bot.api, vk_id)
+    # Удаляем старое меню, если оно было
+    last_mid = await get_last_bot_msg(vk_id)
+    if last_mid:
+        await delete_bot_message(bot.api, vk_id, mid=last_mid)
+
     await asyncio.sleep(2) # Даем прочувствовать момент
 
     if not skip_lock and not await acquire_lock(vk_id):
@@ -116,7 +125,8 @@ async def start_handler(message: Message, skip_lock: bool = False):
         # Загружаем фото Олеси для велком-месседжа
         att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Иванченко"], peer_id=vk_id)
 
-        await message.answer(welcome_text, attachment=att, keyboard=kb.get_json())
+        msg_id = await message.answer(welcome_text, attachment=att, keyboard=kb.get_json())
+        await set_last_bot_msg(vk_id, msg_id)
         await set_user_state(vk_id, "onboarding_skin_selection")
 
     except Exception as e:
@@ -299,12 +309,15 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
 
     await ghost_edit(bot.api, peer_id, final_text, conversation_message_id=conversation_message_id, keyboard=kb_json)
     # Отправляем reply-клавиатуру отдельным сообщением для фиксации интерфейса
-    await bot.api.messages.send(peer_id=peer_id, message="Твоя панель навигации активирована ✨", keyboard=reply_kb, random_id=0)
+    await send_temp_message(bot.api, peer_id, "Твоя панель навигации активирована ✨", delay=3, keyboard=reply_kb)
 
 # ==================== ВОЗВРАТ В ГЛАВНОЕ МЕНЮ ====================
 @labeler.message(text=["Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
 async def back_to_main_menu(message: Message):
     vk_id = message.from_id
+    # Удаляем сообщение пользователя
+    asyncio.create_task(delete_bot_message(bot.api, message.peer_id, cmid=message.conversation_message_id))
+
     await set_user_state(vk_id, "")
 
     if not await acquire_lock(vk_id):
@@ -353,12 +366,15 @@ async def back_to_main_menu(message: Message):
             f"🔮 {status_phrase}"
         )
 
-        await message.answer(
+        await ghost_edit(
+            bot.api,
+            message.peer_id,
             main_menu_text,
-            keyboard=kb_json
+            keyboard=kb_json,
+            delete_last=True
         )
         # Обновляем reply-клавиатуру при возврате в меню
-        await message.answer("Я обновила твое меню ✨", keyboard=get_main_reply_keyboard(vk_id))
+        await send_temp_message(bot.api, message.peer_id, "Я обновила твое меню ✨", delay=3, keyboard=get_main_reply_keyboard(vk_id))
     except Exception as e:
         logger.error(f"Ошибка в back_to_main_menu: {e}")
     finally:
