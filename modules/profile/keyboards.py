@@ -21,8 +21,8 @@ def get_advanced_settings_keyboard(vk_id: int) -> str:
 def get_skin_keyboard(skin_name: str, is_owned: bool) -> str:
     return get_skin_inline_keyboard(skin_name, is_owned)
 
-def get_syndicate_keyboard(is_veteran: bool) -> str:
-    return get_syndicate_inline_keyboard(is_veteran)
+def get_syndicate_keyboard(is_promo_used: bool) -> str:
+    return get_syndicate_inline_keyboard(is_promo_used)
 
 def get_change_data_keyboard() -> str:
     from vkbottle import Keyboard, KeyboardButtonColor, Callback

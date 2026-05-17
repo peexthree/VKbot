@@ -85,12 +85,12 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         try:
             kb_data = json.loads(final_kb)
             if "buttons" in kb_data:
-                kb_data["buttons"].insert(0, [{"action": {"type": "callback", "payload": json.dumps({"cmd": "gen_pdf", "section": "card_of_day", "card": card_id}), "label": "СГЕНЕРИРОВАТЬ PDF"}, "color": "secondary"}])
+                kb_data["buttons"].insert(0, [{"action": {"type": "callback", "payload": json.dumps({"cmd": "gen_pdf", "section": "card_of_day", "card": card_id}), "label": "📜 ПОЛУЧИТЬ ПОЛНЫЙ PDF-ОТЧЕТ"}, "color": "positive"}])
             final_kb = json.dumps(kb_data, ensure_ascii=False)
         except: pass
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
-        await ghost_edit(bot.api, peer_id, message=result_text + "\n\nТвой подробный разбор с аффирмациями и советами уже ждет тебя в PDF ✨", conversation_message_id=conv_msg_id, message_id=message_id or typing_msg_id, attachment=photo, keyboard=final_kb)
+        await ghost_edit(bot.api, peer_id, message=result_text + "\n\n------------------\n✨ Твой глубокий анализ с аффирмациями, советами и прогнозом на день уже сформирован. Нажми кнопку ниже, чтобы забрать свой PDF-артефакт.", conversation_message_id=conv_msg_id, message_id=message_id or typing_msg_id, attachment=photo, keyboard=final_kb)
     except Exception as e:
         logger.error(f"Ошибка в Карте Дня: {e}")
         err_msg = "Кажется, Вселенная сейчас хранит молчание. Попробуй заглянуть чуть позже ✨"

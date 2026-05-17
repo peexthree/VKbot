@@ -30,12 +30,12 @@ async def _send_skins_page(
         "Магистр": "высшее знание"
     }
 
-    free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
+    free_skins = ["Олеся Иванченко", "Серьезный Аскет"]
 
     skins_to_show = []
     seen_names = set()
     for skin_name, filename in SKIN_ASSETS.items():
-        if skin_name in ["olesya", "asket"] or skin_name in seen_names:
+        if skin_name in ["olesya", "asket", "Олеся Ивонченко"] or skin_name in seen_names:
             continue
         skins_to_show.append({
             "name": skin_name,
@@ -257,7 +257,7 @@ async def process_skin_action_logic(
         balance = int(user.get("balance", 0) or 0)
 
         if action == "set_skin":
-            if target_skin in free_skins or target_skin in purchased_skins:
+            if target_skin in free_skins or target_skin in purchased_skins or target_skin == "Олеся Ивонченко":
                 await update_user(vk_id, {"active_skin": target_skin})
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)

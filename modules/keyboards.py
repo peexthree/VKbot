@@ -95,12 +95,12 @@ def get_skin_inline_keyboard(skin_name: str, is_owned: bool) -> str:
     kb.add(Callback("Назад в настройки ⚙", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
 
-def get_syndicate_inline_keyboard(is_veteran: bool) -> str:
+def get_syndicate_inline_keyboard(is_promo_used: bool) -> str:
     """Синдикат - Вертикальная"""
     kb = Keyboard(inline=True)
     kb.add(Callback("Получить Печать 📜", payload={"cmd": "profile_action", "action": "get_seal"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    if not is_veteran:
+    if not is_promo_used:
         kb.add(Callback("Ввести Печать ✒", payload={"cmd": "profile_action", "action": "enter_seal"}), color=KeyboardButtonColor.SECONDARY)
         kb.row()
     kb.add(Callback("👤 НАЗАД В ПРОФИЛЬ", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
