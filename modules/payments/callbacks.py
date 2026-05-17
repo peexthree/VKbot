@@ -327,13 +327,17 @@ async def message_event_handler(event: dict):
             else:
                 diff_rubles = math.ceil((amount_needed - balance) / 10)
                 kb = Keyboard(inline=True).add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}")).row()
-                kb.add(Callback("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE)
-                await ghost_edit(bot.api, peer_id=peer_id, message=f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\nТвой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\nСистема не может вскрыть этот слой матрицы.\n\nОплати недостающие {amount_needed - balance} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+                kb.add(Callback("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE).row()
+                kb.add(Callback("📜 ПУБЛИЧНАЯ ОФЕРТА", payload={"cmd": "show_offer"}), color=KeyboardButtonColor.SECONDARY)
+                await ghost_edit(bot.api, peer_id=peer_id, message=f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\nТвой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\nСистема не может вскрыть этот слой матрицы.\n\nОплати недостающие {amount_needed - balance} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно.\n\nСовершая оплату, вы принимаете условия публичной оферты.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "get_referral":
             from modules.profile.views import get_seal_logic
             await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "grimoire_page": await show_grimoire_page(vk_id, peer_id, payload.get("page", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "view_card": await view_card_direct(vk_id, peer_id, str(payload.get("id")), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "show_offer":
+            offer_url = "https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
+            await bot.api.messages.send(peer_id=peer_id, message=f"📜 ПУБЛИЧНАЯ ОФЕРТА:\n{offer_url}", random_id=0)
         elif cmd == "global_cut":
             target = payload.get("target")
             if target: await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target}))
