@@ -130,6 +130,17 @@ async def message_event_handler(event: dict):
                 if target_section in ["sex", "money", "shadow", "final"]:
                     if purchased.get("all") or user.get("has_full_chart"): has_access = True
                 if has_access:
+                    if target_section == "synastry":
+                        await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
+                        await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ДЛЯ АНАЛИЗА СОЮЗА НАПИШИ ИМЯ ПАРТНЕРА:")
+                        return
+                    if target_section == "oracle":
+                        from modules.tarot.oracle import labeler as oracle_lab
+                        # We need to trigger the oracle question handler
+                        await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
+                        await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="НАПИШИ СВОЙ ВОПРОС СУДЬБЕ:")
+                        return
+
                     await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target_section}))
                     kb = Keyboard(inline=True).add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
                     await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json())
@@ -409,11 +420,12 @@ async def message_event_handler(event: dict):
                 attachment=",".join(atts) if atts else None
             )
 
-            # 4. Запускаем генерацию, передавая ТОТ ЖЕ conv_id для финального обновления
+            # 4. Запускаем генерацию. ВАЖНО: не передаем conversation_message_id,
+            # чтобы результат пришел НОВЫМ сообщением и не стер карту.
             if target_section:
                 asyncio.create_task(execute_generation(
                     vk_id, peer_id, target_section, p_name, p_date,
-                    card_id, card_data, conversation_message_id=conv_id
+                    card_id, card_data
                 ))
         elif "oracle_card" in payload:
             card_id, state_dict = payload["oracle_card"], await get_fsm_step(vk_id)

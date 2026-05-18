@@ -93,6 +93,7 @@ async def execute_generation(
         user = await get_user(vk_id)
         if not user: return
 
+        # Если мы не редактируем старое сообщение, то dynamic_typing создаст новое
         typing_task = await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
         try:
@@ -190,18 +191,22 @@ async def execute_generation(
 
                     display_text += "\n\n------------------\n✨ Твой сакральный отчет со всеми деталями, кодами и картой энергии готов к загрузке. Нажми на кнопку ниже, чтобы сохранить это знание навсегда."
 
-                await stop_dynamic_typing(peer_id)
+                typing_msg_id = await stop_dynamic_typing(peer_id)
 
                 # Сохраняем "шапку" с картой, если это был ghost-процесс
                 header = ""
                 if card_data:
                     header = f"🃏 {card_data.get('name')} — {card_data.get('subtitle')}\n------------------\n\n"
 
+                # Если conversation_message_id был передан (регистрация), используем его.
+                # Если нет (расклад), используем ID сообщения динамического тайпинга.
+                final_conv_id = conversation_message_id if conversation_message_id else typing_msg_id
+
                 await ghost_edit(
                     bot.api,
                     peer_id,
                     header + display_text,
-                    conversation_message_id=conversation_message_id,
+                    conversation_message_id=final_conv_id,
                     keyboard=kb_str
                 )
             else:
