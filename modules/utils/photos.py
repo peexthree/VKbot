@@ -75,16 +75,34 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
         if not os.path.exists(filepath):
             logger.error(f"Файл не найден: {filepath}")
             return ""
+
         async with aiofiles.open(filepath, 'rb') as f:
             data = await f.read()
             if len(data) < 100:
                 logger.warning(f"Файл {filename} слишком мал ({len(data)} байт), пропуск загрузки.")
                 return ""
-            raw_photo_id = await uploader.upload(file_source=data, peer_id=0)
+
+            # Retry mechanism for upload
+            raw_photo_id = None
+            last_err = None
+            for attempt in range(3):
+                try:
+                    raw_photo_id = await uploader.upload(file_source=data, peer_id=0)
+                    if raw_photo_id:
+                        break
+                except Exception as ex:
+                    last_err = ex
+                    logger.warning(f"Попытка {attempt+1} загрузки {filename} не удалась: {ex}")
+                    await asyncio.sleep(1 * (attempt + 1))
+
+            if not raw_photo_id:
+                logger.error(f"Не удалось загрузить {filename} после 3 попыток. Последняя ошибка: {last_err}")
+                return ""
+
             await _anchor_photo_and_cache(bot_api, filename, raw_photo_id)
             return raw_photo_id
     except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
+        logger.error(f"Критическая ошибка при обработке {filename}: {str(e)}")
         return ""
     finally:
         await release_lock(lock_key)
