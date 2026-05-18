@@ -10,8 +10,6 @@ from cache import check_and_set_throttle_warning, check_throttle
 from database import update_user
 
 
-from modules.utils.ui import delete_bot_message
-
 class ThrottleMiddleware(BaseMiddleware[Message]):
     async def pre(self):
         vk_id = self.event.from_id

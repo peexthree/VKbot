@@ -135,7 +135,6 @@ async def message_event_handler(event: dict):
                         await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ДЛЯ АНАЛИЗА СОЮЗА НАПИШИ ИМЯ ПАРТНЕРА:")
                         return
                     if target_section == "oracle":
-                        from modules.tarot.oracle import labeler as oracle_lab
                         # We need to trigger the oracle question handler
                         await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
                         await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="НАПИШИ СВОЙ ВОПРОС СУДЬБЕ:")

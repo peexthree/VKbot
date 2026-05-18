@@ -5,7 +5,8 @@ from database import get_user, update_user
 from ai_service import generate_text
 from modules.bot_init import bot
 from modules.utils import (
-    start_dynamic_typing, stop_dynamic_typing, upload_local_photo, get_sections_keyboard
+    start_dynamic_typing, stop_dynamic_typing, upload_local_photo, get_sections_keyboard,
+    ghost_edit
 )
 from cache import acquire_lock, release_lock, get_tarot_names
 
