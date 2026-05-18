@@ -39,7 +39,7 @@ async def extract_birth_data(text: str) -> dict | None:
         logger.error(f"Failed to parse birth data JSON: {e}. Raw: {res[:200]}...")
         return None
 
-async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False) -> str | dict | None:
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False, current_date: str = "") -> str | dict | None:
 
     if sex == 1:
         gender_instruction = "ПОЛЬЗОВАТЕЛЬ - ЖЕНЩИНА. ОБРАЩАЙСЯ К НЕЙ В ЖЕНСКОМ РОДЕ."
@@ -49,6 +49,8 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         gender_instruction = "ОБРАЩАЙСЯ К ПОЛЬЗОВАТЕЛЮ НЕЙТРАЛЬНО, БЕЗ УКАЗАНИЯ ПОЛА."
 
     base_info = f"Данные: {date}, время {time}, город {city}. {gender_instruction}"
+    if current_date:
+        base_info += f" СЕГОДНЯШНЯЯ ДАТА: {current_date}."
     if first_name:
         base_info += f" ИМЯ - {first_name}."
 
@@ -119,8 +121,8 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
                   "3. 'activation_level': Уровень активации энергии (число от 0 до 100).\n" \
                   "4. 'activation_comment': Комментарий к уровню активации (1 предложение).\n" \
                   "5. 'affirmations': Личные аффирмации/мантры (3-4 штуки).\n" \
-                  "6. 'next_activation_date': Дата следующей мощной активации (например, '23 сентября 2026').\n" \
-                  "7. 'thirty_day_forecast': Мини-прогноз на ближайшие 30 дней.\n" \
+                  f"6. 'next_activation_date': Дата следующей мощной активации. СТРОГО В БУДУЩЕМ относительно {current_date if current_date else 'сегодня'}. Добавь краткое астрологическое обоснование этой даты и конкретный микро-ритуал для этого дня.\n" \
+                  f"7. 'thirty_day_forecast': Мини-прогноз на ближайшие 30 дней, начиная с {current_date if current_date else 'сегодня'}.\n" \
                   "8. 'activation_recommendations': Рекомендации по активации (камень, цвет, аромат, ритуал).\n" \
                   "9. 'star_code': Персональный Звёздный код/Магическая печать (уникальная фраза-код).\n" \
                   "10. 'energy_map': Описание визуальной Карты энергий (какие планеты влияют).\n\n" \

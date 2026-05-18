@@ -20,7 +20,21 @@ async def delete_bot_message(bot_api, peer_id: int, cmid: int = None, mid: int =
 async def get_last_bot_msg(peer_id: int) -> int | None:
     """Получает CMID последнего сообщения бота из кэша"""
     res = await redis_client.get(f"last_bot_msg:{peer_id}")
-    return int(res) if res else None
+    if not res:
+        return None
+    try:
+        # Если в кэше строка вида "conversation_message_id=6968 ...", извлекаем число
+        if isinstance(res, str) and "=" in res:
+            parts = res.split()
+            for part in parts:
+                if part.startswith("conversation_message_id="):
+                    return int(part.split("=")[1])
+                if part.startswith("message_id="):
+                    return int(part.split("=")[1])
+        return int(res)
+    except (ValueError, TypeError, IndexError):
+        logger.warning(f"Failed to parse last_bot_msg for {peer_id}: {res}")
+        return None
 
 async def set_last_bot_msg(peer_id: int, cmid: int):
     """Запоминает CMID последнего сообщения бота"""
@@ -96,6 +110,14 @@ async def ghost_edit(
     # Пытаемся сохранить как последнее
     if isinstance(resp, int):
         await set_last_bot_msg(peer_id, resp)
+    elif isinstance(resp, dict) and "conversation_message_id" in resp:
+        await set_last_bot_msg(peer_id, resp["conversation_message_id"])
+    elif isinstance(resp, str) and "conversation_message_id=" in resp:
+        # Если пришла строка (редкий случай для vkbottle), парсим её
+        try:
+            val = resp.split("conversation_message_id=")[1].split()[0]
+            await set_last_bot_msg(peer_id, int(val))
+        except: pass
 
     # Обновляем глобальный кэш тайпинга, если это было сообщение тайпинга
     if peer_id in _typing_msg_ids:

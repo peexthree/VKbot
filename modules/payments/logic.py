@@ -101,14 +101,21 @@ async def execute_generation(
             active_skin = user.get("active_skin", "olesya")
             tags = user.get("tags", [])
 
+            # Улучшенное получение имени и пола
+            u_name = user.get("first_name") or p.get("first_name", "Адепт")
+            u_sex = user.get("sex_val") if "sex_val" in user else p.get("sex_val", 0)
+
+            current_date_str = datetime.datetime.now().strftime("%d.%m.%Y")
+
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
             res_data = await generate_section(
                 target_section, user.get("birth_date"), user.get("birth_time"),
                 user.get("birth_city"), user.get("core_profile", ""),
-                p.get("first_name", ""), p.get("sex_val", 0),
+                u_name, u_sex,
                 partner_name=partner_name, partner_date=partner_date, skin=active_skin,
-                card_id=card_id, card_data=card_data, tags=tags, return_json=True
+                card_id=card_id, card_data=card_data, tags=tags, return_json=True,
+                current_date=current_date_str
             )
 
             res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
