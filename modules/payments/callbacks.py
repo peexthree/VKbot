@@ -286,6 +286,7 @@ async def message_event_handler(event: dict):
             prices = {
                 "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
                 "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
+                "oracle_upsell": 250,
                 "micro_insight": 100,
                 "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900,
                 "topup_500": 500, "topup_1000": 1000, "topup_5000": 5000
@@ -296,13 +297,19 @@ async def message_event_handler(event: dict):
             if not user: return
             balance = int(user.get("balance", 0) or 0)
 
+            # Process dynamically calculated discounts via abandoned cart payload
+            if buy_type in ["abandoned_10", "abandoned_15"]:
+                amount_needed = int(amount_needed * (0.90 if buy_type == "abandoned_10" else 0.85))
+                buy_type = "service" if key in ["sex", "money", "shadow", "final", "synastry", "all", "oracle", "antitaro", "micro_insight"] else "tariff" if key.startswith("tariff_") else "topup"
+
             # Для прямых пополнений сразу ведем на оплату
-            if key.startswith("topup_"):
+            if buy_type == "topup" or key.startswith("topup_"):
                 rubles = amount_needed # Курс 1:1
 
                 # Трекинг брошенной корзины
                 p = user.get("purchased_sections", {})
                 p["last_cart_item"] = key
+                p["last_cart_stage"] = 0
                 p["last_cart_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 await update_user(vk_id, {"purchased_sections": p})
 
@@ -313,6 +320,9 @@ async def message_event_handler(event: dict):
             if balance >= amount_needed:
                 new_balance = balance - amount_needed
                 await update_user(vk_id, {"balance": new_balance})
+
+                if key == "oracle_upsell": key = "oracle" # resolve the upsell back to its base service
+
                 if buy_type == "service": await process_payment_and_generate(vk_id, key)
                 elif buy_type == "tariff":
                     days = 7 if key == "tariff_1" else 30

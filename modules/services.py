@@ -271,7 +271,7 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
 
     tariffs = [
         {"key": "tariff_1", "title": "Спутник 7 дней", "desc": "990 Энергии. Твое ежедневное напутствие на неделю.", "image_name": "uslugi/7day.jpg"},
-        {"key": "tariff_2", "title": "Оракул 30 дней", "desc": "2900 Энергии. Целый месяц под защитой звезд.", "image_name": "uslugi/30day.jpg"},
+        {"key": "tariff_2", "title": "Оракул 30 дней", "desc": "2900 Энергии. Выгода 400% — Хит! Целый месяц под защитой звезд.", "image_name": "uslugi/30day.jpg"},
         {"key": "tariff_vip", "title": "VIP Архив", "desc": "5900 Энергии. Вечный доступ к мудрости + месяц прогнозов.", "image_name": "uslugi/VIPTOP.jpg"},
         {"key": "topup_500", "title": "Пакет 500 ✨", "desc": "500 Энергии звезд для твоих открытий.", "image_name": "uslugi/500.jpg"},
         {"key": "topup_1000", "title": "Пакет 1000 ✨", "desc": "1000 Энергии звезд. Твой лучший выбор.", "image_name": "uslugi/1000.jpg"},

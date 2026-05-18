@@ -91,23 +91,31 @@ async def main():
                 async def process_abandoned_cart(user):
                     vk_id = user.get("vk_id")
                     purchased = user.get("purchased_sections", {})
+                    last_cart_item = purchased.get("last_cart_item")
                     last_cart_at = purchased.get("last_cart_at")
-                    if not last_cart_at: return
+                    last_cart_stage = purchased.get("last_cart_stage", 0)
+                    if not last_cart_at or not last_cart_item: return
 
                     cart_time = datetime.datetime.fromisoformat(last_cart_at)
                     now = datetime.datetime.now(datetime.timezone.utc)
+                    elapsed_hours = (now - cart_time).total_seconds() / 3600.0
 
-                    # Если покупка была начата от 1 до 2 часов назад
-                    if 3600 <= (now - cart_time).total_seconds() <= 7200:
-                        # Проверяем, не купил ли он уже что-то
+                    if 1 <= elapsed_hours < 24 and last_cart_stage == 0:
                         msg = "✦ ТВОЙ ВЫБОР ВСЕ ЕЩЕ ЖДЕТ ✦\n\nЯ заметил, что ты интересовался энергией звезд, но связь оборвалась. Только для тебя — Матрица дает скидку 10% на пополнение в течение следующего часа. Используй этот шанс."
                         try:
-                            # В реальном SaaS здесь была бы логика генерации скидочного хаша для VK Pay
-                            # Пока просто направляем в тарифы с персональным текстом
-                            kb = Keyboard(inline=True).add(Callback("ЗАБРАТЬ СО СКИДКОЙ ✨", payload={"cmd": "tariff_page", "idx": 3}), color=KeyboardButtonColor.POSITIVE)
+                            kb = Keyboard(inline=True).add(Callback("ЗАБРАТЬ СО СКИДКОЙ ✨", payload={"cmd": "buy", "type": "abandoned_10", "key": last_cart_item}), color=KeyboardButtonColor.POSITIVE)
                             await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=0)
-                            # Очищаем, чтобы не спамить
+                            purchased["last_cart_stage"] = 1
+                            await update_user(vk_id, {"purchased_sections": purchased})
+                        except Exception: pass
+                    elif elapsed_hours >= 24 and last_cart_stage == 1:
+                        msg = "✦ ВОЗВРАЩЕНИЕ К ЗВЕЗДАМ ✦\n\nВчера ты остановился в шаге от ответов. За это время 42 человека уже открыли свои Карты Судьбы. Звезды еще ждут. Возвращаю тебе твою персональную скидку 15% до конца дня."
+                        try:
+                            kb = Keyboard(inline=True).add(Callback("ЗАБРАТЬ СО СКИДКОЙ 15% ✨", payload={"cmd": "buy", "type": "abandoned_15", "key": last_cart_item}), color=KeyboardButtonColor.POSITIVE)
+                            await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=0)
+                            # Очищаем, чтобы не спамить больше
                             purchased["last_cart_at"] = None
+                            purchased["last_cart_stage"] = 2
                             await update_user(vk_id, {"purchased_sections": purchased})
                         except Exception: pass
 
