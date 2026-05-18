@@ -198,22 +198,20 @@ async def process_onboarding_data(message: Message):
     if not await acquire_lock(vk_id):
         return
     try:
-        user_text = message.text.strip()
-        # Ищем conv_id в состоянии, если он там есть
-        state = await get_user_state(vk_id)
-        conv_id = None
-        try:
-            data_state = json.loads(state)
-            conv_id = data_state.get("conv_id")
-        except: pass
+        last_mid = await get_last_bot_msg(vk_id)
+        if last_mid:
+            await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
 
-        await start_dynamic_typing(bot.api, vk_id, conversation_message_id=conv_id)
+        user_text = message.text.strip()
+
+        await start_dynamic_typing(bot.api, vk_id)
 
         data = await extract_birth_data(user_text)
         await stop_dynamic_typing(vk_id)
 
         if not data:
-            await message.answer("Не удалось распознать данные. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.")
+            msg_id = await message.answer("Не удалось распознать данные. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.")
+            await set_last_bot_msg(vk_id, msg_id)
             return
 
         date = data.get("date", "")
@@ -221,7 +219,8 @@ async def process_onboarding_data(message: Message):
         city = data.get("city", "")
 
         if not date or not time or not city:
-            await message.answer("Мне нужно чуть больше точности для верного прогноза. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
+            msg_id = await message.answer("Мне нужно чуть больше точности для верного прогноза. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
+            await set_last_bot_msg(vk_id, msg_id)
             return
 
         await set_user_state(
@@ -247,15 +246,8 @@ async def process_onboarding_data(message: Message):
             "Посмотри внимательно, всё ли правильно? Точность важна для верного предсказания."
         )
 
-        typing_msg_id = await stop_dynamic_typing(vk_id)
-        await ghost_edit(
-            bot.api,
-            message.peer_id,
-            verification_text,
-            conversation_message_id=conv_id,
-            message_id=typing_msg_id,
-            keyboard=kb.get_json()
-        )
+        msg_id = await message.answer(verification_text, keyboard=kb.get_json())
+        await set_last_bot_msg(vk_id, msg_id)
 
     except Exception as e:
         logger.error(f"Ошибка в process_onboarding_data: {e}")

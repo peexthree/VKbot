@@ -5,7 +5,8 @@ from database import get_user, update_user
 from ai_service import generate_text
 from modules.bot_init import bot
 from modules.utils import (
-    start_dynamic_typing, stop_dynamic_typing, upload_local_photo, get_sections_keyboard
+    start_dynamic_typing, stop_dynamic_typing, upload_local_photo, get_sections_keyboard,
+    ghost_edit
 )
 from cache import acquire_lock, release_lock, get_tarot_names
 
@@ -67,10 +68,9 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         except: pass
 
         att = ",".join(attachments) if attachments else None
-        if conv_msg_id:
-            try: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=res, keyboard=kb_json, attachment=att)
-            except: await bot.api.messages.send(peer_id=vk_id, message=res, keyboard=kb_json, random_id=0, attachment=att)
-        else: await bot.api.messages.send(peer_id=vk_id, message=res, keyboard=kb_json, random_id=0, attachment=att)
+        # Для Оракула тоже шлем НОВЫМ сообщением, чтобы не затирать выбор карт
+        typing_msg_id = await stop_dynamic_typing(vk_id)
+        await ghost_edit(bot.api, vk_id, message=res, keyboard=kb_json, attachment=att, conversation_message_id=typing_msg_id)
     except Exception as e:
         logger.error(f"Ошибка в Оракуле: {e}")
         err = "Звезды сегодня немного запутались. Попробуем еще раз чуть позже ✨"

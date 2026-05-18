@@ -10,16 +10,9 @@ from cache import check_and_set_throttle_warning, check_throttle
 from database import update_user
 
 
-from modules.utils.ui import delete_bot_message
-
 class ThrottleMiddleware(BaseMiddleware[Message]):
     async def pre(self):
         vk_id = self.event.from_id
-
-        # Попытка удалить сообщение пользователя, если это команда или текст
-        # В личке это часто невозможно, но в беседе с правами админа - сработает.
-        if self.event.text:
-            asyncio.create_task(delete_bot_message(self.event.ctx_api, self.event.peer_id, cmid=self.event.conversation_message_id))
 
         # Обновляем дату последней активности асинхронно
         asyncio.create_task(update_user(vk_id, {"last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat()}))

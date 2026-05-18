@@ -17,6 +17,7 @@ from modules.utils import (
     upload_local_photo,
     ghost_edit,
     get_last_bot_msg,
+    set_last_bot_msg,
     delete_bot_message
 )
 
@@ -175,10 +176,14 @@ async def process_synastry_name(message: Message):
         return
 
     try:
+        last_mid = await get_last_bot_msg(vk_id)
+        if last_mid:
+            await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
 
         partner_name = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_date", "partner_name": partner_name}))
-        await message.answer(f"Имя {partner_name} согрело колоду ✨ Теперь введи, пожалуйста, дату рождения партнера (например, 15.04.1990):")
+        msg_id = await message.answer(f"Имя {partner_name} согрело колоду ✨ Теперь введи, пожалуйста, дату рождения партнера (например, 15.04.1990):")
+        await set_last_bot_msg(vk_id, msg_id)
     finally:
         await release_lock(vk_id)
 
@@ -188,6 +193,10 @@ async def process_synastry_date(message: Message):
     if not await acquire_lock(vk_id):
         return
     try:
+        last_mid = await get_last_bot_msg(vk_id)
+        if last_mid:
+            await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
+
         partner_date = message.text.strip()
         state_dict = await get_fsm_step(vk_id)
         partner_name = state_dict.get("partner_name", "Партнер")
@@ -197,7 +206,8 @@ async def process_synastry_date(message: Message):
             "partner_name": partner_name,
             "partner_date": partner_date
         }))
-        await message.answer(f"Дата {partner_date} принята. Теперь напиши время рождения партнера (например, 14:30 или 'не знаю'):")
+        msg_id = await message.answer(f"Дата {partner_date} принята. Теперь напиши время рождения партнера (например, 14:30 или 'не знаю'):")
+        await set_last_bot_msg(vk_id, msg_id)
     finally:
         await release_lock(vk_id)
 
@@ -207,6 +217,10 @@ async def process_synastry_time(message: Message):
     if not await acquire_lock(vk_id):
         return
     try:
+        last_mid = await get_last_bot_msg(vk_id)
+        if last_mid:
+            await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
+
         partner_time = message.text.strip()
         state_dict = await get_fsm_step(vk_id)
         partner_name = state_dict.get("partner_name", "Партнер")
@@ -218,7 +232,8 @@ async def process_synastry_time(message: Message):
             "partner_date": partner_date,
             "partner_time": partner_time
         }))
-        await message.answer(f"Время {partner_time} принято. И последнее — в какой городе родился партнер (например, Москва или 'не знаю')?")
+        msg_id = await message.answer(f"Время {partner_time} принято. И последнее — в какой городе родился партнер (например, Москва или 'не знаю')?")
+        await set_last_bot_msg(vk_id, msg_id)
     finally:
         await release_lock(vk_id)
 
@@ -229,6 +244,10 @@ async def process_synastry_city(message: Message):
         return
 
     try:
+        last_mid = await get_last_bot_msg(vk_id)
+        if last_mid:
+            await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
+
         partner_city = message.text.strip()
         state_dict = await get_fsm_step(vk_id)
         partner_name = state_dict.get("partner_name", "Партнер")
@@ -246,10 +265,11 @@ async def process_synastry_city(message: Message):
 
         kb = Keyboard(inline=True)
         kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        await message.answer(
+        msg_id = await message.answer(
             "✨ ШАГ 2 ИЗ 3: НАСТРОЙКА ✨\nПрикоснись к колоде, чтобы настроиться на вашу связь.",
             keyboard=kb.get_json()
         )
+        await set_last_bot_msg(vk_id, msg_id)
     except Exception as e:
         logger.error(f"Ошибка в процессе синастрии: {str(e)}")
     finally:
