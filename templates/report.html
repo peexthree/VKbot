@@ -3,15 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        /* Основной шрифт */
+        /* Заголовки */
         @font-face {
             font-family: 'AdventureIndiana';
             src: url('ofont.ru_Adventure Indiana.ttf') format('truetype');
             font-weight: 400;
         }
+        /* Основной текст */
         @font-face {
-            font-family: 'AdventureIndiana';
-            src: url('ofont.ru_Adventure Indiana.ttf') format('truetype');
+            font-family: 'Lora';
+            src: url('Lora-Regular.ttf') format('truetype');
+            font-weight: 400;
+        }
+        @font-face {
+            font-family: 'Lora';
+            src: url('Lora-Bold.ttf') format('truetype');
             font-weight: 700;
         }
 
@@ -23,7 +29,7 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: 'AdventureIndiana', sans-serif;
+            font-family: 'Lora', serif;
             background: url('cards/uslugi/pdf_background_final.png') no-repeat center center;
             background-size: cover;
             color: #f0e6d2;
@@ -66,6 +72,7 @@
             max-width: 520px;
         }
         .user-info {
+            font-family: 'AdventureIndiana', sans-serif;
             font-size: 16.8pt;
             color: #f4d48c;
             line-height: 1.65;
@@ -88,10 +95,9 @@
         }
 
         .content {
-            font-size: 18pt;
+            font-size: 16pt;
             text-align: justify;
-            line-height: 1.78;
-            text-shadow: 0 0 8px rgba(244, 212, 140, 0.4);
+            line-height: 1.6;
         }
 
         /* ====================== КАРТА ====================== */
@@ -131,6 +137,7 @@
         }
 
         .card-name {
+            font-family: 'AdventureIndiana', sans-serif;
             font-size: 22pt;
             font-weight: 700;
             margin-bottom: 16px;
@@ -147,10 +154,12 @@
         }
 
         .creative-block strong {
-            font-size: 15.5pt;
+            font-family: 'AdventureIndiana', sans-serif;
+            font-size: 14pt;
             color: #ffe8a3;
             display: block;
             margin-bottom: 14px;
+            letter-spacing: 1px;
         }
 
         /* Энергетическая шкала */
@@ -275,7 +284,7 @@
 
             <!-- 9. Финальная печать ANTI-TAR -->
             <div class="final-seal">
-                <h2 style="color:#f4d48c; letter-spacing: 6px; font-size: 28pt; margin: 0;">ANTI-TAR</h2>
+                <h2 style="font-family: 'AdventureIndiana', sans-serif; color:#f4d48c; letter-spacing: 6px; font-size: 28pt; margin: 0;">ANTI-TAR</h2>
                 <p style="font-size: 11.5pt; margin-top: 8px;">Персональный разбор • {{ current_date }}</p>
             </div>
 
