@@ -151,5 +151,7 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         logger.error(f"Error generating destiny card: {e}")
         await stop_dynamic_typing(peer_id)
         # Возвращаем энергию в случае ошибки
-        purchased = user.get("purchased_sections", {}); purchased.pop("destiny_card_purchased", None); await update_user(vk_id, {"balance": balance + 1500, "purchased_sections": purchased})
+        purchased = user.get("purchased_sections", {})
+        purchased.pop("destiny_card_purchased", None)
+        await update_user(vk_id, {"balance": balance + 1500, "purchased_sections": purchased})
         await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам. Энергия возвращена.", random_id=0)

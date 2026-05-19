@@ -78,7 +78,7 @@ async def ghost_edit(
             except Exception as e:
                 # Flood control (error 9)
                 if "9" in str(e) or "Flood control" in str(e):
-                    logger.warning(f"Flood control in ghost_edit (CMID), waiting 1.5s...")
+                    logger.warning("Flood control in ghost_edit (CMID), waiting 1.5s...")
                     await asyncio.sleep(1.5)
                     raise e
                 # Если ошибка 15 (Access Denied) при использовании CMID, пробуем как message_id
@@ -106,7 +106,7 @@ async def ghost_edit(
                 return message_id
             except Exception as e:
                 if "9" in str(e) or "Flood control" in str(e):
-                    logger.warning(f"Flood control in ghost_edit (MID), waiting 1.5s...")
+                    logger.warning("Flood control in ghost_edit (MID), waiting 1.5s...")
                     await asyncio.sleep(1.5)
                 raise e
     except Exception as e:
@@ -207,7 +207,7 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                             await set_last_bot_msg(peer_id, msg_id)
                         except Exception as edit_err:
                             if "9" in str(edit_err) or "Flood control" in str(edit_err):
-                                logger.warning(f"Flood control in _typing_loop, waiting 2s...")
+                                logger.warning("Flood control in _typing_loop, waiting 2s...")
                                 await asyncio.sleep(2.0)
                             # Если не удалось отредактировать (например, сообщение удалено), шлем новое
                             logger.debug(f"Typing edit failed, sending new: {edit_err}")

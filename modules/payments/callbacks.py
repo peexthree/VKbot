@@ -24,7 +24,7 @@ async def safe_edit(peer_id, message, conversation_message_id=None, keyboard=Non
         )
     except Exception as e:
         if "9" in str(e) or "Flood control" in str(e):
-            logger.warning(f"Flood control in safe_edit, waiting 1.5s...")
+            logger.warning("Flood control in safe_edit, waiting 1.5s...")
             await asyncio.sleep(1.5)
         # Fallback to send
         logger.debug(f"safe_edit failed ({e}), falling back to send.")
