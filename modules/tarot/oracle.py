@@ -63,7 +63,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         kb_json = await get_sections_keyboard(vk_id, user)
         try:
             kb_data = json.loads(kb_json)
-            if "buttons" in kb_data: kb_data["buttons"].insert(0, [{"action": {"type": "callback", "payload": json.dumps({"cmd": "gen_pdf", "section": "oracle", "card": str(card_ids[0]) if card_ids else ""}), "label": "📜 ЗАБРАТЬ PDF-АРТЕФАКТ"}, "color": "positive"}])
+            if "buttons" in kb_data: kb_data["buttons"].insert(0, [{"action": {"type": "callback", "payload": json.dumps({"cmd": "gen_pdf", "section": "oracle", "card": str(card_ids[0]) if card_ids else ""}), "label": "📜 ПОЛНЫЙ PDF-ОТЧЕТ"}, "color": "positive"}])
             kb_json = json.dumps(kb_data, ensure_ascii=False)
         except: pass
 

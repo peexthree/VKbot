@@ -37,8 +37,9 @@ async def show_balance_logic(
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
         kb = Keyboard(inline=True)
-        kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
-        kb.add(Callback("👤 МОЙ ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
+        kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.PRIMARY)
 
         att = await upload_local_photo(bot.api, "uslugi/tariffs.jpg", peer_id=vk_id)
 
@@ -253,7 +254,9 @@ async def get_seal_logic(
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
         kb = Keyboard(inline=True)
-        kb.add(Callback("⬅️ НАЗАД В СИНДИКАТ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("⬅️ В СИНДИКАТ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+        kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
         await ghost_edit(
             bot.api,
             peer_id,
@@ -416,7 +419,7 @@ async def show_history_item_logic(
         kb = Keyboard(inline=True)
         kb.add(Callback("⬅️ НАЗАД В СПИСОК", payload={"cmd": "history_menu"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
-        kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
         await ghost_edit(
             bot.api,

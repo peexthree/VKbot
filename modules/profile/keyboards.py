@@ -27,7 +27,8 @@ def get_syndicate_keyboard(is_promo_used: bool) -> str:
 def get_change_data_keyboard() -> str:
     from vkbottle import Keyboard, KeyboardButtonColor, Callback
     kb = Keyboard(inline=True)
-    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
     kb.add(Callback("Назад в профиль 👤", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
@@ -43,7 +44,8 @@ def get_reset_confirm_keyboard() -> str:
 def get_cancel_seal_keyboard() -> str:
     from vkbottle import Keyboard, KeyboardButtonColor, Callback
     kb = Keyboard(inline=True)
-    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
     kb.add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
     return kb.get_json()
 

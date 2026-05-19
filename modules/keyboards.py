@@ -46,7 +46,7 @@ def get_profile_inline_keyboard() -> str:
     kb.row()
     kb.add(Callback("🌙 НАСТРОЙКИ", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
-    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
     return kb.get_json()
 
@@ -61,7 +61,7 @@ def get_settings_inline_keyboard() -> str:
     kb.row()
     kb.add(Callback("👤 НАЗАД В ПРОФИЛЬ", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     # Удален лишний kb.row()
     return kb.get_json()
 
@@ -77,7 +77,7 @@ def get_advanced_settings_inline_keyboard(vk_id: int) -> str:
         kb.row()
     kb.add(Callback("⚙️ НАЗАД В НАСТРОЙКИ", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     # Удален лишний kb.row()
     return kb.get_json()
 
@@ -102,7 +102,7 @@ def get_syndicate_inline_keyboard(is_promo_used: bool) -> str:
         kb.row()
     kb.add(Callback("👤 НАЗАД В ПРОФИЛЬ", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     # Удален лишний kb.row()
     return kb.get_json()
 
@@ -137,7 +137,7 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
         if idx > 0 or idx < total_items - 1:
             kb.row()
 
-    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
 def get_natal_chart_inline_keyboard(purchased: dict) -> str:
@@ -163,7 +163,7 @@ def get_natal_chart_inline_keyboard(purchased: dict) -> str:
         kb.add(Callback("✨ КУПИТЬ ЕЩЕ РАЗ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
 
-    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
 
 def get_history_inline_keyboard(history: list) -> str:
@@ -176,7 +176,7 @@ def get_history_inline_keyboard(history: list) -> str:
         kb.add(Callback(label[:40], payload={"cmd": "view_history", "idx": i}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
 
-    kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
     kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
@@ -192,7 +192,8 @@ def get_guide_main_keyboard() -> str:
     kb.row()
     kb.add(Callback("🃏 ГРИМУАР И РАНГИ", payload={"cmd": "guide_grimoire"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
     kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
     # Удален лишний kb.row()
     return kb.get_json()
@@ -200,7 +201,7 @@ def get_guide_main_keyboard() -> str:
 def get_guide_sub_keyboard(action_label: str, action_payload: dict) -> str:
     """Клавиатура для подразделов Путеводителя"""
     kb = Keyboard(inline=True)
-    kb.add(Callback("⬅️ НАЗАД В ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("⬅️ В ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback(action_label, payload=action_payload), color=KeyboardButtonColor.POSITIVE)
     return kb.get_json()
