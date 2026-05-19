@@ -104,8 +104,16 @@ async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
     return True
 
 async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None, filter_val: str = None):
-
+    """Главный экран Услуг с новой клавиатурой"""
     if not await _ensure_user_state(vk_id, peer_id):
+        return
+
+    # Если мы зашли в раздел услуг, но не в конкретную пагинацию
+    if idx == 0 and not filter_val and not edit_msg_id:
+        from modules.keyboards import services_menu_kb
+        text = "🔮 ВИТРИНА УСЛУГ И ТАЙНЫХ ЗНАНИЙ\n\nВыбери раздел, который откликается твоему запросу."
+        header_att = await upload_local_photo(bot.api, "uslugi/main_menu.jpg", peer_id=vk_id)
+        await ghost_edit(bot.api, peer_id, text, keyboard=services_menu_kb(), attachment=header_att)
         return
 
     header_att = await upload_local_photo(bot.api, "uslugi/services.jpg", peer_id=vk_id)
@@ -115,7 +123,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         {"key": "money", "title": "Энергия процветания (ИЗОБИЛИЕ)", "desc": "900 Энергии. Раскрой свой путь к финансовой свободе.", "image_name": "uslugi/Money.jpg", "category": "deep"},
         {"key": "shadow", "title": "Теневые грани души (ТЕНЬ)", "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя.", "image_name": "uslugi/DEMONS.jpg", "category": "deep"},
         {"key": "final", "title": "Твое истинное предназначение (ПУТЬ)", "desc": "1200 Энергии. Главный вектор твоей жизни.", "image_name": "uslugi/WAYLIFE.jpg", "category": "deep"},
-        {"key": "synastry", "title": "Магия вашего союза (СОЮЗ)", "desc": "1500 Энергии. Глубокий разбор отношений и совместимости.", "image_name": "uslugi/SINISTRY.jpg", "category": "tarot"},
+        # Совместимость (synastry) удалена из каталога, так как вынесена отдельной кнопкой
         {"key": "oracle", "title": "Послание Вселенной (Оракул)", "desc": "500 Энергии. Ответ на твой самый важный вопрос.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
         {"key": "antitaro", "title": "Честное откровение (ОТКРОВЕНИЕ)", "desc": "500 Энергии. Взгляд на ситуацию без розовых очков.", "image_name": "uslugi/ANTITARO.jpg", "category": "tarot"},
         {"key": "all", "title": "Золотой архив откровений", "desc": "3000 Энергии. Полный доступ ко всем твоим тайнам.", "image_name": "uslugi/VIP.jpg", "category": "deep"},
@@ -146,7 +154,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
                 other_items = [s for s in services if s["key"] not in rel_keys]
                 services = rel_items + other_items
 
-    header = "🔮 ПОСЛАНИЯ ТАРО" if filter_val == "tarot" else "✨ ВИТРИНА УСЛУГ ✨"
+    header = "🔮 ПОСЛАНИЯ ТАРО" if filter_val == "tarot" else "✨ КАТАЛОГ УСЛУГ ✨"
 
     await _send_catalog_page(
         vk_id=vk_id,
@@ -293,9 +301,9 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         {"key": "tariff_1", "title": "Спутник 7 дней", "desc": "990 Энергии. Твое ежедневное напутствие на неделю.", "image_name": "uslugi/7day.jpg"},
         {"key": "tariff_2", "title": "Оракул 30 дней", "desc": "2900 Энергии. Выгода 400% — Хит! Целый месяц под защитой звезд.", "image_name": "uslugi/30day.jpg"},
         {"key": "tariff_vip", "title": "VIP Архив", "desc": "5900 Энергии. Вечный доступ к мудрости + месяц прогнозов.", "image_name": "uslugi/VIPTOP.jpg"},
-        {"key": "topup_500", "title": "Пакет 500 ✨", "desc": "500 Энергии звезд для твоих открытий.", "image_name": "uslugi/500.jpg"},
-        {"key": "topup_1000", "title": "Пакет 1000 ✨", "desc": "1000 Энергии звезд. Твой лучший выбор.", "image_name": "uslugi/1000.jpg"},
-        {"key": "topup_5000", "title": "VIP Энергия 5000 ✨", "desc": "5000 Энергии звезд. Для тех, кто идет в глубину.", "image_name": "uslugi/5000.jpg"},
+        {"key": "topup_5000", "title": "Пакет 5000 ✨", "desc": "400 руб. Выгодный старт для глубокого погружения.", "image_name": "uslugi/5000.jpg"},
+        {"key": "topup_10000", "title": "Пакет 10000 ✨", "desc": "750 руб. Оптимальный выбор для истинных искателей.", "image_name": "uslugi/1000.jpg"},
+        {"key": "topup_50000", "title": "VIP Пакет 50000 ✨", "desc": "3500 руб. Максимальная выгода и безграничные возможности.", "image_name": "uslugi/VIP.jpg"},
     ]
 
     await _send_catalog_page(

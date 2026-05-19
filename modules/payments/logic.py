@@ -173,14 +173,15 @@ async def execute_generation(
 
                 asyncio.create_task(extract_and_save_tags(vk_id, res_text))
 
-                light_kb = Keyboard(inline=True)
+                from modules.keyboards import after_pdf_kb, vertical_kb
                 if target_section == "card_of_day":
-                    light_kb.add(Callback("🔮 ГЛУБОКИЙ РАЗБОР (-50%)", payload={"cmd": "buy", "type": "service", "key": "oracle_upsell"}), color=KeyboardButtonColor.PRIMARY)
+                    light_kb = vertical_kb([
+                        ("🔮 ГЛУБОКИЙ РАЗБОР (-50%)", {"cmd": "buy", "type": "service", "key": "oracle_upsell"}, KeyboardButtonColor.PRIMARY),
+                        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+                    ])
+                    kb_str = light_kb
                 else:
-                    light_kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)
-                light_kb.row()
-                light_kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
-                kb_str = light_kb.get_json()
+                    kb_str = after_pdf_kb(target_section, card_id)
 
                 if isinstance(res_data, dict):
                     act_lvl = res_data.get('activation_level')

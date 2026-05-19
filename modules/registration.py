@@ -300,7 +300,12 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
     reply_kb = get_main_reply_keyboard(vk_id)
 
     await ghost_edit(bot.api, peer_id, final_text, conversation_message_id=conversation_message_id, keyboard=kb_json)
+    # Ежедневный бонус при первом открытии
+    from modules.utils.logic import check_and_give_daily_bonus
+    await check_and_give_daily_bonus(vk_id, user, peer_id)
+
     # Отправляем reply-клавиатуру отдельным сообщением для фиксации интерфейса
+    # И удаляем сообщение "вам начислено 700 энергии" (teaser_text)
     await send_temp_message(bot.api, peer_id, "Твоя панель навигации активирована ✨", delay=3, keyboard=reply_kb)
 
 # ==================== ВОЗВРАТ В ГЛАВНОЕ МЕНЮ ====================

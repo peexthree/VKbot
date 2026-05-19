@@ -36,6 +36,8 @@ async def set_user_state(vk_id: int, state: str):
         "waiting_synastry_time": MyStates.WAITING_SYNASTRY_TIME,
         "waiting_synastry_city": MyStates.WAITING_SYNASTRY_CITY,
         "waiting_oracle_question": MyStates.WAITING_ORACLE_QUESTION,
+        "waiting_support_question": MyStates.WAITING_SUPPORT_QUESTION,
+        "waiting_admin_reply": "waiting_admin_reply",
         "oracle_draw": MyStates.ORACLE_DRAW, "global_cut": MyStates.GLOBAL_CUT, "waiting_reset_confirm": MyStates.WAITING_RESET_CONFIRM
     }
     target = state_map.get(step)

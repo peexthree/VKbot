@@ -11,6 +11,7 @@ class MyStates(BaseStateGroup):
     WAITING_SYNASTRY_TIME = "waiting_synastry_time"
     WAITING_SYNASTRY_CITY = "waiting_synastry_city"
     WAITING_ORACLE_QUESTION = "waiting_oracle_question"
+    WAITING_SUPPORT_QUESTION = "waiting_support_question"
     ORACLE_DRAW = "oracle_draw"
     GLOBAL_CUT = "global_cut"
     WAITING_RESET_CONFIRM = "waiting_reset_confirm"
