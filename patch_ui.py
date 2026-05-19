@@ -1,46 +1,10 @@
-import json
-from modules.utils.consts import (
-    THEATRICAL_PHRASES, _typing_tasks, _typing_msg_ids
-)
-from loguru import logger
-import random
-import asyncio
-from cache import redis_client
+import re
 
-async def delete_bot_message(bot_api, peer_id: int, cmid: int = None, mid: int = None):
-    """Безопасное удаление сообщения бота"""
-    try:
-        if cmid:
-            await bot_api.messages.delete(peer_id=peer_id, conversation_message_ids=[cmid], delete_for_all=True)
-        elif mid:
-            await bot_api.messages.delete(peer_id=peer_id, message_ids=[mid], delete_for_all=True)
-    except Exception as e:
-        logger.debug(f"Failed to delete message: {e}")
+with open('modules/utils/ui.py', 'r') as f:
+    content = f.read()
 
-async def get_last_bot_msg(peer_id: int) -> int | None:
-    """Получает CMID последнего сообщения бота из кэша"""
-    res = await redis_client.get(f"last_bot_msg:{peer_id}")
-    if not res:
-        return None
-    try:
-        # Если в кэше строка вида "conversation_message_id=6968 ...", извлекаем число
-        if isinstance(res, str) and "=" in res:
-            parts = res.split()
-            for part in parts:
-                if part.startswith("conversation_message_id="):
-                    return int(part.split("=")[1])
-                if part.startswith("message_id="):
-                    return int(part.split("=")[1])
-        return int(res)
-    except (ValueError, TypeError, IndexError):
-        logger.warning(f"Failed to parse last_bot_msg for {peer_id}: {res}")
-        return None
-
-async def set_last_bot_msg(peer_id: int, cmid: int):
-    """Запоминает CMID последнего сообщения бота"""
-    await redis_client.set(f"last_bot_msg:{peer_id}", str(cmid), ex=86400)
-
-async def ghost_edit(
+# Modify ghost_edit to add short delay and catch Flood Control
+new_ghost_edit = """async def ghost_edit(
     bot_api,
     peer_id: int,
     message: str,
@@ -144,48 +108,12 @@ async def ghost_edit(
         _typing_msg_ids[peer_id] = resp
 
     return resp
+"""
 
-async def send_temp_message(bot_api, peer_id: int, message: str, delay: int = 5, **kwargs):
-    """Отправляет временное сообщение, которое удаляется через delay секунд"""
-    try:
-        mid = await bot_api.messages.send(peer_id=peer_id, message=message, random_id=0, **kwargs)
+content = re.sub(r'async def ghost_edit\(.*?\n    return resp\n', new_ghost_edit, content, flags=re.DOTALL)
 
-        async def _delete_after():
-            await asyncio.sleep(delay)
-            # В VK для удаления своего сообщения в ЛС часто нужны message_ids (mid)
-            # а в беседах можно и CMID. Попробуем оба варианта через общую функцию.
-            await delete_bot_message(bot_api, peer_id, mid=mid)
-
-        asyncio.create_task(_delete_after())
-        return mid
-    except Exception as e:
-        logger.error(f"Failed to send temp message: {e}")
-        return None
-
-async def stop_dynamic_typing(peer_id: int) -> int | None:
-    msg_id = _typing_msg_ids.pop(peer_id, None)
-    if peer_id in _typing_tasks:
-        task = _typing_tasks.pop(peer_id)
-        if not task.done():
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-    return msg_id
-
-async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: int = None) -> asyncio.Task:
-    await stop_dynamic_typing(peer_id)
-
-    async def _typing_loop():
-        nonlocal conversation_message_id
-        last_phrase = None
-        msg_id = None
-        if conversation_message_id:
-            msg_id = conversation_message_id
-
-        try:
-            while True:
+# Modify _typing_loop to add Flood Control catch
+new_typing_loop = """            while True:
                 try:
                     available_phrases = [p for p in THEATRICAL_PHRASES if p != last_phrase]
                     phrase = random.choice(available_phrases) if available_phrases else random.choice(THEATRICAL_PHRASES)
@@ -225,11 +153,9 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                     raise
                 except Exception as e:
                     logger.debug(f"Typing error: {e}")
-                await asyncio.sleep(4)
-        finally:
-            if peer_id in _typing_tasks and _typing_tasks[peer_id] == asyncio.current_task():
-                _typing_tasks.pop(peer_id, None)
+                await asyncio.sleep(4)"""
 
-    task = asyncio.create_task(_typing_loop())
-    _typing_tasks[peer_id] = task
-    return task
+content = re.sub(r'            while True:\n                try:.*?await asyncio\.sleep\(4\)', new_typing_loop, content, flags=re.DOTALL)
+
+with open('modules/utils/ui.py', 'w') as f:
+    f.write(content)

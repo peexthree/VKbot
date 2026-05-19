@@ -1,0 +1,14 @@
+1. Fix Flood control error (VKAPIError_9)
+- Modify `modules/utils/ui.py`'s `ghost_edit` function. We need to add a delay to limit frequency (like `await asyncio.sleep(0.4)` before editing). But since `ghost_edit` can fail with flood control and bubble it up, we also need to add a try-except block specifically catching flood control (error 9) in both `ghost_edit` and `_typing_loop` of `start_dynamic_typing`. If it fails with flood control, sleep for 1.5 seconds and optionally fallback to `messages.send`.
+- However, since there are many raw `bot.api.messages.edit` calls in `modules/payments/callbacks.py` inside `message_event_handler`, we should replace them with `ghost_edit` or create a robust wrapper for `edit` that has built-in retry and fallback logic. Wait, let's create a robust `safe_edit` helper in `modules/utils/ui.py` or modify `ghost_edit` to handle this.
+Actually, the user asked to:
+  - Add reasonable delays before `messages.edit` (min 300-400ms).
+  - Improve recovery mechanism in `modules/utils/ui.py`: if edit failed with Flood control, don't try to send new message immediately, wait 1-2 seconds.
+  - In `_message_event_handler_wrapped`, wrap all `edit` in a more stable try/except with fallback to `messages.send`.
+2. Fix Destiny Card NoneType Error & Add Missing AI Logic
+- Edit `ai/sections.py`: In `generate_section`, add `elif section == "destiny_card":` and construct a prompt using the same style logic as other sections, passing `card_data`.
+- Edit `modules/tarot/destiny.py`: In `generate_destiny_card_logic`, add `if not birth_date:` fallback, and if `res_text` is empty/None, gracefully revert the user's energy and send an error.
+3. Update Keyboards according to specification
+- Edit `modules/keyboards.py`. Update `main_menu_kb`, `services_menu_kb`, `profile_menu_kb`, `settings_menu_kb`, and `after_pdf_kb`.
+
+Pre-commit steps.

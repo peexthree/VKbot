@@ -27,11 +27,11 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     kb = Keyboard(inline=True)
 
     # Ряд 1
-    kb.add(Callback("🃏 КАРТА ДНЯ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🃏 Карта дня", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
     # Ряд 2
-    kb.add(Callback("🔮 УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("🔮 Услуги", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
 
     # Ряд 3 (Горизонтальный)
@@ -40,49 +40,47 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     kb.row()
 
     # Ряд 4
-    kb.add(Callback("🧭 ПУТЕВОДИТЕЛЬ", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🧭 Путеводитель", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
-    # Ряд 5 - Карта судьбы (если не куплена)
-    purchased = user.get("purchased_sections", {}) if user else {}
-    if not purchased.get("destiny_card_purchased"):
-        kb.add(Callback("⭐ МОЯ КАРТА СУДЬБЫ", payload={"cmd": "destiny_card_info"}), color=KeyboardButtonColor.PRIMARY)
-        kb.row()
+    # Ряд 5 - Карта судьбы
+    kb.add(Callback("⭐ Моя карта судьбы", payload={"cmd": "destiny_card_info"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
 
     # Ряд 6
-    kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("👤 Профиль", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
 
     return kb.get_json()
 
 def services_menu_kb() -> str:
     """Меню Услуг"""
     return vertical_kb([
-        ("🔮 КАТАЛОГ УСЛУГ", "services_catalog", KeyboardButtonColor.PRIMARY),
-        ("❤️ СОВМЕСТИМОСТЬ", "synastry", KeyboardButtonColor.PRIMARY),
-        ("⭐ ЭНЕРГИЯ ЗВЕЗД", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
+        ("🔮 Все услуги", "services_catalog", KeyboardButtonColor.PRIMARY),
+        ("❤️ Совместимость", "synastry", KeyboardButtonColor.PRIMARY),
+        ("⭐ Подписка / Тарифы", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
 def profile_menu_kb() -> str:
     """Меню Профиля"""
     return vertical_kb([
-        ("✨ БАЛАНС ЭНЕРГИИ", "balance", KeyboardButtonColor.PRIMARY),
-        ("📜 МОИ РАЗБОРЫ", "history_menu", KeyboardButtonColor.PRIMARY),
-        ("🃏 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
-        ("🔄 СМЕНИТЬ СКИН", {"cmd": "profile_action", "action": "change_skin"}, KeyboardButtonColor.PRIMARY),
-        ("⚙️ НАСТРОЙКИ", {"cmd": "profile_action", "action": "settings"}, KeyboardButtonColor.SECONDARY),
+        ("✨ Баланс энергии", "balance", KeyboardButtonColor.PRIMARY),
+        ("📜 Мои разборы", "history_menu", KeyboardButtonColor.PRIMARY),
+        ("🃏 Гримуар", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
+        ("🔄 Сменить скин", {"cmd": "profile_action", "action": "change_skin"}, KeyboardButtonColor.PRIMARY),
+        ("⚙️ Настройки", {"cmd": "profile_action", "action": "settings"}, KeyboardButtonColor.SECONDARY),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
 def settings_menu_kb(vk_id: int) -> str:
     """Меню Настроек"""
     buttons = [
-        ("🔄 СБРОСИТЬ АККАУНТ", {"cmd": "profile_action", "action": "reset_account"}, KeyboardButtonColor.SECONDARY),
-        ("❌ ОТМЕНИТЬ ПОДПИСКУ", {"cmd": "profile_action", "action": "cancel_sub"}, KeyboardButtonColor.SECONDARY),
-        ("📞 ПОДДЕРЖКА", "support", KeyboardButtonColor.PRIMARY),
+        ("🔄 Сбросить аккаунт", {"cmd": "profile_action", "action": "reset_account"}, KeyboardButtonColor.SECONDARY),
+        ("❌ Отменить подписку", {"cmd": "profile_action", "action": "cancel_sub"}, KeyboardButtonColor.SECONDARY),
+        ("📞 Поддержка", "support", KeyboardButtonColor.PRIMARY),
     ]
     if vk_id == ADMIN_ID:
-        buttons.append(("🛠️ АДМИН-КОНСОЛЬ", "admin_console", KeyboardButtonColor.SECONDARY))
+        buttons.append(("🛠️ Админ-консоль", "admin_console", KeyboardButtonColor.SECONDARY))
 
     buttons.append(("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY))
     return vertical_kb(buttons)
@@ -92,7 +90,7 @@ def after_pdf_kb(section: str, card: str = None) -> str:
     kb = Keyboard(inline=True)
     kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": section, "card": card}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
-    kb.add(Callback("📤 ПОДЕЛИТЬСЯ В VK", payload={"cmd": "share_pdf", "section": section}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("📤 Поделиться в VK", payload={"cmd": "share_pdf", "section": section}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
