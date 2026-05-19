@@ -207,9 +207,9 @@ async def process_onboarding_data(message: Message):
         await start_dynamic_typing(bot.api, vk_id)
 
         data = await extract_birth_data(user_text)
-        await stop_dynamic_typing(vk_id)
 
         if not data:
+            await stop_dynamic_typing(vk_id)
             msg_id = await message.answer("Не удалось распознать данные. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.")
             await set_last_bot_msg(vk_id, msg_id)
             return
@@ -219,9 +219,22 @@ async def process_onboarding_data(message: Message):
         city = data.get("city", "")
 
         if not date or not time or not city:
+            await stop_dynamic_typing(vk_id)
             msg_id = await message.answer("Мне нужно чуть больше точности для верного прогноза. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
             await set_last_bot_msg(vk_id, msg_id)
             return
+
+        # Геокодирование
+        from modules.utils.geo import get_geo_data
+        geo = await get_geo_data(city)
+        await stop_dynamic_typing(vk_id)
+
+        if not geo:
+            msg_id = await message.answer(f"Я не смогла найти город '{city}' на карте звездного неба. Попробуй указать более крупный город рядом.")
+            await set_last_bot_msg(vk_id, msg_id)
+            return
+
+        display_city = geo.get("display_name", city)
 
         await set_user_state(
             vk_id,
@@ -229,7 +242,10 @@ async def process_onboarding_data(message: Message):
                 "step": "confirm_data",
                 "date": date,
                 "time": time,
-                "city": city
+                "city": city,
+                "lat": geo["lat"],
+                "lon": geo["lon"],
+                "tz": geo["timezone"]
             })
         )
 
@@ -242,7 +258,7 @@ async def process_onboarding_data(message: Message):
             f"✨ ТВОИ ДАННЫЕ ПРИНЯТЫ ✨\n\n"
             f"☾ Дата: {date}\n"
             f"☾ Время: {time}\n"
-            f"☾ Город: {city}\n\n"
+            f"☾ Локация: {display_city}\n\n"
             "Посмотри внимательно, всё ли правильно? Точность важна для верного предсказания."
         )
 

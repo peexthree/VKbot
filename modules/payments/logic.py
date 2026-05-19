@@ -107,6 +107,26 @@ async def execute_generation(
 
             current_date_str = datetime.datetime.now().strftime("%d.%m.%Y")
 
+            # Астрологические расчеты (Swiss Ephemeris)
+            astro_data = None
+            purchased_p = user.get("purchased_sections", {})
+            lat = purchased_p.get("lat")
+            lon = purchased_p.get("lon")
+            tz = purchased_p.get("tz")
+
+            if lat and lon and tz:
+                from modules.utils.geo import local_to_utc
+                from modules.utils.astro import calculate_natal_data, calculate_transits
+                utc_dt = local_to_utc(user.get("birth_date"), user.get("birth_time", "12:00"), tz)
+                if utc_dt:
+                    astro_data = calculate_natal_data(utc_dt, lat, lon)
+
+                    # Добавляем расчет транзитов для актуальности
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    transits = calculate_transits(astro_data, now)
+                    if transits:
+                        astro_data["transits"] = transits
+
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
             res_data = await generate_section(
@@ -115,13 +135,22 @@ async def execute_generation(
                 u_name, u_sex,
                 partner_name=partner_name, partner_date=partner_date, skin=active_skin,
                 card_id=card_id, card_data=card_data, tags=tags, return_json=True,
-                current_date=current_date_str
+                current_date=current_date_str, astro_data=astro_data
             )
 
             res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
 
             if res_text:
                 display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
+
+                # Генерация визуального колеса натальной карты для PDF
+                natal_chart_path = None
+                if astro_data and target_section != "card_of_day":
+                    from modules.utils.viz import generate_natal_wheel
+                    import uuid
+                    natal_chart_path = f"natal_{vk_id}_{uuid.uuid4().hex[:8]}.png"
+                    if not generate_natal_wheel(astro_data, natal_chart_path):
+                        natal_chart_path = None
 
                 # Сохраняем в историю
                 history = user.get("readings_history", [])
@@ -177,7 +206,10 @@ async def execute_generation(
                 if target_section == "card_of_day":
                     light_kb.add(Callback("🔮 ЗАГЛЯНУТЬ ГЛУБЖЕ (СКИДКА 50%)", payload={"cmd": "buy", "type": "service", "key": "oracle_upsell"}), color=KeyboardButtonColor.PRIMARY)
                 else:
-                    light_kb.add(Callback("📜 ЗАБРАТЬ ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)
+                    pdf_payload = {"cmd": "gen_pdf", "section": target_section, "card": card_id}
+                    if natal_chart_path:
+                        pdf_payload["natal_path"] = natal_chart_path
+                    light_kb.add(Callback("📜 ЗАБРАТЬ ПОЛНЫЙ PDF-ОТЧЕТ", payload=pdf_payload), color=KeyboardButtonColor.POSITIVE)
                 light_kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
                 kb_str = light_kb.get_json()
 

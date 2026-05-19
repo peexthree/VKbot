@@ -21,7 +21,8 @@ def generate_premium_pdf(
     activation_recommendations: str = "",
     star_code: str = "",
     energy_map: str = "",
-    current_date: str = ""
+    current_date: str = "",
+    natal_chart_path: str = None
 ):
     try:
         template = jinja_env.get_template('report.html')
@@ -64,10 +65,12 @@ def generate_premium_pdf(
             activation_recommendations=activation_recommendations,
             star_code=star_code,
             energy_map=energy_map,
-            current_date=current_date
+            current_date=current_date,
+            natal_chart_path=natal_chart_path
         )
 
         from weasyprint import HTML
+        # Explicitly pass base_url for resolving relative paths to images
         HTML(string=html_out, base_url=project_root).write_pdf(output_filename)
 
         logger.success(f"PDF успешно создан: {output_filename}")

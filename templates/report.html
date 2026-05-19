@@ -218,6 +218,17 @@
             
             <div class="content">{{ text_content | safe }}</div>
 
+            <!-- НАТАЛЬНАЯ КАРТА -->
+            {% if natal_chart_path %}
+            <div class="section-divider" style="margin-top: 60px;">
+                <img src="cards/uslugi/vst.png" alt="НАТАЛЬНАЯ КАРТА">
+            </div>
+            <div class="creative-block" style="text-align: center;">
+                <strong>НАТАЛЬНАЯ КАРТА</strong>
+                <img src="{{ natal_chart_path }}" style="max-width: 100%; height: auto; border-radius: 10px;">
+            </div>
+            {% endif %}
+
             <!-- КАРТА -->
             {% if card_image_path %}
             <div class="card-container">

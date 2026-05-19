@@ -39,7 +39,7 @@ async def extract_birth_data(text: str) -> dict | None:
         logger.error(f"Failed to parse birth data JSON: {e}. Raw: {res[:200]}...")
         return None
 
-async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False, current_date: str = "") -> str | dict | None:
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False, current_date: str = "", astro_data: dict = None) -> str | dict | None:
 
     if sex == 1:
         gender_instruction = "ПОЛЬЗОВАТЕЛЬ - ЖЕНЩИНА. ОБРАЩАЙСЯ К НЕЙ В ЖЕНСКОМ РОДЕ."
@@ -79,7 +79,14 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         card_data = get_card_data(card_id)
 
     if card_data:
-        base_info += f" ВАЖНО: Пользователь вытянул карту: '{card_data.get('name')}'. Ее базовое значение: '{card_data.get('description')}'. Построй весь свой персонализированный разбор ИСКЛЮЧИТЕЛЬНО вокруг энергии и символизма этой карты."
+        base_info += f" ВАЖНО: Пользователь вытянул карту: '{card_data.get('name')}'. Ее базовое значение: '{card_data.get('description')}'. Построй весь свой персонализированный разбор вокруг энергии и символизма этой карты."
+
+    if astro_data:
+        import json
+        astro_json = json.dumps(astro_data, ensure_ascii=False)
+        base_info += f" ВАЖНО: ТЕХНИЧЕСКИЕ ДАННЫЕ (SWISS EPHEMERIS): {astro_json}. " \
+                     f"Используй эти точные позиции планет в знаках и домах, а также аспекты для максимально точного и глубокого анализа. " \
+                     f" Gemini, интерпретируй эти данные профессионально, вплетая их в свой эзотерический стиль."
 
     style_instruction = (
         " ВАЖНО: Соблюдай свой мягкий и эмпатичный стиль! Никаких маркеров форматирования, "

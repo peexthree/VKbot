@@ -102,17 +102,39 @@ async def message_event_handler(event: dict):
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "confirm_data": return
             date, time, city = state_dict.get("date"), state_dict.get("time"), state_dict.get("city")
+            lat, lon, tz = state_dict.get("lat"), state_dict.get("lon"), state_dict.get("tz")
+
             await set_user_state(vk_id, "")
             await bot.api.messages.edit(peer_id=peer_id, message="✦ СИНХРОНИЗАЦИЯ С МАТРИЦЕЙ...", conversation_message_id=obj.get("conversation_message_id"))
 
             # Начисляем бонусы и сохраняем данные
-            await update_user(vk_id, {
+            updates = {
                 "birth_date": date,
                 "birth_time": time,
                 "birth_city": city,
                 "balance": 700,
                 "welcome_bonus_received": True
-            })
+            }
+            if lat and lon:
+                updates["purchased_sections"] = {
+                    "lat": lat,
+                    "lon": lon,
+                    "tz": tz
+                }
+
+            # Need to be careful with purchased_sections as it is a dict.
+            # In database/users.py it has a default structure.
+            user = await get_user(vk_id)
+            if user:
+                p = user.get("purchased_sections", {})
+                p.update({
+                    "lat": lat,
+                    "lon": lon,
+                    "tz": tz
+                })
+                updates["purchased_sections"] = p
+
+            await update_user(vk_id, updates)
 
             from modules.registration import send_onboarding_teaser
             user = await get_user(vk_id)
@@ -224,6 +246,7 @@ async def message_event_handler(event: dict):
             await reg_mod.process_onboarding_skin_logic(vk_id, peer_id, payload.get("skin"), conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "gen_pdf":
             section, card_id = payload.get("section", "report"), payload.get("card", "")
+            natal_path = payload.get("natal_path")
             user = await get_user(vk_id)
             if not user: return
             latest_data = user.get("latest_reading_data", {})
@@ -238,7 +261,7 @@ async def message_event_handler(event: dict):
             card_data = get_card_data(card_id) if card_id else {}
             current_date_str = datetime.datetime.now().strftime("%d.%m.%Y")
             async with pdf_semaphore:
-                success = await asyncio.to_thread(generate_premium_pdf, user_name=u_name, birth_info=b_info, section_name=section.upper(), text_content=latest_data.get("text", ""), output_filename=pdf_name, card_id=card_id, advice_content="", card_name=card_data.get("name"), card_description=card_data.get("description"), shadow_side=latest_data.get("shadow_side", ""), activation_level=latest_data.get("activation_level", 100), activation_comment=latest_data.get("activation_comment", ""), affirmations=latest_data.get("affirmations", ""), next_activation_date=latest_data.get("next_activation_date", ""), thirty_day_forecast=latest_data.get("thirty_day_forecast", ""), activation_recommendations=latest_data.get("activation_recommendations", ""), star_code=latest_data.get("star_code", ""), energy_map=latest_data.get("energy_map", ""), current_date=current_date_str)
+                success = await asyncio.to_thread(generate_premium_pdf, user_name=u_name, birth_info=b_info, section_name=section.upper(), text_content=latest_data.get("text", ""), output_filename=pdf_name, card_id=card_id, advice_content="", card_name=card_data.get("name"), card_description=card_data.get("description"), shadow_side=latest_data.get("shadow_side", ""), activation_level=latest_data.get("activation_level", 100), activation_comment=latest_data.get("activation_comment", ""), affirmations=latest_data.get("affirmations", ""), next_activation_date=latest_data.get("next_activation_date", ""), thirty_day_forecast=latest_data.get("thirty_day_forecast", ""), activation_recommendations=latest_data.get("activation_recommendations", ""), star_code=latest_data.get("star_code", ""), energy_map=latest_data.get("energy_map", ""), current_date=current_date_str, natal_chart_path=natal_path)
             if success and os.path.exists(pdf_name):
                 try:
                     doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
@@ -248,6 +271,7 @@ async def message_event_handler(event: dict):
 
                 finally:
                     if os.path.exists(pdf_name): await asyncio.to_thread(os.remove, pdf_name)
+                    if natal_path and os.path.exists(natal_path): await asyncio.to_thread(os.remove, natal_path)
             else: await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=0)
         elif cmd == "profile_action":
             action, conv_id = payload.get("action"), obj.get("conversation_message_id")
