@@ -5,7 +5,6 @@ from modules.keyboards import (
 
 def get_dynamic_keyboard(user: dict | None = None) -> str:
     # Используем новое главное меню
-    import asyncio
     return main_menu_kb(0, user)
 
 def get_main_keyboard(vk_id: int = 0) -> str:

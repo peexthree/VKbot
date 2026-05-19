@@ -258,7 +258,6 @@ async def _message_event_handler_wrapped(event: dict):
                 try:
                     doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
 
-                    from modules.keyboards import get_main_reply_keyboard
                     from modules.keyboards import after_pdf_kb
                     kb = after_pdf_kb(section, card_id)
                     await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=0, keyboard=kb)
