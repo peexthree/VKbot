@@ -62,18 +62,31 @@ async def ghost_edit(
 
     try:
         if conversation_message_id:
-            await bot_api.messages.edit(
-                peer_id=peer_id,
-                message=message,
-                conversation_message_id=conversation_message_id,
-                keyboard=keyboard,
-                attachment=attachment,
-                **kwargs
-            )
-            await set_last_bot_msg(peer_id, conversation_message_id)
-            return conversation_message_id
+            try:
+                await bot_api.messages.edit(
+                    peer_id=peer_id,
+                    message=message,
+                    conversation_message_id=conversation_message_id,
+                    keyboard=keyboard,
+                    attachment=attachment,
+                    **kwargs
+                )
+                await set_last_bot_msg(peer_id, conversation_message_id)
+                return conversation_message_id
+            except Exception as e:
+                # Если ошибка 15 (Access Denied) при использовании CMID, пробуем как message_id
+                if "15" in str(e) or "Access denied" in str(e):
+                    await bot_api.messages.edit(
+                        peer_id=peer_id,
+                        message=message,
+                        message_id=conversation_message_id,
+                        keyboard=keyboard,
+                        attachment=attachment,
+                        **kwargs
+                    )
+                    return conversation_message_id
+                raise e
         elif message_id:
-            # message_id в VK для ботов работает хуже чем CMID, но оставим для совместимости
             await bot_api.messages.edit(
                 peer_id=peer_id,
                 message=message,
@@ -85,8 +98,10 @@ async def ghost_edit(
             return message_id
     except Exception as e:
         logger.warning(f"Ghost edit failed, attempting recovery: {e}")
+        # Пробуем удалить старое сообщение обоими способами перед отправкой нового
         if conversation_message_id:
             await delete_bot_message(bot_api, peer_id, cmid=conversation_message_id)
+            await delete_bot_message(bot_api, peer_id, mid=conversation_message_id)
         elif message_id:
             await delete_bot_message(bot_api, peer_id, mid=message_id)
 
