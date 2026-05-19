@@ -112,3 +112,25 @@ def get_syndicate_rank(count: int) -> str:
     if count >= 3: return "Мастер Вербовки"
     if count >= 1: return "Вербовщик"
     return "Одиночка"
+
+def calculate_destiny_card(birth_date_str: str) -> int:
+    """
+    Рассчитывает Аркан судьбы по дате рождения (1-22).
+    Пример: 15.06.1991 -> 1+5+0+6+1+9+9+1 = 32 -> 3+2 = 5 (Аркан V).
+    Если 22 - оставляем 22.
+    """
+    if not birth_date_str:
+        return 1
+
+    # Очищаем дату от всего кроме цифр
+    digits = [int(d) for d in birth_date_str if d.isdigit()]
+    if not digits:
+        return 1
+
+    s = sum(digits)
+
+    while s > 22:
+        # Суммируем цифры полученного числа
+        s = sum(int(d) for d in str(s))
+
+    return s

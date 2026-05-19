@@ -48,6 +48,7 @@ async def main():
     import modules.registration as registration
     import modules.services as services
     import modules.tarot as tarot
+    import modules.support as support
     from modules.middlewares import ThrottleMiddleware
 
     bot.labeler.message_view.register_middleware(ThrottleMiddleware)
@@ -57,6 +58,7 @@ async def main():
     bot.labeler.load(services.labeler)
     bot.labeler.load(tarot.labeler)
     bot.labeler.load(payments.labeler)
+    bot.labeler.load(support.labeler)
 
     import modules.admin as admin
     bot.labeler.load(admin.labeler)

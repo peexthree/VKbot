@@ -33,17 +33,25 @@ async def show_balance_logic(
             await ghost_edit(bot.api, peer_id, "ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", conversation_message_id=conversation_message_id)
             return
         balance = int(user.get("balance", 0) or 0)
-        text = f"ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд"
+        text = (
+            f"✨ ТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд\n\n"
+            "Энергия звезд необходима для проведения глубоких ритуалов и получения ответов от матрицы.\n\n"
+            "💡 СОВЕТ ПРОВОДНИКА:\n"
+            "Приобретать энергию пакетами гораздо выгоднее. Пакеты по 10 000 и 50 000 ✨ дают максимальную силу по лучшей цене."
+        )
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
-        kb = Keyboard(inline=True)
-        kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
-        kb.row()
-        kb.add(Callback("👤 ПРОФИЛЬ", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.PRIMARY)
+
+        from modules.keyboards import vertical_kb
+        kb = vertical_kb([
+            ("💳 ПОПОЛНИТЬ БАЛАНС", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
+            ("👤 ПРОФИЛЬ", "profile_menu", KeyboardButtonColor.PRIMARY),
+            ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+        ])
 
         att = await upload_local_photo(bot.api, "uslugi/tariffs.jpg", peer_id=vk_id)
 
-        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb.get_json(), attachment=att)
+        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb, attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
         if not skip_lock:
@@ -103,6 +111,13 @@ async def show_profile_logic(
         progress = min(10, int((unlocked_count / 78) * 10))
         progress_bar = "█" * progress + "░" * (10 - progress)
 
+        destiny_info = ""
+        destiny_data = user.get("destiny_card_data")
+        if destiny_data:
+            from cards_data import get_card_data
+            c_data = get_card_data(destiny_data.get("card_id", "0"))
+            destiny_info = f"⭐ МОЯ КАРТА СУДЬБЫ: {c_data.get('name', 'Неизвестно')}\n"
+
         # Динамическое приветствие от проводника
         greeting = "Я слежу за твоим прогрессом."
         if visit_streak > 5: greeting = "Твоя связь с матрицей впечатляет."
@@ -114,6 +129,7 @@ async def show_profile_logic(
             f"👤 {first_name} | {rank}\n"
             f"💠 Уровень: {level} | 🔥 Стрик: {visit_streak} дней\n"
             f"📍 {birth_date} — {birth_city}\n\n"
+            f"{destiny_info}"
             f"💬 {greeting}\n\n"
             f"✨ БАЛАНС: {balance} Энергии звезд\n"
             f"🃏 ГРИМУАР: {unlocked_count}/78 [{progress_bar}]"
@@ -355,7 +371,7 @@ async def show_history_logic(
     skip_lock: bool = False,
     conversation_message_id: int = None
 ):
-    """Отображение истории разборов"""
+    """Отображение истории разборов (Гримуар)"""
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
@@ -363,13 +379,23 @@ async def show_history_logic(
         if not user: return
 
         history = user.get("readings_history", [])
-        if not history:
+
+        # Специальный заголовок для Карты Судьбы
+        destiny_text = ""
+        destiny_data = user.get("destiny_card_data")
+        if destiny_data:
+            from cards_data import get_card_data
+            c_data = get_card_data(destiny_data.get("card_id", "0"))
+            destiny_text = f"⭐ МОЯ КАРТА СУДЬБЫ: {c_data.get('name')}\n------------------\n\n"
+
+        if not history and not destiny_data:
             text = "ТВОЙ СПИСОК ОТКРОВЕНИЙ ПОКА ПУСТ.\n\nЗакажи свой первый разбор в меню 'Услуги', чтобы он сохранился здесь."
         else:
-            text = f"📜 ТВОИ ПРОШЛЫЕ РАЗБОРЫ ({len(history)})\n\nЗдесь хранятся все твои обращения к системе. Ты можешь перечитать их в любой момент."
+            text = f"{destiny_text}📜 ТВОИ ПРОШЛЫЕ РАЗБОРЫ ({len(history)})\n\nЗдесь хранятся все твои обращения к системе."
 
         from modules.keyboards import get_history_inline_keyboard
-        kb_json = get_history_inline_keyboard(history)
+        # Нужно передать в клавиатуру инфу о карте судьбы чтобы она была первой
+        kb_json = get_history_inline_keyboard(history, destiny_data=destiny_data)
 
         att = await upload_local_photo(bot.api, "uslugi/history.jpg", peer_id=vk_id)
 
@@ -410,10 +436,18 @@ async def show_history_item_logic(
         # В get_history_inline_keyboard я использую enumerate(history[-8:][::-1])
         # Это значит idx 0 соответствует последнему элементу и т.д.
 
-        real_idx = len(history) - 1 - idx
-        if real_idx < 0: return
-
-        item = history[real_idx]
+        if idx == -1:
+            destiny_data = user.get("destiny_card_data")
+            if not destiny_data: return
+            item = {
+                "title": "⭐ КАРТА СУДЬБЫ",
+                "date": destiny_data.get("date"),
+                "text": destiny_data.get("text")
+            }
+        else:
+            real_idx = len(history) - 1 - idx
+            if real_idx < 0: return
+            item = history[real_idx]
         text = f"📜 {item.get('title')} от {item.get('date')}\n\n{item.get('text')}"
 
         kb = Keyboard(inline=True)

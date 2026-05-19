@@ -156,8 +156,15 @@ async def _message_event_handler_wrapped(event: dict):
             user = await get_user(vk_id)
             if not user: return
 
-            from modules.keyboards import get_main_inline_keyboard
-            kb_json = await get_main_inline_keyboard(vk_id, user)
+            # Ежедневный бонус при каждом открытии меню
+            from modules.utils.logic import check_and_give_daily_bonus
+            await check_and_give_daily_bonus(vk_id, user, peer_id)
+
+            # Сбрасываем стейты (в т.ч. поддержку)
+            await set_user_state(vk_id, "")
+
+            from modules.keyboards import main_menu_kb
+            kb_json = main_menu_kb(vk_id, user)
 
             first_name = user.get("first_name") or "Адепт"
             balance = int(user.get("balance", 0) or 0)
@@ -251,8 +258,9 @@ async def _message_event_handler_wrapped(event: dict):
                 try:
                     doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
 
-                    from modules.keyboards import get_main_reply_keyboard
-                    await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов:", attachment=doc, random_id=0, keyboard=get_main_reply_keyboard(vk_id))
+                    from modules.keyboards import after_pdf_kb
+                    kb = after_pdf_kb(section, card_id)
+                    await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=0, keyboard=kb)
 
                 finally:
                     if os.path.exists(pdf_name): await asyncio.to_thread(os.remove, pdf_name)
@@ -306,8 +314,9 @@ async def _message_event_handler_wrapped(event: dict):
                 "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
                 "oracle_upsell": 250,
                 "micro_insight": 100,
+                "destiny_card": 1500,
                 "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900,
-                "topup_500": 500, "topup_1000": 1000, "topup_5000": 5000
+                "topup_5000": 400, "topup_10000": 750, "topup_50000": 3500
             }
             amount_needed = prices.get(key)
             if not amount_needed: return
@@ -322,7 +331,10 @@ async def _message_event_handler_wrapped(event: dict):
 
             # Для прямых пополнений сразу ведем на оплату
             if buy_type == "topup" or key.startswith("topup_"):
-                rubles = amount_needed # Курс 1:1
+                rubles = amount_needed
+                # Определяем количество энергии по ключу
+                energy_map = {"topup_5000": 5000, "topup_10000": 10000, "topup_50000": 50000}
+                energy_amount = energy_map.get(key, rubles * 10)
 
                 # Трекинг брошенной корзины
                 p = user.get("purchased_sections", {})
@@ -332,7 +344,8 @@ async def _message_event_handler_wrapped(event: dict):
                 await update_user(vk_id, {"purchased_sections": p})
 
                 kb = Keyboard(inline=True).add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={rubles}"))
-                await ghost_edit(bot.api, peer_id, f"💳 ПОПОЛНЕНИЕ БАЛАНСА\n\nВы выбрали пакет: {amount_needed} ✨\nСтоимость: {rubles} RUB\n\nНажмите кнопку ниже для оплаты через VK Pay.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+                kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                await ghost_edit(bot.api, peer_id, f"💳 ПОПОЛНЕНИЕ БАЛАНСА\n\nВы выбрали пакет: {energy_amount} ✨\nСтоимость: {rubles} RUB\n\nНажмите кнопку ниже для оплаты через VK Pay.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
                 return
 
             if balance >= amount_needed:
@@ -340,6 +353,15 @@ async def _message_event_handler_wrapped(event: dict):
                 await update_user(vk_id, {"balance": new_balance})
 
                 if key == "oracle_upsell": key = "oracle" # resolve the upsell back to its base service
+
+                if key == "destiny_card":
+                    from modules.tarot.destiny import generate_destiny_card_logic
+                    await generate_destiny_card_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"))
+                    return
+
+                if buy_type == "skin":
+                    await process_skin_action_logic(vk_id, peer_id, skip_lock=True, payload={"cmd": "set_skin", "skin": key}, conversation_message_id=obj.get("conversation_message_id"))
+                    return
 
                 if buy_type == "service": await process_payment_and_generate(vk_id, key)
                 elif buy_type == "tariff":
@@ -363,6 +385,46 @@ async def _message_event_handler_wrapped(event: dict):
             await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "grimoire_page": await show_grimoire_page(vk_id, peer_id, payload.get("page", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "view_card": await view_card_direct(vk_id, peer_id, str(payload.get("id")), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "support":
+            from modules.support import support_handler_logic
+            await support_handler_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "admin_reply_start":
+            from modules.support import admin_reply_start_logic
+            await admin_reply_start_logic(vk_id, payload.get("user_id"))
+        elif cmd == "destiny_card_info":
+            from modules.tarot.destiny import destiny_card_info_logic
+            await destiny_card_info_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "buy_destiny_card":
+            from modules.tarot.destiny import generate_destiny_card_logic
+            await generate_destiny_card_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "confirm_buy":
+            buy_type, key = payload.get("type"), payload.get("key")
+            prices = {
+                "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
+                "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
+                "oracle_upsell": 250, "micro_insight": 100, "destiny_card": 1500,
+                "skin": 1500
+            }
+            cost = prices.get(key, 0)
+            from modules.keyboards import confirmation_kb
+            kb = confirmation_kb({"cmd": "buy", "type": buy_type, "key": key}, cost)
+            await bot.api.messages.edit(
+                peer_id=peer_id,
+                conversation_message_id=obj.get("conversation_message_id"),
+                message=f"❓ ПОДТВЕРЖДЕНИЕ ПОКУПКИ\n\nВы уверены, что хотите приобрести эту услугу?\nБудет списано: {cost} ✨",
+                keyboard=kb
+            )
+        elif cmd == "share_pdf":
+            section = payload.get("section", "report")
+            user = await get_user(vk_id)
+            if not user: return
+
+            # В VK проще всего поделиться через пересылку сообщения.
+            # Но для кнопки "Поделиться" мы можем просто отправить инструкцию или вызвать окно.
+            # Самый надежный способ - отправить сообщение, которое легко переслать.
+
+            text = "📤 Нажми на стрелочку рядом с этим сообщением, чтобы переслать свой сакральный разбор другу в VK."
+            await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
         elif cmd == "show_offer":
             offer_url = "https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
             await bot.api.messages.send(peer_id=peer_id, message=f"📜 ПУБЛИЧНАЯ ОФЕРТА:\n{offer_url}", random_id=0)
