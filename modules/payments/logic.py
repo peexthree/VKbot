@@ -203,17 +203,24 @@ async def execute_generation(
                 if card_data:
                     header = f"🃏 {card_data.get('name')} — {card_data.get('subtitle')}\n------------------\n\n"
 
-                # Если conversation_message_id был передан (регистрация), используем его.
-                # Если нет (расклад), используем ID сообщения динамического тайпинга.
-                final_conv_id = conversation_message_id if conversation_message_id else typing_msg_id
-
-                await ghost_edit(
-                    bot.api,
-                    peer_id,
-                    header + display_text,
-                    conversation_message_id=final_conv_id,
-                    keyboard=kb_str
-                )
+                # Если conversation_message_id был передан (регистрация), используем его как CMID.
+                # Если нет (расклад), используем ID сообщения динамического тайпинга как MID.
+                if conversation_message_id:
+                    await ghost_edit(
+                        bot.api,
+                        peer_id,
+                        header + display_text,
+                        conversation_message_id=conversation_message_id,
+                        keyboard=kb_str
+                    )
+                else:
+                    await ghost_edit(
+                        bot.api,
+                        peer_id,
+                        header + display_text,
+                        message_id=typing_msg_id,
+                        keyboard=kb_str
+                    )
             else:
                 await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id)
         finally:

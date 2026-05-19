@@ -44,6 +44,14 @@ labeler = BotLabeler()
 
 @labeler.raw_event(GroupEventType.MESSAGE_EVENT, dataclass=dict)
 async def message_event_handler(event: dict):
+    try:
+        await _message_event_handler_wrapped(event)
+    except (ConnectionResetError, asyncio.TimeoutError) as e:
+        logger.warning(f"Network error in message_event_handler: {e}")
+    except Exception as e:
+        logger.exception(f"Unhandled error in message_event_handler: {e}")
+
+async def _message_event_handler_wrapped(event: dict):
     obj = event.get("object", {})
     vk_id = obj.get("user_id")
     peer_id = obj.get("peer_id")

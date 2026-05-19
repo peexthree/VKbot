@@ -221,10 +221,31 @@ async def main():
 
     # Запуск
     bot.loop_wrapper._running = True
-    asyncio.create_task(bot.run_polling())
+
+    async def run_bot_with_restart():
+        while True:
+            try:
+                await bot.run_polling()
+            except (ConnectionResetError, asyncio.TimeoutError) as e:
+                logger.warning(f"Polling connection lost: {e}. Restarting in 5s...")
+                await asyncio.sleep(5)
+            except Exception as e:
+                logger.exception(f"Critical error in polling loop: {e}. Restarting in 10s...")
+                await asyncio.sleep(10)
+
+    asyncio.create_task(run_bot_with_restart())
     from modules.utils import warmup_task
     asyncio.create_task(warmup_task())
-    asyncio.create_task(daily_forecast_cron())
+
+    async def daily_forecast_cron_safe():
+        while True:
+            try:
+                await daily_forecast_cron()
+            except Exception as e:
+                logger.exception(f"Error in daily_forecast_cron: {e}. Restarting task in 60s...")
+                await asyncio.sleep(60)
+
+    asyncio.create_task(daily_forecast_cron_safe())
 
     app = web.Application()
     app.router.add_get('/', handle_ping)
