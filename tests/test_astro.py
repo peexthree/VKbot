@@ -1,26 +1,26 @@
 import asyncio
+import pytest
 from modules.utils.geo import get_geo_data, local_to_utc
 from modules.utils.astro import calculate_natal_data
 from modules.utils.viz import generate_natal_wheel
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 import os
 
-# Mock Redis to avoid connection errors in test environment
-import modules.utils.geo
-modules.utils.geo.redis_client = MagicMock()
-modules.utils.geo.redis_client.get = MagicMock(return_value=asyncio.Future())
-modules.utils.geo.redis_client.get.return_value.set_result(None)
-modules.utils.geo.redis_client.set = MagicMock(return_value=asyncio.Future())
-modules.utils.geo.redis_client.set.return_value.set_result(True)
-
+@pytest.mark.asyncio
 async def test_astro_flow():
+    # Mock Redis to avoid connection errors in test environment
+    import modules.utils.geo
+    mock_redis = MagicMock()
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.set = AsyncMock(return_value=True)
+    modules.utils.geo.redis_client = mock_redis
+
     city = "Moscow"
     print(f"Testing geocoding for {city}...")
     # Nominatim should work without Redis if mocked properly
     geo = await get_geo_data(city)
     if not geo:
-        print("Geocoding failed")
-        return
+        pytest.fail("Geocoding failed")
     print(f"Geo data: {geo}")
 
     birth_date = "15.05.1990"
@@ -32,8 +32,7 @@ async def test_astro_flow():
     print("Testing Swiss Ephemeris calculations...")
     astro_data = calculate_natal_data(utc_dt, geo['lat'], geo['lon'])
     if not astro_data:
-        print("Astro calculations failed")
-        return
+        pytest.fail("Astro calculations failed")
 
     print("Planets found:", list(astro_data['planets'].keys()))
     print("Sun position:", astro_data['planets']['Sun'])
@@ -44,8 +43,10 @@ async def test_astro_flow():
     success = generate_natal_wheel(astro_data, output_path)
     if success and os.path.exists(output_path):
         print(f"Natal wheel generated at {output_path}")
+        if os.path.exists(output_path):
+            os.remove(output_path)
     else:
-        print("Natal wheel generation failed")
+        pytest.fail("Natal wheel generation failed")
 
 if __name__ == "__main__":
     asyncio.run(test_astro_flow())
