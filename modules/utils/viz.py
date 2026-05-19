@@ -89,7 +89,7 @@ def generate_natal_wheel(astro_data: dict, output_path: str):
         for h_num, h_data in astro_data["houses"].items():
             theta = np.deg2rad(h_data["lon"])
             ax.plot([theta, theta], [0, 0.9], color='darkblue', linewidth=1, alpha=0.6)
-            ax.text(theta, 0.7, str(h_num), fontsize=8, ha='center', va='center', bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
+            ax.text(theta, 0.7, str(h_num), fontsize=8, ha='center', va='center', bbox={"facecolor": "white", "alpha": 0.5, "edgecolor": "none"})
 
         ax.set_yticklabels([])
         ax.set_xticklabels([])

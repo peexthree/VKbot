@@ -92,7 +92,7 @@ def calculate_natal_data(utc_dt: datetime, lat: float, lon: float):
             }
 
         # Определение дома для каждой планеты
-        for p_name, p_data in results["planets"].items():
+        for _p_name, p_data in results["planets"].items():
             p_lon = p_data["lon"]
             house_num = 0
             for i in range(1, 13):

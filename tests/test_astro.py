@@ -4,7 +4,6 @@ from modules.utils.astro import calculate_natal_data
 from modules.utils.viz import generate_natal_wheel
 from unittest.mock import MagicMock
 import os
-import sys
 
 # Mock Redis to avoid connection errors in test environment
 import modules.utils.geo
