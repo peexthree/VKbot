@@ -71,6 +71,15 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
 
     try:
         birth_date = user.get("birth_date", "")
+        if not birth_date:
+            await stop_dynamic_typing(peer_id)
+            # Return energy
+            purchased = user.get("purchased_sections", {})
+            purchased.pop("destiny_card_purchased", None)
+            await update_user(vk_id, {"balance": balance + 1500, "purchased_sections": purchased})
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Ошибка: не указана дата рождения. Пожалуйста, заполните профиль в настройках (Энергия возвращена).", random_id=0)
+            return
+
         card_index = calculate_destiny_card(birth_date)
         # Арканы 1-22 в нашем tarot_db.json соответствуют индексам 1-22 (Шут там 0, но по нашей логике он может быть 22)
         # Если Аркан 22 - это Шут (0), но в db он 0. Сделаем маппинг.
@@ -84,14 +93,22 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
 
         # Специальный промпт для карты судьбы
         res_data = await generate_section(
-            "destiny_card", birth_date, user.get("birth_time"),
-            user.get("birth_city"), user.get("core_profile", ""),
+            "destiny_card", birth_date, user.get("birth_time", ""),
+            user.get("birth_city", ""), user.get("core_profile", ""),
             user.get("first_name", "Адепт"), user.get("sex_val", 0),
             skin=active_skin, card_id=str(db_idx), card_data=card_data,
             return_json=True
         )
 
         res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
+
+        if not res_text:
+            await stop_dynamic_typing(peer_id)
+            purchased = user.get("purchased_sections", {})
+            purchased.pop("destiny_card_purchased", None)
+            await update_user(vk_id, {"balance": balance + 1500, "purchased_sections": purchased})
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам (пустой ответ). Энергия возвращена.", random_id=0)
+            return
 
         # Сохраняем в историю и спец поле
         history = user.get("readings_history", [])
@@ -134,5 +151,7 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         logger.error(f"Error generating destiny card: {e}")
         await stop_dynamic_typing(peer_id)
         # Возвращаем энергию в случае ошибки
-        await update_user(vk_id, {"balance": balance})
+        purchased = user.get("purchased_sections", {})
+        purchased.pop("destiny_card_purchased", None)
+        await update_user(vk_id, {"balance": balance + 1500, "purchased_sections": purchased})
         await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам. Энергия возвращена.", random_id=0)

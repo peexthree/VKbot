@@ -9,6 +9,41 @@ from vkbottle import (
     Callback, DocMessagesUploader, GroupEventType, Keyboard, KeyboardButtonColor
 )
 from vkbottle.bot import BotLabeler
+
+async def safe_edit(peer_id, message, conversation_message_id=None, keyboard=None, attachment=None, **kwargs):
+    """Обертка для безопасного редактирования с защитой от Flood Control."""
+    await asyncio.sleep(0.4) # Reasonable delay
+    try:
+        await bot.api.messages.edit(
+            peer_id=peer_id,
+            message=message,
+            conversation_message_id=conversation_message_id,
+            keyboard=keyboard,
+            attachment=attachment,
+            **kwargs
+        )
+    except Exception as e:
+        if "9" in str(e) or "Flood control" in str(e):
+            logger.warning("Flood control in safe_edit, waiting 1.5s...")
+            await asyncio.sleep(1.5)
+        # Fallback to send
+        logger.debug(f"safe_edit failed ({e}), falling back to send.")
+        try:
+            # Try to delete the old message
+            from modules.utils.ui import delete_bot_message
+            if conversation_message_id:
+                await delete_bot_message(bot.api, peer_id, cmid=conversation_message_id)
+        except Exception:
+            pass
+        await bot.api.messages.send(
+            peer_id=peer_id,
+            message=message,
+            keyboard=keyboard,
+            attachment=attachment,
+            random_id=0,
+            **kwargs
+        )
+
 from vkbottle.tools.dev.keyboard.action import VKPay
 
 from cache import acquire_lock, check_throttle, release_lock, set_fsm_state, redis_client
@@ -102,16 +137,16 @@ async def _message_event_handler_wrapped(event: dict):
 
         if cmd == "retry_registration":
             await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": obj.get("conversation_message_id")}))
-            await bot.api.messages.edit(peer_id=peer_id, message="Понял. Попробуй еще раз. Напиши дату, время и город рождения максимально четко.", conversation_message_id=obj.get("conversation_message_id"))
+            await safe_edit(peer_id=peer_id, message="Понял. Попробуй еще раз. Напиши дату, время и город рождения максимально четко.", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "edit_onboarding_data":
             await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": obj.get("conversation_message_id")}))
-            await bot.api.messages.edit(peer_id=peer_id, message="Для калибровки профиля и начисления 700 Энергии звезд напиши свою дату, время и город рождения одним текстом (например: 15 мая 1990, 14:30, Казань).", conversation_message_id=obj.get("conversation_message_id"))
+            await safe_edit(peer_id=peer_id, message="Для калибровки профиля и начисления 700 Энергии звезд напиши свою дату, время и город рождения одним текстом (например: 15 мая 1990, 14:30, Казань).", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "confirm_registration":
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "confirm_data": return
             date, time, city = state_dict.get("date"), state_dict.get("time"), state_dict.get("city")
             await set_user_state(vk_id, "")
-            await bot.api.messages.edit(peer_id=peer_id, message="✦ СИНХРОНИЗАЦИЯ С МАТРИЦЕЙ...", conversation_message_id=obj.get("conversation_message_id"))
+            await safe_edit(peer_id=peer_id, message="✦ СИНХРОНИЗАЦИЯ С МАТРИЦЕЙ...", conversation_message_id=obj.get("conversation_message_id"))
 
             # Начисляем бонусы и сохраняем данные
             await update_user(vk_id, {
@@ -140,17 +175,17 @@ async def _message_event_handler_wrapped(event: dict):
                 if has_access:
                     if target_section == "synastry":
                         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
-                        await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ДЛЯ АНАЛИЗА СОЮЗА НАПИШИ ИМЯ ПАРТНЕРА:")
+                        await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ДЛЯ АНАЛИЗА СОЮЗА НАПИШИ ИМЯ ПАРТНЕРА:")
                         return
                     if target_section == "oracle":
                         # We need to trigger the oracle question handler
                         await set_user_state(vk_id, json.dumps({"step": "waiting_oracle_question"}))
-                        await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="НАПИШИ СВОЙ ВОПРОС СУДЬБЕ:")
+                        await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="НАПИШИ СВОЙ ВОПРОС СУДЬБЕ:")
                         return
 
                     await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target_section}))
                     kb = Keyboard(inline=True).add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-                    await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json())
+                    await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json())
                 else: await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
         elif cmd == "main_menu":
             user = await get_user(vk_id)
@@ -279,7 +314,7 @@ async def _message_event_handler_wrapped(event: dict):
             elif action == "change_skin": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=conv_id)
             elif action == "cancel_sub":
                 await update_user(vk_id, {"transit_sub_expires_at": None})
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="Транзит (Подписка) успешно отменен.")
+                await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="Транзит (Подписка) успешно отменен.")
             elif action == "reset_account":
                 await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
                 kb = Keyboard(inline=True).add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE).row().add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
@@ -288,7 +323,7 @@ async def _message_event_handler_wrapped(event: dict):
             elif action == "confirm_reset":
                 await delete_user(vk_id)
                 await set_user_state(vk_id, "")
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
+                await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
             elif action == "back_to_profile":
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
@@ -303,7 +338,7 @@ async def _message_event_handler_wrapped(event: dict):
             elif action == "enter_seal":
                 await set_user_state(vk_id, "waiting_for_seal")
                 kb = Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
-                await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
+                await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
             elif action == "cancel_seal":
                 await set_user_state(vk_id, "")
                 await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
@@ -408,8 +443,7 @@ async def _message_event_handler_wrapped(event: dict):
             cost = prices.get(key, 0)
             from modules.keyboards import confirmation_kb
             kb = confirmation_kb({"cmd": "buy", "type": buy_type, "key": key}, cost)
-            await bot.api.messages.edit(
-                peer_id=peer_id,
+            await safe_edit(peer_id=peer_id,
                 conversation_message_id=obj.get("conversation_message_id"),
                 message=f"❓ ПОДТВЕРЖДЕНИЕ ПОКУПКИ\n\nВы уверены, что хотите приобрести эту услугу?\nБудет списано: {cost} ✨",
                 keyboard=kb
@@ -437,11 +471,11 @@ async def _message_event_handler_wrapped(event: dict):
                 kb.add(Callback("🎴", payload={"cmd": "global_draw"}), color=KeyboardButtonColor.SECONDARY)
                 if (_i + 1) % 2 == 0 and _i < 9:
                     kb.row()
-            await bot.api.messages.edit(peer_id=peer_id, message="Выбери карту из разложенных:", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+            await safe_edit(peer_id=peer_id, message="Выбери карту из разложенных:", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "global_draw":
             # 1. Сразу убираем кнопки и показываем статус
             conv_id = obj.get("conversation_message_id")
-            await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_id, message="✦ КАРТА ВЫБРАНА. ИНИЦИАЦИЯ...", keyboard=Keyboard(inline=True).get_json())
+            await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="✦ КАРТА ВЫБРАНА. ИНИЦИАЦИЯ...", keyboard=Keyboard(inline=True).get_json())
 
             state_dict = await get_fsm_step(vk_id)
             if not state_dict: return
@@ -482,8 +516,7 @@ async def _message_event_handler_wrapped(event: dict):
                 "✦ СЧИТЫВАЮ ПОТОК ДЛЯ ПЕРСОНАЛИЗИРОВАННОГО РАЗБОРА..."
             )
 
-            await bot.api.messages.edit(
-                peer_id=peer_id,
+            await safe_edit(peer_id=peer_id,
                 conversation_message_id=conv_id,
                 message=ritual_text,
                 attachment=",".join(atts) if atts else None
@@ -511,9 +544,9 @@ async def _message_event_handler_wrapped(event: dict):
                         b_cnt += 1
                         if b_cnt % 2 == 0:
                             kb.row()
-                await bot.api.messages.edit(peer_id=peer_id, message=f"Выбрано: {len(drawn)}/3...", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+                await safe_edit(peer_id=peer_id, message=f"Выбрано: {len(drawn)}/3...", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
             else:
                 await set_user_state(vk_id, "")
-                await bot.api.messages.edit(peer_id=peer_id, message="Выбрано: 3/3. Карты собраны.", conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json())
+                await safe_edit(peer_id=peer_id, message="Выбрано: 3/3. Карты собраны.", conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json())
                 asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn))
     finally: await release_lock(vk_id)
