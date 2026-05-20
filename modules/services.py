@@ -23,7 +23,7 @@ from modules.utils import (
 
 labeler = BotLabeler()
 
-@labeler.message(text=["🔮 ГЛУБОКИЕ РАЗБОРЫ", "ГЛУБОКИЕ РАЗБОРЫ", "✦ Услуги", "Услуги", "✦ УСЛУГИ 🛒"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['🔮 глубокие разборы', 'глубокие разборы', '✦ услуги', 'услуги', '✦ услуги 🛒'])
 async def show_services_handler(message: Message):
     logger.info(f"show_services_handler triggered by from_id={message.from_id}")
     last_mid = await get_last_bot_msg(message.from_id)
@@ -283,7 +283,7 @@ async def process_synastry_city(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(text=["🛰 ТАРИФЫ", "💳 ПОПОЛНИТЬ"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['🛰 тарифы', '💳 пополнить'])
 async def show_tariffs_handler(message: Message):
     last_mid = await get_last_bot_msg(message.from_id)
     if last_mid:

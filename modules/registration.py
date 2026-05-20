@@ -33,7 +33,7 @@ labeler = BotLabeler()
 
 
 # ==================== СБРОС ====================
-@labeler.message(text=["СБРОС"])
+@labeler.message(func=lambda m: m.text and m.text.lower() == "сброс")
 async def reset_user_handler(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -50,7 +50,7 @@ async def reset_user_handler(message: Message):
 
 
 # ==================== ГЛАВНЫЙ СТАРТ ====================
-@labeler.message(text=["Начать", "start", "/start"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ["начать", "start", "/start"])
 @labeler.message(payload={"command": "start"})
 async def start_handler(message: Message, skip_lock: bool = False):
     vk_id = message.from_id
@@ -309,7 +309,7 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
     await send_temp_message(bot.api, peer_id, "Твоя панель навигации активирована ✨", delay=3, keyboard=reply_kb)
 
 # ==================== ВОЗВРАТ В ГЛАВНОЕ МЕНЮ ====================
-@labeler.message(text=["Главное меню", "В ГЛАВНОЕ МЕНЮ", "МЕНЮ", "НАЗАД"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ["главное меню", "в главное меню", "меню", "назад", "🏠 главное меню"])
 async def back_to_main_menu(message: Message):
     vk_id = message.from_id
     # Удаляем сообщение пользователя
