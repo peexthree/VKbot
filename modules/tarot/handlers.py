@@ -34,7 +34,7 @@ async def process_oracle_cut_handler(message: Message):
         await message.answer("✨ ШАГ 3 ИЗ 3: ТВОЙ ВЫБОР ✨\nПрислушайся к интуиции и выбери 3 карты, которые откликаются тебе сейчас.", keyboard=kb.get_json())
     finally: await release_lock(vk_id)
 
-@labeler.message(text=["Карта дня", "✦ Карта дня", "🃏 Карта дня", "🃏 КАРТА ДНЯ"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['карта дня', '✦ карта дня', '🃏 карта дня', '🃏 карта дня'])
 async def card_of_day_handler(message: Message):
     await card_of_day_logic(message.from_id, message.peer_id, conversation_message_id=message.conversation_message_id)
 

@@ -24,11 +24,11 @@ from database import set_user_state
 
 labeler = BotLabeler()
 
-@labeler.message(text=["✦ Баланс", "Баланс", "💳 БАЛАНС"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['✦ баланс', 'баланс', '💳 баланс'])
 async def show_balance(message: Message):
     await show_balance_logic(message.from_id, message)
 
-@labeler.message(text=["✦ Настройки ⚙", "Настройки", "⚙ НАСТРОЙКИ"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['✦ настройки ⚙', 'настройки', '⚙ настройки'])
 async def settings_handler(
     message: Message = None,
     vk_id: int = None,
@@ -41,7 +41,7 @@ async def settings_handler(
     if not v_id or not p_id: return
     await settings_handler_logic(v_id, p_id, message, skip_lock=skip_lock, conversation_message_id=conversation_message_id)
 
-@labeler.message(text="Изменить свои данные")
+@labeler.message(func=lambda m: m.text and m.text.lower() == "изменить свои данные")
 async def settings_change_data(message: Message):
     await settings_change_data_logic(message.from_id, message)
 
@@ -75,28 +75,28 @@ async def is_waiting_change_city(message: Message) -> bool:
 async def process_change_city(message: Message):
     await process_change_city_logic(message.from_id, message)
 
-@labeler.message(text="Отменить подписку")
+@labeler.message(func=lambda m: m.text and m.text.lower() == "отменить подписку")
 async def settings_cancel_subscription(message: Message):
     await settings_cancel_subscription_logic(message.from_id, message)
 
-@labeler.message(text="СБРОС АККАУНТА")
+@labeler.message(func=lambda m: m.text and m.text.lower() == "сброс аккаунта")
 async def settings_reset_account(message: Message):
     await settings_reset_account_logic(message.from_id, message)
 
-@labeler.message(state=MyStates.WAITING_RESET_CONFIRM, text="ПОДТВЕРДИТЬ СБРОС")
+@labeler.message(state=MyStates.WAITING_RESET_CONFIRM, func=lambda m: m.text and m.text.lower() == "подтвердить сброс")
 async def confirm_reset_account(message: Message):
     await confirm_reset_account_logic(message.from_id, message)
 
-@labeler.message(state=MyStates.WAITING_RESET_CONFIRM, text="Назад в профиль")
+@labeler.message(state=MyStates.WAITING_RESET_CONFIRM, func=lambda m: m.text and m.text.lower() == "назад в профиль")
 async def cancel_reset_account(message: Message):
     await set_user_state(message.from_id, "")
     await show_profile_logic(message.from_id, message.peer_id, message)
 
-@labeler.message(text="Назад в профиль")
+@labeler.message(func=lambda m: m.text and m.text.lower() == "назад в профиль")
 async def settings_back_to_profile(message: Message):
     await show_profile_logic(message.from_id, message.peer_id, message)
 
-@labeler.message(text="Выбрать персонажа")
+@labeler.message(func=lambda m: m.text and m.text.lower() == "выбрать персонажа")
 async def settings_choose_character(message: Message = None, vk_id: int = None, peer_id: int = None, skip_lock: bool = False, idx: int = 0, edit_msg_id: int = None):
     v_id = vk_id or (message.from_id if message else None)
     p_id = peer_id or (message.peer_id if message else None)
@@ -108,7 +108,7 @@ async def process_skin_action(message: Message):
     await process_skin_action_logic(message.from_id, message.peer_id, message)
 
 
-@labeler.message(text=["🎴 МОЙ ГРИМУАР", "Гримуар"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['🎴 мой гримуар', 'гримуар'])
 async def show_grimoire(message: Message):
     await set_user_state(message.from_id, "")
     await show_grimoire_page(message.from_id, message.peer_id, 0)
@@ -119,11 +119,11 @@ async def view_grimoire_card(message: Message):
     if not match: return
     await view_card_direct(message.from_id, message.peer_id, match.group(1))
 
-@labeler.message(text=["ЛАЙН ГОЛОС"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['лайн голос'])
 async def god_mode_handler(message: Message):
     await god_mode_logic(message.from_id, message)
 
-@labeler.message(text=["🕸 Синдикат", "Синдикат"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['🕸 синдикат', 'синдикат'])
 async def syndicate_dashboard_handler(
     message: Message = None,
     vk_id: int = None,
@@ -136,19 +136,19 @@ async def syndicate_dashboard_handler(
     if not v_id or not p_id: return
     await syndicate_dashboard_logic(v_id, p_id, message, skip_lock=skip_lock, conversation_message_id=conversation_message_id)
 
-@labeler.message(text=["Назад в профиль 👤"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['назад в профиль 👤'])
 async def back_to_profile(message: Message):
     await show_profile_logic(message.from_id, message.peer_id, message)
 
-@labeler.message(text=["Получить Печать 📜"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['получить печать 📜'])
 async def get_seal_handler(message: Message):
     await get_seal_logic(message.from_id, message)
 
-@labeler.message(text=["Ввести Печать ✒"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['ввести печать ✒'])
 async def enter_seal_handler(message: Message):
     await enter_seal_logic(message.from_id, message)
 
-@labeler.message(text=["Отмена"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['отмена'])
 async def cancel_seal_handler(message: Message):
     await cancel_seal_logic(message.from_id, message.peer_id, message)
 
@@ -156,7 +156,7 @@ async def cancel_seal_handler(message: Message):
 async def apply_promo_handler(message: Message):
     await apply_promo_logic(message.from_id, message)
 
-@labeler.message(text=["✦ Путеводитель", "путеводитель", "Путеводитель", "📖 ПУТЕВОДИТЕЛЬ", "📖 Путеводитель"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['✦ путеводитель', 'путеводитель', 'путеводитель', '📖 путеводитель', '📖 путеводитель'])
 async def show_guide(
     message: Message = None,
     vk_id: int = None,
@@ -169,7 +169,7 @@ async def show_guide(
     if not v_id or not p_id: return
     await show_guide_logic(v_id, p_id, message, skip_lock=skip_lock, conversation_message_id=conversation_message_id)
 
-@labeler.message(text=["⚙️ СИСТЕМА"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['⚙️ система'])
 async def show_advanced_settings(
     message: Message = None,
     vk_id: int = None,
@@ -181,7 +181,7 @@ async def show_advanced_settings(
     p_id = peer_id or (message.peer_id if message else None)
     if not v_id or not p_id: return
     await show_advanced_settings_logic(v_id, p_id, message, skip_lock=skip_lock, conversation_message_id=conversation_message_id)
-@labeler.message(text=["Профиль", "Мой профиль", "✦ Мой профиль", "💳 МОЙ ПРОФИЛЬ", "👤 МОЙ ПРОФИЛЬ"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['профиль', 'мой профиль', '✦ мой профиль', '💳 мой профиль', '👤 мой профиль'])
 async def show_profile(message: Message):
     """Просто вызывает новый красивый профиль"""
     await show_profile_logic(message.from_id, message.peer_id, message)

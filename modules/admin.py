@@ -14,7 +14,7 @@ labeler = BotLabeler()
 
 # ==================== НАВИГАЦИЯ ====================
 
-@labeler.message(text=["⚙️ КОНСОЛЬ МАГИСТРА", "админка"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ["⚙️ консоль магистра", "админка", "⚙️ консоль"])
 @labeler.message(payload={"cmd": "admin_console"})
 async def admin_console_handler(message: Message):
     if message.from_id != ADMIN_ID:
