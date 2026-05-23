@@ -55,8 +55,8 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
 def services_menu_kb() -> str:
     """Меню Услуг"""
     return vertical_kb([
-        ("🔮 Все услуги", "services_catalog", KeyboardButtonColor.PRIMARY),
-        ("❤️ Совместимость", "synastry", KeyboardButtonColor.PRIMARY),
+        ("🔮 Все услуги", "service_page", KeyboardButtonColor.PRIMARY),
+        ("❤️ Совместимость", {"cmd": "use_section", "key": "synastry"}, KeyboardButtonColor.PRIMARY),
         ("⭐ Подписка / Тарифы", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
@@ -203,3 +203,17 @@ def get_guide_sub_keyboard(action_label: str, action_payload: dict) -> str:
         (action_label, action_payload, KeyboardButtonColor.POSITIVE),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
+
+def get_advanced_settings_inline_keyboard(vk_id: int) -> str:
+    """Меню системных настроек"""
+    buttons = [
+        ("🔄 Сбросить аккаунт", {"cmd": "profile_action", "action": "reset_account"}, KeyboardButtonColor.SECONDARY),
+        ("❌ Отменить подписку", {"cmd": "profile_action", "action": "cancel_sub"}, KeyboardButtonColor.SECONDARY),
+        ("👤 В ПРОФИЛЬ", "profile_menu", KeyboardButtonColor.PRIMARY),
+        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+    ]
+    return vertical_kb(buttons)
+
+def get_sections_keyboard(vk_id: int, user: dict) -> str:
+    """Старый хелпер, возвращает главное меню"""
+    return main_menu_kb(vk_id, user)
