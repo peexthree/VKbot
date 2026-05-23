@@ -91,11 +91,14 @@ async def admin_reply_start_logic(admin_id: int, user_id: int):
     await set_user_state(admin_id, json.dumps({"step": "waiting_admin_reply", "target_user_id": user_id}))
     await bot.api.messages.send(peer_id=admin_id, message=f"Напиши текст ответа для пользователя {user_id}:", random_id=0)
 
-@labeler.message(func=lambda m: m.from_id == ADMIN_ID)
+async def _is_admin_reply_fsm(message: Message) -> bool:
+    if message.from_id != ADMIN_ID: return False
+    state = await get_fsm_step(ADMIN_ID)
+    return state and state.get("step") == "waiting_admin_reply"
+
+@labeler.message(func=_is_admin_reply_fsm)
 async def process_admin_reply(message: Message):
     state = await get_fsm_step(ADMIN_ID)
-    if not state or state.get("step") != "waiting_admin_reply":
-        return
     target_user_id = state.get("target_user_id")
 
     if not target_user_id:
