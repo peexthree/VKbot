@@ -51,8 +51,8 @@ async def _send_catalog_page(
             pass
         return
 
-    if idx < 0 or idx >= total_items:
-        idx = 0
+    if total_items > 0:
+        idx = idx % total_items
 
     item = items[idx]
     att = None

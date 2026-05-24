@@ -148,10 +148,8 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
             prev_payload["filter"] = filter_val
             next_payload["filter"] = filter_val
 
-        if idx > 0:
-            kb.add(Callback("⬅️ НАЗАД", payload=prev_payload), color=KeyboardButtonColor.SECONDARY)
-        if idx < total_items - 1:
-            kb.add(Callback("ВПЕРЕД ➡️", payload=next_payload), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("⬅️ НАЗАД", payload=prev_payload), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("ВПЕРЕД ➡️", payload=next_payload), color=KeyboardButtonColor.SECONDARY)
         kb.row()
 
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)

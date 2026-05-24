@@ -58,7 +58,8 @@ async def show_grimoire_page(
 
         ITEMS_PER_PAGE = 4
         total_pages = (len(unlocked_items) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
-        page = max(0, min(page, total_pages - 1))
+        if total_pages > 0:
+            page = page % total_pages
 
         start_idx = page * ITEMS_PER_PAGE
         current_items = unlocked_items[start_idx : start_idx + ITEMS_PER_PAGE]
@@ -94,16 +95,14 @@ async def show_grimoire_page(
 
         # Навигация
         if total_pages > 1:
-            if page > 0:
-                kb.add(
-                    Callback("◀️ Назад", payload={"cmd": "grimoire_page", "page": page - 1}),
-                    color=KeyboardButtonColor.PRIMARY,
-                )
-            if page < total_pages - 1:
-                kb.add(
-                    Callback("Вперёд ▶️", payload={"cmd": "grimoire_page", "page": page + 1}),
-                    color=KeyboardButtonColor.PRIMARY,
-                )
+            kb.add(
+                Callback("◀️ Назад", payload={"cmd": "grimoire_page", "page": page - 1}),
+                color=KeyboardButtonColor.PRIMARY,
+            )
+            kb.add(
+                Callback("Вперёд ▶️", payload={"cmd": "grimoire_page", "page": page + 1}),
+                color=KeyboardButtonColor.PRIMARY,
+            )
             kb.row()
 
         # Кнопка в Услуги
