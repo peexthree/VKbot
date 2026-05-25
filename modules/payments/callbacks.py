@@ -12,37 +12,16 @@ from vkbottle.bot import BotLabeler
 
 async def safe_edit(peer_id, message, conversation_message_id=None, keyboard=None, attachment=None, **kwargs):
     """Обертка для безопасного редактирования с защитой от Flood Control."""
-    await asyncio.sleep(0.4) # Reasonable delay
-    try:
-        await bot.api.messages.edit(
-            peer_id=peer_id,
-            message=message,
-            conversation_message_id=conversation_message_id,
-            keyboard=keyboard,
-            attachment=attachment,
-            **kwargs
-        )
-    except Exception as e:
-        if "9" in str(e) or "Flood control" in str(e):
-            logger.warning("Flood control in safe_edit, waiting 1.5s...")
-            await asyncio.sleep(1.5)
-        # Fallback to send
-        logger.debug(f"safe_edit failed ({e}), falling back to send.")
-        try:
-            # Try to delete the old message
-            from modules.utils.ui import delete_bot_message
-            if conversation_message_id:
-                await delete_bot_message(bot.api, peer_id, cmid=conversation_message_id)
-        except Exception:
-            pass
-        await bot.api.messages.send(
-            peer_id=peer_id,
-            message=message,
-            keyboard=keyboard,
-            attachment=attachment,
-            random_id=0,
-            **kwargs
-        )
+    # Используем ghost_edit для унификации логики и защиты от Flood Control
+    await ghost_edit(
+        bot.api,
+        peer_id=peer_id,
+        message=message,
+        conversation_message_id=conversation_message_id,
+        keyboard=keyboard,
+        attachment=attachment,
+        **kwargs
+    )
 
 from vkbottle.tools.dev.keyboard.action import VKPay
 
@@ -54,7 +33,7 @@ from database import (
 from modules.bot_init import bot
 from modules.utils import (
     SKIN_ASSETS, generate_premium_pdf, get_fsm_step, get_main_keyboard,
-    ghost_edit, pdf_semaphore, upload_local_photo
+    ghost_edit, pdf_semaphore, upload_local_photo, upload_pdf_to_vk
 )
 from modules.utils.consts import MYSTIC_STATUS_PHRASES
 from modules.admin import process_admin_cmd, show_admin_console
@@ -291,7 +270,10 @@ async def _message_event_handler_wrapped(event: dict):
                 success = await asyncio.to_thread(generate_premium_pdf, user_name=u_name, birth_info=b_info, section_name=section.upper(), text_content=latest_data.get("text", ""), output_filename=pdf_name, card_id=card_id, advice_content="", card_name=card_data.get("name"), card_description=card_data.get("description"), shadow_side=latest_data.get("shadow_side", ""), activation_level=latest_data.get("activation_level", 100), activation_comment=latest_data.get("activation_comment", ""), affirmations=latest_data.get("affirmations", ""), next_activation_date=latest_data.get("next_activation_date", ""), thirty_day_forecast=latest_data.get("thirty_day_forecast", ""), activation_recommendations=latest_data.get("activation_recommendations", ""), star_code=latest_data.get("star_code", ""), energy_map=latest_data.get("energy_map", ""), current_date=current_date_str)
             if success and os.path.exists(pdf_name):
                 try:
-                    doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
+                    doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{section}.pdf", peer_id=peer_id)
+                    if not doc:
+                        await bot.api.messages.send(peer_id=peer_id, message="Ошибка при загрузке PDF в систему ВК. Попробуйте позже.", random_id=0)
+                        return
 
                     from modules.keyboards import post_pdf_kb
                     kb = post_pdf_kb(section)

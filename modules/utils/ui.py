@@ -15,6 +15,9 @@ async def delete_bot_message(bot_api, peer_id: int, cmid: int = None, mid: int =
         elif mid:
             await bot_api.messages.delete(peer_id=peer_id, message_ids=[mid], delete_for_all=True)
     except Exception as e:
+        # Игнорируем ошибки, если сообщение уже удалено или не найдено
+        if "15" in str(e) or "3" in str(e) or "Access denied" in str(e):
+            return
         logger.debug(f"Failed to delete message: {e}")
 
 async def get_last_bot_msg(peer_id: int) -> int | None:
@@ -51,7 +54,8 @@ async def ghost_edit(
     delete_last: bool = False,
     **kwargs
 ):
-    await asyncio.sleep(0.4) # Add reasonable delay to prevent flood control
+    # Увеличенная задержка для стабильности Ghost Interface (Flood Control protection)
+    await asyncio.sleep(0.45)
 
     if isinstance(keyboard, dict):
         keyboard = json.dumps(keyboard, ensure_ascii=False)
@@ -78,9 +82,19 @@ async def ghost_edit(
             except Exception as e:
                 # Flood control (error 9)
                 if "9" in str(e) or "Flood control" in str(e):
-                    logger.warning("Flood control in ghost_edit (CMID), waiting 1.5s...")
+                    logger.warning(f"Flood control (CMID={conversation_message_id}), waiting 1.5s...")
                     await asyncio.sleep(1.5)
-                    raise e
+                    # Повторная попытка после паузы
+                    await bot_api.messages.edit(
+                        peer_id=peer_id,
+                        message=message,
+                        conversation_message_id=conversation_message_id,
+                        keyboard=keyboard,
+                        attachment=attachment,
+                        **kwargs
+                    )
+                    return conversation_message_id
+
                 # Если ошибка 15 (Access Denied) при использовании CMID, пробуем как message_id
                 if "15" in str(e) or "Access denied" in str(e):
                     await bot_api.messages.edit(
@@ -106,8 +120,18 @@ async def ghost_edit(
                 return message_id
             except Exception as e:
                 if "9" in str(e) or "Flood control" in str(e):
-                    logger.warning("Flood control in ghost_edit (MID), waiting 1.5s...")
+                    logger.warning(f"Flood control (MID={message_id}), waiting 1.5s...")
                     await asyncio.sleep(1.5)
+                    # Повторная попытка
+                    await bot_api.messages.edit(
+                        peer_id=peer_id,
+                        message=message,
+                        message_id=message_id,
+                        keyboard=keyboard,
+                        attachment=attachment,
+                        **kwargs
+                    )
+                    return message_id
                 raise e
     except Exception as e:
         logger.warning(f"Ghost edit failed, attempting recovery: {e}")
@@ -204,6 +228,7 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                         await set_last_bot_msg(peer_id, msg_id)
                     else:
                         try:
+                            await asyncio.sleep(0.4) # Задержка перед edit в цикле
                             # Если мы редактируем существующее сообщение по CMID
                             if conversation_message_id and msg_id == conversation_message_id:
                                 await bot_api.messages.edit(peer_id=peer_id, message=phrase, conversation_message_id=msg_id)
@@ -213,10 +238,10 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                             await set_last_bot_msg(peer_id, msg_id)
                         except Exception as edit_err:
                             if "9" in str(edit_err) or "Flood control" in str(edit_err):
-                                logger.warning("Flood control in _typing_loop, waiting 2s...")
+                                logger.warning(f"Flood control in _typing_loop for {peer_id}, waiting 2s...")
                                 await asyncio.sleep(2.0)
                             # Если не удалось отредактировать (например, сообщение удалено), шлем новое
-                            logger.debug(f"Typing edit failed, sending new: {edit_err}")
+                            logger.debug(f"Typing edit failed for {peer_id}, sending new: {edit_err}")
                             resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
                             msg_id = resp
                             # Важно: если мы перешли на новое сообщение, больше не используем старый conversation_message_id
