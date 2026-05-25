@@ -56,15 +56,16 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
         for api_key in api_keys:
             url = f"https://generativelanguage.googleapis.com/{version}/{model}:generateContent?key={api_key}"
 
+            # Премиальная инструкция для более глубоких ответов
+            premium_context = (
+                "Используй метафоры высокого уровня, но сочетай их с современным технологическим или психологическим контекстом. "
+                "Твой ответ должен казаться невероятно личным и глубоким. Избегай общих фраз. "
+                "Структурируй ответ так, чтобы он был удобен для чтения в мессенджере (короткие абзацы, тире)."
+            )
+
             if json_mode:
-                final_prompt = f"{prompt.strip()}\nОтветь строго в формате JSON."
+                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}\nОтветь строго в формате JSON."
             else:
-                # Премиальная инструкция для более глубоких ответов
-                premium_context = (
-                    "Используй метафоры высокого уровня, но сочетай их с современным технологическим или психологическим контекстом. "
-                    "Твой ответ должен казаться невероятно личным и глубоким. Избегай общих фраз. "
-                    "Структурируй ответ так, чтобы он был удобен для чтения в мессенджере (короткие абзацы, тире)."
-                )
                 final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}"
 
             payload = {
