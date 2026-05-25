@@ -165,7 +165,9 @@ async def _message_event_handler_wrapped(event: dict):
                     await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target_section}))
                     kb = Keyboard(inline=True).add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
                     await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json())
-                else: await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), is_catalog=True)
+                else:
+                    # Если доступа нет, показываем карточку услуги в каталоге
+                    await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), is_catalog=True, target_key=target_section)
         elif cmd == "main_menu":
             user = await get_user(vk_id)
             if not user: return

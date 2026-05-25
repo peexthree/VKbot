@@ -181,6 +181,12 @@ async def execute_generation(
                         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
                     ])
                     kb_str = light_kb
+                elif target_section == "synastry":
+                    kb_str = vertical_kb([
+                        ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": target_section, "card": card_id}, KeyboardButtonColor.POSITIVE),
+                        ("❤️ ЕЩЕ ОДИН РАСЧЕТ", {"cmd": "use_section", "key": "synastry"}, KeyboardButtonColor.PRIMARY),
+                        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+                    ])
                 else:
                     kb_str = after_pdf_kb(target_section, card_id)
 

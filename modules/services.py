@@ -103,13 +103,13 @@ async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
         return False
     return True
 
-async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None, filter_val: str = None, is_catalog: bool = False):
+async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None, filter_val: str = None, is_catalog: bool = False, target_key: str = None):
     """Главный экран Услуг с новой клавиатурой"""
     if not await _ensure_user_state(vk_id, peer_id):
         return
 
     # Если мы зашли в раздел услуг, но не в конкретную пагинацию
-    if not is_catalog and not filter_val:
+    if not is_catalog and not filter_val and not target_key:
         from modules.keyboards import services_menu_kb
         text = "🔮 ВИТРИНА УСЛУГ И ТАЙНЫХ ЗНАНИЙ\n\nВыбери раздел, который откликается твоему запросу."
         header_att = await upload_local_photo(bot.api, "uslugi/main_menu.jpg", peer_id=vk_id)
@@ -119,11 +119,11 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     header_att = await upload_local_photo(bot.api, "uslugi/services.jpg", peer_id=vk_id)
 
     services = [
+        {"key": "synastry", "title": "❤️ Синастрия — Совместимость", "desc": "1500 Энергии. Глубокий анализ ваших отношений по звездам. Узнайте, созданы ли вы друг для друга.", "image_name": "uslugi/SINISTRY.jpg", "category": "deep"},
         {"key": "sex", "title": "Твоя сексуальная энергия (СТРАСТЬ)", "desc": "1000 Энергии. Погружение в мир твоих чувств и желаний.", "image_name": "uslugi/sex.jpg", "category": "deep"},
         {"key": "money", "title": "Энергия процветания (ИЗОБИЛИЕ)", "desc": "900 Энергии. Раскрой свой путь к финансовой свободе.", "image_name": "uslugi/Money.jpg", "category": "deep"},
         {"key": "shadow", "title": "Теневые грани души (ТЕНЬ)", "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя.", "image_name": "uslugi/DEMONS.jpg", "category": "deep"},
         {"key": "final", "title": "Твое истинное предназначение (ПУТЬ)", "desc": "1200 Энергии. Главный вектор твоей жизни.", "image_name": "uslugi/WAYLIFE.jpg", "category": "deep"},
-        # Совместимость (synastry) удалена из каталога, так как вынесена отдельной кнопкой
         {"key": "oracle", "title": "Послание Вселенной (Оракул)", "desc": "500 Энергии. Ответ на твой самый важный вопрос.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
         {"key": "antitaro", "title": "Честное откровение (ОТКРОВЕНИЕ)", "desc": "500 Энергии. Взгляд на ситуацию без розовых очков.", "image_name": "uslugi/ANTITARO.jpg", "category": "tarot"},
         {"key": "all", "title": "Золотой архив откровений", "desc": "3000 Энергии. Полный доступ ко всем твоим тайнам.", "image_name": "uslugi/VIP.jpg", "category": "deep"},
@@ -133,6 +133,12 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
 
     if filter_val:
         services = [s for s in services if s.get("category") == filter_val]
+
+    if target_key:
+        for i, s in enumerate(services):
+            if s["key"] == target_key:
+                idx = i
+                break
 
     # Умные рекомендации на основе тегов
     user = await get_user(vk_id)
