@@ -113,7 +113,7 @@ async def show_grimoire_page(
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
 
-        att = await upload_local_photo(bot.api, "uslugi/grimoire.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/grimoire.jpeg", peer_id=vk_id)
 
         await ghost_edit(
             bot.api,

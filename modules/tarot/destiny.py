@@ -36,7 +36,7 @@ async def destiny_card_info_logic(vk_id: int, peer_id: int, conversation_message
     from modules.keyboards import confirmation_kb
     kb = confirmation_kb({"cmd": "buy_destiny_card"}, 1500)
 
-    att = await upload_local_photo(bot.api, "uslugi/WAYLIFE.jpg", peer_id=vk_id)
+    att = await upload_local_photo(bot.api, "uslugi/WAYLIFE.jpeg", peer_id=vk_id)
 
     await ghost_edit(
         bot.api,

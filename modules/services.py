@@ -112,23 +112,23 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     if not is_catalog and not filter_val and not target_key:
         from modules.keyboards import services_menu_kb
         text = "🔮 ВИТРИНА УСЛУГ И ТАЙНЫХ ЗНАНИЙ\n\nВыбери раздел, который откликается твоему запросу."
-        header_att = await upload_local_photo(bot.api, "uslugi/main_menu.jpg", peer_id=vk_id)
+        header_att = await upload_local_photo(bot.api, "uslugi/main_menu.jpeg", peer_id=vk_id)
         await ghost_edit(bot.api, peer_id, text, keyboard=services_menu_kb(), attachment=header_att, conversation_message_id=edit_msg_id)
         return
 
-    header_att = await upload_local_photo(bot.api, "uslugi/services.jpg", peer_id=vk_id)
+    header_att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
 
     services = [
-        {"key": "synastry", "title": "❤️ Синастрия — Совместимость", "desc": "1500 Энергии. Глубокий анализ ваших отношений по звездам. Узнайте, созданы ли вы друг для друга.", "image_name": "uslugi/SINISTRY.jpg", "category": "deep"},
-        {"key": "sex", "title": "Твоя сексуальная энергия (СТРАСТЬ)", "desc": "1000 Энергии. Погружение в мир твоих чувств и желаний.", "image_name": "uslugi/sex.jpg", "category": "deep"},
-        {"key": "money", "title": "Энергия процветания (ИЗОБИЛИЕ)", "desc": "900 Энергии. Раскрой свой путь к финансовой свободе.", "image_name": "uslugi/Money.jpg", "category": "deep"},
-        {"key": "shadow", "title": "Теневые грани души (ТЕНЬ)", "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя.", "image_name": "uslugi/DEMONS.jpg", "category": "deep"},
-        {"key": "final", "title": "Твое истинное предназначение (ПУТЬ)", "desc": "1200 Энергии. Главный вектор твоей жизни.", "image_name": "uslugi/WAYLIFE.jpg", "category": "deep"},
-        {"key": "oracle", "title": "Послание Вселенной (Оракул)", "desc": "500 Энергии. Ответ на твой самый важный вопрос.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
-        {"key": "antitaro", "title": "Честное откровение (ОТКРОВЕНИЕ)", "desc": "500 Энергии. Взгляд на ситуацию без розовых очков.", "image_name": "uslugi/ANTITARO.jpg", "category": "tarot"},
-        {"key": "all", "title": "Золотой архив откровений", "desc": "3000 Энергии. Полный доступ ко всем твоим тайнам.", "image_name": "uslugi/VIP.jpg", "category": "deep"},
-        {"key": "micro_insight", "title": "Микро-инсайт (Шепот души)", "desc": "100 Энергии. Быстрый совет от твоего Проводника.", "image_name": "uslugi/QUEST.jpg", "category": "tarot"},
-        {"key": "card_of_day", "title": "Карта дня", "desc": "Бесплатно. Твое личное напутствие на сегодня.", "image_name": "uslugi/cardofday.jpg", "category": "tarot"},
+        {"key": "synastry", "title": "❤️ Совместимость", "desc": "1500 Энергии. Глубокий анализ ваших отношений по звездам. Узнайте, созданы ли вы друг для друга.", "image_name": "uslugi/SINISTRY.jpeg", "category": "deep"},
+        {"key": "sex", "title": "🔥 Страсть", "desc": "1000 Энергии. Погружение в мир твоих чувств и желаний.", "image_name": "uslugi/sex.jpeg", "category": "deep"},
+        {"key": "money", "title": "💰 Денежный поток", "desc": "900 Энергии. Раскрой свой путь к финансовой свободе.", "image_name": "uslugi/Money.jpeg", "category": "deep"},
+        {"key": "shadow", "title": "👹 Ваши демоны", "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя.", "image_name": "uslugi/DEMONS.jpeg", "category": "deep"},
+        {"key": "final", "title": "🧭 Ваш путь в жизни", "desc": "1200 Энергии. Главный вектор твоей жизни.", "image_name": "uslugi/WAYLIFE.jpeg", "category": "deep"},
+        {"key": "oracle", "title": "🔮 Спроси у звёзд", "desc": "500 Энергии. Ответ на твой самый важный вопрос.", "image_name": "uslugi/QUEST.jpeg", "category": "tarot"},
+        {"key": "antitaro", "title": "🃏 Анти-Таро", "desc": "500 Энергии. Взгляд на ситуацию без розовых очков.", "image_name": "uslugi/ANTITARO.jpeg", "category": "tarot"},
+        {"key": "all", "title": "👑 VIP", "desc": "3000 Энергии. Полный доступ ко всем твоим тайнам.", "image_name": "uslugi/VIP.jpeg", "category": "deep"},
+        {"key": "micro_insight", "title": "🔮 Спроси у звёзд (Микро)", "desc": "100 Энергии. Быстрый совет от твоего Проводника.", "image_name": "uslugi/QUEST.jpeg", "category": "tarot"},
+        {"key": "card_of_day", "title": "🎴 Карта дня", "desc": "Бесплатно. Твое личное напутствие на сегодня.", "image_name": "uslugi/cardofday.jpeg", "category": "tarot"},
     ]
 
     if filter_val:
@@ -304,15 +304,15 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     user = await get_user(vk_id)
     balance = int(user.get("balance", 0) or 0)
 
-    header_att = await upload_local_photo(bot.api, "uslugi/tariffs.jpg", peer_id=vk_id)
+    header_att = await upload_local_photo(bot.api, "uslugi/tariffs.jpeg", peer_id=vk_id)
 
     tariffs = [
-        {"key": "tariff_1", "title": "Спутник 7 дней", "desc": "990 Энергии. Твое ежедневное напутствие на неделю.", "image_name": "uslugi/7day.jpg"},
-        {"key": "tariff_2", "title": "Оракул 30 дней", "desc": "2900 Энергии. Выгода 400% — Хит! Целый месяц под защитой звезд.", "image_name": "uslugi/30day.jpg"},
-        {"key": "tariff_vip", "title": "VIP Архив", "desc": "5900 Энергии. Вечный доступ к мудрости + месяц прогнозов.", "image_name": "uslugi/VIPTOP.jpg"},
-        {"key": "topup_5000", "title": "Пакет 5000 ✨", "desc": "400 руб. Выгодный старт для глубокого погружения.", "image_name": "uslugi/5000.jpg"},
-        {"key": "topup_10000", "title": "Пакет 10000 ✨", "desc": "750 руб. Оптимальный выбор для истинных искателей.", "image_name": "uslugi/1000.jpg"},
-        {"key": "topup_50000", "title": "VIP Пакет 50000 ✨", "desc": "3500 руб. Максимальная выгода и безграничные возможности.", "image_name": "uslugi/VIP.jpg"},
+        {"key": "tariff_1", "title": "🛰 Спутник 7 дней", "desc": "990 Энергии. Твое ежедневное напутствие на неделю.", "image_name": "uslugi/7day.jpeg"},
+        {"key": "tariff_2", "title": "🔮 Оракул 30 дней", "desc": "2900 Энергии. Выгода 400% — Хит! Целый месяц под защитой звезд.", "image_name": "uslugi/30day.jpeg"},
+        {"key": "tariff_vip", "title": "🗝 VIP Архив", "desc": "5900 Энергии. Вечный доступ к мудрости + месяц прогнозов.", "image_name": "uslugi/VIPTOP.jpeg"},
+        {"key": "topup_5000", "title": "✨ Пакет 5000 Энергии", "desc": "400 руб. Выгодный старт для глубокого погружения.", "image_name": "uslugi/tariffs.jpeg"},
+        {"key": "topup_10000", "title": "✨ Пакет 10000 Энергии", "desc": "750 руб. Оптимальный выбор для истинных искателей.", "image_name": "uslugi/tariffs.jpeg"},
+        {"key": "topup_50000", "title": "👑 VIP Пакет 50000 Энергии", "desc": "3500 руб. Максимальная выгода и безграничные возможности.", "image_name": "uslugi/VIP.jpeg"},
     ]
 
     await _send_catalog_page(
