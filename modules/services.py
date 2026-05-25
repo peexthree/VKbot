@@ -295,6 +295,9 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     if not await _ensure_user_state(vk_id, peer_id):
         return
 
+    user = await get_user(vk_id)
+    balance = int(user.get("balance", 0) or 0)
+
     header_att = await upload_local_photo(bot.api, "uslugi/tariffs.jpg", peer_id=vk_id)
 
     tariffs = [
@@ -312,7 +315,7 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         items=tariffs,
         idx=idx,
         edit_msg_id=edit_msg_id,
-        header_text="✨ ДАРЫ И ЭНЕРГИЯ ✨\nВыбери подходящий объем энергии для своего пути.",
+        header_text=f"✨ ДАРЫ И ЭНЕРГИЯ ✨\nТвой баланс: {balance} ✨\n\nВыбери подходящий объем энергии для своего пути.",
         item_type="tariff",
         fallback_att=header_att
     )
