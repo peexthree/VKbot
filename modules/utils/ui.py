@@ -193,7 +193,13 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
 
                     if msg_id is None:
                         resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
-                        msg_id = resp
+                        if isinstance(resp, int):
+                            msg_id = resp
+                        elif isinstance(resp, dict):
+                            msg_id = resp.get("conversation_message_id") or resp.get("message_id")
+                        else:
+                            msg_id = resp
+
                         _typing_msg_ids[peer_id] = msg_id
                         await set_last_bot_msg(peer_id, msg_id)
                     else:

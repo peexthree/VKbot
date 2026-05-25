@@ -13,7 +13,9 @@ from cache import acquire_lock, release_lock, get_tarot_names
 async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock: bool = False, **kwargs):
     if not skip_lock and not await acquire_lock(vk_id): return
     try:
-        conv_msg_id, message_id = kwargs.get("conversation_message_id"), kwargs.get("message_id")
+        conv_msg_id = kwargs.get("conversation_message_id")
+        message_id = kwargs.get("message_id")
+
         if conv_msg_id:
             try: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="✨ Раскладываю карты для тебя...", keyboard=Keyboard(inline=True).get_json())
             except: pass
@@ -70,7 +72,15 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         att = ",".join(attachments) if attachments else None
         # Для Оракула тоже шлем НОВЫМ сообщением, чтобы не затирать выбор карт
         typing_msg_id = await stop_dynamic_typing(vk_id)
-        await ghost_edit(bot.api, vk_id, message=res, keyboard=kb_json, attachment=att, conversation_message_id=typing_msg_id)
+
+        # В Оракуле ghost_edit должен использовать message_id, если typing_msg_id это MID,
+        # или conversation_message_id, если это CMID.
+        # Наш ghost_edit уже умеет пробовать оба варианта, если передать conversation_message_id.
+
+        if typing_msg_id:
+            await ghost_edit(bot.api, vk_id, message=res, keyboard=kb_json, attachment=att, conversation_message_id=typing_msg_id)
+        else:
+            await ghost_edit(bot.api, vk_id, message=res, keyboard=kb_json, attachment=att, conversation_message_id=conv_msg_id)
     except Exception as e:
         logger.error(f"Ошибка в Оракуле: {e}")
         err = "Звезды сегодня немного запутались. Попробуем еще раз чуть позже ✨"

@@ -44,6 +44,6 @@ async def process_oracle_question(message: Message):
     if not await acquire_lock(vk_id): return
     try:
         await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": message.text.strip()}))
-        kb = Keyboard(inline=True).add(Callback("✦ ОБРЕЗАТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.PRIMARY)
+        kb = Keyboard(inline=True).add(Callback("✦ ОБРЕЗАТЬ КОЛОДУ", payload={"cmd": "oracle_cut"}), color=KeyboardButtonColor.PRIMARY)
         await message.answer("✨ ШАГ 2 ИЗ 3: СОПРИКОСНОВЕНИЕ ✨\nКоснись колоды, чтобы она почувствовала твое присутствие.", keyboard=kb.get_json())
     finally: await release_lock(vk_id)

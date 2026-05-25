@@ -176,7 +176,8 @@ async def execute_generation(
                 from modules.keyboards import after_pdf_kb, vertical_kb
                 if target_section == "card_of_day":
                     light_kb = vertical_kb([
-                        ("🔮 ГЛУБОКИЙ РАЗБОР (-50%)", {"cmd": "buy", "type": "service", "key": "oracle_upsell"}, KeyboardButtonColor.PRIMARY),
+                        ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": target_section, "card": card_id}, KeyboardButtonColor.POSITIVE),
+                        ("🔮 ГЛУБОКИЙ РАЗБОР (-50%)", {"cmd": "confirm_buy", "type": "service", "key": "oracle_upsell"}, KeyboardButtonColor.PRIMARY),
                         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
                     ])
                     kb_str = light_kb

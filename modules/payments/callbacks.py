@@ -453,6 +453,19 @@ async def _message_event_handler_wrapped(event: dict):
         elif cmd == "show_offer":
             offer_url = "https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
             await bot.api.messages.send(peer_id=peer_id, message=f"📜 ПУБЛИЧНАЯ ОФЕРТА:\n{offer_url}", random_id=0)
+        elif cmd == "oracle_cut":
+            state = await get_fsm_step(vk_id)
+            if not state or state.get("step") != "oracle_cut": return
+            pool = list(range(0, 78))
+            random.shuffle(pool)
+            pool = pool[:10]
+            await set_user_state(vk_id, json.dumps({"step": "oracle_draw", "question": state.get("question", ""), "drawn_cards": [], "pool": pool}))
+            kb = Keyboard(inline=True)
+            for _i, cid in enumerate(pool):
+                kb.add(Callback("🎴", payload={"oracle_card": cid}))
+                if (_i + 1) % 2 == 0:
+                    kb.row()
+            await safe_edit(peer_id=peer_id, message="✨ ШАГ 3 ИЗ 3: ТВОЙ ВЫБОР ✨\nПрислушайся к интуиции и выбери 3 карты, которые откликаются тебе сейчас.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "global_cut":
             target = payload.get("target")
             if target: await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target}))
@@ -538,6 +551,7 @@ async def _message_event_handler_wrapped(event: dict):
                 await safe_edit(peer_id=peer_id, message=f"Выбрано: {len(drawn)}/3...", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
             else:
                 await set_user_state(vk_id, "")
-                await safe_edit(peer_id=peer_id, message="Выбрано: 3/3. Карты собраны.", conversation_message_id=obj.get("conversation_message_id"), keyboard=Keyboard(inline=True).get_json())
-                asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn))
+                conv_id = obj.get("conversation_message_id")
+                await safe_edit(peer_id=peer_id, message="Выбрано: 3/3. Карты собраны.", conversation_message_id=conv_id, keyboard=Keyboard(inline=True).get_json())
+                asyncio.create_task(process_oracle_final(vk_id, state_dict.get("question", ""), drawn, conversation_message_id=conv_id))
     finally: await release_lock(vk_id)
