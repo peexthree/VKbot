@@ -45,8 +45,8 @@ async def _send_skins_page(
         seen_names.add(skin_name)
 
     total_items = len(skins_to_show)
-    if idx < 0 or idx >= total_items:
-        idx = 0
+    if total_items > 0:
+        idx = idx % total_items
 
     skin = skins_to_show[idx]
     skin_name = skin["name"]
@@ -60,13 +60,10 @@ async def _send_skins_page(
     button_label = "ВЫБРАТЬ" if is_owned else "КУПИТЬ (1500 ✨)"
     kb.add(Callback(button_label, payload={"cmd": button_cmd, "skin": skin_name}), color=KeyboardButtonColor.POSITIVE if is_owned else KeyboardButtonColor.PRIMARY)
 
-    kb.row()
-    if idx > 0:
+    if total_items > 1:
+        kb.row()
         kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "skin_page", "idx": idx - 1}), color=KeyboardButtonColor.SECONDARY)
-    if idx < total_items - 1:
         kb.add(Callback("ВПЕРЕД ➡️", payload={"cmd": "skin_page", "idx": idx + 1}), color=KeyboardButtonColor.SECONDARY)
-
-    if idx > 0 or idx < total_items - 1:
         kb.row()
     kb.add(Callback("⚙️ НАСТРОЙКИ", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.PRIMARY)
 
