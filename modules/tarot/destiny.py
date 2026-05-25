@@ -120,14 +120,23 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
             "is_destiny": True
         })
 
-        await update_user(vk_id, {
+        update_data = {
             "readings_history": history,
             "destiny_card_data": {
                 "card_id": str(db_idx),
                 "text": res_text,
                 "date": datetime.datetime.now().strftime("%d.%m.%Y")
-            }
-        })
+            },
+            "latest_reading_text": res_text
+        }
+
+        if isinstance(res_data, dict):
+            res_data["text"] = res_text
+            update_data["latest_reading_data"] = res_data
+        else:
+            update_data["latest_reading_data"] = {"text": res_text}
+
+        await update_user(vk_id, update_data)
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
 

@@ -1,4 +1,4 @@
-from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text
+from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text, OpenLink
 from modules.utils.consts import ADMIN_ID
 
 def vertical_kb(buttons: list[tuple[str, str | dict, str]]) -> str:
@@ -44,8 +44,14 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     kb.row()
 
     # Ряд 5 - Карта судьбы
-    kb.add(Callback("⭐ Моя карта судьбы", payload={"cmd": "destiny_card_info"}), color=KeyboardButtonColor.PRIMARY)
-    kb.row()
+    # Прячем кнопку, если уже СГЕНЕРИРОВАНА (использована)
+    has_generated_destiny = False
+    if user and user.get("destiny_card_data"):
+        has_generated_destiny = True
+
+    if not has_generated_destiny:
+        kb.add(Callback("⭐ Моя карта судьбы", payload={"cmd": "destiny_card_info"}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
 
     # Ряд 6
     kb.add(Callback("👤 Профиль", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
@@ -90,7 +96,18 @@ def after_pdf_kb(section: str, card: str = None) -> str:
     kb = Keyboard(inline=True)
     kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": section, "card": card}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
-    kb.add(Callback("📤 Поделиться в VK", payload={"cmd": "share_pdf", "section": section}), color=KeyboardButtonColor.PRIMARY)
+    # "Поделиться" через диалог выбора пользователя (стандартная ссылка share.php)
+    share_url = "https://vk.com/share.php?url=https://vk.com/club219181948"
+    kb.add(OpenLink(share_url, label="📤 Поделиться в VK"))
+    kb.row()
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    return kb.get_json()
+
+def post_pdf_kb(section: str) -> str:
+    """Клавиатура ПОСЛЕ того как PDF уже получен"""
+    kb = Keyboard(inline=True)
+    share_url = "https://vk.com/share.php?url=https://vk.com/club219181948"
+    kb.add(OpenLink(share_url, label="📤 Поделиться в VK"))
     kb.row()
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()

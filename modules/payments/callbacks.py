@@ -293,8 +293,8 @@ async def _message_event_handler_wrapped(event: dict):
                 try:
                     doc = await DocMessagesUploader(bot.api).upload(title=f"{section}.pdf", file_source=pdf_name, peer_id=peer_id)
 
-                    from modules.keyboards import after_pdf_kb
-                    kb = after_pdf_kb(section, card_id)
+                    from modules.keyboards import post_pdf_kb
+                    kb = post_pdf_kb(section)
                     await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=0, keyboard=kb)
 
                 finally:
@@ -426,6 +426,8 @@ async def _message_event_handler_wrapped(event: dict):
         elif cmd == "admin_reply_start":
             from modules.support import admin_reply_start_logic
             await admin_reply_start_logic(vk_id, payload.get("user_id"))
+        elif cmd == "balance":
+            await show_tariffs(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
         elif cmd == "destiny_card_info":
             from modules.tarot.destiny import destiny_card_info_logic
             await destiny_card_info_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"))
@@ -448,17 +450,6 @@ async def _message_event_handler_wrapped(event: dict):
                 message=f"❓ ПОДТВЕРЖДЕНИЕ ПОКУПКИ\n\nВы уверены, что хотите приобрести эту услугу?\nБудет списано: {cost} ✨",
                 keyboard=kb
             )
-        elif cmd == "share_pdf":
-            section = payload.get("section", "report")
-            user = await get_user(vk_id)
-            if not user: return
-
-            # В VK проще всего поделиться через пересылку сообщения.
-            # Но для кнопки "Поделиться" мы можем просто отправить инструкцию или вызвать окно.
-            # Самый надежный способ - отправить сообщение, которое легко переслать.
-
-            text = "📤 Нажми на стрелочку рядом с этим сообщением, чтобы переслать свой сакральный разбор другу в VK."
-            await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
         elif cmd == "show_offer":
             offer_url = "https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
             await bot.api.messages.send(peer_id=peer_id, message=f"📜 ПУБЛИЧНАЯ ОФЕРТА:\n{offer_url}", random_id=0)

@@ -55,6 +55,13 @@ async def reset_user_handler(message: Message):
 async def start_handler(message: Message, skip_lock: bool = False):
     vk_id = message.from_id
 
+    user = await get_user(vk_id)
+    # Если пользователь уже прошел регистрацию (есть дата рождения), отправляем в главное меню
+    if user and user.get("birth_date"):
+        # Удаляем сообщение пользователя
+        asyncio.create_task(delete_bot_message(bot.api, message.peer_id, cmid=message.conversation_message_id))
+        return await back_to_main_menu(message)
+
     # Проверка на реферальную ссылку (deep link)
     if hasattr(message, "ref") and message.ref and message.ref.upper().startswith(("ПЕЧАТЬ-", "ПРОМО-")) and not skip_lock:
         from modules.profile.views import apply_promo_logic
@@ -363,11 +370,14 @@ async def back_to_main_menu(message: Message):
             f"🔮 {status_phrase}"
         )
 
+        att = await upload_local_photo(bot.api, "uslugi/main_menu.jpg", peer_id=vk_id)
+
         await ghost_edit(
             bot.api,
             message.peer_id,
             main_menu_text,
             keyboard=kb_json,
+            attachment=att,
             delete_last=True
         )
         # Обновляем reply-клавиатуру при возврате в меню
