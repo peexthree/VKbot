@@ -96,7 +96,7 @@ async def settings_handler_logic(
             "✦ ЮРИДИЧЕСКИЙ ЩИТ ✦"
         )
         kb_json = get_settings_keyboard()
-        att = await upload_local_photo(bot.api, "uslugi/settings.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, keyboard=kb_json, attachment=att)
     finally:
         if not skip_lock:

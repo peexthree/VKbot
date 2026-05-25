@@ -31,7 +31,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
 
         await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": "card_of_day"}))
         kb = Keyboard(inline=True).add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        att = await upload_local_photo(bot.api, "uslugi/cardofday.jpg", peer_id=peer_id)
+        att = await upload_local_photo(bot.api, "uslugi/cardofday.jpeg", peer_id=peer_id)
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
 

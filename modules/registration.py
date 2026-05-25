@@ -370,7 +370,7 @@ async def back_to_main_menu(message: Message):
             f"🔮 {status_phrase}"
         )
 
-        att = await upload_local_photo(bot.api, "uslugi/main_menu.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/main_menu.jpeg", peer_id=vk_id)
 
         await ghost_edit(
             bot.api,

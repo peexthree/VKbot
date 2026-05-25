@@ -216,7 +216,7 @@ async def _message_event_handler_wrapped(event: dict):
                 f"🔮 {status_phrase}"
             )
 
-            att = await upload_local_photo(bot.api, "uslugi/main_menu.jpg", peer_id=vk_id)
+            att = await upload_local_photo(bot.api, "uslugi/main_menu.jpeg", peer_id=vk_id)
 
             await ghost_edit(bot.api, peer_id, message=main_menu_text, keyboard=kb_json, attachment=att, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day_menu":
@@ -230,7 +230,7 @@ async def _message_event_handler_wrapped(event: dict):
             if not user: return
             from modules.keyboards import get_natal_chart_inline_keyboard
             kb_json = get_natal_chart_inline_keyboard(user.get("purchased_sections", {}))
-            att = await upload_local_photo(bot.api, "uslugi/services.jpg", peer_id=vk_id)
+            att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
             await ghost_edit(bot.api, peer_id, "🔮 ТВОЯ НАТАЛЬНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb_json, attachment=att)
         elif cmd == "history_menu":
             from modules.profile.views import show_history_logic
@@ -293,7 +293,7 @@ async def _message_event_handler_wrapped(event: dict):
             elif action == "change_data":
                 await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": conv_id}))
                 kb = Keyboard(inline=True).add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
-                att = await upload_local_photo(bot.api, "uslugi/settings.jpg", peer_id=vk_id)
+                att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
                 await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json(), attachment=att)
             elif action == "change_skin": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=conv_id)
             elif action == "cancel_sub":
@@ -302,7 +302,7 @@ async def _message_event_handler_wrapped(event: dict):
             elif action == "reset_account":
                 await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
                 kb = Keyboard(inline=True).add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE).row().add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
-                att = await upload_local_photo(bot.api, "uslugi/settings.jpg", peer_id=vk_id)
+                att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
                 await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?", keyboard=kb.get_json(), attachment=att)
             elif action == "confirm_reset":
                 await delete_user(vk_id)

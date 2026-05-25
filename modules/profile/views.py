@@ -49,7 +49,7 @@ async def show_balance_logic(
             ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
         ])
 
-        att = await upload_local_photo(bot.api, "uslugi/tariffs.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/tariffs.jpeg", peer_id=vk_id)
 
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb, attachment=att)
     finally:
@@ -223,7 +223,7 @@ async def syndicate_dashboard_logic(
         is_promo_used = purchased.get("promo_used", False)
         kb_json = get_syndicate_keyboard(is_promo_used)
 
-        att = await upload_local_photo(bot.api, "uslugi/syndicate.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/syndicate.jpeg", peer_id=vk_id)
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
         await ghost_edit(
@@ -397,7 +397,7 @@ async def show_history_logic(
         # Нужно передать в клавиатуру инфу о карте судьбы чтобы она была первой
         kb_json = get_history_inline_keyboard(history, destiny_data=destiny_data)
 
-        att = await upload_local_photo(bot.api, "uslugi/history.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/history.jpeg", peer_id=vk_id)
 
         await ghost_edit(
             bot.api,
@@ -489,7 +489,7 @@ async def show_advanced_settings_logic(
         from modules.profile.keyboards import get_advanced_settings_keyboard
         kb_json = get_advanced_settings_keyboard(vk_id)
 
-        att = await upload_local_photo(bot.api, "uslugi/settings.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
         await ghost_edit(
@@ -530,7 +530,7 @@ async def show_guide_logic(
         from modules.keyboards import get_guide_main_keyboard
         kb_json = get_guide_main_keyboard()
 
-        att = await upload_local_photo(bot.api, "uslugi/guide.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/guide.jpeg", peer_id=vk_id)
 
         await ghost_edit(
             bot.api,
@@ -568,7 +568,7 @@ async def show_guide_energy_logic(vk_id: int, peer_id: int, conversation_message
         from modules.keyboards import get_guide_sub_keyboard
         kb_json = get_guide_sub_keyboard("💳 ПОПОЛНИТЬ", {"cmd": "profile_action", "action": "tariffs"})
 
-        att = await upload_local_photo(bot.api, "uslugi/tariffs.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/tariffs.jpeg", peer_id=vk_id)
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
@@ -595,7 +595,7 @@ async def show_guide_services_logic(vk_id: int, peer_id: int, conversation_messa
         from modules.keyboards import get_guide_sub_keyboard
         kb_json = get_guide_sub_keyboard("🛒 В КАТАЛОГ", {"cmd": "services_menu"})
 
-        att = await upload_local_photo(bot.api, "uslugi/services.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
@@ -620,7 +620,7 @@ async def show_guide_syndicate_logic(vk_id: int, peer_id: int, conversation_mess
         from modules.keyboards import get_guide_sub_keyboard
         kb_json = get_guide_sub_keyboard("🤝 В МОЙ КРУГ", {"cmd": "profile_action", "action": "syndicate"})
 
-        att = await upload_local_photo(bot.api, "uslugi/syndicate.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/syndicate.jpeg", peer_id=vk_id)
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
@@ -645,7 +645,7 @@ async def show_guide_grimoire_logic(vk_id: int, peer_id: int, conversation_messa
         from modules.keyboards import get_guide_sub_keyboard
         kb_json = get_guide_sub_keyboard("📖 В ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"})
 
-        att = await upload_local_photo(bot.api, "uslugi/history.jpg", peer_id=vk_id)
+        att = await upload_local_photo(bot.api, "uslugi/history.jpeg", peer_id=vk_id)
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, message_id=typing_msg_id, keyboard=kb_json, attachment=att)
     finally:
         await stop_dynamic_typing(peer_id)
