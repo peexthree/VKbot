@@ -165,7 +165,7 @@ async def _message_event_handler_wrapped(event: dict):
                     await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target_section}))
                     kb = Keyboard(inline=True).add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
                     await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json())
-                else: await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
+                else: await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), is_catalog=True)
         elif cmd == "main_menu":
             user = await get_user(vk_id)
             if not user: return
@@ -219,7 +219,7 @@ async def _message_event_handler_wrapped(event: dict):
             await ghost_edit(bot.api, peer_id, message=main_menu_text, keyboard=kb_json, attachment=att, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day_menu":
             await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
-        elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"))
+        elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"), is_catalog=False)
         elif cmd == "profile_menu":
             from modules.profile.views import show_profile_logic
             await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
@@ -243,7 +243,7 @@ async def _message_event_handler_wrapped(event: dict):
         elif cmd == "guide_services": await show_guide_services_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"), skip_lock=True)
         elif cmd == "guide_syndicate": await show_guide_syndicate_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"), skip_lock=True)
         elif cmd == "guide_grimoire": await show_guide_grimoire_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"), skip_lock=True)
-        elif cmd == "service_page": await show_services(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"))
+        elif cmd == "service_page": await show_services(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"), is_catalog=True)
         elif cmd == "tariff_page": await show_tariffs(vk_id, peer_id, payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd == "skin_page": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, idx=payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd in ["set_skin", "buy_skin"]: await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload, conversation_message_id=obj.get("conversation_message_id"))

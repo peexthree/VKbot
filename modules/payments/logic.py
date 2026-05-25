@@ -38,7 +38,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
             )
             # Призрачный интерфейс: возвращаем пользователя в меню услуг
             from modules.services import show_services
-            await show_services(vk_id, vk_id, 0)
+            await show_services(vk_id, vk_id, 0, is_catalog=True)
             return
 
         purchased = user.get("purchased_sections", {})

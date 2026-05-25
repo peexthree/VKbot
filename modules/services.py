@@ -103,17 +103,17 @@ async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
         return False
     return True
 
-async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None, filter_val: str = None):
+async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None, filter_val: str = None, is_catalog: bool = False):
     """Главный экран Услуг с новой клавиатурой"""
     if not await _ensure_user_state(vk_id, peer_id):
         return
 
     # Если мы зашли в раздел услуг, но не в конкретную пагинацию
-    if idx == 0 and not filter_val and not edit_msg_id:
+    if not is_catalog and not filter_val:
         from modules.keyboards import services_menu_kb
         text = "🔮 ВИТРИНА УСЛУГ И ТАЙНЫХ ЗНАНИЙ\n\nВыбери раздел, который откликается твоему запросу."
         header_att = await upload_local_photo(bot.api, "uslugi/main_menu.jpg", peer_id=vk_id)
-        await ghost_edit(bot.api, peer_id, text, keyboard=services_menu_kb(), attachment=header_att)
+        await ghost_edit(bot.api, peer_id, text, keyboard=services_menu_kb(), attachment=header_att, conversation_message_id=edit_msg_id)
         return
 
     header_att = await upload_local_photo(bot.api, "uslugi/services.jpg", peer_id=vk_id)
