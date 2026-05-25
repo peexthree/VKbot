@@ -11,6 +11,9 @@ from .photos import (
 from .pdf import (
     generate_premium_pdf
 )
+from .docs import (
+    upload_pdf_to_vk
+)
 from .keyboards import (
     get_main_keyboard, get_dynamic_keyboard, get_sections_keyboard, get_storefront_keyboard
 )
@@ -24,7 +27,7 @@ __all__ = [
     "ghost_edit", "stop_dynamic_typing", "start_dynamic_typing",
     "delete_bot_message", "get_last_bot_msg", "set_last_bot_msg", "send_temp_message",
     "get_cached_photo", "flush_anchors", "upload_local_photo", "warmup_task", "clear_photo_cache",
-    "generate_premium_pdf",
+    "generate_premium_pdf", "upload_pdf_to_vk",
     "get_main_keyboard", "get_dynamic_keyboard", "get_sections_keyboard", "get_storefront_keyboard",
     "get_fsm_step", "check_and_give_daily_bonus", "acquire_lock", "release_lock"
 ]
