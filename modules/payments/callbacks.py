@@ -6,7 +6,7 @@ import os
 import random
 from loguru import logger
 from vkbottle import (
-    Callback, DocMessagesUploader, GroupEventType, Keyboard, KeyboardButtonColor
+    Callback, GroupEventType, Keyboard, KeyboardButtonColor
 )
 from vkbottle.bot import BotLabeler
 
