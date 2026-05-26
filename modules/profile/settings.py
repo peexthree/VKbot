@@ -30,12 +30,24 @@ async def _send_skins_page(
         "Магистр": "высшее знание"
     }
 
-    free_skins = ["Олеся Иванченко", "Серьезный Аскет"]
+    free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
 
     skins_to_show = []
-    seen_names = set()
+    # Добавляем бесплатные скины в начало списка
+    skins_to_show.append({
+        "name": "Олеся Ивонченко",
+        "filename": SKIN_ASSETS["Олеся Ивонченко"],
+        "style": styles.get("Олеся Ивонченко", "сарказм")
+    })
+    skins_to_show.append({
+        "name": "Серьезный Аскет",
+        "filename": SKIN_ASSETS["Серьезный Аскет"],
+        "style": styles.get("Серьезный Аскет", "строгость")
+    })
+
+    seen_names = {"olesya", "asket", "Олеся Ивонченко", "Серьезный Аскет"}
     for skin_name, filename in SKIN_ASSETS.items():
-        if skin_name in ["olesya", "asket", "Олеся Ивонченко"] or skin_name in seen_names:
+        if skin_name in seen_names:
             continue
         skins_to_show.append({
             "name": skin_name,
@@ -93,7 +105,7 @@ async def settings_handler_logic(
         text = (
             "⚙️ НАСТРОЙКИ\n"
             f"✨ Баланс: {balance} Энергии звезд\n\n"
-            "✦ ЮРИДИЧЕСКИЙ ЩИТ ✦"
+            "Здесь ты можешь управлять своим аккаунтом и Проводником."
         )
         kb_json = get_settings_keyboard()
         att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
@@ -254,7 +266,7 @@ async def process_skin_action_logic(
         balance = int(user.get("balance", 0) or 0)
 
         if action == "set_skin":
-            if target_skin in free_skins or target_skin in purchased_skins or target_skin == "Олеся Ивонченко":
+            if target_skin in free_skins or target_skin in purchased_skins or target_skin == "olesya":
                 await update_user(vk_id, {"active_skin": target_skin})
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)

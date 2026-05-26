@@ -124,6 +124,16 @@ async def show_profile_logic(
         if balance > 2000: greeting = "Твой энергетический потенциал огромен."
         if unlocked_count > 20: greeting = "Ты уже не просто гость, ты часть системы."
 
+        # Извлекаем статистику
+        purchased = user.get("purchased_sections", {})
+        clicks = purchased.get("stats_clicks", 0)
+        total_seconds = purchased.get("stats_total_seconds", 0)
+        total_rubles = purchased.get("stats_total_rubles", 0)
+
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        time_str = f"{hours}ч {minutes}м" if hours > 0 else f"{minutes}м"
+
         profile_text = (
             "💳 ЛИЧНЫЙ ПРОФИЛЬ\n\n"
             f"👤 {first_name} | {rank}\n"
@@ -131,6 +141,9 @@ async def show_profile_logic(
             f"📍 {birth_date} — {birth_city}\n\n"
             f"{destiny_info}"
             f"💬 {greeting}\n\n"
+            f"📊 ТВОЯ СТАТИСТИКА:\n"
+            f"🔘 Нажатий: {clicks} | ⏳ В пути: {time_str}\n"
+            f"💰 Внесено: {total_rubles} RUB\n\n"
             f"✨ БАЛАНС: {balance} Энергии звезд\n"
             f"🃏 ГРИМУАР: {unlocked_count}/78 [{progress_bar}]"
         )
@@ -368,10 +381,11 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
 async def show_history_logic(
     vk_id: int,
     peer_id: int,
+    page: int = 0,
     skip_lock: bool = False,
     conversation_message_id: int = None
 ):
-    """Отображение истории разборов (Гримуар)"""
+    """Отображение истории разборов (Гримуар) с пагинацией"""
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
@@ -380,10 +394,10 @@ async def show_history_logic(
 
         history = user.get("readings_history", [])
 
-        # Специальный заголовок для Карты Судьбы
+        # Специальный заголовок для Карты Судьбы (только на 0 странице)
         destiny_text = ""
         destiny_data = user.get("destiny_card_data")
-        if destiny_data:
+        if page == 0 and destiny_data:
             from cards_data import get_card_data
             c_data = get_card_data(destiny_data.get("card_id", "0"))
             destiny_text = f"⭐ МОЯ КАРТА СУДЬБЫ: {c_data.get('name')}\n------------------\n\n"
@@ -395,7 +409,7 @@ async def show_history_logic(
 
         from modules.keyboards import get_history_inline_keyboard
         # Нужно передать в клавиатуру инфу о карте судьбы чтобы она была первой
-        kb_json = get_history_inline_keyboard(history, destiny_data=destiny_data)
+        kb_json = get_history_inline_keyboard(history, destiny_data=destiny_data, page=page)
 
         att = await upload_local_photo(bot.api, "uslugi/history.jpeg", peer_id=vk_id)
 
@@ -445,9 +459,11 @@ async def show_history_item_logic(
                 "text": destiny_data.get("text")
             }
         else:
-            real_idx = len(history) - 1 - idx
-            if real_idx < 0: return
-            item = history[real_idx]
+            # Индекс idx уже соответствует rev_history из get_history_inline_keyboard
+            rev_history = history[::-1]
+            if idx < 0 or idx >= len(rev_history):
+                return
+            item = rev_history[idx]
         text = f"📜 {item.get('title')} от {item.get('date')}\n\n{item.get('text')}"
 
         kb = Keyboard(inline=True)

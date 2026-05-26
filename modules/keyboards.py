@@ -27,7 +27,28 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     kb = Keyboard(inline=True)
 
     # Ряд 1
-    kb.add(Callback("🃏 Карта дня", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.PRIMARY)
+    from datetime import datetime, timezone
+    cd_label = "🃏 Карта дня"
+    cd_color = KeyboardButtonColor.POSITIVE
+    if user:
+        purchased = user.get("purchased_sections", {})
+        last_used_str = purchased.get("card_of_day_last_used")
+        if last_used_str:
+            def _parse_iso(s):
+                from datetime import datetime as dt
+                return dt.fromisoformat(s.replace('Z', '+00:00'))
+
+            last_time = _parse_iso(last_used_str)
+            now = datetime.now(timezone.utc)
+            diff = now - last_time
+            if diff.total_seconds() < 24 * 3600:
+                cd_color = KeyboardButtonColor.SECONDARY
+                remaining = 24 * 3600 - int(diff.total_seconds())
+                hours = remaining // 3600
+                minutes = (remaining % 3600) // 60
+                cd_label = f"⌛ {hours:02d}:{minutes:02d}"
+
+    kb.add(Callback(cd_label, payload={"cmd": "card_of_day_menu"}), color=cd_color)
     kb.row()
 
     # Ряд 2
@@ -122,33 +143,67 @@ def confirmation_kb(action_payload: dict, cost: int) -> str:
 
 # --- Остальные клавиатуры (совместимость) ---
 
-def get_history_inline_keyboard(history: list, destiny_data: dict = None) -> str:
-    """Клавиатура истории разборов (Гримуар)"""
+def get_history_inline_keyboard(history: list, destiny_data: dict = None, page: int = 0) -> str:
+    """Клавиатура истории разборов (Гримуар) с пагинацией"""
     kb = Keyboard(inline=True)
 
-    # Сначала Карта Судьбы (если есть)
-    if destiny_data:
+    ITEMS_PER_PAGE = 5
+    # История отображается в обратном порядке (новые сверху)
+    rev_history = history[::-1]
+    total_items = len(rev_history)
+    total_pages = (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE if total_items > 0 else 1
+    page = page % total_pages
+
+    # Сначала Карта Судьбы (только на первой странице)
+    if page == 0 and destiny_data:
         from cards_data import get_card_data
         c_data = get_card_data(destiny_data.get("card_id", "0"))
         kb.add(Callback(f"⭐ КАРТА СУДЬБЫ: {c_data.get('name')}", payload={"cmd": "view_history", "idx": -1}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
 
-    # Показываем последние 4 разбора
-    for i, item in enumerate(history[-4:][::-1]):
+    start_idx = page * ITEMS_PER_PAGE
+    end_idx = start_idx + ITEMS_PER_PAGE
+    current_items = rev_history[start_idx:end_idx]
+
+    for i, item in enumerate(current_items):
+        real_idx = start_idx + i
         label = f"📜 {item.get('title', 'Разбор')} ({item.get('date', '')})"
-        kb.add(Callback(label[:40], payload={"cmd": "view_history", "idx": i}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback(label[:40], payload={"cmd": "view_history", "idx": real_idx}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+
+    if total_pages > 1:
+        kb.add(Callback("◀️", payload={"cmd": "history_menu", "page": page - 1}), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback(f"{page + 1}/{total_pages}", payload={"cmd": "history_menu", "page": page}), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("▶️", payload={"cmd": "history_menu", "page": page + 1}), color=KeyboardButtonColor.SECONDARY)
         kb.row()
 
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
 
-def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, button_label: str, button_cmd: str, item_key: str, filter_val: str = None) -> str:
+def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, button_label: str, button_cmd: str, item_key: str, filter_val: str = None, user: dict = None) -> str:
     kb = Keyboard(inline=True)
 
     # Кнопка действия (Купить/Получить) - Сначала подтверждение
-    # Но для Бесплатной карты дня подтверждение не нужно.
-    if item_key == "card_of_day" or button_cmd == "card_of_day":
-        kb.add(Callback(button_label, payload={"cmd": button_cmd, "type": item_type, "key": item_key}), color=KeyboardButtonColor.POSITIVE)
+    # Но для Бесплатной карты дня и пополнений подтверждение не нужно.
+    if item_key == "card_of_day" or button_cmd == "card_of_day" or item_key.startswith("topup_"):
+        actual_label = button_label
+        actual_color = KeyboardButtonColor.POSITIVE
+        if item_key == "card_of_day" and user:
+            from datetime import datetime as dt, timezone
+            purchased = user.get("purchased_sections", {})
+            last_used_str = purchased.get("card_of_day_last_used")
+            if last_used_str:
+                last_time = dt.fromisoformat(last_used_str.replace('Z', '+00:00'))
+                now = dt.now(timezone.utc)
+                diff = now - last_time
+                if diff.total_seconds() < 24 * 3600:
+                    actual_color = KeyboardButtonColor.SECONDARY
+                    remaining = 24 * 3600 - int(diff.total_seconds())
+                    hours = remaining // 3600
+                    minutes = (remaining % 3600) // 60
+                    actual_label = f"⌛ {hours:02d}:{minutes:02d}"
+
+        kb.add(Callback(actual_label, payload={"cmd": button_cmd, "type": item_type, "key": item_key}), color=actual_color)
     else:
         # Для остальных - ведем на экран подтверждения
         kb.add(Callback(button_label, payload={"cmd": "confirm_buy", "type": item_type, "key": item_key}), color=KeyboardButtonColor.POSITIVE)
