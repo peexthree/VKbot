@@ -125,12 +125,12 @@ async def start_handler(message: Message, skip_lock: bool = False):
         )
 
         kb = Keyboard(inline=True)
-        kb.add(Callback("🌸 ОЛЕСЯ ИВАНЧЕНКО", payload={"cmd": "choose_onboarding_skin", "skin": "Олеся Иванченко"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🌸 ОЛЕСЯ ИВОНЧЕНКО", payload={"cmd": "choose_onboarding_skin", "skin": "Олеся Ивонченко"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
         kb.add(Callback("🕯 СЕРЬЕЗНЫЙ АСКЕТ", payload={"cmd": "choose_onboarding_skin", "skin": "Серьезный Аскет"}), color=KeyboardButtonColor.PRIMARY)
 
         # Загружаем фото Олеси для велком-месседжа
-        att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Иванченко"], peer_id=vk_id)
+        att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Ивонченко"], peer_id=vk_id)
 
         msg_id = await message.answer(welcome_text, attachment=att, keyboard=kb.get_json())
         await set_last_bot_msg(vk_id, msg_id)
