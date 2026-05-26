@@ -34,13 +34,11 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
         purchased = user.get("purchased_sections", {})
         last_used_str = purchased.get("card_of_day_last_used")
         if last_used_str:
-            try:
-                from datetime import fromisoformat
-            except ImportError:
+            def _parse_iso(s):
                 from datetime import datetime as dt
-                fromisoformat = lambda s: dt.fromisoformat(s.replace('Z', '+00:00'))
+                return dt.fromisoformat(s.replace('Z', '+00:00'))
 
-            last_time = datetime.fromisoformat(last_used_str.replace('Z', '+00:00'))
+            last_time = _parse_iso(last_used_str)
             now = datetime.now(timezone.utc)
             diff = now - last_time
             if diff.total_seconds() < 24 * 3600:
@@ -191,12 +189,12 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
         actual_label = button_label
         actual_color = KeyboardButtonColor.POSITIVE
         if item_key == "card_of_day" and user:
-            from datetime import datetime, timezone
+            from datetime import datetime as dt, timezone
             purchased = user.get("purchased_sections", {})
             last_used_str = purchased.get("card_of_day_last_used")
             if last_used_str:
-                last_time = datetime.fromisoformat(last_used_str.replace('Z', '+00:00'))
-                now = datetime.now(timezone.utc)
+                last_time = dt.fromisoformat(last_used_str.replace('Z', '+00:00'))
+                now = dt.now(timezone.utc)
                 diff = now - last_time
                 if diff.total_seconds() < 24 * 3600:
                     actual_color = KeyboardButtonColor.SECONDARY

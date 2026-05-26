@@ -111,7 +111,7 @@ async def _message_event_handler_wrapped(event: dict):
             p_stats["stats_clicks"] = p_stats.get("stats_clicks", 0) + 1
 
             # Время в интерфейсе (активность)
-            now_stats = datetime.datetime.now(timezone.utc)
+            now_stats = datetime.datetime.now(datetime.timezone.utc)
             last_stats_at_str = p_stats.get("stats_last_action_at")
             if last_stats_at_str:
                 last_stats_at = datetime.datetime.fromisoformat(last_stats_at_str.replace('Z', '+00:00'))
