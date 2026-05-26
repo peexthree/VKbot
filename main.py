@@ -123,7 +123,27 @@ async def main():
 
                 async def process_user_transit(user):
                     vk_id = user.get("vk_id")
-                    if not vk_id or not user.get("birth_city"):
+                    if not vk_id: return
+
+                    # Проверка доступности Карты Дня
+                    purchased = user.get("purchased_sections", {})
+                    last_used_str = purchased.get("card_of_day_last_used")
+                    if last_used_str:
+                        last_time = datetime.datetime.fromisoformat(last_used_str.replace('Z', '+00:00'))
+                        if (now - last_time).total_seconds() >= 24 * 3600:
+                            # Проверяем, не отправляли ли мы уже уведомление сегодня
+                            last_notif = purchased.get("card_of_day_notif_sent")
+                            if not last_notif or datetime.datetime.fromisoformat(last_notif).date() < now.date():
+                                msg = "🌟 ТВОЯ КАРТА ДНЯ ЖДЕТ ТЕБЯ 🌟\n\nЭнергия восстановилась. Приди и узнай, что приготовили тебе звезды сегодня."
+                                try:
+                                    kb = Keyboard(inline=True).add(Callback("🃏 ПОЛУЧИТЬ КАРТУ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.POSITIVE)
+                                    kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                                    await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=0)
+                                    purchased["card_of_day_notif_sent"] = now.isoformat()
+                                    await update_user(vk_id, {"purchased_sections": purchased})
+                                except Exception: pass
+
+                    if not user.get("birth_city"):
                         return
                     expires_str = user.get("transit_sub_expires_at")
                     has_sub = False

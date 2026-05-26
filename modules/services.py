@@ -69,6 +69,7 @@ async def _send_catalog_page(
     button_label = "КУПИТЬ" if item["key"] != "card_of_day" else "ПОЛУЧИТЬ"
 
     from modules.keyboards import get_catalog_inline_keyboard
+    user = await get_user(vk_id)
     kb_json = get_catalog_inline_keyboard(
         idx=idx,
         total_items=total_items,
@@ -76,7 +77,8 @@ async def _send_catalog_page(
         button_label=button_label,
         button_cmd=button_cmd,
         item_key=item["key"],
-        filter_val=filter_val
+        filter_val=filter_val,
+        user=user
     )
 
     full_text = f"{header_text}\n\n📦 {item['title']}\n📜 {item['desc']}\n\nПозиция: {idx + 1} из {total_items}"

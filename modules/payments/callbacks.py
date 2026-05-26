@@ -104,6 +104,25 @@ async def _message_event_handler_wrapped(event: dict):
         if not vk_id or not payload: return
         cmd = payload.get("cmd")
 
+        # Трекинг статистики
+        user_for_stats = await get_user(vk_id)
+        if user_for_stats:
+            p_stats = user_for_stats.get("purchased_sections", {})
+            p_stats["stats_clicks"] = p_stats.get("stats_clicks", 0) + 1
+
+            # Время в интерфейсе (активность)
+            now_stats = datetime.datetime.now(timezone.utc)
+            last_stats_at_str = p_stats.get("stats_last_action_at")
+            if last_stats_at_str:
+                last_stats_at = datetime.datetime.fromisoformat(last_stats_at_str.replace('Z', '+00:00'))
+                diff_stats = (now_stats - last_stats_at).total_seconds()
+                # Если прошло меньше 10 минут, считаем это одной сессией
+                if diff_stats < 600:
+                    p_stats["stats_total_seconds"] = p_stats.get("stats_total_seconds", 0) + diff_stats
+
+            p_stats["stats_last_action_at"] = now_stats.isoformat()
+            await update_user(vk_id, {"purchased_sections": p_stats})
+
         if cmd in ["admin_cmd", "admin_nav", "admin_user_op"]:
             await process_admin_cmd(vk_id, peer_id, payload, conversation_message_id=obj.get("conversation_message_id"))
             return
@@ -234,7 +253,7 @@ async def _message_event_handler_wrapped(event: dict):
             await ghost_edit(bot.api, peer_id, "🔮 ТВОЯ НАТАЛЬНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb_json, attachment=att)
         elif cmd == "history_menu":
             from modules.profile.views import show_history_logic
-            await show_history_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
+            await show_history_logic(vk_id=vk_id, peer_id=peer_id, page=payload.get("page", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "view_history":
             from modules.profile.views import show_history_item_logic
             await show_history_item_logic(vk_id=vk_id, peer_id=peer_id, idx=payload.get("idx", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
@@ -351,6 +370,11 @@ async def _message_event_handler_wrapped(event: dict):
             # Для прямых пополнений сразу ведем на оплату
             if buy_type == "topup" or key.startswith("topup_"):
                 rubles = amount_needed
+
+                # Трекинг потраченных рублей
+                p = user.get("purchased_sections", {})
+                p["stats_total_rubles"] = p.get("stats_total_rubles", 0) + rubles
+                await update_user(vk_id, {"purchased_sections": p})
                 # Определяем количество энергии по ключу
                 energy_map = {"topup_5000": 5000, "topup_10000": 10000, "topup_50000": 50000}
                 energy_amount = energy_map.get(key, rubles * 10)
@@ -424,7 +448,8 @@ async def _message_event_handler_wrapped(event: dict):
                 "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
                 "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
                 "oracle_upsell": 250, "micro_insight": 100, "destiny_card": 1500,
-                "skin": 1500
+                "skin": 1500,
+                "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
             }
             cost = prices.get(key, 0)
             from modules.keyboards import confirmation_kb
