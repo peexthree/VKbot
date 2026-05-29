@@ -27,7 +27,7 @@
 ## 🏗 Технологии
 
 - **Python 3.11+**
-- **vkbottle 4.x** (polling)
+- **vkbottle 4.x** (webhooks + polling fallback)
 - **Gemini 2.0** (Flash + Pro + fallback)
 - **Supabase** (база пользователей)
 - **Upstash Redis** (кэш + FSM)

@@ -188,6 +188,8 @@ async def _message_event_handler_wrapped(event: dict):
                     # Если доступа нет, показываем карточку услуги в каталоге
                     await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), is_catalog=True, target_key=target_section)
         elif cmd == "main_menu":
+            from database import add_event
+            asyncio.create_task(add_event(vk_id, "menu_open"))
             user = await get_user(vk_id)
             if not user: return
 
@@ -239,6 +241,8 @@ async def _message_event_handler_wrapped(event: dict):
 
             await ghost_edit(bot.api, peer_id, message=main_menu_text, keyboard=kb_json, attachment=att, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day_menu":
+            from database import add_event
+            asyncio.create_task(add_event(vk_id, "daily_card_view"))
             await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"), is_catalog=False)
         elif cmd == "profile_menu":
@@ -252,6 +256,8 @@ async def _message_event_handler_wrapped(event: dict):
             att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
             await ghost_edit(bot.api, peer_id, "🔮 ТВОЯ НАТАЛЬНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb_json, attachment=att)
         elif cmd == "history_menu":
+            from database import add_event
+            asyncio.create_task(add_event(vk_id, "grimoire_open"))
             from modules.profile.views import show_history_logic
             await show_history_logic(vk_id=vk_id, peer_id=peer_id, page=payload.get("page", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "view_history":
@@ -406,7 +412,10 @@ async def _message_event_handler_wrapped(event: dict):
                     await process_skin_action_logic(vk_id, peer_id, skip_lock=True, payload={"cmd": "set_skin", "skin": key}, conversation_message_id=obj.get("conversation_message_id"))
                     return
 
-                if buy_type == "service": await process_payment_and_generate(vk_id, key)
+                if buy_type == "service":
+                    from database import add_event
+                    asyncio.create_task(add_event(vk_id, "paid_feature_used", {"service": key}))
+                    await process_payment_and_generate(vk_id, key)
                 elif buy_type == "tariff":
                     days = 7 if key == "tariff_1" else 30
                     new_expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)

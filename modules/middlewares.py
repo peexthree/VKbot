@@ -17,6 +17,11 @@ class ThrottleMiddleware(BaseMiddleware[Message]):
         # Обновляем дату последней активности асинхронно
         asyncio.create_task(update_user(vk_id, {"last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat()}))
 
+        # Трекинг входящего сообщения
+        from database import add_event
+        metadata = {"has_attachments": bool(self.event.attachments)}
+        asyncio.create_task(add_event(vk_id, "message_received", metadata))
+
         # Check if the message contains payload (inline keyboards often send text+payload or just payload)
         # Or if it starts with heavy commands (we use ✦ prefix for heavy menu buttons or emojis like 🃏)
         # Standard texts might just be chat

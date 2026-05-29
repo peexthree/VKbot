@@ -106,6 +106,16 @@ async def start_handler(message: Message, skip_lock: bool = False):
                 birth_city=city or "",
                 first_name=first_name
             )
+            # Трекинг регистрации
+            from database import add_event
+            metadata = {"first_name": first_name}
+            if hasattr(message, "ref") and message.ref:
+                metadata["source"] = "referral"
+                metadata["ref_code"] = message.ref
+            else:
+                metadata["source"] = "organic"
+
+            await add_event(vk_id, "registration", metadata)
 
         # Обновляем имя и пол если изменились
         if user:
