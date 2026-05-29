@@ -56,15 +56,25 @@ async def handle_vk_webhook(request):
         logger.warning(f"Invalid secret key from {request.remote}. Incoming: {incoming_secret}")
         return web.Response(text="Forbidden", status=403)
 
-    # 3. Защита от падения vkbottle на неизвестных типах событий (например, message_read)
+    # 3. Защита от падения vkbottle на неизвестных типах событий
     try:
-        GroupEventType(event_type)
-    except ValueError:
-        logger.debug(f"Skipping unsupported event type: {event_type}")
+        # Проверяем, существует ли тип события в перечислении vkbottle
+        # Это предотвращает ValueError внутри vkbottle при разборе события
+        if not any(e.value == event_type for e in GroupEventType):
+            logger.debug(f"Skipping unsupported event type: {event_type}")
+            return web.Response(text="ok")
+    except Exception:
+        # Если GroupEventType не инициализирован или возникла иная ошибка
         return web.Response(text="ok")
 
-    # Process event
-    asyncio.create_task(bot.process_event(data))
+    # Process event safely in a task to prevent crashing the main loop
+    async def _safe_process():
+        try:
+            await bot.process_event(data)
+        except Exception as e:
+            logger.error(f"Critical error in bot.process_event ({event_type}): {e}")
+
+    asyncio.create_task(_safe_process())
     return web.Response(text="ok")
 
 async def main():

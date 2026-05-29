@@ -81,15 +81,21 @@ async def _message_event_handler_wrapped(event: dict):
         payload = {}
 
     # Пытаемся ответить на событие сразу, чтобы убрать спиннер, но только один раз
-    if event_id:
+    if event_id and vk_id:
         lock_key = f"event_answered:{event_id}"
-        if not await redis_client.set(lock_key, "1", ex=30, nx=True):
-            logger.debug(f"Event {event_id} already answered or being processed")
-            return
         try:
+            # nx=True вернет True если ключ установлен, иначе False/None
+            # Используем bool() для надежности
+            res = await redis_client.set(lock_key, "1", ex=30, nx=True)
+            if not res:
+                logger.debug(f"Event {event_id} already answered or being processed")
+                return
+
             await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
         except Exception as e:
-            logger.debug(f"Could not answer event {event_id}: {e}")
+            logger.warning(f"Could not answer event {event_id}: {e}")
+    elif event_id:
+        logger.warning(f"Event {event_id} received without vk_id, cannot remove spinner")
 
     if not vk_id: return
 
