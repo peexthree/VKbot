@@ -43,3 +43,7 @@ CREATE TABLE IF NOT EXISTS events (
     metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Indices for analytics performance
+CREATE INDEX IF NOT EXISTS idx_events_user_action ON events(user_id, action);
+CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);

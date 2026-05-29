@@ -8,7 +8,22 @@ async def check_and_save_transaction(transaction_id: str, vk_id: int, amount: in
     try:
         async with core.session.get(f"{URL}/rest/v1/events?action=eq.vkpay_transaction&metadata->>transaction_id=eq.{transaction_id}", headers=HEADERS) as r:
             if r.status == 200 and await r.json(): return False
-        payload = {"user_id": vk_id, "action": "vkpay_transaction", "metadata": {"transaction_id": transaction_id, "amount": amount}}
+
+        from .events import add_event, is_first_payment
+
+        # Check if first payment before recording this one
+        first = await is_first_payment(vk_id)
+
+        metadata = {"transaction_id": transaction_id, "amount": amount, "payment_method": "vkpay"}
+
+        # Track energy purchase
+        await add_event(vk_id, "energy_purchased", metadata)
+
+        # Track first payment if applicable
+        if first:
+            await add_event(vk_id, "first_payment", metadata)
+
+        payload = {"user_id": vk_id, "action": "vkpay_transaction", "metadata": metadata}
         async with core.session.post(f"{URL}/rest/v1/events", headers=HEADERS, json=payload) as r:
             return r.status in (200, 201, 204)
     except Exception: return False

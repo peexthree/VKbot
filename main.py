@@ -31,6 +31,32 @@ with warnings.catch_warnings():
 async def handle_ping(request):
     return web.Response(text="Bot is alive")
 
+async def handle_vk_webhook(request):
+    from modules.bot_init import bot
+
+    # VK Confirmation Code
+    confirmation_code = os.environ.get("VK_CONFIRMATION_CODE")
+    secret_key = os.environ.get("VK_SECRET_KEY")
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.Response(text="Invalid JSON", status=400)
+
+    # Secret key verification
+    if secret_key and data.get("secret") != secret_key:
+        logger.warning(f"Invalid secret key from {request.remote}")
+        return web.Response(text="Forbidden", status=403)
+
+    event_type = data.get("type")
+
+    if event_type == "confirmation":
+        return web.Response(text=confirmation_code)
+
+    # Process event
+    asyncio.create_task(bot.process_event(data))
+    return web.Response(text="ok")
+
 async def main():
     from ai_service import close_session, generate_text, init_session
     from database import get_all_users, init_db, update_user
@@ -244,18 +270,23 @@ async def main():
     # Запуск
     bot.loop_wrapper._running = True
 
-    async def run_bot_with_restart():
-        while True:
-            try:
-                await bot.run_polling()
-            except (ConnectionResetError, asyncio.TimeoutError) as e:
-                logger.warning(f"Polling connection lost: {e}. Restarting in 5s...")
-                await asyncio.sleep(5)
-            except Exception as e:
-                logger.exception(f"Critical error in polling loop: {e}. Restarting in 10s...")
-                await asyncio.sleep(10)
+    use_webhooks = os.environ.get("USE_WEBHOOKS", "true").lower() == "true"
 
-    asyncio.create_task(run_bot_with_restart())
+    if not use_webhooks:
+        async def run_bot_with_restart():
+            while True:
+                try:
+                    await bot.run_polling()
+                except (ConnectionResetError, asyncio.TimeoutError) as e:
+                    logger.warning(f"Polling connection lost: {e}. Restarting in 5s...")
+                    await asyncio.sleep(5)
+                except Exception as e:
+                    logger.exception(f"Critical error in polling loop: {e}. Restarting in 10s...")
+                    await asyncio.sleep(10)
+
+        asyncio.create_task(run_bot_with_restart())
+    else:
+        logger.info("Бот запущен в режиме WEBHOOKS")
     from modules.utils import warmup_task
     asyncio.create_task(warmup_task())
 
@@ -271,6 +302,7 @@ async def main():
 
     app = web.Application()
     app.router.add_get('/', handle_ping)
+    app.router.add_post('/vk/callback', handle_vk_webhook)
     runner = web.AppRunner(app)
     await runner.setup()
     port = int(os.environ.get("PORT", 10000))
