@@ -33,8 +33,10 @@ labeler = BotLabeler()
 
 
 # ==================== СБРОС ====================
-@labeler.message(func=lambda m: m.text and m.text.lower() == "сброс")
+@labeler.message(func=lambda m: m.text and m.text.lower() in {"сброс", "reset", "обнулить", "начать заново"} and not m.attachments)
 async def reset_user_handler(message: Message):
+    if message.attachments:
+        return
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
         return
