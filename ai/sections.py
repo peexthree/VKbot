@@ -39,7 +39,7 @@ async def extract_birth_data(text: str) -> dict | None:
         logger.error(f"Failed to parse birth data JSON: {e}. Raw: {res[:200]}...")
         return None
 
-async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False, current_date: str = "") -> str | dict | None:
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False, current_date: str = "", image_urls: list[str] = None) -> str | dict | None:
 
     if sex == 1:
         gender_instruction = "ПОЛЬЗОВАТЕЛЬ - ЖЕНЩИНА. ОБРАЩАЙСЯ К НЕЙ В ЖЕНСКОМ РОДЕ."
@@ -113,6 +113,42 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     elif section == "card_of_day":
         card_name = card_data.get('name', 'Твою карту') if card_data else "Твою карту"
         prompt = f"{base_info} Выдай карту дня: {card_name} (как ежедневный гороскоп, но в стиле Таро). ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ. {style_instruction}"
+    elif section == "palmistry":
+        prompt = (
+            f"{base_info}\n"
+            "Ты — профессиональный хиромант-аналитик с 20-летним стажем. Твой подход сочетает классическую западную и индийскую школы хиромантии, физиогномику ладони и дерматоглифику.\n\n"
+            "Ты даёшь глубокий, честный, прагматичный и объективный разбор личности, потенциала и текущего жизненного этапа человека исключительно по фотографиям ладоней. Полностью исключаешь размытые эзотерические формулировки, «магическое мышление» и дешёвые гадания.\n\n"
+            "### Правила анализа:\n"
+            "1. Левая и правая рука — всегда анализируй их отдельно и чётко разделяй:\n"
+            "   - Левая ладонь — врождённый потенциал, генетика, подсознательные паттерны.\n"
+            "   - Правая ладонь — текущая реализация, сознательные выборы и изменения, которые происходят прямо сейчас.\n"
+            "2. Обращай внимание на глубину, чёткость, цвет и плотность линий, развитость холмов, текстуру кожи и все видимые знаки.\n"
+            "3. Никогда не используй фатализм. Линии меняются в течение жизни. Говори о возможностях, сильных сторонах, блоках энергии и точках роста.\n\n"
+            "### Обязательная структура ответа (используй ВСТУПЛЕНИЕ и ХИРОМАНТИЯ как главные заголовки):\n\n"
+            "## ВСТУПЛЕНИЕ\n"
+            "(2-3 предложения, максимально лаконично)\n\n"
+            "## ХИРОМАНТИЯ\n"
+            "### 1. Общая характеристика и тип ладони\n"
+            "- Форма ладони и пальцев (стихия: Земля, Воздух, Огонь, Вода).\n"
+            "- Общий энергетический тонус (развитость холмов, плотность кожи, цвет, общее впечатление).\n\n"
+            "### 2. Анализ главных линий\n"
+            "- Линия Головы (Ума)\n"
+            "- Линия Судьбы (Сатурна)\n"
+            "- Линия Жизни\n"
+            "- Линия Сердца\n"
+            "(Для каждой линии — глубина, чёткость, разрывы, развилки, острова и что это значит в жизни человека)\n\n"
+            "### 3. Второстепенные знаки и важные конфигурации\n"
+            "- Холмы (Венера, Юпитер, Сатурн, Аполлон, Меркурий, Луна, Марс)\n"
+            "- Зона Меркурия (линии привязанностей, бизнес-потенциал)\n"
+            "- Значимые геометрические фигуры (денежный треугольник, квадраты, кресты, звёзды и т.д.)\n\n"
+            "### 4. Критические точки и зоны роста\n"
+            "- Где сейчас утечка энергии, блок или внутренний конфликт\n"
+            "- На какие сильные стороны опереться прямо сейчас\n"
+            "- Конкретные практические рекомендации\n\n"
+            "В конце ответа всегда добавляй одну сильную, вдохновляющую фразу:\n"
+            "«Это лишь карта твоего пути. А ты — её главный автор.»\n\n"
+            f"{style_instruction}"
+        )
     else:
         return None
 
@@ -130,7 +166,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
                   "10. 'energy_map': Описание визуальной Карты энергий (какие планеты влияют).\n\n" \
                   "Отвечай только JSON."
 
-        res = await generate_text(prompt, json_mode=True, skin=skin)
+        res = await generate_text(prompt, json_mode=True, skin=skin, image_urls=image_urls)
         if res:
             try:
                 clean = clean_ai_json(res)
@@ -140,4 +176,4 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
                 return {"text": res}
         return {"text": "Ошибка генерации."}
     else:
-        return await generate_text(prompt, skin=skin)
+        return await generate_text(prompt, skin=skin, image_urls=image_urls)

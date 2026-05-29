@@ -212,6 +212,26 @@
     <!-- ОСНОВНОЕ СОДЕРЖИМОЕ -->
     <div class="container">
         <div class="content-wrapper">
+            {% if palm_photos %}
+            <div class="section-divider">
+                <h2 style="font-family: 'AdventureIndiana', sans-serif; color:#f4d48c; text-align: center; font-size: 20pt;">ВАШИ ЛАДОНИ</h2>
+            </div>
+            <div style="display: flex; justify-content: space-around; margin-bottom: 40px; text-align: center;">
+                {% if palm_photos[0] %}
+                <div style="width: 45%;">
+                    <img src="{{ palm_photos[0] }}" style="width: 100%; border-radius: 10px; border: 2px solid #f4d48c;">
+                    <p style="color: #f4d48c; font-size: 12pt; margin-top: 5px;">ЛЕВАЯ ЛАДОНЬ</p>
+                </div>
+                {% endif %}
+                {% if palm_photos[1] %}
+                <div style="width: 45%;">
+                    <img src="{{ palm_photos[1] }}" style="width: 100%; border-radius: 10px; border: 2px solid #f4d48c;">
+                    <p style="color: #f4d48c; font-size: 12pt; margin-top: 5px;">ПРАВАЯ ЛАДОНЬ</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <div class="section-divider">
                 <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ">
             </div>

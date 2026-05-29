@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import re
 from loguru import logger
 from vkbottle import Keyboard, Callback, KeyboardButtonColor
@@ -58,6 +59,22 @@ async def process_payment_and_generate(vk_id: int, section: str):
             await set_user_state(vk_id, '{"step": "waiting_synastry_name"}')
             await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0, keyboard=get_main_keyboard(vk_id))
             return
+        elif section == "palmistry":
+            purchased[section] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await set_user_state(vk_id, '{"step": "waiting_palmistry_photos"}')
+            msg = (
+                "✅ Оплата прошла. Теперь для точного анализа пришлите в одном сообщении две фотографии:\n\n"
+                "• Левая ладонь (врожденный потенциал)\n"
+                "• Правая ладонь (текущая реализация)\n\n"
+                "Требования:\n"
+                "- Хорошее освещение\n"
+                "- Ладонь полностью в кадре\n"
+                "- Пальцы выпрямлены\n"
+                "- Крупный план"
+            )
+            await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0, keyboard=get_main_keyboard(vk_id))
+            return
         else:
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
@@ -109,13 +126,21 @@ async def execute_generation(
 
             await bot.api.messages.set_activity(peer_id=peer_id, type="typing")
 
+            image_urls = None
+            if target_section == "palmistry":
+                from cache import redis_client
+                res = await redis_client.get(f"palmistry_photos:{vk_id}")
+                if res:
+                    image_urls = json.loads(res)
+
             res_data = await generate_section(
                 target_section, user.get("birth_date"), user.get("birth_time"),
                 user.get("birth_city"), user.get("core_profile", ""),
                 u_name, u_sex,
                 partner_name=partner_name, partner_date=partner_date, skin=active_skin,
                 card_id=card_id, card_data=card_data, tags=tags, return_json=True,
-                current_date=current_date_str
+                current_date=current_date_str,
+                image_urls=image_urls
             )
 
             res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
@@ -130,7 +155,8 @@ async def execute_generation(
                 titles = {
                     "sex": "Сексуальность", "money": "Богатство", "shadow": "Тень",
                     "final": "Путь", "synastry": "Синастрия", "oracle": "Оракул",
-                    "antitaro": "Антитаро", "report": "Разбор", "card_of_day": "Карта дня"
+                    "antitaro": "Антитаро", "report": "Разбор", "card_of_day": "Карта дня",
+                    "palmistry": "Хиромантия"
                 }
 
                 history.append({
@@ -160,6 +186,8 @@ async def execute_generation(
 
                 if isinstance(res_data, dict):
                     res_data["text"] = display_text
+                    if image_urls:
+                        res_data["palm_photos"] = image_urls
                     save_data["latest_reading_data"] = res_data
                 else:
                     save_data["latest_reading_data"] = {"text": display_text}
@@ -185,6 +213,13 @@ async def execute_generation(
                     kb_str = vertical_kb([
                         ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": target_section, "card": card_id}, KeyboardButtonColor.POSITIVE),
                         ("❤️ ЕЩЕ ОДИН РАСЧЕТ", {"cmd": "use_section", "key": "synastry"}, KeyboardButtonColor.PRIMARY),
+                        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+                    ])
+                elif target_section == "palmistry":
+                    kb_str = vertical_kb([
+                        ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": target_section, "card": card_id}, KeyboardButtonColor.POSITIVE),
+                        ("✨ НОВЫЙ АНАЛИЗ", {"cmd": "use_section", "key": "palmistry"}, KeyboardButtonColor.PRIMARY),
+                        ("📖 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
                         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
                     ])
                 else:
@@ -244,7 +279,7 @@ async def execute_generation(
 async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str, conversation_message_id: int = None):
     prices = {
         "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
-        "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
+        "synastry": 1500, "palmistry": 1200, "all": 3000, "oracle": 500, "antitaro": 500,
         "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
     }
     price_of_service = prices.get(target_section, 0)

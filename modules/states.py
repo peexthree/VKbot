@@ -15,3 +15,4 @@ class MyStates(BaseStateGroup):
     ORACLE_DRAW = "oracle_draw"
     GLOBAL_CUT = "global_cut"
     WAITING_RESET_CONFIRM = "waiting_reset_confirm"
+    WAITING_PALMISTRY_PHOTOS = "waiting_palmistry_photos"

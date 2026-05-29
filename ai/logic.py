@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import os
 import re
 from loguru import logger
@@ -37,7 +38,7 @@ async def get_gemini_api_keys() -> list[str]:
     _cached_api_keys = keys
     return keys
 
-async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya") -> str | None:
+async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya", image_urls: list[str] = None) -> str | None:
     if not json_mode:
         prompt_lower = prompt.lower()
         if any(word in prompt_lower for word in STOP_WORDS_18PLUS):
@@ -68,12 +69,28 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
             else:
                 final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}"
 
+            parts = [{"text": final_prompt}]
+            if image_urls:
+                for img_url in image_urls:
+                    try:
+                        async with session.get(img_url, timeout=10) as img_resp:
+                            if img_resp.status == 200:
+                                img_data = await img_resp.read()
+                                parts.append({
+                                    "inline_data": {
+                                        "mime_type": "image/jpeg",
+                                        "data": base64.b64encode(img_data).decode("utf-8")
+                                    }
+                                })
+                    except Exception as e:
+                        logger.error(f"Failed to fetch image for AI: {e}")
+
             payload = {
-                "contents": [{"parts": [{"text": final_prompt}]}]
+                "contents": [{"parts": parts}]
             }
 
             try:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=25)) as resp:
+                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)) as resp:
                     if resp.status == 200:
                         res_data = await resp.json()
                         try:
