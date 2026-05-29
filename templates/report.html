@@ -232,10 +232,6 @@
             </div>
             {% endif %}
 
-            <div class="section-divider">
-                <img src="cards/uslugi/vst.png" alt="ВСТУПЛЕНИЕ">
-            </div>
-            
             <div class="content">{{ text_content | safe }}</div>
 
             <!-- КАРТА -->
@@ -251,12 +247,15 @@
             {% endif %}
 
             <!-- 1. Твоя магическая печать / Звёздный код -->
+            {% if star_code %}
             <div class="creative-block">
                 <strong>1. ТВОЙ ЗВЁЗДНЫЙ КОД (МАГИЧЕСКАЯ ПЕЧАТЬ)</strong>
                 {{ star_code | safe }}
             </div>
+            {% endif %}
 
             <!-- 2. Энергетическая шкала -->
+            {% if activation_level and activation_level < 100 or activation_comment %}
             <div class="creative-block">
                 <strong>2. ЭНЕРГЕТИЧЕСКАЯ ШКАЛА</strong>
                 Уровень активации: <strong>{{ activation_level }}%</strong>
@@ -265,42 +264,55 @@
                 <p style="margin-top: 12px; font-size: 12.5pt;">{{ activation_comment | safe }}</p>
                 {% endif %}
             </div>
+            {% endif %}
 
             <!-- 3. Теневая сторона -->
+            {% if shadow_side %}
             <div class="creative-block">
                 <strong>3. ТЕНЕВАЯ СТОРОНА КАРТЫ</strong>
                 {{ shadow_side | safe }}
             </div>
+            {% endif %}
 
             <!-- 4. Аффирмации -->
+            {% if affirmations %}
             <div class="creative-block">
                 <strong>4. ТВОИ ЛИЧНЫЕ АФФИРМАЦИИ / МАНТРЫ</strong>
                 {{ affirmations | safe }}
             </div>
+            {% endif %}
 
             <!-- 5. Дата активации -->
+            {% if next_activation_date %}
             <div class="creative-block">
                 <strong>5. СЛЕДУЮЩАЯ МОЩНАЯ АКТИВАЦИЯ</strong>
                 {{ next_activation_date | safe }}
             </div>
+            {% endif %}
 
             <!-- 6. Прогноз на 30 дней -->
+            {% if thirty_day_forecast %}
             <div class="creative-block">
                 <strong>6. МИНИ-ПРОГНОЗ НА БЛИЖАЙШИЕ 30 ДНЕЙ</strong>
                 {{ thirty_day_forecast | safe }}
             </div>
+            {% endif %}
 
             <!-- 7. Рекомендации по активации -->
+            {% if activation_recommendations %}
             <div class="creative-block">
                 <strong>7. РЕКОМЕНДАЦИИ ПО АКТИВАЦИИ</strong>
                 {{ activation_recommendations | safe }}
             </div>
+            {% endif %}
 
             <!-- 8. Карта энергий -->
+            {% if energy_map %}
             <div class="creative-block">
                 <strong>8. ВИЗУАЛЬНАЯ КАРТА ЭНЕРГИЙ</strong>
                 {{ energy_map | safe }}
             </div>
+            {% endif %}
 
             <!-- 9. Финальная печать ANTI-TAR -->
             <div class="final-seal">

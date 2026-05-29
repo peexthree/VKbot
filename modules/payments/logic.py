@@ -146,7 +146,17 @@ async def execute_generation(
             res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
 
             if res_text:
+                # 1. Очистка от ВСТУПЛЕНИЕ
+                res_text = re.sub(r"(?i)\bВСТУПЛЕНИЕ\b", "", res_text)
+                # 2. Очистка от запрещенных символов
+                res_text = res_text.replace("#", "").replace("*", "").replace("|", "").replace("\\", "")
+
                 display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
+
+                # 3. Программный заголовок для хиромантии
+                if target_section == "palmistry":
+                    if not display_text.upper().startswith("ХИРОМАНТИЯ"):
+                        display_text = "ХИРОМАНТИЯ\n\n" + display_text
 
                 # Сохраняем в историю
                 history = user.get("readings_history", [])

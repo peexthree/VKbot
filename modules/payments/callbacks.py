@@ -310,7 +310,29 @@ async def _message_event_handler_wrapped(event: dict):
             card_data = get_card_data(card_id) if card_id else {}
             current_date_str = datetime.datetime.now().strftime("%d.%m.%Y")
             async with pdf_semaphore:
-                success = await asyncio.to_thread(generate_premium_pdf, user_name=u_name, birth_info=b_info, section_name=section.upper(), text_content=latest_data.get("text", ""), output_filename=pdf_name, card_id=card_id, advice_content="", card_name=card_data.get("name"), card_description=card_data.get("description"), shadow_side=latest_data.get("shadow_side", ""), activation_level=latest_data.get("activation_level", 100), activation_comment=latest_data.get("activation_comment", ""), affirmations=latest_data.get("affirmations", ""), next_activation_date=latest_data.get("next_activation_date", ""), thirty_day_forecast=latest_data.get("thirty_day_forecast", ""), activation_recommendations=latest_data.get("activation_recommendations", ""), star_code=latest_data.get("star_code", ""), energy_map=latest_data.get("energy_map", ""), current_date=current_date_str, palm_photos=latest_data.get("palm_photos"))
+                success = await asyncio.to_thread(
+                    generate_premium_pdf,
+                    user_name=u_name,
+                    birth_info=b_info,
+                    section_name=section.upper(),
+                    text_content=latest_data.get("text", ""),
+                    output_filename=pdf_name,
+                    card_id=card_id,
+                    advice_content="",
+                    card_name=card_data.get("name"),
+                    card_description=card_data.get("description"),
+                    shadow_side=latest_data.get("shadow_side", ""),
+                    activation_level=latest_data.get("activation_level") if section != "palmistry" else None,
+                    activation_comment=latest_data.get("activation_comment", ""),
+                    affirmations=latest_data.get("affirmations", ""),
+                    next_activation_date=latest_data.get("next_activation_date", ""),
+                    thirty_day_forecast=latest_data.get("thirty_day_forecast", ""),
+                    activation_recommendations=latest_data.get("activation_recommendations", ""),
+                    star_code=latest_data.get("star_code", ""),
+                    energy_map=latest_data.get("energy_map", ""),
+                    current_date=current_date_str,
+                    palm_photos=latest_data.get("palm_photos")
+                )
             if success and os.path.exists(pdf_name):
                 try:
                     doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{section}.pdf", peer_id=peer_id)
