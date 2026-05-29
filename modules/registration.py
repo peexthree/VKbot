@@ -8,7 +8,6 @@ from ai_service import extract_birth_data, generate_text
 from cache import acquire_lock, release_lock, redis_client
 from database import (
     create_user,
-    delete_user,
     get_user,
     get_user_state,
     set_user_state,
