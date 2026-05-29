@@ -24,14 +24,6 @@ from modules.utils import (
 
 labeler = BotLabeler()
 
-@labeler.message(func=lambda m: m.text and m.text.lower() in ['🔮 глубокие разборы', 'глубокие разборы', '✦ услуги', 'услуги', '✦ услуги 🛒'])
-async def show_services_handler(message: Message):
-    logger.info(f"show_services_handler triggered by from_id={message.from_id}")
-    last_mid = await get_last_bot_msg(message.from_id)
-    if last_mid:
-        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
-    await show_services(message.from_id, message.peer_id, 0)
-
 
 async def _send_catalog_page(
     vk_id: int,
@@ -285,7 +277,10 @@ async def process_palmistry_photos(message: Message):
 
         state_dict = await get_fsm_step(vk_id)
         collected_photos = state_dict.get("photos", [])
-        collected_photos.extend(photos)
+        # Добавляем только уникальные URL, чтобы избежать дублей
+        for p_url in photos:
+            if p_url not in collected_photos:
+                collected_photos.append(p_url)
 
         if len(collected_photos) < 2:
             await set_user_state(vk_id, json.dumps({
@@ -357,12 +352,6 @@ async def process_synastry_city(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(func=lambda m: m.text and m.text.lower() in ['🛰 тарифы', '💳 пополнить'])
-async def show_tariffs_handler(message: Message):
-    last_mid = await get_last_bot_msg(message.from_id)
-    if last_mid:
-        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
-    await show_tariffs(message.from_id, message.peer_id, 0)
 
 async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None):
 
@@ -393,3 +382,22 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
         item_type="tariff",
         fallback_att=header_att
     )
+
+
+# --- ОБЩИЕ КОМАНДНЫЕ ОБРАБОТЧИКИ (в конце для низкого приоритета) ---
+
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['🔮 глубокие разборы', 'глубокие разборы', '✦ услуги', 'услуги', '✦ услуги 🛒'] and not m.attachments)
+async def show_services_handler(message: Message):
+    logger.info(f"show_services_handler triggered by from_id={message.from_id}")
+    last_mid = await get_last_bot_msg(message.from_id)
+    if last_mid:
+        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
+    await show_services(message.from_id, message.peer_id, 0)
+
+
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['🛰 тарифы', '💳 пополнить'] and not m.attachments)
+async def show_tariffs_handler(message: Message):
+    last_mid = await get_last_bot_msg(message.from_id)
+    if last_mid:
+        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
+    await show_tariffs(message.from_id, message.peer_id, 0)

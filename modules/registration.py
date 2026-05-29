@@ -347,7 +347,7 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
     await send_temp_message(bot.api, peer_id, "Твоя панель навигации активирована ✨", delay=3, keyboard=reply_kb)
 
 # ==================== ВОЗВРАТ В ГЛАВНОЕ МЕНЮ ====================
-@labeler.message(func=lambda m: m.text and m.text.lower() in ["главное меню", "в главное меню", "меню", "назад", "🏠 главное меню"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ["главное меню", "в главное меню", "меню", "назад", "🏠 главное меню"] and not m.attachments)
 async def back_to_main_menu(message: Message):
     vk_id = message.from_id
     # Удаляем сообщение пользователя
