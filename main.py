@@ -33,7 +33,6 @@ async def handle_ping(request):
 
 async def handle_vk_webhook(request):
     from modules.bot_init import bot
-    import json
 
     # VK Confirmation Code
     confirmation_code = os.environ.get("VK_CONFIRMATION_CODE")
