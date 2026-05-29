@@ -33,6 +33,7 @@ async def handle_ping(request):
 
 async def handle_vk_webhook(request):
     from modules.bot_init import bot
+    from vkbottle import GroupEventType
 
     # VK Confirmation Code
     confirmation_code = os.environ.get("VK_CONFIRMATION_CODE")
@@ -43,15 +44,24 @@ async def handle_vk_webhook(request):
     except Exception:
         return web.Response(text="Invalid JSON", status=400)
 
-    # Secret key verification
-    if secret_key and data.get("secret") != secret_key:
-        logger.warning(f"Invalid secret key from {request.remote}")
-        return web.Response(text="Forbidden", status=403)
-
     event_type = data.get("type")
 
+    # 1. Проверка подтверждения ДО проверки секретного ключа (ВК может не слать секрет в confirmation)
     if event_type == "confirmation":
         return web.Response(text=confirmation_code)
+
+    # 2. Проверка секретного ключа для всех остальных событий
+    incoming_secret = data.get("secret")
+    if secret_key and incoming_secret != secret_key:
+        logger.warning(f"Invalid secret key from {request.remote}. Incoming: {incoming_secret}")
+        return web.Response(text="Forbidden", status=403)
+
+    # 3. Защита от падения vkbottle на неизвестных типах событий (например, message_read)
+    try:
+        GroupEventType(event_type)
+    except ValueError:
+        logger.debug(f"Skipping unsupported event type: {event_type}")
+        return web.Response(text="ok")
 
     # Process event
     asyncio.create_task(bot.process_event(data))
