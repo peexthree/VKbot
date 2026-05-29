@@ -125,12 +125,14 @@ async def main():
 
     bot.labeler.message_view.register_middleware(ThrottleMiddleware)
 
-    bot.labeler.load(registration.labeler)
-    bot.labeler.load(profile.labeler)
+    # ПОРЯДОК ЗАГРУЗКИ ВАЖЕН: сначала загружаем обработчики со стейтами (услуги, таро, саппорт),
+    # чтобы они имели приоритет над общими командами вроде "сброс" или "профиль"
     bot.labeler.load(services.labeler)
     bot.labeler.load(tarot.labeler)
-    bot.labeler.load(payments.labeler)
     bot.labeler.load(support.labeler)
+    bot.labeler.load(registration.labeler)
+    bot.labeler.load(profile.labeler)
+    bot.labeler.load(payments.labeler)
 
     import modules.admin as admin
     bot.labeler.load(admin.labeler)
