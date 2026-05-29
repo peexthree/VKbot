@@ -31,6 +31,31 @@ with warnings.catch_warnings():
 async def handle_ping(request):
     return web.Response(text="Bot is alive")
 
+def sanitize_photo_sizes(data: dict) -> dict:
+    """Исправляет неизвестные типы размеров фото, чтобы vkbottle не падал"""
+    if not isinstance(data, dict):
+        return data
+
+    try:
+        if data.get("type") == "message_new":
+            # В зависимости от версии API VK, объект сообщения может быть в 'object' или 'object'['message']
+            obj = data.get("object", {})
+            message = obj.get("message") if "message" in obj else obj
+
+            if isinstance(message, dict):
+                for attachment in message.get("attachments", []):
+                    if attachment.get("type") == "photo":
+                        photo = attachment.get("photo", {})
+                        for size in photo.get("sizes", []):
+                            t = size.get("type")
+                            if t and t not in {'s','m','x','o','p','q','r','k','l','y','z','c','w','a','b','e','i','d','j','temp','h','g','n','f','max'}:
+                                logger.warning(f"Unknown photo size type '{t}' → replaced with 'z'")
+                                size["type"] = "z"   # самый большой доступный тип
+        return data
+    except Exception as e:
+        logger.warning(f"Sanitizer error: {e}")
+        return data
+
 async def handle_vk_webhook(request):
     from modules.bot_init import bot
     from vkbottle import GroupEventType
@@ -41,6 +66,7 @@ async def handle_vk_webhook(request):
 
     try:
         data = await request.json()
+        data = sanitize_photo_sizes(data)
     except Exception:
         return web.Response(text="Invalid JSON", status=400)
 
@@ -72,7 +98,7 @@ async def handle_vk_webhook(request):
         try:
             await bot.process_event(data)
         except Exception as e:
-            logger.error(f"Critical error in bot.process_event ({event_type}): {e}")
+            logger.error(f"Critical error in bot.process_event ({event_type}): {e}. Data: {json.dumps(data, ensure_ascii=False)}")
 
     asyncio.create_task(_safe_process())
     return web.Response(text="ok")
