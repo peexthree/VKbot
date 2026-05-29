@@ -8,7 +8,6 @@ from ai_service import extract_birth_data, generate_text
 from cache import acquire_lock, release_lock, redis_client
 from database import (
     create_user,
-    delete_user,
     get_user,
     get_user_state,
     set_user_state,
@@ -33,20 +32,40 @@ labeler = BotLabeler()
 
 
 # ==================== СБРОС ====================
-@labeler.message(func=lambda m: m.text and m.text.lower() in {"сброс", "reset", "обнулить", "начать заново"} and not m.attachments)
+async def is_reset_command(message: Message) -> bool:
+    if message.attachments or message.fwd_messages or message.reply_message:
+        return False
+    if not message.text:
+        return False
+    return message.text.lower().strip() in {"сброс", "reset", "обнулить", "начать заново"}
+
+@labeler.message(func=is_reset_command)
 async def reset_user_handler(message: Message):
-    if message.attachments:
-        return
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
         return
     try:
-        await delete_user(vk_id)
-        await set_user_state(vk_id, "")
-        await message.answer("СИСТЕМА ОБНУЛЕНА. Напиши 'Начать' для теста с нуля.")
-        logger.success(f"Пользователь {vk_id} полностью сброшен")
+        # Устанавливаем стейт подтверждения (на всякий случай, если пользователь захочет ответить текстом,
+        # хотя мы даем кнопки)
+        await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
+
+        from modules.keyboards import vertical_kb
+        kb = vertical_kb([
+            ("✅ ПОДТВЕРДИТЬ СБРОС", {"cmd": "profile_action", "action": "confirm_reset"}, KeyboardButtonColor.NEGATIVE),
+            ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+        ])
+
+        att = await upload_local_photo(bot.api, "uslugi/main_menu.jpeg", peer_id=vk_id)
+
+        await message.answer(
+            "⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все твои данные, покупки и прогресс в системе.\n\n"
+            "Ты действительно хочешь обнулить свой путь?",
+            keyboard=kb,
+            attachment=att
+        )
+        logger.info(f"Пользователь {vk_id} запросил сброс аккаунта через текст")
     except Exception as e:
-        logger.error(f"Ошибка in reset_user_handler: {e}")
+        logger.error(f"Ошибка в reset_user_handler: {e}")
     finally:
         await release_lock(vk_id)
 
