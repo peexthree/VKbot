@@ -122,6 +122,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
 
     services = [
         {"key": "synastry", "title": "❤️ Совместимость", "desc": "1500 Энергии. Глубокий анализ ваших отношений по звездам. Узнайте, созданы ли вы друг для друга.", "image_name": "uslugi/SINISTRY.jpeg", "category": "deep"},
+        {"key": "palmistry", "title": "✨ Хиромантия", "desc": "1200 Энергии. Чтение судьбы по ладоням. Узнай свой врожденный потенциал и текущую реализацию.", "image_name": "uslugi/hiro.jpeg", "category": "deep"},
         {"key": "sex", "title": "🔥 Страсть", "desc": "1000 Энергии. Погружение в мир твоих чувств и желаний.", "image_name": "uslugi/sex.jpeg", "category": "deep"},
         {"key": "money", "title": "💰 Денежный поток", "desc": "900 Энергии. Раскрой свой путь к финансовой свободе.", "image_name": "uslugi/Money.jpeg", "category": "deep"},
         {"key": "shadow", "title": "👹 Ваши демоны", "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя.", "image_name": "uslugi/DEMONS.jpeg", "category": "deep"},
@@ -250,6 +251,70 @@ async def process_synastry_time(message: Message):
         }))
         msg_id = await message.answer(f"Время {partner_time} принято. И последнее — в какой городе родился партнер (например, Москва или 'не знаю')?")
         await set_last_bot_msg(vk_id, msg_id)
+    finally:
+        await release_lock(vk_id)
+
+async def is_waiting_palmistry_photos(message: Message) -> bool:
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_palmistry_photos"
+
+@labeler.message(func=is_waiting_palmistry_photos)
+async def process_palmistry_photos(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id):
+        return
+    try:
+        photos = []
+        if message.attachments:
+            for att in message.attachments:
+                if att.photo:
+                    # Берем максимальный размер фото
+                    sizes = att.photo.sizes
+                    max_size = max(sizes, key=lambda s: s.width * s.height)
+                    photos.append(max_size.url)
+
+        if not photos:
+            # Если это не фото, а другой тип или просто текст
+            if message.text and message.text.lower() in ["начать", "главное меню", "услуги"]:
+                await set_user_state(vk_id, "")
+                await show_services(vk_id, message.peer_id, 0)
+                return
+            await message.answer("Пожалуйста, пришлите именно фотографии ваших ладоней для анализа.")
+            return
+
+        state_dict = await get_fsm_step(vk_id)
+        collected_photos = state_dict.get("photos", [])
+        collected_photos.extend(photos)
+
+        if len(collected_photos) < 2:
+            await set_user_state(vk_id, json.dumps({
+                "step": "waiting_palmistry_photos",
+                "photos": collected_photos
+            }))
+            await message.answer("Отлично, я вижу первое фото. Пришлите, пожалуйста, вторую ладонь.")
+        else:
+            # Берем первые два фото
+            final_photos = collected_photos[:2]
+            await set_user_state(vk_id, "")
+
+            # Пока сохраним в редис по ключу palmistry_photos:{vk_id}
+            from cache import redis_client
+            await redis_client.set(f"palmistry_photos:{vk_id}", json.dumps(final_photos), ex=600)
+
+            # Сообщаем о начале анализа
+            conv_id = await message.answer("✦ ФОТО ПОЛУЧЕНЫ. ИНИЦИИРУЮ ГЛУБОКИЙ АНАЛИЗ ЛАДОНЕЙ...")
+
+            # Запускаем генерацию
+            from modules.payments.logic import execute_generation
+            asyncio.create_task(execute_generation(
+                vk_id=vk_id,
+                peer_id=message.peer_id,
+                target_section="palmistry",
+                partner_name="",
+                partner_date="",
+                conversation_message_id=conv_id
+            ))
+
     finally:
         await release_lock(vk_id)
 
