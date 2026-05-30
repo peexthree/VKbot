@@ -385,7 +385,7 @@ async def show_history_logic(
     skip_lock: bool = False,
     conversation_message_id: int = None
 ):
-    """Отображение истории разборов (Гримуар) с пагинацией"""
+    """Отображение истории разборов с пагинацией"""
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
@@ -661,7 +661,7 @@ async def show_guide_grimoire_logic(vk_id: int, peer_id: int, conversation_messa
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         text = (
             "🃏 ГРИМУАР И ТВОЙ ПУТЬ\n\n"
-            "Гримуар — это коллекция всех твоих разборов и открытых карт Таро. Каждое взаимодействие с системой оставляет след в твоей матрице.\n\n"
+            "Гримуар — это твоя личная коллекция открытых карт Таро. Каждая карта, полученная в ходе разборов, навсегда сохраняется здесь.\n\n"
             "🌌 СИСТЕМА РАНГОВ:\n"
             "Твой уровень (Level) растет за счет:\n"
             "• Получения новых разборов.\n"
