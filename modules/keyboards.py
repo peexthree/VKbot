@@ -85,6 +85,7 @@ def services_menu_kb() -> str:
         ("🔮 Все услуги", "service_page", KeyboardButtonColor.PRIMARY),
         ("❤️ Совместимость", {"cmd": "use_section", "key": "synastry"}, KeyboardButtonColor.PRIMARY),
         ("✨ Хиромантия", {"cmd": "use_section", "key": "palmistry"}, KeyboardButtonColor.POSITIVE),
+        ("🌙 Сонник", {"cmd": "dream_interpret_start"}, KeyboardButtonColor.POSITIVE),
         ("⭐ Подписка / Тарифы", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])

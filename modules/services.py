@@ -115,6 +115,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     services = [
         {"key": "synastry", "title": "❤️ Совместимость", "desc": "1500 Энергии. Глубокий анализ ваших отношений по звездам. Узнайте, созданы ли вы друг для друга.", "image_name": "uslugi/SINISTRY.jpeg", "category": "deep"},
         {"key": "palmistry", "title": "✨ Хиромантия", "desc": "1200 Энергии. Чтение судьбы по ладоням. Узнай свой врожденный потенциал и текущую реализацию.", "image_name": "uslugi/hiro.jpeg", "category": "deep"},
+        {"key": "dream", "title": "🌙 Сонник", "desc": "1000 Энергии. Толкование твоих снов через призму архетипов и символов. Узнай, что хочет сказать твое подсознание.", "image_name": "uslugi/dream.jpeg", "category": "deep"},
         {"key": "sex", "title": "🔥 Страсть", "desc": "1000 Энергии. Погружение в мир твоих чувств и желаний.", "image_name": "uslugi/sex.jpeg", "category": "deep"},
         {"key": "money", "title": "💰 Денежный поток", "desc": "900 Энергии. Раскрой свой путь к финансовой свободе.", "image_name": "uslugi/Money.jpeg", "category": "deep"},
         {"key": "shadow", "title": "👹 Ваши демоны", "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя.", "image_name": "uslugi/DEMONS.jpeg", "category": "deep"},
@@ -257,6 +258,48 @@ async def process_synastry_time(message: Message):
         await set_last_bot_msg(vk_id, msg_id)
     finally:
         await release_lock(vk_id)
+
+async def is_waiting_dream_text(message: Message) -> bool:
+    if not message.text: return False
+    # Игнорируем команды навигации
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар"]: return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_dream_text"
+
+@labeler.message(func=is_waiting_dream_text)
+async def process_dream_text(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id):
+        return
+    try:
+        dream_text = message.text.strip()
+        if len(dream_text) < 15:
+            await message.answer("Пожалуйста, опиши свой сон подробнее (хотя бы пару предложений), чтобы я смог провести глубокий анализ.")
+            return
+
+        await set_user_state(vk_id, "")
+
+        # Сохраняем текст сна в редис для генерации
+        from cache import redis_client
+        await redis_client.set(f"dream_text:{vk_id}", dream_text, ex=600)
+
+        # Сообщаем о начале анализа
+        conv_id = await message.answer("✦ СОН ПРИНЯТ. ПОГРУЖАЮСЬ В ТВОЕ ПОДСОЗНАНИЕ...")
+
+        # Запускаем генерацию
+        from modules.payments.logic import execute_generation
+        asyncio.create_task(execute_generation(
+            vk_id=vk_id,
+            peer_id=message.peer_id,
+            target_section="dream",
+            partner_name="",
+            partner_date="",
+            conversation_message_id=conv_id
+        ))
+    finally:
+        await release_lock(vk_id)
+
 
 async def is_waiting_palmistry_photos(message: Message) -> bool:
     state_dict = await get_fsm_step(message.from_id)

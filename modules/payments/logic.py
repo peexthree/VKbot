@@ -75,6 +75,20 @@ async def process_payment_and_generate(vk_id: int, section: str):
             )
             await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0, keyboard=get_main_keyboard(vk_id))
             return
+        elif section == "dream":
+            purchased[section] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await set_user_state(vk_id, '{"step": "waiting_dream_text"}')
+            msg = (
+                "✅ Оплата прошла. Расскажи мне свой сон подробным текстом.\n\n"
+                "Можно добавить:\n"
+                "- Когда приснился (дата/время)\n"
+                "- Настроение после пробуждения\n"
+                "- Любые важные детали\n\n"
+                "Чем подробнее опишешь - тем точнее будет разбор."
+            )
+            await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0, keyboard=get_main_keyboard(vk_id))
+            return
         else:
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
@@ -133,6 +147,12 @@ async def execute_generation(
                 if res:
                     image_urls = json.loads(res)
 
+            if target_section == "dream":
+                from cache import redis_client
+                dream_text = await redis_client.get(f"dream_text:{vk_id}")
+                if dream_text:
+                    partner_date = dream_text.decode() if isinstance(dream_text, bytes) else dream_text
+
             res_data = await generate_section(
                 target_section, user.get("birth_date"), user.get("birth_time"),
                 user.get("birth_city"), user.get("core_profile", ""),
@@ -153,10 +173,13 @@ async def execute_generation(
 
                 display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
 
-                # 3. Программный заголовок для хиромантии
+                # 3. Программный заголовок для хиромантии и сонника
                 if target_section == "palmistry":
                     if not display_text.upper().startswith("ХИРОМАНТИЯ"):
                         display_text = "ХИРОМАНТИЯ\n\n" + display_text
+                elif target_section == "dream":
+                    if not display_text.upper().startswith("СОННИК"):
+                        display_text = "СОННИК\n\n" + display_text
 
                 # Сохраняем в историю
                 history = user.get("readings_history", [])
@@ -166,7 +189,7 @@ async def execute_generation(
                     "sex": "Сексуальность", "money": "Богатство", "shadow": "Тень",
                     "final": "Путь", "synastry": "Синастрия", "oracle": "Оракул",
                     "antitaro": "Антитаро", "report": "Разбор", "card_of_day": "Карта дня",
-                    "palmistry": "Хиромантия"
+                    "palmistry": "Хиромантия", "dream": "Толкование сна"
                 }
 
                 history.append({
@@ -232,8 +255,42 @@ async def execute_generation(
                         ("📖 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
                         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
                     ])
+                elif target_section == "dream":
+                    kb_str = vertical_kb([
+                        ("🌙 НОВЫЙ СОН", {"cmd": "use_section", "key": "dream"}, KeyboardButtonColor.PRIMARY),
+                        ("📖 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
+                        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+                    ])
                 else:
                     kb_str = after_pdf_kb(target_section, card_id)
+
+                if target_section == "dream":
+                    # Автоматическая генерация PDF для сонника
+                    async def auto_gen_pdf_task(v_id, p_id, txt, s_name, u_n, b_i):
+                        pdf_name = f"report_{v_id}_{s_name}.pdf"
+                        from modules.utils import generate_premium_pdf, upload_pdf_to_vk, pdf_semaphore
+                        import os
+                        async with pdf_semaphore:
+                            success = await asyncio.to_thread(
+                                generate_premium_pdf,
+                                user_name=u_n,
+                                birth_info=b_i,
+                                section_name="СОННИК",
+                                text_content=txt,
+                                output_filename=pdf_name,
+                                card_id="uslugi/dream",
+                                current_date=datetime.datetime.now().strftime("%d.%m.%Y")
+                            )
+                        if success and os.path.exists(pdf_name):
+                            try:
+                                doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{s_name}.pdf", peer_id=p_id)
+                                if doc:
+                                    await bot.api.messages.send(peer_id=p_id, message="Твой PDF-отчет по сну готов:", attachment=doc, random_id=0)
+                            finally:
+                                if os.path.exists(pdf_name): os.remove(pdf_name)
+
+                    b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
+                    asyncio.create_task(auto_gen_pdf_task(vk_id, peer_id, display_text, "dream", u_name, b_info))
 
                 if isinstance(res_data, dict):
                     act_lvl = res_data.get('activation_level')
@@ -289,7 +346,7 @@ async def execute_generation(
 async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str, conversation_message_id: int = None):
     prices = {
         "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
-        "synastry": 1500, "palmistry": 1200, "all": 3000, "oracle": 500, "antitaro": 500,
+        "synastry": 1500, "palmistry": 1200, "dream": 1000, "all": 3000, "oracle": 500, "antitaro": 500,
         "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
     }
     price_of_service = prices.get(target_section, 0)
