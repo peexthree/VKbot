@@ -6,7 +6,6 @@ from vkbottle.bot import BotLabeler, Message
 from database import get_user, set_user_state
 from modules.bot_init import bot
 from modules.utils import ADMIN_ID, get_fsm_step, acquire_lock, release_lock
-from modules.states import MyStates
 
 labeler = BotLabeler()
 

@@ -9,12 +9,12 @@ from cache import acquire_lock, release_lock, redis_client
 from database import (
     create_user,
     get_user,
-    get_user_state,
     set_user_state,
     update_user,
 )
 from modules.bot_init import bot
 from modules.utils import (
+    get_fsm_step,
     start_dynamic_typing,
     stop_dynamic_typing,
     ghost_edit,

@@ -1,5 +1,4 @@
 import json
-import random
 from vkbottle import Keyboard, Callback, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 from database import set_user_state
