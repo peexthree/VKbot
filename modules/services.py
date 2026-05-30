@@ -171,11 +171,9 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     )
 
 async def is_waiting_synastry_name(message: Message) -> bool:
-    if message.text:
-        if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]):
-            return False
-        if message.text.lower() in ["начать", "start", "/start", "лайн голос", "главное меню", "профиль", "услуги", "гримуар"]:
-            return False
+    if not message.text: return False
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар"]: return False
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "waiting_synastry_name"
 
@@ -197,7 +195,14 @@ async def process_synastry_name(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(state=MyStates.WAITING_SYNASTRY_DATE)
+async def is_waiting_synastry_date(message: Message) -> bool:
+    if not message.text: return False
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар"]: return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_synastry_date"
+
+@labeler.message(func=is_waiting_synastry_date)
 async def process_synastry_date(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -221,7 +226,14 @@ async def process_synastry_date(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(state=MyStates.WAITING_SYNASTRY_TIME)
+async def is_waiting_synastry_time(message: Message) -> bool:
+    if not message.text: return False
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар"]: return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_synastry_time"
+
+@labeler.message(func=is_waiting_synastry_time)
 async def process_synastry_time(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
@@ -314,7 +326,14 @@ async def process_palmistry_photos(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(state=MyStates.WAITING_SYNASTRY_CITY)
+async def is_waiting_synastry_city(message: Message) -> bool:
+    if not message.text: return False
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар"]: return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_synastry_city"
+
+@labeler.message(func=is_waiting_synastry_city)
 async def process_synastry_city(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):

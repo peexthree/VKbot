@@ -33,7 +33,14 @@ async def support_handler_logic(vk_id: int, peer_id: int, conversation_message_i
         keyboard=kb.get_json()
     )
 
-@labeler.message(state=MyStates.WAITING_SUPPORT_QUESTION)
+async def is_waiting_support_question(message: Message) -> bool:
+    if not message.text: return False
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар"]: return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_support_question"
+
+@labeler.message(func=is_waiting_support_question)
 async def process_support_question(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(f"support_{vk_id}"): return
@@ -91,12 +98,14 @@ async def admin_reply_start_logic(admin_id: int, user_id: int):
     await set_user_state(admin_id, json.dumps({"step": "waiting_admin_reply", "target_user_id": user_id}))
     await bot.api.messages.send(peer_id=admin_id, message=f"Напиши текст ответа для пользователя {user_id}:", random_id=0)
 
-async def _is_admin_reply_fsm(message: Message) -> bool:
+async def is_waiting_admin_reply(message: Message) -> bool:
     if message.from_id != ADMIN_ID: return False
-    state = await get_fsm_step(ADMIN_ID)
-    return state and state.get("step") == "waiting_admin_reply"
+    if not message.text: return False
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    state_dict = await get_fsm_step(ADMIN_ID)
+    return state_dict is not None and state_dict.get("step") == "waiting_admin_reply"
 
-@labeler.message(func=_is_admin_reply_fsm)
+@labeler.message(func=is_waiting_admin_reply)
 async def process_admin_reply(message: Message):
     state = await get_fsm_step(ADMIN_ID)
     target_user_id = state.get("target_user_id")
