@@ -6,7 +6,7 @@ from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
 from cache import redis_client, set_fsm_state
-from database import get_all_users, get_user, update_user, get_user_count
+from database import get_all_users, get_user, update_user, get_user_count, get_users_paginated
 from modules.utils import ADMIN_ID, clear_photo_cache, ghost_edit, get_fsm_step
 from modules.bot_init import bot
 
@@ -153,19 +153,41 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
     kb = Keyboard(inline=True).add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
     await ghost_edit(bot.api, peer_id, stats_text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
-async def show_admin_users(peer_id: int, conversation_message_id: int = None):
-    """Раздел управления пользователями"""
+async def show_admin_users(peer_id: int, conversation_message_id: int = None, page: int = 0):
+    """Раздел управления пользователями с пагинацией"""
+    limit = 5
+    offset = page * limit
+    users = await get_users_paginated(limit=limit, offset=offset)
+    total_users = await get_user_count()
+    total_pages = (total_users + limit - 1) // limit
+
     text = (
         "👥 УПРАВЛЕНИЕ АДЕПТАМИ\n\n"
-        "Здесь вы можете найти конкретного пользователя для ручной коррекции его судьбы.\n\n"
-        "Используйте кнопки ниже для поиска или массовых действий."
+        f"Всего в матрице: {total_users}\n"
+        f"Страница: {page + 1} из {total_pages}\n\n"
+        "Последние регистрации:"
     )
+
     kb = Keyboard(inline=True)
-    kb.add(Callback("🔍 НАЙТИ ПО ID", payload={"cmd": "admin_cmd", "action": "search_user_start"}), color=KeyboardButtonColor.PRIMARY)
+    for u in users:
+        first_name = u.get("first_name", "???")
+        vk_id = u.get("vk_id")
+        kb.add(Callback(f"👤 {first_name} ({vk_id})", payload={"cmd": "admin_user_op", "op": "view_profile", "target": vk_id}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+
+    # Пагинация
+    if total_pages > 1:
+        if page > 0:
+            kb.add(Callback("⬅️", payload={"cmd": "admin_nav", "menu": "users", "page": page - 1}), color=KeyboardButtonColor.SECONDARY)
+        if page < total_pages - 1:
+            kb.add(Callback("➡️", payload={"cmd": "admin_nav", "menu": "users", "page": page + 1}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
+
+    kb.add(Callback("🔍 ПОИСК", payload={"cmd": "admin_cmd", "action": "search_user_start"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("⚡️ ЭНЕРГИЯ", payload={"cmd": "admin_cmd", "action": "mass_energy_start"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
-    kb.add(Callback("⚡️ ВЫДАТЬ ЭНЕРГИЮ", payload={"cmd": "admin_cmd", "action": "mass_energy_start"}), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
-    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("⬅️ В МЕНЮ", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_broadcast(peer_id: int, conversation_message_id: int = None):
@@ -235,7 +257,7 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         if nav_menu == "main": await show_admin_main(peer_id, conversation_message_id)
         elif nav_menu == "system": await show_admin_system(peer_id, conversation_message_id)
         elif nav_menu == "analytics": await show_admin_analytics(peer_id, conversation_message_id)
-        elif nav_menu == "users": await show_admin_users(peer_id, conversation_message_id)
+        elif nav_menu == "users": await show_admin_users(peer_id, conversation_message_id, page=payload.get("page", 0))
         elif nav_menu == "broadcast": await show_admin_broadcast(peer_id, conversation_message_id)
         elif nav_menu == "logs": await show_admin_logs(peer_id, conversation_message_id)
         elif nav_menu == "vip": await show_admin_vip(peer_id, conversation_message_id)
@@ -299,7 +321,41 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         await bot.api.messages.send(peer_id=peer_id, message="Введите ID и количество энергии через пробел (например: 12345 500):", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=0)
     elif payload.get("cmd") == "admin_user_op":
         op, target = payload.get("op"), payload.get("target")
-        if op == "edit_balance":
+        if op == "view_profile":
+            user = await get_user(target)
+            if not user:
+                await bot.api.messages.send(peer_id=peer_id, message="Адепт не найден.", random_id=0)
+                return
+            purchased, skins, has_full = user.get("purchased_sections", {}), user.get("purchased_skins", []), user.get("has_full_chart", False)
+
+            # Расширенная статистика
+            stats_clicks = purchased.get("stats_clicks", 0)
+            stats_rub = purchased.get("stats_total_rubles", 0)
+            last_active = user.get("last_active_date", "???")
+
+            text = (
+                f"👤 ПРОФИЛЬ АДЕПТА: {target}\n"
+                f"Имя: {user.get('first_name', '???')}\n"
+                f"Баланс: {user.get('balance', 0)} ✨\n"
+                f"Потрачено: {stats_rub} RUB\n"
+                f"Активность: {stats_clicks} кликов\n"
+                f"Скины: {', '.join(skins) if skins else 'нет'}\n"
+                f"Услуги: {sum(1 for k, v in purchased.items() if v is True and k not in ['first_name', 'sex_val', 'conversion_step'])}\n"
+                f"Full Chart: {'✅' if has_full else '❌'}\n"
+                f"Зарегистрирован: {user.get('created_at', '???')}\n"
+                f"Последний вход: {last_active}"
+            )
+            kb = Keyboard(inline=True)
+            kb.add(Callback("⚡️ БАЛАНС", payload={"cmd": "admin_user_op", "op": "edit_balance", "target": target}), color=KeyboardButtonColor.PRIMARY)
+            kb.row()
+            kb.add(Callback("👑 FULL UNLOCK", payload={"cmd": "admin_user_op", "op": "full_unlock", "target": target}), color=KeyboardButtonColor.POSITIVE)
+            kb.row()
+            kb.add(Callback("🎁 КАРТА", payload={"cmd": "admin_user_op", "op": "give_card_start", "target": target}), color=KeyboardButtonColor.SECONDARY)
+            kb.row()
+            kb.add(Callback("⬅️ К СПИСКУ", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.SECONDARY)
+            await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
+        elif op == "edit_balance":
             await set_fsm_state(vk_id, json.dumps({"step": "admin_user_edit_balance", "target": target, "conv_id": conversation_message_id}))
             await bot.api.messages.send(peer_id=peer_id, message=f"Введите НОВОЕ значение баланса для {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=0)
         elif op == "full_unlock":
@@ -332,22 +388,8 @@ async def admin_fsm_handler(message: Message):
     if step == "admin_user_search":
         try:
             target_id = int(message.text.strip())
-            user = await get_user(target_id)
-            if not user:
-                await message.answer("Адепт не найден в матрице.")
-                return
             await set_fsm_state(vk_id, "")
-            purchased, skins, has_full = user.get("purchased_sections", {}), user.get("purchased_skins", []), user.get("has_full_chart", False)
-            text = (f"👤 ПРОФИЛЬ АДЕПТА: {target_id}\nИмя: {user.get('first_name', '???')}\nБаланс: {user.get('balance', 0)} ✨\nСкины: {', '.join(skins) if skins else 'нет'}\nУслуги: {sum(1 for v in purchased.values() if v is True)}\nFull Chart: {'✅' if has_full else '❌'}\nЗарегистрирован: {user.get('created_at', '???')}")
-            kb = Keyboard(inline=True)
-            kb.add(Callback("⚡️ БАЛАНС", payload={"cmd": "admin_user_op", "op": "edit_balance", "target": target_id}), color=KeyboardButtonColor.PRIMARY)
-            kb.row()
-            kb.add(Callback("👑 FULL UNLOCK", payload={"cmd": "admin_user_op", "op": "full_unlock", "target": target_id}), color=KeyboardButtonColor.POSITIVE)
-            kb.row()
-            kb.add(Callback("🎁 КАРТА", payload={"cmd": "admin_user_op", "op": "give_card_start", "target": target_id}), color=KeyboardButtonColor.SECONDARY)
-            kb.row()
-            kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.SECONDARY)
-            await ghost_edit(bot.api, message.peer_id, text, keyboard=kb.get_json(), conversation_message_id=conv_id)
+            await process_admin_cmd(vk_id, message.peer_id, {"cmd": "admin_user_op", "op": "view_profile", "target": target_id}, conversation_message_id=conv_id)
         except ValueError: await message.answer("Введите корректный числовой ID.")
     elif step == "admin_user_edit_balance":
         try:

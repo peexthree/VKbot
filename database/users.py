@@ -62,3 +62,14 @@ async def get_user_count():
                     return int(content_range.split("/")[-1])
     except Exception as e: logger.error(f"Error in get_user_count: {e}")
     return 0
+
+async def get_users_paginated(limit: int = 10, offset: int = 0):
+    if not URL or not KEY or core.session is None: return []
+    headers = HEADERS.copy()
+    headers["Range"] = f"{offset}-{offset + limit - 1}"
+    try:
+        async with core.session.get(f"{URL}/rest/v1/{TABLE_NAME}?select=*&order=created_at.desc", headers=headers) as r:
+            if r.status in (200, 206):
+                return await r.json()
+    except Exception as e: logger.error(f"Error in get_users_paginated: {e}")
+    return []
