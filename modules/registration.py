@@ -9,12 +9,12 @@ from cache import acquire_lock, release_lock, redis_client
 from database import (
     create_user,
     get_user,
-    get_user_state,
     set_user_state,
     update_user,
 )
 from modules.bot_init import bot
 from modules.utils import (
+    get_fsm_step,
     start_dynamic_typing,
     stop_dynamic_typing,
     ghost_edit,
@@ -220,15 +220,11 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
 
 # ==================== ОЖИДАНИЕ ДАННЫХ РОЖДЕНИЯ ====================
 async def is_waiting_for_onboarding_data(message: Message) -> bool:
-    state = await get_user_state(message.from_id)
-    if not state: return False
-    try:
-        data = json.loads(state)
-        step = data.get("step", "")
-    except Exception:
-        step = state
-    return step == "waiting_for_onboarding_data"
-
+    if not message.text: return False
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар"]: return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_for_onboarding_data"
 
 @labeler.message(func=is_waiting_for_onboarding_data)
 async def process_onboarding_data(message: Message):

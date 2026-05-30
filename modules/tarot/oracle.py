@@ -11,7 +11,8 @@ from modules.utils import (
 from cache import acquire_lock, release_lock, get_tarot_names
 
 async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock: bool = False, **kwargs):
-    if not skip_lock and not await acquire_lock(vk_id): return
+    lock_key = f"oracle_final:{vk_id}"
+    if not skip_lock and not await acquire_lock(lock_key): return
     try:
         conv_msg_id = kwargs.get("conversation_message_id")
         message_id = kwargs.get("message_id")
@@ -88,4 +89,4 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         else: await bot.api.messages.send(peer_id=vk_id, message=err, random_id=0)
     finally:
         await stop_dynamic_typing(vk_id)
-        if not skip_lock: await release_lock(vk_id)
+        if not skip_lock: await release_lock(lock_key)
