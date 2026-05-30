@@ -8,9 +8,27 @@ from .daily import card_of_day_logic
 labeler = BotLabeler()
 
 async def is_waiting_oracle_question(message: Message) -> bool:
-    if message.text:
-        if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
-        if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар", "админ панель"]: return False
+    if not message.text: return False
+
+    # Игнорируем технические команды и точные совпадения с кнопками меню
+    text_lower = message.text.lower().strip()
+    ignored_commands = [
+        "начать", "start", "/start",
+        "главное меню", "🏠 главное меню", "🏠 в меню", "🏠 в в главное меню",
+        "профиль", "👤 профиль", "👤 мой профиль",
+        "услуги", "🔮 услуги", "🔮 все услуги",
+        "гримуар", "📖 гримуар", "📜 мои разборы",
+        "админ панель", "⚙️ консоль", "🛠️ админ-консоль",
+        "карта дня", "🃏 карта дня",
+        "путеводитель", "🧭 путеводитель",
+        "мой круг", "👥 мой круг",
+        "баланс", "✨ баланс энергии",
+        "настройки", "⚙️ настройки",
+        "совместимость", "❤️ совместимость",
+        "хиромантия", "✨ хиромантия"
+    ]
+    if text_lower in ignored_commands: return False
+
     state = await get_fsm_step(message.from_id)
     return state is not None and state.get("step") == "waiting_oracle_question"
 

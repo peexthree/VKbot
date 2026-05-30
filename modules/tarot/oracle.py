@@ -63,12 +63,12 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
                 unlocked[cid] = sig if sig else "Первое касание"
 
         await update_user(vk_id, {"unlocked_cards": unlocked, "total_cards_received": user.get("total_cards_received", 0) + 3})
-        kb_json = await get_sections_keyboard(vk_id, user)
-        try:
-            kb_data = json.loads(kb_json)
-            if "buttons" in kb_data: kb_data["buttons"].insert(0, [{"action": {"type": "callback", "payload": json.dumps({"cmd": "gen_pdf", "section": "oracle", "card": str(card_ids[0]) if card_ids else ""}), "label": "📜 ПОЛНЫЙ PDF-ОТЧЕТ"}, "color": "positive"}])
-            kb_json = json.dumps(kb_data, ensure_ascii=False)
-        except: pass
+
+        from modules.keyboards import vertical_kb, KeyboardButtonColor
+        kb_json = vertical_kb([
+            ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": "oracle", "card": str(card_ids[0]) if card_ids else ""}, KeyboardButtonColor.POSITIVE),
+            ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+        ])
 
         att = ",".join(attachments) if attachments else None
         # Для Оракула тоже шлем НОВЫМ сообщением, чтобы не затирать выбор карт

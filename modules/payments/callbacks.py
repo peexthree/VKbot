@@ -519,7 +519,7 @@ async def _message_event_handler_wrapped(event: dict):
             kb = Keyboard(inline=True)
             for _i, cid in enumerate(pool):
                 kb.add(Callback("🎴", payload={"oracle_card": cid}))
-                if (_i + 1) % 2 == 0:
+                if (_i + 1) % 2 == 0 and (_i + 1) < len(pool):
                     kb.row()
             await safe_edit(peer_id=peer_id, message="✨ ШАГ 3 ИЗ 3: ТВОЙ ВЫБОР ✨\nПрислушайся к интуиции и выбери 3 карты, которые откликаются тебе сейчас.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "global_cut":
@@ -597,13 +597,16 @@ async def _message_event_handler_wrapped(event: dict):
             if len(drawn) < 3:
                 state_dict["drawn_cards"] = drawn
                 await set_user_state(vk_id, json.dumps(state_dict))
+
+                # Фильтруем оставшиеся карты
+                remaining = [c for c in pool if c not in drawn]
+
                 kb, b_cnt = Keyboard(inline=True), 0
-                for c_id in pool:
-                    if c_id not in drawn:
-                        kb.add(Callback("🎴", payload={"oracle_card": c_id}))
-                        b_cnt += 1
-                        if b_cnt % 2 == 0:
-                            kb.row()
+                for c_id in remaining:
+                    kb.add(Callback("🎴", payload={"oracle_card": c_id}))
+                    b_cnt += 1
+                    if b_cnt % 2 == 0 and b_cnt < len(remaining):
+                        kb.row()
                 await safe_edit(peer_id=peer_id, message=f"Выбрано: {len(drawn)}/3...", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
             else:
                 await set_user_state(vk_id, "")
