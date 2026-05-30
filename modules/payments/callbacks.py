@@ -181,6 +181,19 @@ async def _message_event_handler_wrapped(event: dict):
                         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
                         await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="ДЛЯ АНАЛИЗА СОЮЗА НАПИШИ ИМЯ ПАРТНЕРА:")
                         return
+                    if target_section == "dream":
+                        await set_user_state(vk_id, json.dumps({"step": "waiting_dream_text"}))
+                        msg = (
+                            "✅ Оплата прошла.\n\n"
+                            "Расскажи мне свой сон подробным текстом.\n\n"
+                            "Можно добавить:\n"
+                            "- Когда приснился (дата/время)\n"
+                            "- Настроение после пробуждения\n"
+                            "- Любые важные детали\n\n"
+                            "Чем подробнее опишешь - тем точнее будет разбор."
+                        )
+                        await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message=msg)
+                        return
                     if target_section == "palmistry":
                         await set_user_state(vk_id, json.dumps({"step": "waiting_palmistry_photos"}))
                         msg = (
@@ -393,7 +406,7 @@ async def _message_event_handler_wrapped(event: dict):
             buy_type, key = payload.get("type"), payload.get("key")
             prices = {
                 "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
-                "synastry": 1500, "palmistry": 1200, "all": 3000, "oracle": 500, "antitaro": 500,
+                "synastry": 1500, "palmistry": 1200, "dream": 1000, "all": 3000, "oracle": 500, "antitaro": 500,
                 "oracle_upsell": 250,
                 "micro_insight": 100,
                 "destiny_card": 1500,
@@ -474,6 +487,24 @@ async def _message_event_handler_wrapped(event: dict):
             from modules.profile.views import get_seal_logic
             await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "grimoire_page": await show_grimoire_page(vk_id, peer_id, payload.get("page", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "dream_interpret_start":
+            user = await get_user(vk_id)
+            if user:
+                purchased = user.get("purchased_sections", {})
+                if purchased.get("dream"):
+                    await set_user_state(vk_id, json.dumps({"step": "waiting_dream_text"}))
+                    msg = (
+                        "Расскажи мне свой сон подробным текстом.\n\n"
+                        "Можно добавить:\n"
+                        "- Когда приснился (дата/время)\n"
+                        "- Настроение после пробуждения\n"
+                        "- Любые важные детали\n\n"
+                        "Чем подробнее опишешь - тем точнее будет разбор."
+                    )
+                    await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message=msg)
+                else:
+                    await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), is_catalog=True, target_key="dream")
+
         elif cmd == "view_card": await view_card_direct(vk_id, peer_id, str(payload.get("id")), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "support":
             from modules.support import support_handler_logic
@@ -493,7 +524,7 @@ async def _message_event_handler_wrapped(event: dict):
             buy_type, key = payload.get("type"), payload.get("key")
             prices = {
                 "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
-                "synastry": 1500, "palmistry": 1200, "all": 3000, "oracle": 500, "antitaro": 500,
+                "synastry": 1500, "palmistry": 1200, "dream": 1000, "all": 3000, "oracle": 500, "antitaro": 500,
                 "oracle_upsell": 250, "micro_insight": 100, "destiny_card": 1500,
                 "skin": 1500,
                 "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
