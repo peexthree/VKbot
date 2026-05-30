@@ -146,10 +146,10 @@ def confirmation_kb(action_payload: dict, cost: int) -> str:
 # --- Остальные клавиатуры (совместимость) ---
 
 def get_history_inline_keyboard(history: list, destiny_data: dict = None, page: int = 0) -> str:
-    """Клавиатура истории разборов (Гримуар) с пагинацией"""
+    """Клавиатура истории разборов с пагинацией"""
     kb = Keyboard(inline=True)
 
-    ITEMS_PER_PAGE = 5
+    ITEMS_PER_PAGE = 3
     # История отображается в обратном порядке (новые сверху)
     rev_history = history[::-1]
     total_items = len(rev_history)

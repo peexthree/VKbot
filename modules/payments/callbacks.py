@@ -286,7 +286,7 @@ async def _message_event_handler_wrapped(event: dict):
             await ghost_edit(bot.api, peer_id, "🔮 ТВОЯ НАТАЛЬНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb_json, attachment=att)
         elif cmd == "history_menu":
             from database import add_event
-            asyncio.create_task(add_event(vk_id, "grimoire_open"))
+            asyncio.create_task(add_event(vk_id, "history_open"))
             from modules.profile.views import show_history_logic
             await show_history_logic(vk_id=vk_id, peer_id=peer_id, page=payload.get("page", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "view_history":
