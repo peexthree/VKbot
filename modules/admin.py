@@ -175,9 +175,9 @@ async def show_admin_users(peer_id: int, conversation_message_id: int = None, pa
     )
 
     kb = Keyboard(inline=True)
-    # Пользователи: 2 в ряд (макс 2 ряда = 4 пользователя)
+    # Выводим по 2 адепта в ряд, чтобы влезть в лимиты VK (макс 6 рядов)
     for i, u in enumerate(users):
-        first_name = (u.get("first_name") or "???")[:10]
+        first_name = (u.get("first_name") or "???")[:12]
         vk_id = u.get("vk_id")
         kb.add(Callback(f"👤 {first_name}", payload={"cmd": "admin_user_op", "op": "view_profile", "target": vk_id, "page": page}), color=KeyboardButtonColor.PRIMARY)
         if (i + 1) % 2 == 0 and (i + 1) < len(users):
