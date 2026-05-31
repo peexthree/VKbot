@@ -1,4 +1,6 @@
 import json
+import random
+import string
 import datetime
 from loguru import logger
 from database import get_user_state, update_user
@@ -106,7 +108,7 @@ def calculate_user_rank(user: dict) -> tuple[int, str]:
     return level, rank
 
 def get_syndicate_rank(count: int) -> str:
-    """Возвращает ранг в Синдикате"""
+    """Возвращает ранг в системе"""
     if count >= 10: return "Теневой Архитектор"
     if count >= 5: return "Теневой Кардинал"
     if count >= 3: return "Мастер Вербовки"
@@ -134,3 +136,10 @@ def calculate_destiny_card(birth_date_str: str) -> int:
         s = sum(int(d) for d in str(s))
 
     return s
+
+def generate_shadow_cipher() -> str:
+    """Генерирует уникальный 6-значный теневой шифр"""
+    chars = string.ascii_uppercase + string.digits
+    # Исключаем похожие символы для удобства (O и 0, I и 1)
+    chars = chars.replace('O', '').replace('0', '').replace('I', '').replace('1', '')
+    return ''.join(random.choice(chars) for _ in range(6))

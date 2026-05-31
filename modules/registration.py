@@ -84,9 +84,10 @@ async def start_handler(message: Message, skip_lock: bool = False):
         return await back_to_main_menu(message)
 
     # Проверка на реферальную ссылку (deep link)
-    if hasattr(message, "ref") and message.ref and message.ref.upper().startswith(("ПЕЧАТЬ-", "ПРОМО-")) and not skip_lock:
+    if hasattr(message, "ref") and message.ref and not skip_lock:
         from modules.profile.views import apply_promo_logic
         await apply_promo_logic(vk_id, message, override_ref=message.ref)
+        # Мы не делаем return здесь, потому что apply_promo_logic сам вызовет start_handler или back_to_main_menu
         return
 
     # Интерактивный старт

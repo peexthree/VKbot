@@ -242,8 +242,8 @@ def get_settings_inline_keyboard(vk_id: int = 0) -> str:
 def get_syndicate_inline_keyboard(is_promo_used: bool) -> str:
     # Оставляем старую логику для синдиката, но причесываем
     return vertical_kb([
-        ("📜 ПОЛУЧИТЬ ПЕЧАТЬ", {"cmd": "profile_action", "action": "get_seal"}, KeyboardButtonColor.PRIMARY),
-        *([("✒️ ВВЕСТИ ПЕЧАТЬ", {"cmd": "profile_action", "action": "enter_seal"}, KeyboardButtonColor.SECONDARY)] if not is_promo_used else []),
+        ("📜 МОЙ ШИФР", {"cmd": "profile_action", "action": "get_seal"}, KeyboardButtonColor.PRIMARY),
+        *([("✒️ ВВЕСТИ ШИФР", {"cmd": "profile_action", "action": "enter_seal"}, KeyboardButtonColor.SECONDARY)] if not is_promo_used else []),
         ("👤 В ПРОФИЛЬ", {"cmd": "profile_menu"}, KeyboardButtonColor.PRIMARY),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])

@@ -43,3 +43,15 @@ async def get_all_users():
             if r.status == 200: return await r.json()
     except Exception as e: logger.error(f"Ошибка в get_all_users: {e}")
     return []
+
+async def get_user_by_cipher(cipher: str):
+    """Поиск пользователя по теневому шифру"""
+    if not URL or not KEY or session is None: return None
+    try:
+        # Шифр хранится в purchased_sections -> shadow_cipher
+        async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?purchased_sections->>shadow_cipher=eq.{cipher.upper()}", headers=HEADERS) as r:
+            if r.status == 200:
+                data = await r.json()
+                if data: return data[0]
+    except Exception as e: logger.error(f"Ошибка в get_user_by_cipher: {e}")
+    return None

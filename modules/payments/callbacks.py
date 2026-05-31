@@ -398,7 +398,7 @@ async def _message_event_handler_wrapped(event: dict):
             elif action == "enter_seal":
                 await set_user_state(vk_id, "waiting_for_seal")
                 kb = Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
-                await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb.get_json())
+                await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Теневой Шифр, который тебе передал другой адепт:", keyboard=kb.get_json())
             elif action == "cancel_seal":
                 await set_user_state(vk_id, "")
                 await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)

@@ -75,6 +75,17 @@ async def is_waiting_change_city(message: Message) -> bool:
 async def process_change_city(message: Message):
     await process_change_city_logic(message.from_id, message)
 
+async def is_waiting_for_seal(message: Message) -> bool:
+    if not message.text: return False
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_for_seal"
+
+@labeler.message(func=is_waiting_for_seal)
+async def process_waiting_seal(message: Message):
+    # Если это не попало в apply_promo_handler, значит код неверный
+    await apply_promo_logic(message.from_id, message)
+
 @labeler.message(func=lambda m: m.text and m.text.lower() == "отменить подписку")
 async def settings_cancel_subscription(message: Message):
     await settings_cancel_subscription_logic(message.from_id, message)
@@ -140,11 +151,11 @@ async def syndicate_dashboard_handler(
 async def back_to_profile(message: Message):
     await show_profile_logic(message.from_id, message.peer_id, message)
 
-@labeler.message(func=lambda m: m.text and m.text.lower() in ['получить печать 📜'])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['получить печать 📜', 'мой шифр 📜'])
 async def get_seal_handler(message: Message):
-    await get_seal_logic(message.from_id, message)
+    await get_seal_logic(message.from_id, message.peer_id)
 
-@labeler.message(func=lambda m: m.text and m.text.lower() in ['ввести печать ✒'])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ['ввести печать ✒', 'ввести шифр ✒'])
 async def enter_seal_handler(message: Message):
     await enter_seal_logic(message.from_id, message)
 
@@ -152,7 +163,7 @@ async def enter_seal_handler(message: Message):
 async def cancel_seal_handler(message: Message):
     await cancel_seal_logic(message.from_id, message.peer_id, message)
 
-@labeler.message(func=lambda m: m.text and re.match(r"(?i)^(ПРОМО|ПЕЧАТЬ)-\d+$", m.text.strip()))
+@labeler.message(func=lambda m: m.text and re.match(r"(?i)^([A-Z2-9]{6}|(ПРОМО|ПЕЧАТЬ)-\d+)$", m.text.strip().upper()))
 async def apply_promo_handler(message: Message):
     await apply_promo_logic(message.from_id, message)
 
