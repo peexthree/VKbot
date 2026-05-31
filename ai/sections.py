@@ -16,10 +16,17 @@ async def extract_tags(text: str) -> list[str]:
         return []
     try:
         clean = clean_ai_json(res)
-        tags = json.loads(clean)
-        return tags if isinstance(tags, list) else []
+        data = json.loads(clean, strict=False)
+        if isinstance(data, list):
+            return data
+        elif isinstance(data, dict):
+            # Если ИИ вернул объект вместо списка, ищем список внутри
+            for val in data.values():
+                if isinstance(val, list):
+                    return val
+        return []
     except Exception as e:
-        logger.error(f"Ошибка парсинга тегов: {e}. Raw: {res[:200]}...")
+        logger.error(f"Ошибка парсинга тегов: {e}. Raw: {res}")
         return []
 
 async def extract_birth_data(text: str) -> dict | None:
@@ -34,9 +41,9 @@ async def extract_birth_data(text: str) -> dict | None:
         return None
     try:
         clean = clean_ai_json(res)
-        return json.loads(clean)
+        return json.loads(clean, strict=False)
     except Exception as e:
-        logger.error(f"Failed to parse birth data JSON: {e}. Raw: {res[:200]}...")
+        logger.error(f"Failed to parse birth data JSON: {e}. Raw: {res}")
         return None
 
 async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False, current_date: str = "", image_urls: list[str] = None) -> str | dict | None:
@@ -192,9 +199,9 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         if res:
             try:
                 clean = clean_ai_json(res)
-                return json.loads(clean)
+                return json.loads(clean, strict=False)
             except Exception as e:
-                logger.error(f"Failed to parse JSON from AI: {e}. Raw text: {res[:300]}...")
+                logger.error(f"Failed to parse JSON from AI: {e}. Raw text: {res}")
                 return {"text": res}
         return {"text": "Ошибка генерации."}
     else:
