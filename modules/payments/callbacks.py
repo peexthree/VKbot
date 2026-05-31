@@ -423,6 +423,16 @@ async def _message_event_handler_wrapped(event: dict):
             elif action == "syndicate": await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "grimoire": await show_grimoire_page(vk_id, peer_id, 0, skip_lock=True, conversation_message_id=conv_id)
             elif action == "tariffs": await show_tariffs(vk_id, peer_id, 0)
+            elif action == "get_seal":
+                from modules.profile.views import get_seal_logic
+                await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
+            elif action == "enter_seal":
+                await set_user_state(vk_id, "waiting_for_seal")
+                kb = Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
+                await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Теневой Шифр, который тебе передал другой адепт:", keyboard=kb.get_json())
+            elif action == "cancel_seal":
+                await set_user_state(vk_id, "")
+                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
         elif cmd == "hall_of_prophets":
             from modules.profile.settings import settings_choose_character_logic
             await settings_choose_character_logic(vk_id, peer_id, skip_lock=True, idx=0, edit_msg_id=obj.get("conversation_message_id"))
@@ -452,16 +462,6 @@ async def _message_event_handler_wrapped(event: dict):
                 })
             )
             return
-        elif action == "get_seal":
-            from modules.profile.views import get_seal_logic
-            await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
-        elif action == "enter_seal":
-            await set_user_state(vk_id, "waiting_for_seal")
-            kb = Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
-            await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Теневой Шифр, который тебе передал другой адепт:", keyboard=kb.get_json())
-        elif action == "cancel_seal":
-            await set_user_state(vk_id, "")
-            await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
         elif cmd == "buy":
             buy_type, key = payload.get("type"), payload.get("key")
             prices = {
