@@ -65,7 +65,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
             )
 
             if json_mode:
-                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}\nОтветь строго в формате JSON."
+                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}\nВерни ТОЛЬКО валидный JSON. Все переносы строк внутри строковых полей должны быть экранированы как \\\\n. Не используй реальные переносы строк внутри JSON-строк."
             else:
                 final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}"
 
@@ -147,6 +147,19 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
 def clean_ai_json(raw: str) -> str:
     if not raw:
         return raw
+    # Убираем markdown блоки
     cleaned = re.sub(r'```(?:json)?', '', raw, flags=re.IGNORECASE).strip()
     cleaned = cleaned.strip('`').strip()
+
+    # Попытка найти JSON блок если есть лишний текст
+    if not (cleaned.startswith('{') or cleaned.startswith('[')):
+        match = re.search(r'([\[{].*[\]}])', cleaned, re.DOTALL)
+        if match:
+            cleaned = match.group(1)
+
+    # Очистка от управляющих символов, которые ломают JSON (кроме легальных пробельных)
+    # Оставляем \n \r \t но json.loads(strict=False) с ними справится лучше
+    # Но некоторые невидимые символы лучше вычистить
+    cleaned = re.sub(r'[\x00-\x1F\x7F-\x9F]', lambda m: m.group() if m.group() in '\n\r\t' else '', cleaned)
+
     return cleaned

@@ -154,12 +154,18 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
     await ghost_edit(bot.api, peer_id, stats_text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_users(peer_id: int, conversation_message_id: int = None, page: int = 0):
-    """Раздел управления пользователями с пагинацией"""
+    """Раздел управления пользователями с пагинацией (4 на страницу, 2 в ряд)"""
     limit = 4
     offset = page * limit
     users = await get_users_paginated(limit=limit, offset=offset)
     total_users = await get_user_count()
-    total_pages = (total_users + limit - 1) // limit if total_users > 0 else 1
+    total_pages = max(1, (total_users + limit - 1) // limit)
+
+    # Корректировка страницы если она вышла за пределы
+    if page >= total_pages and total_pages > 0:
+        page = total_pages - 1
+        offset = page * limit
+        users = await get_users_paginated(limit=limit, offset=offset)
 
     text = (
         "👥 УПРАВЛЕНИЕ АДЕПТАМИ\n\n"
@@ -171,29 +177,30 @@ async def show_admin_users(peer_id: int, conversation_message_id: int = None, pa
     kb = Keyboard(inline=True)
     # Выводим по 2 адепта в ряд, чтобы влезть в лимиты VK (макс 6 рядов)
     for i, u in enumerate(users):
-        first_name = u.get("first_name", "???")
+        first_name = (u.get("first_name") or "???")[:12]
         vk_id = u.get("vk_id")
-        # Ограничиваем длину имени для кнопки
-        label = f"👤 {first_name[:12]}"
-        kb.add(Callback(label, payload={"cmd": "admin_user_op", "op": "view_profile", "target": vk_id}), color=KeyboardButtonColor.PRIMARY)
-        if i % 2 == 1:
+        kb.add(Callback(f"👤 {first_name}", payload={"cmd": "admin_user_op", "op": "view_profile", "target": vk_id, "page": page}), color=KeyboardButtonColor.PRIMARY)
+        if (i + 1) % 2 == 0 and (i + 1) < len(users):
             kb.row()
 
-    if users and len(users) % 2 != 0:
+    if len(users) > 0:
         kb.row()
 
-    # Пагинация (1 ряд)
+    # Пагинация (ряд 3)
     if total_pages > 1:
         if page > 0:
-            kb.add(Callback("⬅️", payload={"cmd": "admin_nav", "menu": "users", "page": page - 1}), color=KeyboardButtonColor.SECONDARY)
+            kb.add(Callback("⬅️ ПРЕД", payload={"cmd": "admin_nav", "menu": "users", "page": page - 1}), color=KeyboardButtonColor.SECONDARY)
         if page < total_pages - 1:
-            kb.add(Callback("➡️", payload={"cmd": "admin_nav", "menu": "users", "page": page + 1}), color=KeyboardButtonColor.SECONDARY)
+            kb.add(Callback("СЛЕД ➡️", payload={"cmd": "admin_nav", "menu": "users", "page": page + 1}), color=KeyboardButtonColor.SECONDARY)
         kb.row()
 
+    # Ряд 4
     kb.add(Callback("🔍 ПОИСК", payload={"cmd": "admin_cmd", "action": "search_user_start"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("⚡️ ЭНЕРГИЯ", payload={"cmd": "admin_cmd", "action": "mass_energy_start"}), color=KeyboardButtonColor.SECONDARY)
+    # Ряд 5
+    kb.add(Callback("⚡️ МАСС. ЭНЕРГИЯ", payload={"cmd": "admin_cmd", "action": "mass_energy_start"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
+    # Ряд 6
     kb.add(Callback("⬅️ В МЕНЮ", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
@@ -335,6 +342,7 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
                 await bot.api.messages.send(peer_id=peer_id, message="Адепт не найден.", random_id=0)
                 return
             purchased, skins, has_full = user.get("purchased_sections", {}), user.get("purchased_skins", []), user.get("has_full_chart", False)
+            current_page = payload.get("page", 0)
 
             # Расширенная статистика
             stats_clicks = purchased.get("stats_clicks", 0)
@@ -354,36 +362,45 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
                 f"Последний вход: {last_active}"
             )
             kb = Keyboard(inline=True)
-            kb.add(Callback("⚡️ БАЛАНС", payload={"cmd": "admin_user_op", "op": "edit_balance", "target": target}), color=KeyboardButtonColor.PRIMARY)
+            kb.add(Callback("⚡️ БАЛАНС", payload={"cmd": "admin_user_op", "op": "edit_balance", "target": target, "page": current_page}), color=KeyboardButtonColor.PRIMARY)
+            kb.add(Callback("✉️ НАПИСАТЬ", payload={"cmd": "admin_user_op", "op": "direct_msg_start", "target": target, "page": current_page}), color=KeyboardButtonColor.PRIMARY)
             kb.row()
-            kb.add(Callback("👑 FULL UNLOCK", payload={"cmd": "admin_user_op", "op": "full_unlock", "target": target}), color=KeyboardButtonColor.POSITIVE)
+            kb.add(Callback("👑 FULL UNLOCK", payload={"cmd": "admin_user_op", "op": "full_unlock", "target": target, "page": current_page}), color=KeyboardButtonColor.POSITIVE)
             kb.row()
-            kb.add(Callback("🎁 КАРТА", payload={"cmd": "admin_user_op", "op": "give_card_start", "target": target}), color=KeyboardButtonColor.SECONDARY)
+            kb.add(Callback("🎁 КАРТА", payload={"cmd": "admin_user_op", "op": "give_card_start", "target": target, "page": current_page}), color=KeyboardButtonColor.SECONDARY)
             kb.row()
-            kb.add(Callback("⬅️ К СПИСКУ", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.SECONDARY)
+            kb.add(Callback("⬅️ К СПИСКУ", payload={"cmd": "admin_nav", "menu": "users", "page": current_page}), color=KeyboardButtonColor.SECONDARY)
             await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
+        elif op == "direct_msg_start":
+            curr_page = payload.get("page", 0)
+            await set_fsm_state(vk_id, json.dumps({"step": "admin_user_direct_message", "target": target, "conv_id": conversation_message_id, "page": curr_page}))
+            await bot.api.messages.send(peer_id=peer_id, message=f"📝 Введите сообщение для адепта {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=0)
+
         elif op == "edit_balance":
-            await set_fsm_state(vk_id, json.dumps({"step": "admin_user_edit_balance", "target": target, "conv_id": conversation_message_id}))
-            await bot.api.messages.send(peer_id=peer_id, message=f"Введите НОВОЕ значение баланса для {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=0)
+            curr_page = payload.get("page", 0)
+            await set_fsm_state(vk_id, json.dumps({"step": "admin_user_edit_balance", "target": target, "conv_id": conversation_message_id, "page": curr_page}))
+            await bot.api.messages.send(peer_id=peer_id, message=f"Введите НОВОЕ значение баланса для {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=0)
         elif op == "full_unlock":
             user = await get_user(target)
             if user:
+                curr_page = payload.get("page", 0)
                 p = user.get("purchased_sections", {})
                 for s in ["sex", "money", "shadow", "final", "synastry", "antitaro"]: p[s] = True
                 await update_user(target, {"purchased_sections": p, "has_full_chart": True})
                 await bot.api.messages.send(peer_id=peer_id, message=f"✅ Все услуги разблокированы для {target}", random_id=0)
                 await bot.api.messages.send(peer_id=target, message="🌟 Магистр даровал вам полный доступ ко всем тайнам Синдиката!", random_id=0)
-                await show_admin_users(peer_id, conversation_message_id)
+                await show_admin_users(peer_id, conversation_message_id, page=curr_page)
         elif op == "give_card_start":
-            await set_fsm_state(vk_id, json.dumps({"step": "admin_user_give_card", "target": target, "conv_id": conversation_message_id}))
-            await bot.api.messages.send(peer_id=peer_id, message=f"Введите ID карты (0-77) для выдачи адепту {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=0)
+            curr_page = payload.get("page", 0)
+            await set_fsm_state(vk_id, json.dumps({"step": "admin_user_give_card", "target": target, "conv_id": conversation_message_id, "page": curr_page}))
+            await bot.api.messages.send(peer_id=peer_id, message=f"Введите ID карты (0-77) для выдачи адепту {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=0)
 
 async def _is_admin_fsm(message: Message) -> bool:
     if message.from_id != ADMIN_ID: return False
     fsm_data = await get_fsm_step(message.from_id)
     if not fsm_data: return False
-    return fsm_data.get("step") in ["admin_user_search", "admin_broadcast_message", "admin_energy_target", "admin_user_edit_balance", "admin_user_give_card"]
+    return fsm_data.get("step") in ["admin_user_search", "admin_broadcast_message", "admin_energy_target", "admin_user_edit_balance", "admin_user_give_card", "admin_user_direct_message"]
 
 @labeler.message(func=_is_admin_fsm)
 async def admin_fsm_handler(message: Message):
@@ -402,14 +419,16 @@ async def admin_fsm_handler(message: Message):
     elif step == "admin_user_edit_balance":
         try:
             target_id, new_bal = fsm_data.get("target"), int(message.text.strip())
+            curr_page = fsm_data.get("page", 0)
             await update_user(target_id, {"balance": new_bal})
             await set_fsm_state(vk_id, "")
             await message.answer(f"Баланс пользователя {target_id} изменен на {new_bal} ✨")
-            await show_admin_users(message.peer_id, conv_id)
+            await show_admin_users(message.peer_id, conv_id, page=curr_page)
         except: await message.answer("Введите число.")
     elif step == "admin_user_give_card":
         try:
             target_id, card_id = fsm_data.get("target"), str(int(message.text.strip()))
+            curr_page = fsm_data.get("page", 0)
             user = await get_user(target_id)
             if not user: return
             unlocked = user.get("unlocked_cards", {})
@@ -423,7 +442,7 @@ async def admin_fsm_handler(message: Message):
             await set_fsm_state(vk_id, "")
             await message.answer(f"✅ Карта {card_id} выдана адепту {target_id}")
             await bot.api.messages.send(peer_id=target_id, message=f"🎁 Магистр Синдиката даровал вам новую карту в Гримуар: {card_data.get('name')}!", random_id=0)
-            await show_admin_users(message.peer_id, conv_id)
+            await show_admin_users(message.peer_id, conv_id, page=curr_page)
         except: await message.answer("Введите число ID карты (0-77).")
     elif step == "admin_energy_target":
         parts = message.text.strip().split()
@@ -444,6 +463,16 @@ async def admin_fsm_handler(message: Message):
             except: pass
             await show_admin_users(message.peer_id, conv_id)
         except: await message.answer("Ошибка в числах.")
+    elif step == "admin_user_direct_message":
+        try:
+            target_id, text = fsm_data.get("target"), message.text.strip()
+            curr_page = fsm_data.get("page", 0)
+            await bot.api.messages.send(peer_id=target_id, message=f"💬 СООБЩЕНИЕ ОТ МАГИСТРА:\n\n{text}", random_id=0)
+            await set_fsm_state(vk_id, "")
+            await message.answer(f"✅ Сообщение успешно отправлено адепту {target_id}")
+            await process_admin_cmd(vk_id, message.peer_id, {"cmd": "admin_user_op", "op": "view_profile", "target": target_id, "page": curr_page}, conversation_message_id=conv_id)
+        except Exception as e:
+            await message.answer(f"❌ Ошибка при отправке: {e}")
     elif step == "admin_broadcast_message":
         text = message.text.strip()
         await set_fsm_state(vk_id, "")
