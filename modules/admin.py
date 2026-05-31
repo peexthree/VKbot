@@ -155,11 +155,11 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
 
 async def show_admin_users(peer_id: int, conversation_message_id: int = None, page: int = 0):
     """Раздел управления пользователями с пагинацией"""
-    limit = 5
+    limit = 4
     offset = page * limit
     users = await get_users_paginated(limit=limit, offset=offset)
     total_users = await get_user_count()
-    total_pages = (total_users + limit - 1) // limit
+    total_pages = (total_users + limit - 1) // limit if total_users > 0 else 1
 
     text = (
         "👥 УПРАВЛЕНИЕ АДЕПТАМИ\n\n"
@@ -169,13 +169,20 @@ async def show_admin_users(peer_id: int, conversation_message_id: int = None, pa
     )
 
     kb = Keyboard(inline=True)
-    for u in users:
+    # Выводим по 2 адепта в ряд, чтобы влезть в лимиты VK (макс 6 рядов)
+    for i, u in enumerate(users):
         first_name = u.get("first_name", "???")
         vk_id = u.get("vk_id")
-        kb.add(Callback(f"👤 {first_name} ({vk_id})", payload={"cmd": "admin_user_op", "op": "view_profile", "target": vk_id}), color=KeyboardButtonColor.PRIMARY)
+        # Ограничиваем длину имени для кнопки
+        label = f"👤 {first_name[:12]}"
+        kb.add(Callback(label, payload={"cmd": "admin_user_op", "op": "view_profile", "target": vk_id}), color=KeyboardButtonColor.PRIMARY)
+        if i % 2 == 1:
+            kb.row()
+
+    if users and len(users) % 2 != 0:
         kb.row()
 
-    # Пагинация
+    # Пагинация (1 ряд)
     if total_pages > 1:
         if page > 0:
             kb.add(Callback("⬅️", payload={"cmd": "admin_nav", "menu": "users", "page": page - 1}), color=KeyboardButtonColor.SECONDARY)
@@ -184,6 +191,7 @@ async def show_admin_users(peer_id: int, conversation_message_id: int = None, pa
         kb.row()
 
     kb.add(Callback("🔍 ПОИСК", payload={"cmd": "admin_cmd", "action": "search_user_start"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     kb.add(Callback("⚡️ ЭНЕРГИЯ", payload={"cmd": "admin_cmd", "action": "mass_energy_start"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
     kb.add(Callback("⬅️ В МЕНЮ", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
