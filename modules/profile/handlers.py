@@ -124,7 +124,7 @@ async def show_grimoire(message: Message):
     await set_user_state(message.from_id, "")
     await show_grimoire_page(message.from_id, message.peer_id, 0)
 
-@labeler.message(func=lambda m: m.text and re.match(r"(?i)^гримуар\s+\d+$", m.text.strip()))
+@labeler.message(func=lambda m: m.text and bool(re.match(r"(?i)^гримуар\s+\d+$", m.text.strip())))
 async def view_grimoire_card(message: Message):
     match = re.match(r"(?i)^гримуар\s+(\d+)$", message.text.strip())
     if not match: return
@@ -163,7 +163,7 @@ async def enter_seal_handler(message: Message):
 async def cancel_seal_handler(message: Message):
     await cancel_seal_logic(message.from_id, message.peer_id, message)
 
-@labeler.message(func=lambda m: m.text and re.match(r"(?i)^([A-Z2-9]{6}|(ПРОМО|ПЕЧАТЬ)-\d+)$", m.text.strip().upper()))
+@labeler.message(func=lambda m: m.text and bool(re.match(r"(?i)^([A-Z2-9]{6}|(ПРОМО|ПЕЧАТЬ)-\d+)$", m.text.strip().upper())))
 async def apply_promo_handler(message: Message):
     await apply_promo_logic(message.from_id, message)
 
