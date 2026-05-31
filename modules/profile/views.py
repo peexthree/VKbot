@@ -3,7 +3,7 @@ from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
 from modules.bot_init import bot
-from database import get_user, update_user, set_user_state, create_user
+from database import get_user, update_user, set_user_state
 from cache import acquire_lock, release_lock
 from modules.utils import (
     upload_local_photo,
