@@ -6,7 +6,7 @@ import os
 import random
 from loguru import logger
 from vkbottle import (
-    Callback, GroupEventType, Keyboard, KeyboardButtonColor
+    Callback, GroupEventType, Keyboard, KeyboardButtonColor, OpenLink
 )
 from vkbottle.bot import BotLabeler
 
@@ -481,8 +481,8 @@ async def _message_event_handler_wrapped(event: dict):
                 diff_rubles = math.ceil((amount_needed - balance) / 10)
                 kb = Keyboard(inline=True).add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}")).row()
                 kb.add(Callback("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE).row()
-                kb.add(Callback("📜 ПУБЛИЧНАЯ ОФЕРТА", payload={"cmd": "show_offer"}), color=KeyboardButtonColor.SECONDARY)
-                await ghost_edit(bot.api, peer_id=peer_id, message=f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\nТвой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\nСистема не может вскрыть этот слой матрицы.\n\nОплати недостающие {amount_needed - balance} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно.\n\nСовершая оплату, вы принимаете условия публичной оферты.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+                kb.add(OpenLink(link="https://vk.com/@taroanti-oferta", label="📜 ПУБЛИЧНАЯ ОФЕРТА"))
+                await ghost_edit(bot.api, peer_id=peer_id, message=f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\nТвой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\nСистема не может вскрыть этот слой матрицы.\n\nОплати недостающие {amount_needed - balance} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно.\n\nСовершая оплату, вы принимаете условия публичной оферты: https://vk.com/@taroanti-oferta", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
         elif cmd == "get_referral":
             from modules.profile.views import get_seal_logic
             await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
@@ -538,7 +538,7 @@ async def _message_event_handler_wrapped(event: dict):
                 keyboard=kb
             )
         elif cmd == "show_offer":
-            offer_url = "https://telegra.ph/PUBLICHNAYA-OFERTA-NA-OKAZANIE-INFORMACIONNO-RAZVLEKATELNYH-USLUG-05-04"
+            offer_url = "https://vk.com/@taroanti-oferta"
             await bot.api.messages.send(peer_id=peer_id, message=f"📜 ПУБЛИЧНАЯ ОФЕРТА:\n{offer_url}", random_id=0)
         elif cmd == "oracle_cut":
             state = await get_fsm_step(vk_id)
