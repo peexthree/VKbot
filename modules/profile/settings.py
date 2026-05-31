@@ -25,7 +25,7 @@ async def _send_skins_page(
         "fluffy": 3, "vanga": 3, "ai_mom": 3, "honest_oracle": 3, "saint_germain": 3, "pythia": 3, "freud": 3, "jack_sparrow": 3, "cleopatra": 3, "anubis": 3
     }
 
-    from modules.utils.consts import SKIN_DISPLAY_NAMES, SKIN_VISUALS
+    from modules.utils.consts import SKIN_DISPLAY_NAMES, SKIN_VISUALS, CHARACTER_DESCRIPTIONS
 
     ordered_skins = [
         "olesya", "sheps_alex", "messing",
@@ -33,97 +33,70 @@ async def _send_skins_page(
         "fluffy", "vanga", "ai_mom", "honest_oracle", "saint_germain", "pythia", "freud", "jack_sparrow", "cleopatra", "anubis"
     ]
 
-    ITEMS_PER_PAGE = 5
     total_items = len(ordered_skins)
-    total_pages = (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
-
-    page = idx
-    if page < 0:
-        page = total_pages - 1
-    elif page >= total_pages:
-        page = 0
-
-    start_idx = page * ITEMS_PER_PAGE
-    end_idx = start_idx + ITEMS_PER_PAGE
-    current_skins = ordered_skins[start_idx:end_idx]
+    page = idx % total_items
+    s_key = ordered_skins[page]
 
     from vkbottle import Keyboard, KeyboardButtonColor
 
-    elements = []
-    for s_key in current_skins:
-        name = SKIN_DISPLAY_NAMES.get(s_key, s_key)
-        filename = SKIN_VISUALS.get(s_key, "o.png")
-        cat = categories.get(s_key, 1)
+    name = SKIN_DISPLAY_NAMES.get(s_key, s_key)
+    filename = SKIN_VISUALS.get(s_key, "o.png")
+    cat = categories.get(s_key, 1)
+    is_owned = s_key in purchased_skins or cat == 1
 
-        is_owned = s_key in purchased_skins or cat == 1
+    # Формирование описания
+    desc_data = CHARACTER_DESCRIPTIONS.get(s_key, {})
+    full_name = desc_data.get("name", name)
+    concept = desc_data.get("concept", "").replace("—", "-")
+    style = desc_data.get("style", "").replace("—", "-")
+    effect = desc_data.get("effect", "").replace("—", "-")
 
-        title = name if is_owned else f"🔒 {name}"
-        desc = ""
+    # Чистим заголовки внутри текста, если они есть (они обычно начинаются с "Концепция:", "Tone of Voice:" и т.д.)
+    concept_text = concept.split(":", 1)[-1].strip() if ":" in concept else concept
+    style_text = style.split(":", 1)[-1].strip() if ":" in style else style
+    effect_text = effect.split(":", 1)[-1].strip() if ":" in effect else effect
 
-        button_payload = {}
-        button_label = ""
-        button_color = KeyboardButtonColor.SECONDARY
+    message_text = (
+        f"🎭 ЗАЛ ПРОРОКОВ [{page + 1}/{total_items}]\n\n"
+        f"👤 {full_name}\n\n"
+        f"✨ КОНЦЕПЦИЯ: {concept_text}\n\n"
+        f"🎭 СТИЛЬ: {style_text}\n\n"
+        f"⚡ ЭФФЕКТ: {effect_text}"
+    )
 
-        if is_owned:
-            button_label = "✅ Выбрать"
-            button_color = KeyboardButtonColor.POSITIVE
-            button_payload = {"cmd": "set_skin", "skin": s_key}
-        else:
-            if cat == 2:
-                button_label = "💎 Купить (1500 ✨)"
-                button_color = KeyboardButtonColor.PRIMARY
-                button_payload = {"cmd": "buy_skin", "skin": s_key}
-            elif cat == 3:
-                button_label = "🔒 Как открыть?"
-                button_color = KeyboardButtonColor.SECONDARY
-                button_payload = {"cmd": "skin_quest", "skin": s_key}
+    # Клавиатура
+    kb = Keyboard(inline=True)
 
-        photo = await upload_local_photo(bot.api, f"uslugi/{filename}", peer_id=vk_id)
-        if photo and photo.startswith("photo"):
-            p_id = photo.replace("photo", "")
-            # Убедимся что формат Owner_ID_Media_ID
-            element_buttons = [{"action": {"type": "callback", "label": button_label, "payload": json.dumps(button_payload)}, "color": button_color.value}]
-            elements.append({
-                "title": title,
-                "description": desc or " ",
-                "photo_id": p_id,
-                "buttons": element_buttons,
-                "action": {"type": "open_photo"}
-            })
+    # Row 1: Action
+    if is_owned:
+        kb.add(Callback("✅ ВЫБРАТЬ", payload={"cmd": "set_skin", "skin": s_key}), color=KeyboardButtonColor.POSITIVE)
+    else:
+        if cat == 2:
+            kb.add(Callback("💎 КУПИТЬ (1500 ✨)", payload={"cmd": "buy_skin", "skin": s_key}), color=KeyboardButtonColor.PRIMARY)
+        elif cat == 3:
+            kb.add(Callback("🔒 КАК ОТКРЫТЬ?", payload={"cmd": "skin_quest", "skin": s_key}), color=KeyboardButtonColor.SECONDARY)
 
-    # Используем carousel
-    carousel_template = {
-        "type": "carousel",
-        "elements": elements
-    }
+    # Row 2: Navigation
+    kb.row()
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "skins_page", "page": page - 1}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback(f"{page + 1}/{total_items}", payload={"cmd": "skins_page", "page": page}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("ДАЛЕЕ ➡️", payload={"cmd": "skins_page", "page": page + 1}), color=KeyboardButtonColor.SECONDARY)
 
-    nav_kb = Keyboard(inline=True)
-    if total_pages > 1:
-        nav_kb.add(Callback("⬅️", payload={"cmd": "skins_page", "page": page - 1}), color=KeyboardButtonColor.SECONDARY)
-        nav_kb.add(Callback(f"{page + 1}/{total_pages}", payload={"cmd": "skins_page", "page": page}), color=KeyboardButtonColor.SECONDARY)
-        nav_kb.add(Callback("Далее ➡️", payload={"cmd": "skins_page", "page": page + 1}), color=KeyboardButtonColor.SECONDARY)
-        nav_kb.row()
-    nav_kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    # Row 3: Settings
+    kb.row()
+    kb.add(Callback("⚙️ НАСТРОЙКИ", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.PRIMARY)
 
-    header_text = "🎭 ЗАЛ ПРОРОКОВ\n\nВыбери своего Проводника в мире эзотерики."
+    photo = await upload_local_photo(bot.api, f"uslugi/{filename}", peer_id=vk_id)
+
     try:
-        await bot.api.messages.send(
+        await ghost_edit(
+            bot.api,
             peer_id=peer_id,
-            message=header_text,
-            template=json.dumps(carousel_template),
-            keyboard=nav_kb.get_json(),
-            random_id=0
+            message=message_text,
+            attachment=photo,
+            keyboard=kb.get_json(),
+            conversation_message_id=edit_msg_id
         )
-        if edit_msg_id:
-            try:
-                await bot.api.messages.edit(
-                    peer_id=peer_id,
-                    message="Открываю Зал Пророков...",
-                    conversation_message_id=edit_msg_id,
-                    keyboard=Keyboard(inline=True).get_json()
-                )
-            except Exception:
-                pass
     except Exception as e:
         logger.error(f"Error sending skin page: {e}")
 

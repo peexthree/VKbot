@@ -54,6 +54,18 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
         return ""
     if filename in SKIN_ASSETS:
         filename = SKIN_ASSETS[filename]
+
+    # Умный поиск файла (корень cards/ или подпапка uslugi/)
+    if not os.path.exists(os.path.join("cards", filename)):
+        if "uslugi/" in filename:
+            alt_filename = filename.replace("uslugi/", "")
+            if os.path.exists(os.path.join("cards", alt_filename)):
+                filename = alt_filename
+        else:
+            alt_filename = f"uslugi/{filename}"
+            if os.path.exists(os.path.join("cards", alt_filename)):
+                filename = alt_filename
+
     cached = await get_cached_photo(filename)
     if cached:
         return cached
