@@ -1,5 +1,3 @@
-import asyncio
-import json
 import pytest
 from ai.sections import extract_tags, extract_birth_data, generate_section
 from ai.core import init_session, close_session
