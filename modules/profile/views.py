@@ -96,8 +96,15 @@ async def show_profile_logic(
             except Exception:
                 pass
 
-        birth_date = user.get("birth_date", "Неизвестно")
-        birth_city = user.get("birth_city", "Неизвестно")
+        # Получаем данные рождения из Redis
+        from cache import get_temp_birth_data
+        birth_data = await get_temp_birth_data(vk_id) or {}
+
+        b_date = birth_data.get("date", "⏳ Данные истекли")
+        b_city = birth_data.get("city", "")
+
+        birth_display = f"{b_date} — {b_city}" if b_city else b_date
+
         balance = int(user.get("balance", 0) or 0)
         visit_streak = user.get("visit_streak", 0)
 
@@ -138,7 +145,7 @@ async def show_profile_logic(
             "💳 ЛИЧНЫЙ ПРОФИЛЬ\n\n"
             f"👤 {first_name} | {rank}\n"
             f"💠 Уровень: {level} | 🔥 Стрик: {visit_streak} дней\n"
-            f"📍 {birth_date} — {birth_city}\n\n"
+            f"📍 {birth_display}\n\n"
             f"{destiny_info}"
             f"💬 {greeting}\n\n"
             f"📊 ТВОЯ СТАТИСТИКА:\n"

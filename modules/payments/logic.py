@@ -20,11 +20,26 @@ async def process_payment_and_generate(vk_id: int, section: str):
         user = await get_user(vk_id)
         if not user: return
 
+        # Проверка данных в Redis перед генерацией
+        from cache import get_temp_birth_data
+        birth_data = await get_temp_birth_data(vk_id)
+
+        # Для микро-инсайта, услуг и т.д. нам нужны данные
+        if not birth_data and section not in ["oracle", "antitaro"]:
+            await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "target_section": section, "is_upsell": (section == "oracle_upsell")}))
+            await bot.api.messages.send(
+                peer_id=vk_id,
+                message="🔮 ТВОЙ ЗВЕЗДНЫЙ КАНАЛ ВРЕМЕННО ЗАКРЫТ\n\nЧтобы я могла продолжить чтение твоей судьбы, мне нужно заново настроиться на твою энергию. Шепни мне свою ДАТУ рождения (например, 15.04.1990):",
+                random_id=0
+            )
+            return
+
         if section == "micro_insight":
             active_skin = user.get("active_skin", "olesya")
             from ai_service import generate_text
+            b_info = f"{birth_data.get('date')} {birth_data.get('city')}"
             prompt = (
-                f"Пользователь купил микро-инсайт. Его данные: {user.get('birth_date')} {user.get('birth_city')}. "
+                f"Пользователь купил микро-инсайт. Его данные: {b_info}. "
                 f"Теги: {user.get('tags', [])}. "
                 f"Дай ОДИН короткий, дерзкий и точный совет или предсказание на ближайший час. "
                 f"Стиль: {active_skin}. Максимум 2 предложения. Без жирного шрифта."
@@ -153,9 +168,17 @@ async def execute_generation(
                 if dream_text:
                     partner_date = dream_text.decode() if isinstance(dream_text, bytes) else dream_text
 
+            from cache import get_temp_birth_data
+            birth_data = await get_temp_birth_data(vk_id)
+            if not birth_data:
+                # В теории мы уже проверили это в process_payment_and_generate, но для надежности
+                await stop_dynamic_typing(peer_id)
+                await bot.api.messages.send(peer_id=peer_id, message="🛑 Твои данные рождения истекли. Пожалуйста, введи их заново.", random_id=0)
+                return
+
             res_data = await generate_section(
-                target_section, user.get("birth_date"), user.get("birth_time"),
-                user.get("birth_city"), user.get("core_profile", ""),
+                target_section, birth_data.get("date"), birth_data.get("time"),
+                birth_data.get("city"), user.get("core_profile", ""),
                 u_name, u_sex,
                 partner_name=partner_name, partner_date=partner_date, skin=active_skin,
                 card_id=card_id, card_data=card_data, tags=tags, return_json=True,
@@ -289,7 +312,7 @@ async def execute_generation(
                             finally:
                                 if os.path.exists(pdf_name): os.remove(pdf_name)
 
-                    b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
+                    b_info = f"{birth_data.get('date')} {birth_data.get('time')} {birth_data.get('city')}"
                     asyncio.create_task(auto_gen_pdf_task(vk_id, peer_id, display_text, "dream", u_name, b_info))
 
                 if isinstance(res_data, dict):

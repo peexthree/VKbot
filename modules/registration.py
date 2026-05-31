@@ -1,11 +1,15 @@
 import json
 import asyncio
+import re
 from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
 from ai_service import extract_birth_data, generate_text
-from cache import acquire_lock, release_lock, redis_client
+from cache import (
+    acquire_lock, release_lock, redis_client,
+    get_temp_birth_data, set_temp_birth_data, delete_temp_birth_data
+)
 from database import (
     create_user,
     get_user,
@@ -77,8 +81,8 @@ async def start_handler(message: Message, skip_lock: bool = False):
     vk_id = message.from_id
 
     user = await get_user(vk_id)
-    # Если пользователь уже прошел регистрацию (есть дата рождения), отправляем в главное меню
-    if user and user.get("birth_date"):
+    # Если пользователь уже зарегистрирован, отправляем в главное меню
+    if user and user.get("is_registered"):
         # Удаляем сообщение пользователя
         asyncio.create_task(delete_bot_message(bot.api, message.peer_id, cmid=message.conversation_message_id))
         return await back_to_main_menu(message)
@@ -123,11 +127,16 @@ async def start_handler(message: Message, skip_lock: bool = False):
         if not user:
             user = await create_user(
                 vk_id=vk_id,
-                birth_date=bdate or "",
-                birth_time="12:00",
-                birth_city=city or "",
                 first_name=first_name
             )
+            # Сохраняем начальные данные в Redis на 24 часа
+            if bdate or city:
+                await set_temp_birth_data(vk_id, {
+                    "date": bdate or "",
+                    "time": "12:00",
+                    "city": city or ""
+                })
+
             # Трекинг регистрации
             from database import add_event
             metadata = {"first_name": first_name}
@@ -183,21 +192,22 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
     try:
         user = await get_user(vk_id)
         if not user:
-            # Если по какой-то причине пользователя нет, создаем его (подстраховка)
-            user = await create_user(vk_id=vk_id, birth_date="", birth_time="12:00", birth_city="", first_name="")
+            user = await create_user(vk_id=vk_id, first_name="")
             if not user: return
 
         await update_user(vk_id, {"active_skin": skin})
 
-        bdate = user.get("birth_date") or "Не указана"
-        city = user.get("birth_city") or "Не указан"
+        # Получаем временные данные из Redis
+        temp_data = await get_temp_birth_data(vk_id) or {}
+        bdate = temp_data.get("date") or "Не указана"
+        city = temp_data.get("city") or "Не указан"
 
         await set_user_state(
             vk_id,
             json.dumps({
                 "step": "confirm_data",
                 "date": bdate,
-                "time": "12:00",
+                "time": temp_data.get("time", "12:00"),
                 "city": city
             })
         )
@@ -219,74 +229,95 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
     except Exception as e:
         logger.error(f"Error in process_onboarding_skin_logic: {e}")
 
-# ==================== ОЖИДАНИЕ ДАННЫХ РОЖДЕНИЯ ====================
-async def is_waiting_for_onboarding_data(message: Message) -> bool:
-    if not message.text: return False
-    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
-    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар"]: return False
+# ==================== ПОШАГОВЫЙ СБОР ДАННЫХ ====================
+
+async def is_waiting_birth_date(message: Message) -> bool:
+    if not message.text or any(message.text.startswith(e) for e in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
     state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "waiting_for_onboarding_data"
+    return state_dict is not None and state_dict.get("step") == "waiting_birth_date"
 
-@labeler.message(func=is_waiting_for_onboarding_data)
-async def process_onboarding_data(message: Message):
+@labeler.message(func=is_waiting_birth_date)
+async def process_birth_date(message: Message):
     vk_id = message.from_id
-    if not await acquire_lock(vk_id):
-        return
+    if not await acquire_lock(vk_id): return
     try:
-        last_mid = await get_last_bot_msg(vk_id)
-        if last_mid:
-            await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
-
-        user_text = message.text.strip()
-
-        await start_dynamic_typing(bot.api, vk_id)
-
-        data = await extract_birth_data(user_text)
-        await stop_dynamic_typing(vk_id)
-
-        if not data:
-            msg_id = await message.answer("Не удалось распознать данные. Напиши, пожалуйста, в формате: ДД.ММ.ГГГГ, Время, Город.")
-            await set_last_bot_msg(vk_id, msg_id)
+        date_text = message.text.strip()
+        # Простая валидация регуляркой
+        if not re.match(r"^\d{2}\.\d{2}\.\d{4}$", date_text):
+            await message.answer("Пожалуйста, введи дату в формате ДД.ММ.ГГГГ (например, 15.04.1990):")
             return
 
-        date = data.get("date", "")
-        time = data.get("time", "")
-        city = data.get("city", "")
+        state_dict = await get_fsm_step(vk_id) or {}
+        state_dict.update({"step": "waiting_birth_time", "date": date_text})
+        await set_user_state(vk_id, json.dumps(state_dict))
 
-        if not date or not time or not city:
-            msg_id = await message.answer("Мне нужно чуть больше точности для верного прогноза. Напиши в формате: ДД.ММ.ГГГГ, Время, Город.")
-            await set_last_bot_msg(vk_id, msg_id)
-            return
+        kb = Keyboard(inline=True)
+        kb.add(Callback("⏳ НЕ ПОМНЮ", payload={"cmd": "skip_birth_time"}), color=KeyboardButtonColor.SECONDARY)
 
-        await set_user_state(
-            vk_id,
-            json.dumps({
-                "step": "confirm_data",
-                "date": date,
-                "time": time,
-                "city": city
-            })
+        await message.answer(
+            f"☾ {date_text} — прекрасный день для начала пути.\n\n"
+            "Теперь шепни мне ВРЕМЯ своего рождения (например, 14:30).\n"
+            "Если время скрыто в тумане прошлого — просто нажми кнопку ниже.",
+            keyboard=kb.get_json()
         )
+    finally:
+        await release_lock(vk_id)
+
+async def is_waiting_birth_time(message: Message) -> bool:
+    if not message.text or any(message.text.startswith(e) for e in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_birth_time"
+
+@labeler.message(func=is_waiting_birth_time)
+async def process_birth_time(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id): return
+    try:
+        time_text = message.text.strip()
+        if not re.match(r"^\d{2}:\d{2}$", time_text):
+            await message.answer("Пожалуйста, введи время в формате ЧЧ:ММ (например, 14:30) или нажми кнопку 'НЕ ПОМНЮ':")
+            return
+
+        state_dict = await get_fsm_step(vk_id) or {}
+        state_dict.update({"step": "waiting_birth_city", "time": time_text})
+        await set_user_state(vk_id, json.dumps(state_dict))
+        await message.answer("🕯 Время зафиксировано. И последний штрих — в каком ГОРОДЕ ты увидел свой первый звездный свет?")
+    finally:
+        await release_lock(vk_id)
+
+async def is_waiting_birth_city(message: Message) -> bool:
+    if not message.text or any(message.text.startswith(e) for e in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_birth_city"
+
+@labeler.message(func=is_waiting_birth_city)
+async def process_birth_city(message: Message):
+    vk_id = message.from_id
+    if not await acquire_lock(vk_id): return
+    try:
+        city_text = message.text.strip()
+        state_dict = await get_fsm_step(vk_id) or {}
+        state_dict.update({
+            "step": "confirm_data",
+            "city": city_text
+        })
+        if "time" not in state_dict: state_dict["time"] = "12:00"
+
+        await set_user_state(vk_id, json.dumps(state_dict))
 
         kb = Keyboard(inline=True)
         kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
-        kb.add(Callback("🔄 ОШИБКА. ИСПРАВИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+        kb.add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
 
-        verification_text = (
-            f"✨ ТВОИ ДАННЫЕ ПРИНЯТЫ ✨\n\n"
-            f"☾ Дата: {date}\n"
-            f"☾ Время: {time}\n"
-            f"☾ Город: {city}\n\n"
+        text = (
+            f"✨ ТВОЯ ЗВЕЗДНАЯ КАРТА ПОЧТИ ГОТОВА ✨\n\n"
+            f"☾ Дата: {state_dict.get('date')}\n"
+            f"☾ Время: {state_dict.get('time')}\n"
+            f"☾ Город: {city_text}\n\n"
             "Посмотри внимательно, всё ли правильно? Точность важна для верного предсказания."
         )
-
-        msg_id = await message.answer(verification_text, keyboard=kb.get_json())
-        await set_last_bot_msg(vk_id, msg_id)
-
-    except Exception as e:
-        logger.error(f"Ошибка в process_onboarding_data: {e}")
-        await message.answer("Произошла ошибка. Попробуй ещё раз.")
+        await message.answer(text, keyboard=kb.get_json())
     finally:
         await release_lock(vk_id)
 
@@ -297,7 +328,10 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
     if not user: return
 
     active_skin = user.get("active_skin", "olesya")
-    core_profile = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
+
+    # Берем данные из Redis
+    temp_data = await get_temp_birth_data(vk_id) or {}
+    core_profile = f"{temp_data.get('date')} {temp_data.get('time')} {temp_data.get('city')}"
 
     # Ритуал интеграции
     ritual_steps = [

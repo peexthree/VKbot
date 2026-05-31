@@ -140,11 +140,11 @@ async def _message_event_handler_wrapped(event: dict):
         logger.info(f"message_event_handler triggered by vk_id={vk_id}, cmd={cmd}")
 
         if cmd == "retry_registration":
-            await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": obj.get("conversation_message_id")}))
-            await safe_edit(peer_id=peer_id, message="Понял. Попробуй еще раз. Напиши дату, время и город рождения максимально четко.", conversation_message_id=obj.get("conversation_message_id"))
+            await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}))
+            await safe_edit(peer_id=peer_id, message="Понял. Давай попробуем еще раз. Напиши свою ДАТУ рождения (например, 15.04.1990):", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "edit_onboarding_data":
-            await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": obj.get("conversation_message_id")}))
-            await safe_edit(peer_id=peer_id, message="Для калибровки профиля и начисления 700 Энергии звезд напиши свою дату, время и город рождения одним текстом (например: 15 мая 1990, 14:30, Казань).", conversation_message_id=obj.get("conversation_message_id"))
+            await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}))
+            await safe_edit(peer_id=peer_id, message="Хорошо, давай начнем сначала. Напиши свою ДАТУ рождения (например, 15.04.1990):", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "confirm_registration":
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "confirm_data": return
@@ -152,14 +152,27 @@ async def _message_event_handler_wrapped(event: dict):
             await set_user_state(vk_id, "")
             await safe_edit(peer_id=peer_id, message="✦ СИНХРОНИЗАЦИЯ С МАТРИЦЕЙ...", conversation_message_id=obj.get("conversation_message_id"))
 
-            # Начисляем бонусы и сохраняем данные
+            # Сохраняем в Redis на 24 часа
+            from cache import set_temp_birth_data
+            await set_temp_birth_data(vk_id, {
+                "date": date,
+                "time": time,
+                "city": city
+            })
+
+            # Начисляем бонусы и помечаем как зарегистрированного
             await update_user(vk_id, {
-                "birth_date": date,
-                "birth_time": time,
-                "birth_city": city,
+                "is_registered": True,
                 "balance": 700,
                 "welcome_bonus_received": True
             })
+
+            # Если мы пришли сюда из процесса покупки, переходим к сдвигу колоды
+            if target_section := state_dict.get("target_section"):
+                await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target_section}))
+                kb = Keyboard(inline=True).add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
+                await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="✨ ДАННЫЕ ПРИНЯТЫ. ТЕПЕРЬ ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ.\n\nЖми кнопку ниже.", keyboard=kb.get_json())
+                return
 
             from modules.registration import send_onboarding_teaser
             user = await get_user(vk_id)
@@ -318,7 +331,11 @@ async def _message_event_handler_wrapped(event: dict):
                 return
             await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=0)
             pdf_name = f"report_{vk_id}_{section}.pdf"
-            b_info = f"{user.get('birth_date')} {user.get('birth_time')} {user.get('birth_city')}"
+
+            # Берем данные рождения из Redis
+            from cache import get_temp_birth_data
+            temp_birth = await get_temp_birth_data(vk_id) or {}
+            b_info = f"{temp_birth.get('date', '')} {temp_birth.get('time', '')} {temp_birth.get('city', '')}"
             u_name = user.get("first_name") or user.get("purchased_sections", {}).get("first_name", "Адепт")
             card_data = get_card_data(card_id) if card_id else {}
             current_date_str = datetime.datetime.now().strftime("%d.%m.%Y")
@@ -367,10 +384,10 @@ async def _message_event_handler_wrapped(event: dict):
                 from modules.profile.handlers import show_advanced_settings
                 await show_advanced_settings(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "change_data":
-                await set_user_state(vk_id, json.dumps({"step": "waiting_for_onboarding_data", "conv_id": conv_id}))
+                await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": conv_id}))
                 kb = Keyboard(inline=True).add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
                 att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
-                await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="Введите новые данные в формате: ДД.ММ.ГГГГ, Время, Город.", keyboard=kb.get_json(), attachment=att)
+                await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="Для калибровки звездного пути напиши свою ДАТУ рождения (например, 15.04.1990):", keyboard=kb.get_json(), attachment=att)
             elif action == "change_skin": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=conv_id)
             elif action == "cancel_sub":
                 await update_user(vk_id, {"transit_sub_expires_at": None})
@@ -381,9 +398,19 @@ async def _message_event_handler_wrapped(event: dict):
                 att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
                 await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все ваши данные, покупки и прогресс в системе. Вы уверены?", keyboard=kb.get_json(), attachment=att)
             elif action == "confirm_reset":
-                await delete_user(vk_id)
+                # Очищаем только историю и теги
+                await update_user(vk_id, {
+                    "readings_history": [],
+                    "tags": [],
+                    "latest_reading_text": None,
+                    "latest_reading_data": {},
+                    "core_profile": ""
+                })
+                # Удаляем данные из Redis
+                from cache import delete_temp_birth_data
+                await delete_temp_birth_data(vk_id)
                 await set_user_state(vk_id, "")
-                await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="СИСТЕМА ОБНУЛЕНА. ТЫ ДЛЯ МЕНЯ ТЕПЕРЬ НИКТО. Напиши 'Начать' для старта с нуля.")
+                await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="Твои личные данные и история полностью стерты. Твой путь чист, но сила звезд (баланс) осталась с тобой.")
             elif action == "back_to_profile":
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
@@ -540,6 +567,12 @@ async def _message_event_handler_wrapped(event: dict):
         elif cmd == "show_offer":
             offer_url = "https://vk.com/@taroanti-oferta"
             await bot.api.messages.send(peer_id=peer_id, message=f"📜 ПУБЛИЧНАЯ ОФЕРТА:\n{offer_url}", random_id=0)
+        elif cmd == "skip_birth_time":
+            state_dict = await get_fsm_step(vk_id)
+            if not state_dict or state_dict.get("step") != "waiting_birth_time": return
+            state_dict.update({"step": "waiting_birth_city", "time": "12:00"})
+            await set_user_state(vk_id, json.dumps(state_dict))
+            await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="🕯 Время скрыто, но это не помешает нам. И последний штрих — в каком ГОРОДЕ ты увидел свой первый звездный свет?")
         elif cmd == "oracle_cut":
             state = await get_fsm_step(vk_id)
             if not state or state.get("step") != "oracle_cut": return

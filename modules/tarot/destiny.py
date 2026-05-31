@@ -70,16 +70,21 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
     await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
     try:
-        birth_date = user.get("birth_date", "")
-        if not birth_date:
+        from cache import get_temp_birth_data
+        birth_data = await get_temp_birth_data(vk_id)
+        if not birth_data:
             await stop_dynamic_typing(peer_id)
             # Return energy
             purchased = user.get("purchased_sections", {})
             purchased.pop("destiny_card_purchased", None)
             await update_user(vk_id, {"balance": balance + 1500, "purchased_sections": purchased})
-            await bot.api.messages.send(peer_id=peer_id, message="🛑 Ошибка: не указана дата рождения. Пожалуйста, заполните профиль в настройках (Энергия возвращена).", random_id=0)
+
+            # Переводим на ввод данных
+            await set_user_state(vk_id, '{"step": "waiting_birth_date", "target_section": "destiny_card"}')
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Для расчета КАРТЫ СУДЬБЫ мне нужно заново настроиться на твою энергию. Энергия возвращена. Пожалуйста, введи свою ДАТУ рождения (например, 15.04.1990):", random_id=0)
             return
 
+        birth_date = birth_data.get("date", "")
         card_index = calculate_destiny_card(birth_date)
         # Арканы 1-22 в нашем tarot_db.json соответствуют индексам 1-22 (Шут там 0, но по нашей логике он может быть 22)
         # Если Аркан 22 - это Шут (0), но в db он 0. Сделаем маппинг.
@@ -93,8 +98,8 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
 
         # Специальный промпт для карты судьбы
         res_data = await generate_section(
-            "destiny_card", birth_date, user.get("birth_time", ""),
-            user.get("birth_city", ""), user.get("core_profile", ""),
+            "destiny_card", birth_date, birth_data.get("time", ""),
+            birth_data.get("city", ""), user.get("core_profile", ""),
             user.get("first_name", "Адепт"), user.get("sex_val", 0),
             skin=active_skin, card_id=str(db_idx), card_data=card_data,
             return_json=True

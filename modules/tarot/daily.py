@@ -14,6 +14,17 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
     if not skip_lock and not await acquire_lock(vk_id): return
     try:
         conv_msg_id = kwargs.get("conversation_message_id")
+
+        # Проверка данных в Redis
+        from cache import get_temp_birth_data
+        birth_data = await get_temp_birth_data(vk_id)
+        if not birth_data:
+            await set_user_state(vk_id, '{"step": "waiting_birth_date", "target_section": "card_of_day"}')
+            msg = "🔮 ЧТОБЫ ПОЛУЧИТЬ КАРТУ ДНЯ, МНЕ НУЖНО НАСТРОИТЬСЯ НА ТВОЮ ЭНЕРГИЮ.\n\nШепни мне свою ДАТУ рождения (например, 15.04.1990):"
+            if conv_msg_id: await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=msg)
+            else: await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=0)
+            return
+
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conv_msg_id)
         user = await get_user(vk_id)
         if not user: return

@@ -46,6 +46,24 @@ async def set_fsm_state(vk_id: int | str, state_data: str, ttl: int = 86400):
 async def get_fsm_state(vk_id: int | str):
     return await redis_client.get(f"fsm:{vk_id}")
 
+async def set_temp_birth_data(vk_id: int | str, data: dict, ttl: int = 86400):
+    """Сохраняет данные рождения в Redis на 24 часа"""
+    await redis_client.set(f"birth:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl)
+
+async def get_temp_birth_data(vk_id: int | str) -> dict | None:
+    """Получает данные рождения из Redis"""
+    res = await redis_client.get(f"birth:{vk_id}")
+    if res:
+        try:
+            return json.loads(res)
+        except Exception:
+            return None
+    return None
+
+async def delete_temp_birth_data(vk_id: int | str):
+    """Удаляет данные рождения из Redis"""
+    await redis_client.delete(f"birth:{vk_id}")
+
 TAROT_NAMES_CACHE = None
 
 async def get_tarot_names() -> dict:
