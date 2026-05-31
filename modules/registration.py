@@ -5,7 +5,7 @@ from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
-from ai_service import generate_text
+from ai_service import generate_text, extract_birth_data
 from cache import (
     acquire_lock, release_lock, redis_client,
     get_temp_birth_data, set_temp_birth_data
@@ -231,6 +231,21 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
 
 # ==================== ПОШАГОВЫЙ СБОР ДАННЫХ ====================
 
+async def send_registration_confirmation(message: Message, state_dict: dict):
+    kb = Keyboard(inline=True)
+    kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+    kb.row()
+    kb.add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+
+    text = (
+        f"✨ ТВОЯ ЗВЕЗДНАЯ КАРТА ПОЧТИ ГОТОВА ✨\n\n"
+        f"☾ Дата: {state_dict.get('date')}\n"
+        f"☾ Время: {state_dict.get('time', '12:00')}\n"
+        f"☾ Город: {state_dict.get('city')}\n\n"
+        "Посмотри внимательно, всё ли правильно? Точность важна для верного предсказания."
+    )
+    await message.answer(text, keyboard=kb.get_json())
+
 async def is_waiting_birth_date(message: Message) -> bool:
     if not message.text or any(message.text.startswith(e) for e in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
     state_dict = await get_fsm_step(message.from_id)
@@ -241,25 +256,57 @@ async def process_birth_date(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
     try:
-        date_text = message.text.strip()
-        # Простая валидация регуляркой
-        if not re.match(r"^\d{2}\.\d{2}\.\d{4}$", date_text):
-            await message.answer("Пожалуйста, введи дату в формате ДД.ММ.ГГГГ (например, 15.04.1990):")
+        text = message.text.strip()
+        state_dict = await get_fsm_step(vk_id) or {}
+
+        # 1. Быстрая проверка регуляркой
+        if re.match(r"^\d{2}\.\d{2}\.\d{4}$", text):
+            state_dict.update({"step": "waiting_birth_time", "date": text})
+            await set_user_state(vk_id, json.dumps(state_dict))
+            kb = Keyboard(inline=True).add(Callback("⏳ НЕ ПОМНЮ", payload={"cmd": "skip_birth_time"}), color=KeyboardButtonColor.SECONDARY)
+            await message.answer(
+                f"☾ {text} — прекрасный день для начала пути.\n\n"
+                "Теперь шепни мне ВРЕМЯ своего рождения (например, 14:30).\n"
+                "Если время скрыто в тумане прошлого — просто нажми кнопку ниже.",
+                keyboard=kb.get_json()
+            )
             return
 
-        state_dict = await get_fsm_step(vk_id) or {}
-        state_dict.update({"step": "waiting_birth_time", "date": date_text})
-        await set_user_state(vk_id, json.dumps(state_dict))
+        # 2. Умное распознавание (Fallback на ИИ)
+        data = await extract_birth_data(text)
 
-        kb = Keyboard(inline=True)
-        kb.add(Callback("⏳ НЕ ПОМНЮ", payload={"cmd": "skip_birth_time"}), color=KeyboardButtonColor.SECONDARY)
+        if data.get("is_complete"):
+            state_dict.update({
+                "step": "confirm_data",
+                "date": data["date"],
+                "time": data["time"],
+                "city": data["city"]
+            })
+            await set_user_state(vk_id, json.dumps(state_dict))
+            await send_registration_confirmation(message, state_dict)
+        else:
+            found_date = data.get("date")
+            found_city = data.get("city")
+            found_time = data.get("time")
 
-        await message.answer(
-            f"☾ {date_text} — прекрасный день для начала пути.\n\n"
-            "Теперь шепни мне ВРЕМЯ своего рождения (например, 14:30).\n"
-            "Если время скрыто в тумане прошлого — просто нажми кнопку ниже.",
-            keyboard=kb.get_json()
-        )
+            if found_date: state_dict["date"] = found_date
+            if found_city: state_dict["city"] = found_city
+            if found_time and found_time != "12:00": state_dict["time"] = found_time
+
+            if found_date and not found_city:
+                state_dict["step"] = "waiting_birth_city"
+                await set_user_state(vk_id, json.dumps(state_dict))
+                await message.answer(f"Дату {found_date} я зафиксировала! ✨ А в каком городе ты родился?")
+            elif found_city and not found_date:
+                state_dict["step"] = "waiting_birth_date"
+                await set_user_state(vk_id, json.dumps(state_dict))
+                await message.answer(f"Город {found_city} принят. Теперь напиши дату своего рождения (ДД.ММ.ГГГГ):")
+            elif found_date and found_city:
+                state_dict["step"] = "confirm_data"
+                await set_user_state(vk_id, json.dumps(state_dict))
+                await send_registration_confirmation(message, state_dict)
+            else:
+                await message.answer("Я не смогла разобрать данные. Пожалуйста, напиши дату своего рождения в формате ДД.ММ.ГГГГ:")
     finally:
         await release_lock(vk_id)
 
@@ -273,15 +320,32 @@ async def process_birth_time(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
     try:
-        time_text = message.text.strip()
-        if not re.match(r"^\d{2}:\d{2}$", time_text):
-            await message.answer("Пожалуйста, введи время в формате ЧЧ:ММ (например, 14:30) или нажми кнопку 'НЕ ПОМНЮ':")
+        text = message.text.strip()
+        state_dict = await get_fsm_step(vk_id) or {}
+
+        if re.match(r"^\d{2}:\d{2}$", text):
+            state_dict.update({"step": "waiting_birth_city", "time": text})
+            await set_user_state(vk_id, json.dumps(state_dict))
+            await message.answer("🕯 Время зафиксировано. И последний штрих — в каком ГОРОДЕ ты увидел свой первый звездный свет?")
             return
 
-        state_dict = await get_fsm_step(vk_id) or {}
-        state_dict.update({"step": "waiting_birth_city", "time": time_text})
-        await set_user_state(vk_id, json.dumps(state_dict))
-        await message.answer("🕯 Время зафиксировано. И последний штрих — в каком ГОРОДЕ ты увидел свой первый звездный свет?")
+        # Fallback на ИИ
+        data = await extract_birth_data(text)
+        found_time = data.get("time")
+        found_city = data.get("city")
+
+        if found_time and found_time != "12:00":
+            state_dict["time"] = found_time
+            if found_city:
+                state_dict.update({"step": "confirm_data", "city": found_city})
+                await set_user_state(vk_id, json.dumps(state_dict))
+                await send_registration_confirmation(message, state_dict)
+            else:
+                state_dict["step"] = "waiting_birth_city"
+                await set_user_state(vk_id, json.dumps(state_dict))
+                await message.answer(f"Время {found_time} зафиксировано. А в каком городе ты родился?")
+        else:
+            await message.answer("Пожалуйста, введи время в формате ЧЧ:ММ (например, 14:30) или нажми кнопку 'НЕ ПОМНЮ':")
     finally:
         await release_lock(vk_id)
 
@@ -295,8 +359,15 @@ async def process_birth_city(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
     try:
-        city_text = message.text.strip()
+        text = message.text.strip()
         state_dict = await get_fsm_step(vk_id) or {}
+
+        # Для города мы всегда можем попробовать нормализацию через ИИ,
+        # но если это одно слово, можно и так принять.
+        # Однако ИИ может исправить "Питер" на "Санкт-Петербург", что нам нужно.
+        data = await extract_birth_data(text)
+        city_text = data.get("city") or text # Если ИИ не нашел, берем сырой текст
+
         state_dict.update({
             "step": "confirm_data",
             "city": city_text
@@ -304,20 +375,7 @@ async def process_birth_city(message: Message):
         if "time" not in state_dict: state_dict["time"] = "12:00"
 
         await set_user_state(vk_id, json.dumps(state_dict))
-
-        kb = Keyboard(inline=True)
-        kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
-        kb.row()
-        kb.add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
-
-        text = (
-            f"✨ ТВОЯ ЗВЕЗДНАЯ КАРТА ПОЧТИ ГОТОВА ✨\n\n"
-            f"☾ Дата: {state_dict.get('date')}\n"
-            f"☾ Время: {state_dict.get('time')}\n"
-            f"☾ Город: {city_text}\n\n"
-            "Посмотри внимательно, всё ли правильно? Точность важна для верного предсказания."
-        )
-        await message.answer(text, keyboard=kb.get_json())
+        await send_registration_confirmation(message, state_dict)
     finally:
         await release_lock(vk_id)
 
