@@ -212,7 +212,7 @@ async def syndicate_dashboard_logic(
         rank = get_syndicate_rank(syndicate_count)
 
         if syndicate_count >= 10:
-            progress_text = "Ты достиг абсолютного доминирования в Синдикате."
+            progress_text = "Ты достиг абсолютного доминирования в своем кругу."
         elif syndicate_count >= 5:
             left = 10 - syndicate_count
             progress_text = f"До статуса Теневой Архитектор осталось {left} адепт(а)."
@@ -226,12 +226,12 @@ async def syndicate_dashboard_logic(
             progress_text = "До статуса Вербовщик остался 1 адепт."
 
         text = (
-            "🕸 СИНДИКАТ 🕸\n\n"
+            "👥 МОЙ КРУГ 👥\n\n"
             f"Твой текущий ранг: {rank}\n"
-            f"Завербовано адептов: {syndicate_count}\n"
+            f"Призвано адептов: {syndicate_count}\n"
             f"Сгенерировано энергии: {syndicate_energy} ✨\n\n"
             f"{progress_text}\n\n"
-            "Расширяй свою сеть. За каждого нового адепта ты получаешь 500 чистой Энергии звезд."
+            "Расширяй свой круг влияния. За каждого нового адепта ты получаешь 500 чистой Энергии звезд."
         )
         is_promo_used = purchased.get("promo_used", False)
         kb_json = get_syndicate_keyboard(is_promo_used)
@@ -265,17 +265,28 @@ async def get_seal_logic(
         return
     try:
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
+        user = await get_user(vk_id)
+        if not user: return
+
+        purchased = user.get("purchased_sections", {})
+        cipher = purchased.get("shadow_cipher")
+        if not cipher:
+            from modules.utils.logic import generate_shadow_cipher
+            cipher = generate_shadow_cipher()
+            purchased["shadow_cipher"] = cipher
+            await update_user(vk_id, {"purchased_sections": purchased})
+
         group_id = "219181948"
         text = (
-            "🕸 ТВОЯ ПЕРСОНАЛЬНАЯ ПЕЧАТЬ 🕸\n"
-            "Используй её, чтобы расширить свой Синдикат.\n\n"
-            f"💠 КОД: ПЕЧАТЬ-{vk_id}\n\n"
-            "🔗 ПРЯМАЯ ССЫЛКА ДЛЯ ПРИЗЫВА:\n"
-            f"https://vk.com/im?sel=-{group_id}&text=ПЕЧАТЬ-{vk_id}\n\n"
+            "✨ ТВОЙ ТЕНЕВОЙ ШИФР ✨\n"
+            "Используй его, чтобы призвать новых адептов в систему.\n\n"
+            f"💠 ШИФР: {cipher}\n\n"
+            "🔗 ССЫЛКА ДЛЯ ПРИЗЫВА (vk.me):\n"
+            f"https://vk.me/club{group_id}?ref={cipher}\n\n"
             "------------------\n"
             "КАК ЭТО РАБОТАЕТ:\n"
-            "1. Отправь ссылку или код другу.\n"
-            "2. Он переходит и активирует Печать.\n"
+            "1. Передай шифр или ссылку другу.\n"
+            "2. Он активирует её при входе в систему.\n"
             "3. ТЫ получаешь +500 ✨ мгновенно.\n"
             "4. ОН получает +500 ✨ на старт.\n\n"
             "Призови 5 адептов, чтобы стать Теневым Кардиналом."
@@ -283,7 +294,7 @@ async def get_seal_logic(
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
         kb = Keyboard(inline=True)
-        kb.add(Callback("⬅️ В СИНДИКАТ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("⬅️ МОЙ КРУГ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
         kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
         await ghost_edit(
@@ -307,7 +318,7 @@ async def enter_seal_logic(vk_id: int, message: Message, skip_lock: bool = False
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
         kb_json = get_cancel_seal_keyboard()
-        await message.answer("Введи Печать (код), которую тебе передал Ведущий:", keyboard=kb_json)
+        await message.answer("Введи Теневой Шифр, который тебе передал другой адепт:", keyboard=kb_json)
     finally:
         await stop_dynamic_typing(message.peer_id)
         if not skip_lock:
@@ -326,52 +337,81 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
         text = override_ref.strip().upper() if override_ref else message.text.strip().upper()
-        match = re.match(r"^(ПРОМО|ПЕЧАТЬ)-(\d+)$", text)
-        if not match:
-            return
-        referrer_id = int(match.group(2))
+
+        # Поддержка старых кодов (на всякий случай) и новых шифров
+        match_old = re.match(r"^(ПРОМО|ПЕЧАТЬ)-(\d+)$", text)
+        cipher = None
+        referrer = None
+
+        if match_old:
+            referrer_id = int(match_old.group(2))
+            referrer = await get_user(referrer_id)
+        else:
+            # Пытаемся найти как теневой шифр (6 символов)
+            cipher = text.replace("REF=", "") # На случай если передали с префиксом ссылки
+            from database import get_user_by_cipher
+            referrer = await get_user_by_cipher(cipher)
+
         user = await get_user(vk_id)
         is_new = False
         if not user:
+            from database import create_user
             user = await create_user(vk_id, "", "", "")
             is_new = True
+
         purchased = user.get("purchased_sections", {})
         if purchased.get("promo_used"):
-            await message.answer("Твоя матрица уже была усилена Печатью ранее. Путь открыт лишь однажды. Выстраивай свой личный Синдикат, чтобы получить больше энергии.")
+            if not override_ref: # Не спамим если это автоматический deep link
+                await message.answer("Твоя матрица уже была усилена Шифром ранее. Путь открыт лишь однажды. Выстраивай свой личный круг, чтобы получить больше энергии.")
             return
-        if referrer_id == vk_id:
-            await message.answer("Ты не можешь использовать свою собственную Печать.")
-            return
-        referrer = await get_user(referrer_id)
+
         if not referrer:
-            await message.answer("Такой Печати не существует.")
+            if not override_ref:
+                await message.answer("Матрица не узнает этот шифр. Проверь символы или попроси актуальный код у друга.")
             return
+
+        referrer_id = referrer.get("vk_id")
+        if referrer_id == vk_id:
+            if not override_ref:
+                await message.answer("Ты не можешь использовать свой собственный Шифр. Матрица не терпит саморепликации.")
+            return
+
         user_balance = int(user.get("balance", 0) or 0) + 500
         referrer_balance = int(referrer.get("balance", 0) or 0) + 500
+
         purchased["promo_used"] = True
         await update_user(vk_id, {"balance": user_balance, "purchased_sections": purchased})
+
         ref_purchased = referrer.get("purchased_sections", {})
         ref_purchased["syndicate_count"] = ref_purchased.get("syndicate_count", 0) + 1
         ref_purchased["syndicate_energy"] = ref_purchased.get("syndicate_energy", 0) + 500
         await update_user(referrer_id, {"balance": referrer_balance, "purchased_sections": ref_purchased})
-        await message.answer(f"ПЕЧАТЬ АКТИВИРОВАНА! Тебе начислено 500 Энергии звезд. Твой баланс: {user_balance} Энергии звезд")
+
+        # Трекинг успешного использования шифра
+        from database import add_event
+        await add_event(vk_id, "referral_activated", {"referrer_id": referrer_id, "cipher": cipher or "old_style"})
+
+        await message.answer(f"✨ ШИФР ПРИНЯТ! ✨\nТебе начислено 500 Энергии звезд за вступление в круг. Твой баланс: {user_balance} ✨")
+
         if is_new:
             from modules.registration import start_handler
             await start_handler(message, skip_lock=True)
+        else:
+            # Если пользователь уже был, но просто ввел код - возвращаем в меню
+            from modules.registration import back_to_main_menu
+            await back_to_main_menu(message)
+
         try:
-            first_name = purchased.get("first_name")
-            if not first_name:
-                user_info = await bot.api.users.get(user_ids=[vk_id])
-                if user_info:
-                    first_name = user_info[0].first_name
-                else:
-                    first_name = "Адепт"
-            push_msg = f"Твой Синдикат растет! Пользователь {first_name} подключился к твоей сети. Зачислено 500 Энергии звезд."
+            user_info = await bot.api.users.get(user_ids=[vk_id])
+            first_name = user_info[0].first_name if user_info else "Адепт"
+
+            push_msg = f"🌟 Твой круг растет! Пользователь {first_name} активировал твой Теневой Шифр. Зачислено 500 Энергии звезд."
             if ref_purchased.get("syndicate_count", 0) == 5:
                 push_msg += "\n\nТвой ранг повышен до: Теневой Кардинал! Теперь тебе открыты скрытые возможности."
+
             await bot.api.messages.send(peer_id=referrer_id, message=push_msg, random_id=0)
         except Exception as e:
-            logger.error(f"Ignored Exception: {str(e)}")
+            logger.error(f"Push notification failed: {str(e)}")
     finally:
         await stop_dynamic_typing(message.peer_id)
         if not skip_lock:
@@ -630,11 +670,11 @@ async def show_guide_syndicate_logic(vk_id: int, peer_id: int, conversation_mess
     try:
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
         text = (
-            "🤝 СИНДИКАТ: СИЛА В ЕДИНСТВЕ\n\n"
-            "Твое влияние в системе измеряется количеством адептов в твоем Синдикате. В профиле ты найдешь свою персональную 'Печать'.\n\n"
+            "🤝 МОЙ КРУГ: СИЛА В ЕДИНСТВЕ\n\n"
+            "Твое влияние в системе измеряется количеством адептов в твоем кругу. В профиле ты найдешь свой персональный 'Теневой Шифр'.\n\n"
             "📈 ПРИВИЛЕГИИ:\n"
             "1. ОБЮДНЫЙ БОНУС: За каждого приглашенного ты и твой друг получаете по 500 ✨.\n"
-            "2. ИЕРАРХИЯ: Приглашай больше людей, чтобы повышать свой ранг в Синдикате.\n"
+            "2. ИЕРАРХИЯ: Призывай больше людей, чтобы повышать свой ранг в системе.\n"
             "3. РАНГИ:\n"
             "• Вербовщик (1 адепт)\n"
             "• Мастер Вербовки (3 адепта)\n"
