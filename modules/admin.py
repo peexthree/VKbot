@@ -154,11 +154,12 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
     await ghost_edit(bot.api, peer_id, stats_text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_users(peer_id: int, conversation_message_id: int = None, page: int = 0):
-    """Раздел управления пользователями с пагинацией (4 на страницу, 2 в ряд)"""
+    """Раздел управления пользователями с пагинацией"""
     limit = 4
     offset = page * limit
     users = await get_users_paginated(limit=limit, offset=offset)
     total_users = await get_user_count()
+ 
     total_pages = max(1, (total_users + limit - 1) // limit)
 
     # Корректировка страницы если она вышла за пределы
@@ -169,15 +170,16 @@ async def show_admin_users(peer_id: int, conversation_message_id: int = None, pa
 
     text = (
         "👥 УПРАВЛЕНИЕ АДЕПТАМИ\n\n"
-        f"Всего в матрице: {total_users}\n"
+        f"Всего в matrix: {total_users}\n"
         f"Страница: {page + 1} из {total_pages}\n\n"
         "Последние регистрации:"
     )
 
     kb = Keyboard(inline=True)
-    # Выводим по 2 адепта в ряд, чтобы влезть в лимиты VK (макс 6 рядов)
+    
+    # Пользователи: 2 в ряд (макс 2 ряда = 4 пользователя)
     for i, u in enumerate(users):
-        first_name = (u.get("first_name") or "???")[:12]
+        first_name = (u.get("first_name") or "???")[:10]
         vk_id = u.get("vk_id")
         kb.add(Callback(f"👤 {first_name}", payload={"cmd": "admin_user_op", "op": "view_profile", "target": vk_id, "page": page}), color=KeyboardButtonColor.PRIMARY)
         if (i + 1) % 2 == 0 and (i + 1) < len(users):
@@ -251,7 +253,6 @@ async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
     except Exception as e: log_text = f"Ошибка при чтении логов: {e}"
 
     # Ensure log_text is not too long to avoid VKAPIError_914 (Message is too long)
-    # The limit is normally ~4096, but we leave room for the header.
     if len(log_text) > 3500:
         log_text = log_text[-3500:]
 
