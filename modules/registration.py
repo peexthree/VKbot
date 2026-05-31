@@ -5,10 +5,10 @@ from loguru import logger
 from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
-from ai_service import extract_birth_data, generate_text
+from ai_service import generate_text
 from cache import (
     acquire_lock, release_lock, redis_client,
-    get_temp_birth_data, set_temp_birth_data, delete_temp_birth_data
+    get_temp_birth_data, set_temp_birth_data
 )
 from database import (
     create_user,

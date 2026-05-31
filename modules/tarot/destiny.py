@@ -1,6 +1,6 @@
 import datetime
 from loguru import logger
-from database import get_user, update_user
+from database import get_user, update_user, set_user_state
 from modules.bot_init import bot
 from modules.utils import (
     upload_local_photo, ghost_edit,

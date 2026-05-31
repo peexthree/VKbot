@@ -28,7 +28,7 @@ from vkbottle.tools.dev.keyboard.action import VKPay
 from cache import acquire_lock, check_throttle, release_lock, set_fsm_state, redis_client
 from cards_data import get_card_data
 from database import (
-    delete_user, get_user, set_user_state, update_user
+    get_user, set_user_state, update_user
 )
 from modules.bot_init import bot
 from modules.utils import (

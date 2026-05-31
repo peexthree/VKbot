@@ -217,7 +217,9 @@ async def main():
                                     await update_user(vk_id, {"purchased_sections": purchased})
                                 except Exception: pass
 
-                    if not user.get("birth_city"):
+                    from cache import get_temp_birth_data
+                    temp_birth = await get_temp_birth_data(vk_id)
+                    if not temp_birth or not temp_birth.get("city"):
                         return
                     expires_str = user.get("transit_sub_expires_at")
                     has_sub = False
@@ -245,9 +247,11 @@ async def main():
                         else:
                             gender_instruction = "ОБРАЩАЙСЯ К ПОЛЬЗОВАТЕЛЮ НЕЙТРАЛЬНО, БЕЗ УКАЗАНИЯ ПОЛА."
 
+                        # Добавляем данные рождения в промпт для точности
+                        b_info = f"Дата: {temp_birth.get('date')}, Время: {temp_birth.get('time')}, Город: {temp_birth.get('city')}."
                         prompt = (
                             f"Сгенерируй геймифицированный прогноз на день. "
-                            f"{gender_instruction} "
+                            f"{gender_instruction} Данные пользователя: {b_info}. "
                             f"Используй метафоры звезд, энергетических потоков и внутреннего света. "
                             f"В начале добавь шкалу энергии: '🌕 Энергия: [Случайное число 1-10]/10'. "
                             f"Укажи '✨ Фокус дня:' и '🌙 Уязвимость:'. "

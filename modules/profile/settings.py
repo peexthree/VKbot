@@ -3,11 +3,11 @@ from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
 from modules.bot_init import bot
-from database import get_user, update_user, set_user_state, delete_user
+from database import get_user, update_user, set_user_state
 from cache import acquire_lock, release_lock
-from modules.utils import SKIN_ASSETS, upload_local_photo, get_fsm_step, ghost_edit
+from modules.utils import SKIN_ASSETS, upload_local_photo, ghost_edit
 from modules.profile.keyboards import (
-    get_settings_keyboard, get_change_data_keyboard,
+    get_settings_keyboard,
     get_reset_confirm_keyboard
 )
 
