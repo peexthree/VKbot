@@ -11,7 +11,6 @@ from modules.utils import (
     start_dynamic_typing,
     stop_dynamic_typing,
     ghost_edit,
-    SKIN_ASSETS,
 )
 from modules.profile.keyboards import get_syndicate_keyboard, get_cancel_seal_keyboard, get_profile_keyboard
 

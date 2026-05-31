@@ -1,11 +1,11 @@
 import json
 from loguru import logger
-from vkbottle import Keyboard, KeyboardButtonColor, Callback
+from vkbottle import Callback
 from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state
 from cache import acquire_lock, release_lock
-from modules.utils import SKIN_ASSETS, upload_local_photo, ghost_edit
+from modules.utils import upload_local_photo, ghost_edit
 from modules.profile.keyboards import (
     get_settings_keyboard,
     get_reset_confirm_keyboard
@@ -47,9 +47,7 @@ async def _send_skins_page(
     end_idx = start_idx + ITEMS_PER_PAGE
     current_skins = ordered_skins[start_idx:end_idx]
 
-    from vkbottle.tools import TemplateElement
     from vkbottle import Keyboard, KeyboardButtonColor
-    import asyncio
 
     elements = []
     for s_key in current_skins:
@@ -107,7 +105,7 @@ async def _send_skins_page(
         nav_kb.row()
     nav_kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
-    header_text = f"🎭 ЗАЛ ПРОРОКОВ\n\nВыбери своего Проводника в мире эзотерики."
+    header_text = "🎭 ЗАЛ ПРОРОКОВ\n\nВыбери своего Проводника в мире эзотерики."
     try:
         await bot.api.messages.send(
             peer_id=peer_id,

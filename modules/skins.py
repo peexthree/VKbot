@@ -1,4 +1,3 @@
-import json
 from loguru import logger
 from modules.utils.consts import CHARACTER_DESCRIPTIONS, SKIN_VISUALS
 from modules.utils import upload_local_photo
