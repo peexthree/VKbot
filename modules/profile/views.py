@@ -79,11 +79,11 @@ async def show_profile_logic(
 
         # Фото текущего скина (маскот никогда не используется)
         active_skin = user.get("active_skin", "olesya")
-        skin_filename = SKIN_ASSETS.get(active_skin, "o.png")
+        from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES
+        skin_filename = "uslugi/" + SKIN_VISUALS.get(active_skin, "ol.jpeg")
         photo = await upload_local_photo(bot.api, skin_filename, peer_id=vk_id)
 
         # Определение отображаемого имени персонажа
-        from modules.utils.consts import SKIN_DISPLAY_NAMES
         skin_display_name = SKIN_DISPLAY_NAMES.get(active_skin, active_skin)
 
         # Данные
@@ -403,6 +403,10 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         ref_purchased["syndicate_count"] = ref_purchased.get("syndicate_count", 0) + 1
         ref_purchased["syndicate_energy"] = ref_purchased.get("syndicate_energy", 0) + 500
         await update_user(referrer_id, {"balance": referrer_balance, "purchased_sections": ref_purchased})
+
+        if ref_purchased["syndicate_count"] >= 5:
+            from modules.skins import unlock_skin
+            await unlock_skin(bot.api, referrer_id, "fluffy")
 
         # Трекинг успешного использования шифра
         from database import add_event

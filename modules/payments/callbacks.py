@@ -167,6 +167,10 @@ async def _message_event_handler_wrapped(event: dict):
                 "welcome_bonus_received": True
             })
 
+            if date and time and city:
+                from modules.skins import unlock_skin
+                await unlock_skin(bot.api, vk_id, "cleopatra")
+
             # Если мы пришли сюда из процесса покупки, переходим к сдвигу колоды
             if target_section := state_dict.get("target_section"):
                 await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target_section}))
@@ -419,16 +423,45 @@ async def _message_event_handler_wrapped(event: dict):
             elif action == "syndicate": await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "grimoire": await show_grimoire_page(vk_id, peer_id, 0, skip_lock=True, conversation_message_id=conv_id)
             elif action == "tariffs": await show_tariffs(vk_id, peer_id, 0)
-            elif action == "get_seal":
-                from modules.profile.views import get_seal_logic
-                await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
-            elif action == "enter_seal":
-                await set_user_state(vk_id, "waiting_for_seal")
-                kb = Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
-                await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Теневой Шифр, который тебе передал другой адепт:", keyboard=kb.get_json())
-            elif action == "cancel_seal":
-                await set_user_state(vk_id, "")
-                await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
+        elif cmd == "hall_of_prophets":
+            from modules.profile.settings import settings_choose_character_logic
+            await settings_choose_character_logic(vk_id, peer_id, skip_lock=True, idx=0, edit_msg_id=obj.get("conversation_message_id"))
+        elif cmd == "skins_page":
+            from modules.profile.settings import settings_choose_character_logic
+            await settings_choose_character_logic(vk_id, peer_id, skip_lock=True, idx=payload.get("page", 0), edit_msg_id=obj.get("conversation_message_id"))
+        elif cmd == "skin_quest":
+            from modules.skins import get_quest_text
+            quest_text = get_quest_text(payload.get("skin"))
+            await bot.api.messages.send_message_event_answer(
+                event_id=obj.get("event_id"),
+                user_id=vk_id,
+                peer_id=peer_id,
+                event_data=json.dumps({"type": "show_snackbar", "text": quest_text})
+            )
+            return
+        elif cmd == "share_click":
+            from modules.skins import unlock_skin
+            await unlock_skin(bot.api, vk_id, "jack_sparrow")
+            await bot.api.messages.send_message_event_answer(
+                event_id=obj.get("event_id"),
+                user_id=vk_id,
+                peer_id=peer_id,
+                event_data=json.dumps({
+                    "type": "open_link",
+                    "link": "https://vk.com/share.php?url=https://vk.com/club219181948"
+                })
+            )
+            return
+        elif action == "get_seal":
+            from modules.profile.views import get_seal_logic
+            await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
+        elif action == "enter_seal":
+            await set_user_state(vk_id, "waiting_for_seal")
+            kb = Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "profile_action", "action": "cancel_seal"}), color=KeyboardButtonColor.NEGATIVE)
+            await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Введи Теневой Шифр, который тебе передал другой адепт:", keyboard=kb.get_json())
+        elif action == "cancel_seal":
+            await set_user_state(vk_id, "")
+            await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True)
         elif cmd == "buy":
             buy_type, key = payload.get("type"), payload.get("key")
             prices = {
@@ -503,6 +536,10 @@ async def _message_event_handler_wrapped(event: dict):
                         for s in ["sex", "money", "shadow", "final"]: p[s] = True
                         updates["purchased_sections"], updates["has_full_chart"] = p, True
                     await update_user(vk_id, updates)
+
+                    from modules.skins import unlock_skin
+                    await unlock_skin(bot.api, vk_id, "saint_germain")
+
                     await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=0, keyboard=get_main_keyboard(vk_id))
             else:
                 diff_rubles = math.ceil((amount_needed - balance) / 10)

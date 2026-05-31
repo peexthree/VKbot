@@ -44,7 +44,7 @@ async def extract_birth_data(text: str) -> dict | None:
         f"Пользователь написал: '{text}'. "
         f"Вытащи дату рождения (DD.MM.YYYY), время (HH:MM) и город. "
         "Инструкции:\n"
-        "1. Если пользователь не указал время, по умолчанию ставь '12:00'. Время всегда приводи к формату HH:MM.\n"
+        "1. Если пользователь не указал время, ИИ жестко выставляет дефолт 12:00. Время всегда приводи к формату HH:MM.\n"
         "2. Приводи названия городов к официальному полному названию (например, 'Питер' -> 'Санкт-Петербург').\n"
         "3. Если критические данные (дата или город) отсутствуют, ставь для них значение null.\n"
         "4. Поле 'is_complete' должно быть true только если И дата, И город успешно извлечены.\n\n"
@@ -71,7 +71,14 @@ async def extract_birth_data(text: str) -> dict | None:
         logger.error(f"Failed to parse birth data JSON: {e}. Raw: {res}")
         return {"date": None, "time": "12:00", "city": None, "is_complete": False}
 
-async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False, current_date: str = "", image_urls: list[str] = None) -> str | dict | None:
+async def generate_section(section: str, date: str, time: str, city: str, core_profile: str = "", first_name: str = "", sex: int = 0, partner_name: str = "", partner_date: str = "", skin: str = "olesya", card_id: str = None, card_data: dict = None, tags: list = None, return_json: bool = False, current_date: str = "", image_urls: list[str] = None, purchased_skins: list[str] = None) -> str | dict | None:
+
+    if purchased_skins is None:
+        purchased_skins = ["olesya"]
+
+    if skin not in purchased_skins:
+        logger.warning(f"Security Alert: User attempted to bypass limits and use locked skin '{skin}'. Overwriting to 'olesya'.")
+        skin = "olesya"
 
     if sex == 1:
         gender_instruction = "ПОЛЬЗОВАТЕЛЬ - ЖЕНЩИНА. ОБРАЩАЙСЯ К НЕЙ В ЖЕНСКОМ РОДЕ."
@@ -134,7 +141,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         prompt = f"{base_info} Сделай ПУТЬ (Итоговое напутствие в жизни и светлый совет для души, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ПУТЬ на отдельной строке перед основным разбором. Выдели заголовок ПУТЬ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
     elif section == "synastry":
         cid = card_id if card_id else random.randint(0, 21)
-        prompt = f"{base_info} Сделай профессиональный разбор вашей связи (СОЮЗ). Имя партнера: {partner_name}, полные данные рождения партнера (дата, время, город): <user_input>{partner_date}</user_input>. В основном блоке СОЮЗ проведи глубокий синастрический анализ вашей совместимости, используя предоставленные данные обоих партнеров. Опиши магию вашего мэтча, кармические точки соприкосновения и уроки, которые вы несете друг другу. Обязательно удели внимание сексуальной совместимости и потенциалу развития отношений. Твой стиль должен быть точным, как в SaaS-продукте, но сохранять эзотерическую глубину. ОБЯЗАТЕЛЬНО используй слово СОЮЗ на отдельной строке перед основным разбором. Выдели заголовок СОЮЗ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
+        prompt = f"{base_info} Сделай профессиональный разбор вашей связи (СОЮЗ). Имя партнера: <user_input>{partner_name}</user_input>, полные данные рождения партнера (дата, время, город): <user_input>{partner_date}</user_input>. В основном блоке СОЮЗ проведи глубокий синастрический анализ вашей совместимости, используя предоставленные данные обоих партнеров. Опиши магию вашего мэтча, кармические точки соприкосновения и уроки, которые вы несете друг другу. Обязательно удели внимание сексуальной совместимости и потенциалу развития отношений. Твой стиль должен быть точным, как в SaaS-продукте, но сохранять эзотерическую глубину. ОБЯЗАТЕЛЬНО используй слово СОЮЗ на отдельной строке перед основным разбором. Выдели заголовок СОЮЗ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
     elif section == "antitaro":
         cid = card_id if card_id else random.randint(0, 77)
         prompt = f"{base_info} Сделай разбор ОТКРОВЕНИЕ (честный, глубокий взгляд на то, что мешает твоему счастью, освобождение от иллюзий, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ОТКРОВЕНИЕ на отдельной строке перед основным разбором. Выдели заголовок ОТКРОВЕНИЕ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."

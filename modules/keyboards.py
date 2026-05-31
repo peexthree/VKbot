@@ -62,6 +62,7 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
 
     # Ряд 4
     kb.add(Callback("🧭 Путеводитель", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🎭 Персонажи", payload={"cmd": "hall_of_prophets"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
     # Ряд 5 - Карта судьбы
@@ -119,9 +120,8 @@ def after_pdf_kb(section: str, card: str = None) -> str:
     kb = Keyboard(inline=True)
     kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": section, "card": card}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
-    # "Поделиться" через диалог выбора пользователя (стандартная ссылка share.php)
-    share_url = "https://vk.com/share.php?url=https://vk.com/club219181948"
-    kb.add(OpenLink(share_url, label="📤 Поделиться в VK"))
+    # Ачивка Джека Воробья: засчитываем по факту клика на коллбэк и показываем ссылку
+    kb.add(Callback("📤 Поделиться в VK", payload={"cmd": "share_click"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
@@ -129,8 +129,7 @@ def after_pdf_kb(section: str, card: str = None) -> str:
 def post_pdf_kb(section: str) -> str:
     """Клавиатура ПОСЛЕ того как PDF уже получен"""
     kb = Keyboard(inline=True)
-    share_url = "https://vk.com/share.php?url=https://vk.com/club219181948"
-    kb.add(OpenLink(share_url, label="📤 Поделиться в VK"))
+    kb.add(Callback("📤 Поделиться в VK", payload={"cmd": "share_click"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()

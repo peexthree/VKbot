@@ -46,7 +46,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
 
         core, tags = user.get("core_profile", ""), user.get("tags", [])
         prompt = f"{gender_instruction} " + (f"Прошлый анализ: {core}. " if core else "") + (f"Фокус: [{', '.join(tags)}]. " if tags else "")
-        prompt += f"Пользователь задает вопрос: {text}. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
+        prompt += f"Пользователь задает вопрос: <user_input>{text}</user_input>. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
 
         res = await generate_text(prompt, skin=user.get("active_skin", "olesya"))
         if not res:
