@@ -373,7 +373,17 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         referrer_id = referrer.get("vk_id")
         if referrer_id == vk_id:
             if not override_ref:
-                await message.answer("Ты не можешь использовать свой собственный Шифр. Матрица не терпит саморепликации.")
+                from vkbottle import Keyboard, KeyboardButtonColor, Callback
+                kb = Keyboard(inline=True)
+                kb.add(Callback("👥 МОЙ КРУГ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
+                kb.row()
+                kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+                await message.answer(
+                    "Ты не можешь использовать свой собственный Шифр. Матрица не терпит саморепликации.\n\n"
+                    "Перешли свой шифр другу — когда он активирует его, вы оба получите по 500 Энергии звезд! ✨",
+                    keyboard=kb.get_json()
+                )
             return
 
         user_balance = int(user.get("balance", 0) or 0) + 500
