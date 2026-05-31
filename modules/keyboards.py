@@ -212,7 +212,7 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
     kb.row()
 
     if item_type == "tariff":
-        kb.add(Callback("📜 ОФЕРТА", payload={"cmd": "show_offer"}), color=KeyboardButtonColor.SECONDARY)
+        kb.add(OpenLink(link="https://vk.com/@taroanti-oferta", label="📜 ОФЕРТА"))
         kb.row()
 
     if total_items > 1:
