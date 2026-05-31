@@ -1,11 +1,11 @@
 import json
 from loguru import logger
-from vkbottle import Keyboard, KeyboardButtonColor, Callback
+from vkbottle import Callback
 from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state
 from cache import acquire_lock, release_lock
-from modules.utils import SKIN_ASSETS, upload_local_photo, ghost_edit
+from modules.utils import upload_local_photo, ghost_edit
 from modules.profile.keyboards import (
     get_settings_keyboard,
     get_reset_confirm_keyboard
@@ -18,74 +18,112 @@ async def _send_skins_page(
     idx: int,
     edit_msg_id: int | None,
 ):
-    styles = {
-        "Олеся Ивонченко": "сарказм",
-        "Серьезный Аскет": "строгость",
-        "Влад Череватов": "дерзость",
-        "Виктория Райдес": "властность",
-        "Олег Шэпс": "загадочность",
-        "Александр Шеппс": "мистицизм",
-        "Баба Ванга": "пророчества",
-        "Григорий Распутин": "безумие",
-        "Магистр": "высшее знание"
+    # Категории: 1 (базовые), 2 (премиум), 3 (ачивки)
+    categories = {
+        "olesya": 1, "sheps_alex": 1, "messing": 1,
+        "guzeeva": 2, "cherevatov": 2, "nostradamus": 2, "rasputin": 2, "kaliostro": 2, "blinovskaya": 2, "professor": 2,
+        "fluffy": 3, "vanga": 3, "ai_mom": 3, "honest_oracle": 3, "saint_germain": 3, "pythia": 3, "freud": 3, "jack_sparrow": 3, "cleopatra": 3, "anubis": 3
     }
 
-    free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
+    from modules.utils.consts import SKIN_DISPLAY_NAMES, SKIN_VISUALS
 
-    skins_to_show = []
-    # Добавляем бесплатные скины в начало списка
-    skins_to_show.append({
-        "name": "Олеся Ивонченко",
-        "filename": SKIN_ASSETS["Олеся Ивонченко"],
-        "style": styles.get("Олеся Ивонченко", "сарказм")
-    })
-    skins_to_show.append({
-        "name": "Серьезный Аскет",
-        "filename": SKIN_ASSETS["Серьезный Аскет"],
-        "style": styles.get("Серьезный Аскет", "строгость")
-    })
+    ordered_skins = [
+        "olesya", "sheps_alex", "messing",
+        "guzeeva", "cherevatov", "nostradamus", "rasputin", "kaliostro", "blinovskaya", "professor",
+        "fluffy", "vanga", "ai_mom", "honest_oracle", "saint_germain", "pythia", "freud", "jack_sparrow", "cleopatra", "anubis"
+    ]
 
-    seen_names = {"olesya", "asket", "Олеся Ивонченко", "Серьезный Аскет"}
-    for skin_name, filename in SKIN_ASSETS.items():
-        if skin_name in seen_names:
-            continue
-        skins_to_show.append({
-            "name": skin_name,
-            "filename": filename,
-            "style": styles.get(skin_name, "мистицизм")
-        })
-        seen_names.add(skin_name)
+    ITEMS_PER_PAGE = 5
+    total_items = len(ordered_skins)
+    total_pages = (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
 
-    total_items = len(skins_to_show)
-    if total_items > 0:
-        idx = idx % total_items
+    page = idx
+    if page < 0:
+        page = total_pages - 1
+    elif page >= total_pages:
+        page = 0
 
-    skin = skins_to_show[idx]
-    skin_name = skin["name"]
-    is_owned = skin_name in purchased_skins or skin_name in free_skins
+    start_idx = page * ITEMS_PER_PAGE
+    end_idx = start_idx + ITEMS_PER_PAGE
+    current_skins = ordered_skins[start_idx:end_idx]
 
-    att = await upload_local_photo(bot.api, skin["filename"], peer_id=vk_id)
+    from vkbottle import Keyboard, KeyboardButtonColor
 
-    kb = Keyboard(inline=True)
+    elements = []
+    for s_key in current_skins:
+        name = SKIN_DISPLAY_NAMES.get(s_key, s_key)
+        filename = SKIN_VISUALS.get(s_key, "o.png")
+        cat = categories.get(s_key, 1)
 
-    button_cmd = "set_skin" if is_owned else "buy_skin"
-    button_label = "ВЫБРАТЬ" if is_owned else "КУПИТЬ (1500 ✨)"
-    kb.add(Callback(button_label, payload={"cmd": button_cmd, "skin": skin_name}), color=KeyboardButtonColor.POSITIVE if is_owned else KeyboardButtonColor.PRIMARY)
+        is_owned = s_key in purchased_skins or cat == 1
 
-    if total_items > 1:
-        kb.row()
-        kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "skin_page", "idx": idx - 1}), color=KeyboardButtonColor.SECONDARY)
-        kb.add(Callback("ВПЕРЕД ➡️", payload={"cmd": "skin_page", "idx": idx + 1}), color=KeyboardButtonColor.SECONDARY)
-        kb.row()
-    kb.add(Callback("⚙️ НАСТРОЙКИ", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.PRIMARY)
+        title = name if is_owned else f"🔒 {name}"
+        desc = ""
 
-    header_text = f"✦ ВЫБОР ПЕРСОНАЖА ({idx + 1}/{total_items}) ✦\n\n👤 Персонаж: {skin_name}\n🎭 Стиль: {skin['style']}\n\nВыберите своего проводника."
+        button_payload = {}
+        button_label = ""
+        button_color = KeyboardButtonColor.SECONDARY
 
-    try:
-        if edit_msg_id:
-            await bot.api.messages.edit(peer_id=peer_id, message=header_text, attachment=att, keyboard=kb.get_json(), conversation_message_id=edit_msg_id)
+        if is_owned:
+            button_label = "✅ Выбрать"
+            button_color = KeyboardButtonColor.POSITIVE
+            button_payload = {"cmd": "set_skin", "skin": s_key}
         else:
-            await bot.api.messages.send(peer_id=peer_id, message=header_text, attachment=att, keyboard=kb.get_json(), random_id=0)
+            if cat == 2:
+                button_label = "💎 Купить (1500 ✨)"
+                button_color = KeyboardButtonColor.PRIMARY
+                button_payload = {"cmd": "buy_skin", "skin": s_key}
+            elif cat == 3:
+                button_label = "🔒 Как открыть?"
+                button_color = KeyboardButtonColor.SECONDARY
+                button_payload = {"cmd": "skin_quest", "skin": s_key}
+
+        photo = await upload_local_photo(bot.api, f"uslugi/{filename}", peer_id=vk_id)
+        if photo and photo.startswith("photo"):
+            p_id = photo.replace("photo", "")
+            # Убедимся что формат Owner_ID_Media_ID
+            element_buttons = [{"action": {"type": "callback", "label": button_label, "payload": json.dumps(button_payload)}, "color": button_color.value}]
+            elements.append({
+                "title": title,
+                "description": desc or " ",
+                "photo_id": p_id,
+                "buttons": element_buttons,
+                "action": {"type": "open_photo"}
+            })
+
+    # Используем carousel
+    carousel_template = {
+        "type": "carousel",
+        "elements": elements
+    }
+
+    nav_kb = Keyboard(inline=True)
+    if total_pages > 1:
+        nav_kb.add(Callback("⬅️", payload={"cmd": "skins_page", "page": page - 1}), color=KeyboardButtonColor.SECONDARY)
+        nav_kb.add(Callback(f"{page + 1}/{total_pages}", payload={"cmd": "skins_page", "page": page}), color=KeyboardButtonColor.SECONDARY)
+        nav_kb.add(Callback("Далее ➡️", payload={"cmd": "skins_page", "page": page + 1}), color=KeyboardButtonColor.SECONDARY)
+        nav_kb.row()
+    nav_kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+    header_text = "🎭 ЗАЛ ПРОРОКОВ\n\nВыбери своего Проводника в мире эзотерики."
+    try:
+        await bot.api.messages.send(
+            peer_id=peer_id,
+            message=header_text,
+            template=json.dumps(carousel_template),
+            keyboard=nav_kb.get_json(),
+            random_id=0
+        )
+        if edit_msg_id:
+            try:
+                await bot.api.messages.edit(
+                    peer_id=peer_id,
+                    message="Открываю Зал Пророков...",
+                    conversation_message_id=edit_msg_id,
+                    keyboard=Keyboard(inline=True).get_json()
+                )
+            except Exception:
+                pass
     except Exception as e:
         logger.error(f"Error sending skin page: {e}")
 
@@ -229,11 +267,11 @@ async def process_skin_action_logic(
         target_skin = payload.get("skin")
 
         purchased_skins = user.get("purchased_skins", [])
-        free_skins = ["Олеся Ивонченко", "Серьезный Аскет"]
+        free_skins = ["olesya", "sheps_alex", "messing"]
         balance = int(user.get("balance", 0) or 0)
 
         if action == "set_skin":
-            if target_skin in free_skins or target_skin in purchased_skins or target_skin == "olesya":
+            if target_skin in free_skins or target_skin in purchased_skins:
                 await update_user(vk_id, {"active_skin": target_skin})
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
@@ -256,6 +294,8 @@ async def process_skin_action_logic(
                     "purchased_skins": purchased_skins,
                     "active_skin": target_skin
                 })
+                from modules.skins import send_trigger_message
+                await send_trigger_message(bot.api, vk_id, target_skin)
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
             else:

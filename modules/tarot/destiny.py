@@ -102,7 +102,8 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
             birth_data.get("city", ""), user.get("core_profile", ""),
             user.get("first_name", "Адепт"), user.get("sex_val", 0),
             skin=active_skin, card_id=str(db_idx), card_data=card_data,
-            return_json=True
+            return_json=True,
+            purchased_skins=user.get("purchased_skins", [])
         )
 
         res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data

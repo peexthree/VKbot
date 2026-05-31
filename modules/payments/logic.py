@@ -183,7 +183,8 @@ async def execute_generation(
                 partner_name=partner_name, partner_date=partner_date, skin=active_skin,
                 card_id=card_id, card_data=card_data, tags=tags, return_json=True,
                 current_date=current_date_str,
-                image_urls=image_urls
+                image_urls=image_urls,
+                purchased_skins=user.get("purchased_skins", [])
             )
 
             res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
@@ -254,8 +255,35 @@ async def execute_generation(
                     new_tags = await extract_tags(text)
                     if new_tags:
                         await update_user(v_id, {"tags": new_tags})
+                        if "выход-из-кризиса" in new_tags or "освобождение-от-прошлого" in new_tags:
+                            from modules.skins import unlock_skin
+                            await unlock_skin(bot.api, v_id, "honest_oracle")
 
                 asyncio.create_task(extract_and_save_tags(vk_id, res_text))
+
+                # --- Ачивки ---
+                from modules.skins import unlock_skin
+
+                # 15 генераций
+                if len(history) >= 15:
+                    await unlock_skin(bot.api, vk_id, "ai_mom")
+
+                # pythia
+                dream_count = sum(1 for h in history if h.get("section") == "dream")
+                if dream_count >= 5:
+                    await unlock_skin(bot.api, vk_id, "pythia")
+
+                # freud
+                if target_section == "sex":
+                    await unlock_skin(bot.api, vk_id, "freud")
+
+                # anubis
+                base_used = len(history) > 0 # At least one reading
+                # Actually, anubis requires base, sex, money, shadow, final.
+                used_sections = {h.get("section") for h in history}
+                if {"sex", "money", "shadow", "final"}.issubset(used_sections):
+                    await unlock_skin(bot.api, vk_id, "anubis")
+                # --------------
 
                 from modules.keyboards import after_pdf_kb, vertical_kb
                 if target_section == "card_of_day":

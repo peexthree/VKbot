@@ -70,6 +70,11 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
             user["balance"] = new_balance
             user["last_daily_bonus_date"] = now_date.isoformat()
             user["visit_streak"] = visit_streak
+
+            if visit_streak >= 7:
+                from modules.bot_init import bot
+                from modules.skins import unlock_skin
+                await unlock_skin(bot.api, vk_id, "vanga")
             try:
                 from modules.bot_init import bot
                 bonus_text = f"🎁 ТВОЙ ЕЖЕДНЕВНЫЙ ДАР: +{bonus_amount} Энергии звезд.\n"

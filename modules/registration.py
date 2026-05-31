@@ -296,7 +296,7 @@ async def process_birth_date(message: Message):
             if found_date and not found_city:
                 state_dict["step"] = "waiting_birth_city"
                 await set_user_state(vk_id, json.dumps(state_dict))
-                await message.answer(f"Дату {found_date} я зафиксировала! ✨ А в каком городе ты родился?")
+                await message.answer(f"Я зафиксировал твою дату рождения ({found_date})! Теперь, пожалуйста, напиши город, в котором ты родился, чтобы Оракул точно рассчитал твои дома.")
             elif found_city and not found_date:
                 state_dict["step"] = "waiting_birth_date"
                 await set_user_state(vk_id, json.dumps(state_dict))
