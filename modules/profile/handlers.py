@@ -5,8 +5,7 @@ from modules.utils import get_fsm_step
 
 from modules.profile.settings import (
     settings_handler_logic, settings_change_data_logic,
-    process_change_date_logic, process_change_time_logic,
-    process_change_city_logic, settings_cancel_subscription_logic,
+    settings_cancel_subscription_logic,
     settings_reset_account_logic, confirm_reset_account_logic,
     settings_choose_character_logic, process_skin_action_logic
 )
@@ -44,36 +43,6 @@ async def settings_handler(
 @labeler.message(func=lambda m: m.text and m.text.lower() == "изменить свои данные")
 async def settings_change_data(message: Message):
     await settings_change_data_logic(message.from_id, message)
-
-async def is_waiting_change_date(message: Message) -> bool:
-    if message.text and any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️"]):
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "date"
-
-@labeler.message(func=is_waiting_change_date)
-async def process_change_date(message: Message):
-    await process_change_date_logic(message.from_id, message)
-
-async def is_waiting_change_time(message: Message) -> bool:
-    if message.text and any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️"]):
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "time"
-
-@labeler.message(func=is_waiting_change_time)
-async def process_change_time(message: Message):
-    await process_change_time_logic(message.from_id, message)
-
-async def is_waiting_change_city(message: Message) -> bool:
-    if message.text and any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️"]):
-        return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "city"
-
-@labeler.message(func=is_waiting_change_city)
-async def process_change_city(message: Message):
-    await process_change_city_logic(message.from_id, message)
 
 async def is_waiting_for_seal(message: Message) -> bool:
     if not message.text: return False

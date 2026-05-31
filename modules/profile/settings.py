@@ -3,11 +3,11 @@ from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
 from modules.bot_init import bot
-from database import get_user, update_user, set_user_state, delete_user
+from database import get_user, update_user, set_user_state
 from cache import acquire_lock, release_lock
-from modules.utils import SKIN_ASSETS, upload_local_photo, get_fsm_step, ghost_edit
+from modules.utils import SKIN_ASSETS, upload_local_photo, ghost_edit
 from modules.profile.keyboards import (
-    get_settings_keyboard, get_change_data_keyboard,
+    get_settings_keyboard,
     get_reset_confirm_keyboard
 )
 
@@ -119,51 +119,8 @@ async def settings_change_data_logic(vk_id: int, message: Message, skip_lock: bo
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await set_user_state(vk_id, json.dumps({"step": "date"}))
-        await message.answer("Укажите ДАТУ вашего прихода в этот мир (например, 15.04.1990):")
-    finally:
-        if not skip_lock:
-            await release_lock(vk_id)
-
-async def process_change_date_logic(vk_id: int, message: Message, skip_lock: bool = False):
-    if not skip_lock and not await acquire_lock(vk_id): return
-    try:
-        new_date = message.text.strip()
-        await set_user_state(vk_id, json.dumps({"step": "time", "date": new_date}))
-        await message.answer(f"Дата {new_date} принята. Теперь введите ВРЕМЯ вашего рождения (например, 14:30 или 'не знаю'):")
-    finally:
-        if not skip_lock:
-            await release_lock(vk_id)
-
-async def process_change_time_logic(vk_id: int, message: Message, skip_lock: bool = False):
-    if not skip_lock and not await acquire_lock(vk_id): return
-    try:
-        new_time = message.text.strip()
-        state_dict = await get_fsm_step(vk_id)
-        new_date = state_dict.get("date", "")
-        await set_user_state(vk_id, json.dumps({"step": "city", "date": new_date, "time": new_time}))
-        await message.answer(f"Время {new_time} принято. Теперь введите ГОРОД вашего рождения:")
-    finally:
-        if not skip_lock:
-            await release_lock(vk_id)
-
-async def process_change_city_logic(vk_id: int, message: Message, skip_lock: bool = False):
-    if not skip_lock and not await acquire_lock(vk_id): return
-    try:
-        new_city = message.text.strip()
-        state_dict = await get_fsm_step(vk_id)
-        new_date = state_dict.get("date", "")
-        new_time = state_dict.get("time", "")
-
-        await update_user(vk_id, {
-            "birth_date": new_date,
-            "birth_time": new_time,
-            "birth_city": new_city
-        })
-        await set_user_state(vk_id, "")
-
-        kb_json = get_change_data_keyboard()
-        await message.answer(f"Твои данные обновлены: {new_date}, {new_time}, г. {new_city}", keyboard=kb_json)
+        await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date"}))
+        await message.answer("Для калибровки звездного пути напиши свою ДАТУ рождения (например, 15.04.1990):")
     finally:
         if not skip_lock:
             await release_lock(vk_id)
@@ -196,9 +153,19 @@ async def confirm_reset_account_logic(vk_id: int, message: Message, skip_lock: b
     if not skip_lock and not await acquire_lock(vk_id):
         return
     try:
-        await delete_user(vk_id)
+        # Очищаем только историю и теги
+        await update_user(vk_id, {
+            "readings_history": [],
+            "tags": [],
+            "latest_reading_text": None,
+            "latest_reading_data": {},
+            "core_profile": ""
+        })
+        # Удаляем данные из Redis
+        from cache import delete_temp_birth_data
+        await delete_temp_birth_data(vk_id)
         await set_user_state(vk_id, "")
-        await message.answer("Система обнулена. Напишите 'Начать', чтобы заново войти в матрицу.")
+        await message.answer("Твои личные данные и история полностью стерты. Твой путь чист, но сила звезд (баланс) осталась с тобой.")
     finally:
         if not skip_lock:
             await release_lock(vk_id)

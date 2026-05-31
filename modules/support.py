@@ -50,7 +50,11 @@ async def process_support_question(message: Message):
         u_city = "Неизвестно"
         if user:
             u_name = f"{user.get('first_name', 'Адепт')} {user.get('last_name', '')}".strip()
-            u_city = user.get("birth_city", "Неизвестно")
+            # Пробуем достать город из Redis
+            from cache import get_temp_birth_data
+            temp_birth = await get_temp_birth_data(vk_id)
+            if temp_birth and temp_birth.get("city"):
+                u_city = temp_birth.get("city")
 
         question_text = message.text
 
