@@ -1,5 +1,4 @@
 import os
-from unittest.mock import patch
 import pytest
 from modules.utils import generate_premium_pdf
 
