@@ -1,10 +1,8 @@
-import json
 import ipaddress
 import os
 import uuid
 from aiohttp import web, ClientSession, BasicAuth
 from loguru import logger
-from database import update_user, get_user
 
 SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
@@ -102,6 +100,7 @@ async def yookassa_webhook(request: web.Request):
     if event == "payment.succeeded" and payment_obj.get("status") == "succeeded":
         metadata = payment_obj.get("metadata", {})
         user_id_str = metadata.get("user_id")
+        payment_id = payment_obj.get("id")
 
         if not user_id_str:
             logger.error("Yookassa missing user_id in metadata")
@@ -111,9 +110,27 @@ async def yookassa_webhook(request: web.Request):
         amount_rub = int(float(payment_obj["amount"]["value"]))
         energy_bonus = amount_rub * 10
 
-        from database import add_energy
-        if await add_energy(user_id, energy_bonus):
-            logger.info(f"ЮKassa УСПЕХ: Начислено {energy_bonus} энергии пользователю vk_id={user_id}")
+        # Проверка на дубликаты и логгирование в БД
+        from database import add_energy, add_event, is_first_payment
+
+        # Используем Redis для быстрой проверки на дубликаты вебхука (на 24 часа)
+        from cache import redis_client
+        lock_key = f"yookassa_processed:{payment_id}"
+        if await redis_client.set(lock_key, "1", ex=86400, nx=True):
+            if await add_energy(user_id, energy_bonus):
+                logger.info(f"ЮKassa УСПЕХ: Начислено {energy_bonus} энергии пользователю vk_id={user_id}")
+
+                # Логгируем событие в таблицу events
+                ev_metadata = {
+                    "payment_id": payment_id,
+                    "amount": amount_rub,
+                    "payment_method": "yookassa"
+                }
+                await add_event(user_id, "energy_purchased", ev_metadata)
+                await add_event(user_id, "yookassa_transaction", ev_metadata)
+
+                if await is_first_payment(user_id):
+                    await add_event(user_id, "first_payment", ev_metadata)
 
             try:
                 from modules.bot_init import bot
