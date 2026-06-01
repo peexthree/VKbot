@@ -55,3 +55,20 @@ async def get_user_by_cipher(cipher: str):
                 if data: return data[0]
     except Exception as e: logger.error(f"Ошибка в get_user_by_cipher: {e}")
     return None
+
+async def call_rpc(func_name: str, params: dict):
+    """Вызов хранимой процедуры (RPC) в Supabase"""
+    if not URL or not KEY or session is None: return None
+    try:
+        async with session.post(f"{URL}/rest/v1/rpc/{func_name}", headers=HEADERS, json=params) as r:
+            if r.status in (200, 201, 204):
+                try:
+                    return await r.json()
+                except:
+                    return True
+            else:
+                text = await r.text()
+                logger.error(f"Supabase RPC error {func_name}: {r.status} - {text}")
+    except Exception as e:
+        logger.error(f"Ошибка в call_rpc {func_name}: {e}")
+    return None

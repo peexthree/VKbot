@@ -97,46 +97,85 @@ async def yookassa_webhook(request: web.Request):
     event = data.get("event")
     payment_obj = data.get("object", {})
 
+    # Безопасное логирование (без PII)
+    safe_log_data = {
+        "event": event,
+        "id": payment_obj.get("id"),
+        "status": payment_obj.get("status"),
+        "amount": payment_obj.get("amount"),
+        "metadata": payment_obj.get("metadata")
+    }
+    logger.info(f"Yookassa webhook received: {safe_log_data}")
+
     if event == "payment.succeeded" and payment_obj.get("status") == "succeeded":
         metadata = payment_obj.get("metadata", {})
         user_id_str = metadata.get("user_id")
         payment_id = payment_obj.get("id")
 
         if not user_id_str:
-            logger.error("Yookassa missing user_id in metadata")
+            logger.error(f"Yookassa missing user_id in metadata for payment {payment_id}")
             return web.Response(status=200)
 
-        user_id = int(user_id_str)
+        try:
+            user_id = int(user_id_str)
+        except (ValueError, TypeError):
+            logger.error(f"Invalid user_id format in metadata: {user_id_str}")
+            return web.Response(status=200)
+
+        # Проверка на дубликаты (БД + Redis для скорости)
+        from database import add_energy, add_event, is_first_payment, get_user, is_payment_processed, mark_payment_as_processed
+        from cache import redis_client
+
+        # 1. Проверка в БД (постоянная защита)
+        if await is_payment_processed(payment_id):
+            logger.warning(f"Payment {payment_id} already processed (DB check)")
+            return web.Response(status=200)
+
+        # 2. Redis lock (защита от одновременных запросов)
+        lock_key = f"yookassa_lock:{payment_id}"
+        if not await redis_client.set(lock_key, "1", ex=60, nx=True):
+            logger.warning(f"Payment {payment_id} is being processed right now (Redis lock)")
+            return web.Response(status=200)
+
+        # 3. Валидация существования пользователя
+        user = await get_user(user_id)
+        if not user:
+            logger.warning(f"Unauthorized payment attempt for non-existent user_id: {user_id}")
+            return web.Response(status=200)
+
         amount_rub = int(float(payment_obj["amount"]["value"]))
         energy_bonus = amount_rub * 10
 
-        # Проверка на дубликаты и логгирование в БД
-        from database import add_energy, add_event, is_first_payment
+        # Атомарное начисление
+        if await add_energy(user_id, energy_bonus):
+            # Помечаем как обработанный в БД
+            await mark_payment_as_processed(payment_id)
 
-        # Используем Redis для быстрой проверки на дубликаты вебхука (на 24 часа)
-        from cache import redis_client
-        lock_key = f"yookassa_processed:{payment_id}"
-        if await redis_client.set(lock_key, "1", ex=86400, nx=True):
-            if await add_energy(user_id, energy_bonus):
-                logger.info(f"ЮKassa УСПЕХ: Начислено {energy_bonus} энергии пользователю vk_id={user_id}")
+            logger.info(f"ЮKassa УСПЕХ: Начислено {energy_bonus} энергии пользователю vk_id={user_id}")
 
-                # Логгируем событие в таблицу events
-                ev_metadata = {
-                    "payment_id": payment_id,
-                    "amount": amount_rub,
-                    "payment_method": "yookassa"
-                }
-                await add_event(user_id, "energy_purchased", ev_metadata)
-                await add_event(user_id, "yookassa_transaction", ev_metadata)
+            # Логгируем событие в таблицу events
+            ev_metadata = {
+                "payment_id": payment_id,
+                "amount": amount_rub,
+                "payment_method": "yookassa"
+            }
+            await add_event(user_id, "energy_purchased", ev_metadata)
+            await add_event(user_id, "yookassa_transaction", ev_metadata)
 
-                if await is_first_payment(user_id):
-                    await add_event(user_id, "first_payment", ev_metadata)
+            if await is_first_payment(user_id):
+                await add_event(user_id, "first_payment", ev_metadata)
 
+            # Уведомление пользователю
             try:
                 from modules.bot_init import bot
                 from modules.keyboards import get_main_keyboard
                 push_text = f"✨ БАЛАНС ПОПОЛНЕН! ✨\nЗачислено {energy_bonus} Энергии звезд за оплату {amount_rub} RUB.\nПроводники приветствуют тебя!"
-                await bot.api.messages.send(peer_id=user_id, message=push_text, random_id=0, keyboard=get_main_keyboard(user_id))
+                await bot.api.messages.send(
+                    peer_id=user_id,
+                    message=push_text,
+                    random_id=0,
+                    keyboard=get_main_keyboard(user_id)
+                )
             except Exception as push_err:
                 logger.error(f"Failed to send VK payment push notification: {push_err}")
 
