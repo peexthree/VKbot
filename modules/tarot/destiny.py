@@ -1,5 +1,7 @@
 import datetime
+import json
 from loguru import logger
+from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from database import get_user, update_user, set_user_state
 from modules.bot_init import bot
 from modules.utils import (
@@ -7,7 +9,6 @@ from modules.utils import (
     start_dynamic_typing, stop_dynamic_typing
 )
 from modules.utils.logic import calculate_destiny_card
-from modules.keyboards import after_pdf_kb
 
 async def destiny_card_info_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
     """Информация о Карте Судьбы или вывод купленной"""
@@ -24,8 +25,7 @@ async def destiny_card_info_logic(vk_id: int, peer_id: int, conversation_message
         card_data = get_card_data(card_id)
         res_text = destiny_data.get("text", "")
 
-        from modules.keyboards import after_pdf_kb
-        # Добавляем кнопку обновления в клавиатуру (через модификацию или новую функцию)
+        # Добавляем кнопку обновления в клавиатуру
         kb = Keyboard(inline=True)
         kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": "destiny_card", "card": card_id}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
@@ -62,7 +62,7 @@ async def destiny_card_info_logic(vk_id: int, peer_id: int, conversation_message
     )
 
     from modules.keyboards import confirmation_kb
-    kb = confirmation_kb({"cmd": "buy_destiny_card"}, 1500)
+    kb_buy = confirmation_kb({"cmd": "buy_destiny_card"}, 1500)
 
     att = await upload_local_photo(bot.api, "uslugi/WAYLIFE.jpeg", peer_id=vk_id)
 
@@ -72,7 +72,7 @@ async def destiny_card_info_logic(vk_id: int, peer_id: int, conversation_message
         text,
         conversation_message_id=conversation_message_id,
         attachment=att,
-        keyboard=kb
+        keyboard=kb_buy
     )
 
 async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_message_id: int = None, is_update: bool = False):
@@ -81,11 +81,6 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
     if not user: return
 
     balance = int(user.get("balance", 0) or 0)
-    if balance < 1500:
-        from modules.services import show_tariffs
-        await bot.api.messages.send(peer_id=peer_id, message="❌ Недостаточно энергии для активации Карты Судьбы.", random_id=0)
-        await show_tariffs(vk_id, peer_id)
-        return
 
     # Списываем энергию
     cost = 1000 if is_update else 1500
@@ -129,7 +124,6 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         else:
             card_index = calculate_destiny_card(birth_date)
             # Арканы 1-22 в нашем tarot_db.json соответствуют индексам 1-22 (Шут там 0, но по нашей логике он может быть 22)
-            # Если Аркан 22 - это Шут (0), но в db он 0. Сделаем маппинг.
             db_idx = card_index if card_index < 22 else 0
 
         from cards_data import get_card_data
@@ -190,10 +184,7 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
 
-        kb = after_pdf_kb("destiny_card", str(db_idx))
-
         header = f"⭐ ТВОЯ КАРТА СУДЬБЫ: {card_data.get('name')} ⭐\n------------------\n\n"
-
         att = await upload_local_photo(bot.api, f"{db_idx}.jpeg", peer_id=vk_id)
 
         # Кастомная клавиатура с кнопкой ОБНОВИТЬ
