@@ -355,6 +355,9 @@ async def main():
     app = web.Application()
     app.router.add_get('/', handle_ping)
     app.router.add_post('/vk/callback', handle_vk_webhook)
+
+    from modules.payments.yookassa import yookassa_webhook
+    app.router.add_post('/yookassa/webhook', yookassa_webhook)
     runner = web.AppRunner(app)
     await runner.setup()
     port = int(os.environ.get("PORT", 10000))

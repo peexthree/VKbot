@@ -73,3 +73,12 @@ async def get_users_paginated(limit: int = 10, offset: int = 0):
                 return await r.json()
     except Exception as e: logger.error(f"Error in get_users_paginated: {e}")
     return []
+
+async def add_energy(vk_id: int, energy: int):
+    """Добавляет энергию пользователю"""
+    from database.core import get_user
+    user = await get_user(vk_id)
+    if user:
+        current_balance = int(user.get("balance", 0) or 0)
+        return await update_user(vk_id, {"balance": current_balance + energy})
+    return None

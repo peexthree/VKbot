@@ -2,53 +2,12 @@ from loguru import logger
 from vkbottle import GroupEventType
 from vkbottle.bot import BotLabeler
 from database import (
-    check_and_save_transaction, get_user, update_user
+    get_user, update_user
 )
 from modules.bot_init import bot
-from cache import acquire_lock
 from modules.utils import ADMIN_ID
 
 labeler = BotLabeler()
-
-@labeler.raw_event(GroupEventType.VKPAY_TRANSACTION, dataclass=dict)
-async def money_transfer_handler(event: dict):
-    try:
-        group_id = event.get("group_id")
-        if group_id != 219181948: return
-        obj = event.get("object", {})
-        vk_id = obj.get("from_id")
-        amount = obj.get("amount")
-
-        logger.info(f"money_transfer_handler triggered by from_id={vk_id}, amount={amount}")
-
-        event_id = event.get('event_id') or str(obj.get('date', 'none'))
-        tx_key = f"tx_vkpay_{vk_id}_{amount}_{event_id}"
-
-        if not await acquire_lock(tx_key, ttl=3600): return
-
-        if not vk_id or not amount: return
-
-        amount_rubles = int(amount) // 1000
-
-        if not await check_and_save_transaction(tx_key, vk_id, amount_rubles):
-            logger.warning(f"money_transfer_handler: duplicate or invalid transaction {tx_key} rejected")
-            return
-
-        added_energy = amount_rubles * 10
-        user = await get_user(vk_id)
-        if not user: return
-
-        current_balance = int(user.get("balance", 0) or 0)
-        new_balance = current_balance + added_energy
-        await update_user(vk_id, {"balance": new_balance})
-
-        await bot.api.messages.send(
-            peer_id=vk_id,
-            message=f"БАЛАНС УСПЕШНО ПОПОЛНЕН.\nНАЧИСЛЕНО: {added_energy} Энергии звезд.\nНА ТВОЕМ СЧЕТУ: {new_balance} Энергии звезд.",
-            random_id=0
-        )
-    except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
 
 @labeler.raw_event(
     [
