@@ -80,20 +80,40 @@ async def _message_event_handler_wrapped(event: dict):
     if not isinstance(payload, dict):
         payload = {}
 
-    # Пытаемся ответить на событие сразу, чтобы убрать спиннер, но только один раз
+    # --- ФИКС ТАЙМАУТА: Отвечаем мгновенно до тяжелых операций ---
     if event_id and vk_id:
         lock_key = f"event_answered:{event_id}"
-        try:
-            # nx=True вернет True если ключ установлен, иначе False/None
-            # Используем bool() для надежности
-            res = await redis_client.set(lock_key, "1", ex=30, nx=True)
-            if not res:
-                logger.debug(f"Event {event_id} already answered or being processed")
-                return
+        # nx=True вернет True если ключ установлен, иначе False/None
+        res = await redis_client.set(lock_key, "1", ex=30, nx=True)
+        if not res:
+            logger.debug(f"Event {event_id} already answered or being processed")
+            return
 
-            await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
-        except Exception as e:
-            logger.warning(f"Could not answer event {event_id}: {e}")
+        cmd = payload.get("cmd")
+        # Специфические ответы для специальных кнопок
+        if cmd == "skin_quest":
+            from modules.skins import get_quest_text
+            quest_text = get_quest_text(payload.get("skin"))
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id, user_id=vk_id, peer_id=peer_id,
+                event_data=json.dumps({"type": "show_snackbar", "text": quest_text})
+            )
+        elif cmd == "share_click":
+            from modules.skins import unlock_skin
+            await unlock_skin(bot.api, vk_id, "jack_sparrow")
+            await bot.api.messages.send_message_event_answer(
+                event_id=event_id, user_id=vk_id, peer_id=peer_id,
+                event_data=json.dumps({
+                    "type": "open_link",
+                    "link": "https://vk.com/share.php?url=https://vk.com/club219181948"
+                })
+            )
+        else:
+            # Универсальный пустой ответ для всех остальных нажатий
+            try:
+                await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+            except Exception as e:
+                logger.warning(f"Could not answer event {event_id}: {e}")
     elif event_id:
         logger.warning(f"Event {event_id} received without vk_id, cannot remove spinner")
 
@@ -440,28 +460,9 @@ async def _message_event_handler_wrapped(event: dict):
             from modules.profile.settings import settings_choose_character_logic
             await settings_choose_character_logic(vk_id, peer_id, skip_lock=True, idx=payload.get("page", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd == "skin_quest":
-            from modules.skins import get_quest_text
-            quest_text = get_quest_text(payload.get("skin"))
-            await bot.api.messages.send_message_event_answer(
-                event_id=obj.get("event_id"),
-                user_id=vk_id,
-                peer_id=peer_id,
-                event_data=json.dumps({"type": "show_snackbar", "text": quest_text})
-            )
-            return
+            return # Уже обработано в начале
         elif cmd == "share_click":
-            from modules.skins import unlock_skin
-            await unlock_skin(bot.api, vk_id, "jack_sparrow")
-            await bot.api.messages.send_message_event_answer(
-                event_id=obj.get("event_id"),
-                user_id=vk_id,
-                peer_id=peer_id,
-                event_data=json.dumps({
-                    "type": "open_link",
-                    "link": "https://vk.com/share.php?url=https://vk.com/club219181948"
-                })
-            )
-            return
+            return # Уже обработано в начале
         elif cmd == "buy":
             buy_type, key = payload.get("type"), payload.get("key")
             prices = {

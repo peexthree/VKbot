@@ -25,9 +25,9 @@ async def send_trigger_message(api, vk_id: int, skin_id: str):
             return
 
         name = desc.get("name", "").upper()
-        concept = desc.get("concept", "")
-        style = desc.get("style", "")
-        effect = desc.get("effect", "")
+        concept = desc.get("concept", "").replace("—", "-")
+        style = desc.get("style", "").replace("—", "-")
+        effect = desc.get("effect", "").replace("—", "-")
 
         msg = (
             f"🏆 ДОСТИЖЕНИЕ РАЗБЛОКИРОВАНО!\n\n"
@@ -35,7 +35,7 @@ async def send_trigger_message(api, vk_id: int, skin_id: str):
             f"{concept}\n\n"
             f"{style}\n\n"
             f"{effect}\n\n"
-            f"✨ Переходи в Главное меню, жми кнопку «🔮 Зал Пророков» и активируй его, чтобы перепрошить свою Систему!"
+            f"✨ Переходи в Главное меню, жми кнопку «🔮 ЗАЛ ПРОРОКОВ» и активируй его, чтобы перепрошить свою Систему!"
         )
 
         filename = SKIN_VISUALS.get(skin_id, "o.png")
