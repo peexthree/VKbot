@@ -75,10 +75,10 @@ async def get_users_paginated(limit: int = 10, offset: int = 0):
     return []
 
 async def add_energy(vk_id: int, energy: int):
-    """Добавляет энергию пользователю"""
-    from database.core import get_user
-    user = await get_user(vk_id)
-    if user:
-        current_balance = int(user.get("balance", 0) or 0)
-        return await update_user(vk_id, {"balance": current_balance + energy})
-    return None
+    """Добавляет энергию пользователю (атомарно через RPC)"""
+    from database.core import call_rpc
+    result = await call_rpc("increment_user_balance", {"p_vk_id": vk_id, "p_amount": energy})
+    if result:
+        logger.success(f"✅ Атомарно начислено {energy} энергии пользователю vk_id={vk_id}")
+        return True
+    return False
