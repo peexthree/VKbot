@@ -107,6 +107,9 @@ async def _message_event_handler_wrapped(event: dict):
                     "link": "https://vk.com/share.php?url=https://vk.com/club219181948"
                 })
             )
+        elif cmd in ["buy", "buy_skin"]:
+            # Defer answering until payment logic completes (to show success/error snackbar)
+            pass
         else:
             # Универсальный пустой ответ для всех остальных нажатий
             try:
@@ -537,12 +540,22 @@ async def _message_event_handler_wrapped(event: dict):
 
                 if buy_type == "skin":
                     await process_skin_action_logic(vk_id, peer_id, skip_lock=True, payload={"cmd": "set_skin", "skin": key}, conversation_message_id=obj.get("conversation_message_id"))
+                    if event_id:
+                        await bot.api.messages.send_message_event_answer(
+                            event_id=event_id, user_id=vk_id, peer_id=peer_id,
+                            event_data=json.dumps({"type": "show_snackbar", "text": "🎭 Новый Проводник открыт! ✨"})
+                        )
                     return
 
                 if buy_type == "service":
                     from database import add_event
                     asyncio.create_task(add_event(vk_id, "paid_feature_used", {"service": key}))
                     await process_payment_and_generate(vk_id, key)
+                    if event_id:
+                        await bot.api.messages.send_message_event_answer(
+                            event_id=event_id, user_id=vk_id, peer_id=peer_id,
+                            event_data=json.dumps({"type": "show_snackbar", "text": f"✨ Списано {amount_needed} энергии. Ритуал начат!"})
+                        )
                 elif buy_type == "tariff":
                     days = 7 if key == "tariff_1" else 30
                     new_expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)
@@ -556,8 +569,19 @@ async def _message_event_handler_wrapped(event: dict):
                     from modules.skins import unlock_skin
                     await unlock_skin(bot.api, vk_id, "saint_germain")
 
-                    await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=0, keyboard=get_main_keyboard(vk_id))
+                    if event_id:
+                        await bot.api.messages.send_message_event_answer(
+                            event_id=event_id, user_id=vk_id, peer_id=peer_id,
+                            event_data=json.dumps({"type": "show_snackbar", "text": f"✨ Транзит активирован! Баланс: {new_balance} ✨"})
+                        )
+                    else:
+                        await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=0, keyboard=get_main_keyboard(vk_id))
             else:
+                if event_id:
+                    await bot.api.messages.send_message_event_answer(
+                        event_id=event_id, user_id=vk_id, peer_id=peer_id,
+                        event_data=json.dumps({"type": "show_snackbar", "text": "🛑 Недостаточно энергии для активации!"})
+                    )
                 diff_rubles = math.ceil((amount_needed - balance) / 10)
                 from modules.payments.yookassa import create_yookassa_payment
                 payment_url = await create_yookassa_payment(
