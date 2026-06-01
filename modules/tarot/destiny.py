@@ -18,7 +18,7 @@ async def destiny_card_info_logic(vk_id: int, peer_id: int, conversation_message
     if purchased.get("destiny_card_purchased"):
         # Если уже куплена, просто показываем результат (или перенаправляем в гримуар)
         from modules.profile.views import show_profile_logic
-        await show_profile_logic(vk_id, peer_id, conversation_message_id=conversation_message_id)
+        await show_profile_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=conversation_message_id)
         return
 
     text = (
