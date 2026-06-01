@@ -65,15 +65,9 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     kb.add(Callback("🎭 Персонажи", payload={"cmd": "hall_of_prophets"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
-    # Ряд 5 - Карта судьбы
-    # Прячем кнопку, если уже СГЕНЕРИРОВАНА (использована)
-    has_generated_destiny = False
-    if user and user.get("destiny_card_data"):
-        has_generated_destiny = True
-
-    if not has_generated_destiny:
-        kb.add(Callback("⭐ Моя карта судьбы", payload={"cmd": "destiny_card_info"}), color=KeyboardButtonColor.PRIMARY)
-        kb.row()
+    # Ряд 5 - Карта судьбы (Всегда видна)
+    kb.add(Callback("⭐ Моя карта судьбы", payload={"cmd": "destiny_card_info"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
 
     # Ряд 6
     kb.add(Callback("👤 Профиль", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
@@ -186,7 +180,15 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
 
     # Кнопка действия (Купить/Получить) - Сначала подтверждение
     # Но для Бесплатной карты дня и пополнений подтверждение не нужно.
-    if item_key == "card_of_day" or button_cmd == "card_of_day" or item_key.startswith("topup_"):
+    if item_key == "destiny_card" and user:
+        purchased = user.get("purchased_sections", {})
+        if purchased.get("destiny_card_purchased"):
+            kb.add(Callback("👀 ПОСМОТРЕТЬ", payload={"cmd": "destiny_card_info"}), color=KeyboardButtonColor.POSITIVE)
+            kb.row()
+            kb.add(Callback("🔄 ОБНОВИТЬ (1000 ✨)", payload={"cmd": "confirm_buy", "type": "service", "key": "destiny_card_update"}), color=KeyboardButtonColor.PRIMARY)
+        else:
+            kb.add(Callback("⭐ КУПИТЬ (1500 ✨)", payload={"cmd": "confirm_buy", "type": "service", "key": "destiny_card"}), color=KeyboardButtonColor.POSITIVE)
+    elif item_key == "card_of_day" or button_cmd == "card_of_day" or item_key.startswith("topup_"):
         actual_label = button_label
         actual_color = KeyboardButtonColor.POSITIVE
         if item_key == "card_of_day" and user:

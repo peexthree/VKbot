@@ -385,7 +385,8 @@ async def _message_event_handler_wrapped(event: dict):
                     star_code=latest_data.get("star_code", ""),
                     energy_map=latest_data.get("energy_map", ""),
                     current_date=current_date_str,
-                    palm_photos=latest_data.get("palm_photos")
+                    palm_photos=latest_data.get("palm_photos"),
+                    interesting_facts=latest_data.get("interesting_facts", "")
                 )
             if success and os.path.exists(pdf_name):
                 try:
@@ -471,6 +472,7 @@ async def _message_event_handler_wrapped(event: dict):
                 "oracle_upsell": 250,
                 "micro_insight": 100,
                 "destiny_card": 1500,
+                "destiny_card_update": 1000,
                 "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900,
                 "topup_5000": 400, "topup_10000": 750, "topup_50000": 3500
             }
@@ -515,9 +517,13 @@ async def _message_event_handler_wrapped(event: dict):
 
                 if key == "oracle_upsell": key = "oracle" # resolve the upsell back to its base service
 
-                if key == "destiny_card":
+                if key in ["destiny_card", "destiny_card_update"]:
                     from modules.tarot.destiny import generate_destiny_card_logic
-                    await generate_destiny_card_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"))
+                    await generate_destiny_card_logic(
+                        vk_id, peer_id,
+                        conversation_message_id=obj.get("conversation_message_id"),
+                        is_update=(key == "destiny_card_update")
+                    )
                     return
 
                 if buy_type == "skin":
@@ -590,7 +596,8 @@ async def _message_event_handler_wrapped(event: dict):
             prices = {
                 "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
                 "synastry": 1500, "palmistry": 1200, "dream": 1000, "all": 3000, "oracle": 500, "antitaro": 500,
-                "oracle_upsell": 250, "micro_insight": 100, "destiny_card": 1500,
+                "oracle_upsell": 250, "micro_insight": 100,
+                "destiny_card": 1500, "destiny_card_update": 1000,
                 "skin": 1500,
                 "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
             }

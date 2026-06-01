@@ -246,6 +246,14 @@
             </div>
             {% endif %}
 
+            <!-- Блок: Интересные факты -->
+            {% if interesting_facts %}
+            <div class="creative-block">
+                <strong>ИНТЕРЕСНЫЕ ФАКТЫ О ТЕБЕ</strong>
+                {{ interesting_facts | safe }}
+            </div>
+            {% endif %}
+
             <!-- 1. Твоя магическая печать / Звёздный код -->
             {% if star_code %}
             <div class="creative-block">

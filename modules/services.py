@@ -116,6 +116,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         {"key": "synastry", "title": "❤️ Совместимость", "desc": "1500 Энергии. Глубокий анализ ваших отношений по звездам. Узнайте, созданы ли вы друг для друга.", "image_name": "uslugi/SINISTRY.jpeg", "category": "deep"},
         {"key": "palmistry", "title": "✨ Хиромантия", "desc": "1200 Энергии. Чтение судьбы по ладоням. Узнай свой врожденный потенциал и текущую реализацию.", "image_name": "uslugi/hiro.jpeg", "category": "deep"},
         {"key": "dream", "title": "🌙 Сонник", "desc": "1000 Энергии. Толкование твоих снов через призму архетипов и символов. Узнай, что хочет сказать твое подсознание.", "image_name": "uslugi/dream.jpeg", "category": "deep"},
+        {"key": "destiny_card", "title": "⭐ Карта Судьбы", "desc": "1500 Энергии. Твой главный жизненный путь на всю жизнь. Самый важный разбор в твоем профиле.", "image_name": "uslugi/WAYLIFE.jpeg", "category": "deep"},
         {"key": "sex", "title": "🔥 Страсть", "desc": "1000 Энергии. Погружение в мир твоих чувств и желаний.", "image_name": "uslugi/sex.jpeg", "category": "deep"},
         {"key": "money", "title": "💰 Денежный поток", "desc": "900 Энергии. Раскрой свой путь к финансовой свободе.", "image_name": "uslugi/Money.jpeg", "category": "deep"},
         {"key": "shadow", "title": "👹 Ваши демоны", "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя.", "image_name": "uslugi/DEMONS.jpeg", "category": "deep"},

@@ -146,7 +146,11 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         cid = card_id if card_id else random.randint(0, 77)
         prompt = f"{base_info} Сделай разбор ОТКРОВЕНИЕ (честный, глубокий взгляд на то, что мешает твоему счастью, освобождение от иллюзий, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ОТКРОВЕНИЕ на отдельной строке перед основным разбором. Выдели заголовок ОТКРОВЕНИЕ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
     elif section == "destiny_card":
-        prompt = f"{base_info} Сделай разбор КАРТА СУДЬБЫ (главный жизненный путь, предназначение, кармические задачи и скрытые сильные и слабые стороны). ОБЯЗАТЕЛЬНО используй слово КАРТА СУДЬБЫ на отдельной строке перед основным разбором. Выдели заголовок КАРТА СУДЬБЫ КАПСОМ. Построй глубокий, вдохновляющий и сакральный разбор, полностью основанный на энергии выпавшей карты и дате рождения."
+        prompt = (
+            f"{base_info} Сделай разбор КАРТА СУДЬБЫ (главный жизненный путь, предназначение, кармические задачи и скрытые сильные и слабые стороны). "
+            "ОБЯЗАТЕЛЬНО используй слово КАРТА СУДЬБЫ на отдельной строке перед основным разбором. Выдели заголовок КАРТА СУДЬБЫ КАПСОМ. "
+            "Построй глубокий, вдохновляющий и сакральный разбор, полностью основанный на энергии выпавшей карты и дате рождения."
+        )
     elif section == "card_of_day":
         card_name = card_data.get('name', 'Твою карту') if card_data else "Твою карту"
         prompt = f"{base_info} Выдай карту дня: {card_name} (как ежедневный гороскоп, но в стиле Таро). ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ."
@@ -226,6 +230,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
             "Key 'activation_recommendations': Recommendations for activation (stone, color, scent, ritual) in Russian.\n"
             "Key 'star_code': A personal Star Code/Magical Seal (unique phrase-code) in Russian.\n"
             "Key 'energy_map': Description of the visual Energy Map (which planets influence) in Russian.\n"
+            "Key 'interesting_facts': 3 unique and surprising esoteric facts about the person with this Arcana (in Russian).\n"
         )
 
     # Приклеиваем style_instruction в самый конец
@@ -239,10 +244,19 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         if res:
             try:
                 clean = clean_ai_json(res)
-                return json.loads(clean, strict=False)
+                data = json.loads(clean, strict=False)
+                # Очистка от артефактов экранирования (n/nn) во всех строковых полях
+                for k, v in data.items():
+                    if isinstance(v, str):
+                        data[k] = v.replace('\\n', '\n').replace('\\\\n', '\n')
+                return data
             except Exception as e:
                 logger.error(f"Failed to parse JSON from AI: {e}. Raw text: {res}")
-                return {"text": res}
+                # Даже если не JSON, чистим от артефактов
+                return {"text": res.replace('\\n', '\n').replace('\\\\n', '\n')}
         return {"text": "Ошибка генерации."}
     else:
-        return await generate_text(prompt, skin=skin, image_urls=image_urls)
+        res = await generate_text(prompt, skin=skin, image_urls=image_urls)
+        if res:
+            return res.replace('\\n', '\n').replace('\\\\n', '\n')
+        return res
