@@ -46,12 +46,12 @@ async def _send_skins_page(
 
     # Формирование описания
     desc_data = CHARACTER_DESCRIPTIONS.get(s_key, {})
-    full_name = desc_data.get("name", name)
+    full_name = desc_data.get("name", name).upper()
     concept = desc_data.get("concept", "").replace("—", "-")
     style = desc_data.get("style", "").replace("—", "-")
     effect = desc_data.get("effect", "").replace("—", "-")
 
-    # Чистим заголовки внутри текста, если они есть (они обычно начинаются с "Концепция:", "Tone of Voice:" и т.д.)
+    # Чистим заголовки внутри текста, если они есть
     concept_text = concept.split(":", 1)[-1].strip() if ":" in concept else concept
     style_text = style.split(":", 1)[-1].strip() if ":" in style else style
     effect_text = effect.split(":", 1)[-1].strip() if ":" in effect else effect
