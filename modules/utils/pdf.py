@@ -22,7 +22,8 @@ def generate_premium_pdf(
     star_code: str = "",
     energy_map: str = "",
     current_date: str = "",
-    palm_photos: list[str] = None
+    palm_photos: list[str] = None,
+    interesting_facts: str = ""
 ):
     try:
         template = jinja_env.get_template('report.html')
@@ -41,6 +42,7 @@ def generate_premium_pdf(
         affirmations = safe_br(affirmations)
         thirty_day_forecast = safe_br(thirty_day_forecast)
         activation_recommendations = safe_br(activation_recommendations)
+        interesting_facts = safe_br(interesting_facts)
         star_code = safe_br(star_code)
         energy_map = safe_br(energy_map)
 
@@ -66,7 +68,8 @@ def generate_premium_pdf(
             star_code=star_code,
             energy_map=energy_map,
             current_date=current_date,
-            palm_photos=palm_photos
+            palm_photos=palm_photos,
+            interesting_facts=interesting_facts
         )
 
         from weasyprint import HTML
