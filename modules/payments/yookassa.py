@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import os
 import uuid
 from aiohttp import web, ClientSession, BasicAuth
@@ -165,16 +166,30 @@ async def yookassa_webhook(request: web.Request):
             if await is_first_payment(user_id):
                 await add_event(user_id, "first_payment", ev_metadata)
 
-            # Уведомление пользователю
+            # Уведомление пользователю (через инлайн-кнопку для пуша)
             try:
                 from modules.bot_init import bot
-                from modules.keyboards import get_main_keyboard
                 push_text = f"✨ БАЛАНС ПОПОЛНЕН! ✨\nЗачислено {energy_bonus} Энергии звезд за оплату {amount_rub} RUB.\nПроводники приветствуют тебя!"
+
+                # Ручное создание клавиатуры во избежание циклического импорта
+                keyboard = {
+                    "one_time": False,
+                    "inline": True,
+                    "buttons": [[{
+                        "action": {
+                            "type": "callback",
+                            "label": "🏠 ГЛАВНОЕ МЕНЮ",
+                            "payload": json.dumps({"cmd": "main_menu"})
+                        },
+                        "color": "primary"
+                    }]]
+                }
+
                 await bot.api.messages.send(
                     peer_id=user_id,
                     message=push_text,
                     random_id=0,
-                    keyboard=get_main_keyboard(user_id)
+                    keyboard=json.dumps(keyboard)
                 )
             except Exception as push_err:
                 logger.error(f"Failed to send VK payment push notification: {push_err}")
