@@ -49,25 +49,17 @@ async def reset_user_handler(message: Message):
     if not await acquire_lock(vk_id):
         return
     try:
-        # Устанавливаем стейт подтверждения (на всякий случай, если пользователь захочет ответить текстом,
-        # хотя мы даем кнопки)
-        await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
-
-        from modules.keyboards import vertical_kb
-        kb = vertical_kb([
-            ("✅ ПОДТВЕРДИТЬ СБРОС", {"cmd": "profile_action", "action": "confirm_reset"}, KeyboardButtonColor.NEGATIVE),
-            ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-        ])
-
-        att = await upload_local_photo(bot.api, "uslugi/main_menu.jpeg", peer_id=vk_id)
+        # СБРОС: только очистка FSM и временных данных в Redis
+        from cache import delete_temp_birth_data
+        await delete_temp_birth_data(vk_id)
+        await set_user_state(vk_id, "")
 
         await message.answer(
-            "⚠️ ВНИМАНИЕ: Это действие безвозвратно удалит все твои данные, покупки и прогресс в системе.\n\n"
-            "Ты действительно хочешь обнулить свой путь?",
-            keyboard=kb,
-            attachment=att
+            "✨ ТВОЙ ПУТЬ ПЕРЕЗАГРУЖЕН ✨\n\n"
+            "Текущее состояние и временные данные очищены. Твой профиль и баланс сохранены.\n"
+            "Если ты застрял — теперь ты можешь начать диалог заново."
         )
-        logger.info(f"Пользователь {vk_id} запросил сброс аккаунта через текст")
+        logger.info(f"Пользователь {vk_id} выполнил мягкий сброс (FSM/Redis)")
     except Exception as e:
         logger.error(f"Ошибка в reset_user_handler: {e}")
     finally:
@@ -75,10 +67,17 @@ async def reset_user_handler(message: Message):
 
 
 # ==================== ГЛАВНЫЙ СТАРТ ====================
-@labeler.message(func=lambda m: m.text and m.text.lower() in ["начать", "start", "/start"])
+@labeler.message(func=lambda m: m.text and m.text.lower() in ["начать", "start", "/start", "консоль", "console"])
 @labeler.message(payload={"command": "start"})
 async def start_handler(message: Message, skip_lock: bool = False):
     vk_id = message.from_id
+
+    # КОНСОЛЬ: Редирект в админку для администратора
+    if message.text and message.text.lower() in ["консоль", "console"]:
+        from modules.utils import ADMIN_ID
+        if vk_id == ADMIN_ID:
+            from modules.admin import show_admin_main
+            return await show_admin_main(message.peer_id)
 
     user = await get_user(vk_id)
     # Если пользователь уже зарегистрирован, отправляем в главное меню
@@ -251,6 +250,17 @@ async def is_waiting_birth_date(message: Message) -> bool:
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "waiting_birth_date"
 
+def validate_birth_year(date_str: str) -> bool:
+    """Проверка адекватности года рождения (1920-2026)"""
+    try:
+        match = re.search(r"(\d{4})", date_str)
+        if match:
+            year = int(match.group(1))
+            return 1920 <= year <= 2026
+    except:
+        pass
+    return True # Если не нашли год, пропускаем для ИИ-обработки
+
 @labeler.message(func=is_waiting_birth_date)
 async def process_birth_date(message: Message):
     vk_id = message.from_id
@@ -258,6 +268,11 @@ async def process_birth_date(message: Message):
     try:
         text = message.text.strip()
         state_dict = await get_fsm_step(vk_id) or {}
+
+        # Проверка на адекватность года
+        if not validate_birth_year(text):
+            await message.answer("🌌 Звезды не видят людей из этого времени. Пожалуйста, введи корректный год рождения (1920-2026):")
+            return
 
         # 1. Быстрая проверка регуляркой
         if re.match(r"^\d{2}\.\d{2}\.\d{4}$", text):
@@ -276,6 +291,11 @@ async def process_birth_date(message: Message):
         data = await extract_birth_data(text)
 
         if data.get("is_complete"):
+            # Проверка года после ИИ
+            if not validate_birth_year(data["date"]):
+                await message.answer("🌌 Звезды не видят людей из будущего или столь далекого прошлого. Пожалуйста, введи корректную дату рождения:")
+                return
+
             state_dict.update({
                 "step": "confirm_data",
                 "date": data["date"],
@@ -289,7 +309,11 @@ async def process_birth_date(message: Message):
             found_city = data.get("city")
             found_time = data.get("time")
 
-            if found_date: state_dict["date"] = found_date
+            if found_date:
+                if not validate_birth_year(found_date):
+                    await message.answer("🌌 Звезды не видят людей из этого времени. Пожалуйста, введи корректную дату рождения:")
+                    return
+                state_dict["date"] = found_date
             if found_city: state_dict["city"] = found_city
             if found_time and found_time != "12:00": state_dict["time"] = found_time
 

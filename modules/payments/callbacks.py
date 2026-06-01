@@ -64,7 +64,7 @@ async def message_event_handler(event: dict):
     except Exception as e:
         logger.exception(f"Unhandled error in message_event_handler: {e}")
 
-async def _message_event_handler_wrapped(event: dict):
+async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
     obj = event.get("object", {})
     vk_id = obj.get("user_id")
     peer_id = obj.get("peer_id")
@@ -121,13 +121,14 @@ async def _message_event_handler_wrapped(event: dict):
 
     if not vk_id: return
 
-    if payload.get("cmd") not in ["profile_action", "main_menu", "services_menu", "profile_menu"]:
-        if await check_throttle(vk_id):
-            return
+    if not skip_lock:
+        if payload.get("cmd") not in ["profile_action", "main_menu", "services_menu", "profile_menu"]:
+            if await check_throttle(vk_id):
+                return
 
-    if not await acquire_lock(vk_id, ttl=5):
-        logger.warning(f"Could not acquire lock for vk_id={vk_id} in message_event_handler")
-        return
+        if not await acquire_lock(vk_id, ttl=5):
+            logger.warning(f"Could not acquire lock for vk_id={vk_id} in message_event_handler")
+            return
     try:
         if not vk_id or not payload: return
         cmd = payload.get("cmd")
@@ -171,6 +172,8 @@ async def _message_event_handler_wrapped(event: dict):
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "confirm_data": return
             date, time, city = state_dict.get("date"), state_dict.get("time"), state_dict.get("city")
+            original_intent = state_dict.get("original_intent")
+
             await set_user_state(vk_id, "")
             await safe_edit(peer_id=peer_id, message="✦ СИНХРОНИЗАЦИЯ С МАТРИЦЕЙ...", conversation_message_id=obj.get("conversation_message_id"))
 
@@ -182,18 +185,48 @@ async def _message_event_handler_wrapped(event: dict):
                 "city": city
             })
 
-            # Начисляем бонусы и помечаем как зарегистрированного
-            await update_user(vk_id, {
-                "is_registered": True,
-                "balance": 700,
-                "welcome_bonus_received": True
-            })
+            user = await get_user(vk_id)
+            updates = {
+                "birth_date": date,
+                "birth_time": time,
+                "birth_city": city,
+                "is_registered": True
+            }
+
+            # Начисляем приветственный бонус если еще не получал
+            if user and not user.get("welcome_bonus_received"):
+                updates["balance"] = (user.get("balance", 0) or 0) + 700
+                updates["welcome_bonus_received"] = True
+
+            # Сохраняем всё одним запросом в Supabase
+            await update_user(vk_id, updates)
 
             if date and time and city:
                 from modules.skins import unlock_skin
                 await unlock_skin(bot.api, vk_id, "cleopatra")
 
-            # Если мы пришли сюда из процесса покупки, переходим к сдвигу колоды
+            # РЕЗОЛВ ОРИГИНАЛЬНОГО НАМЕРЕНИЯ
+            if original_intent:
+                oi_cmd = original_intent.get("cmd")
+                if oi_cmd == "buy":
+                    # Рекурсивно вызываем обработчик нажатия кнопки buy
+                    event_for_oi = event.copy()
+                    event_for_oi["object"]["payload"] = original_intent
+                    return await _message_event_handler_wrapped(event_for_oi, skip_lock=True)
+                elif oi_cmd == "process_payment_and_generate":
+                    return await process_payment_and_generate(vk_id, original_intent.get("section"))
+                elif oi_cmd == "execute_generation":
+                    return await execute_generation(
+                        vk_id, peer_id,
+                        original_intent.get("target_section"),
+                        original_intent.get("partner_name"),
+                        original_intent.get("partner_date"),
+                        card_id=original_intent.get("card_id"),
+                        card_data=original_intent.get("card_data"),
+                        conversation_message_id=obj.get("conversation_message_id")
+                    )
+
+            # Если мы пришли сюда из процесса покупки (старый формат), переходим к сдвигу колоды
             if target_section := state_dict.get("target_section"):
                 await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target_section}))
                 kb = Keyboard(inline=True).add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
@@ -480,6 +513,25 @@ async def _message_event_handler_wrapped(event: dict):
             }
             amount_needed = prices.get(key)
             if not amount_needed: return
+
+            # ПРОВЕРКА ДАТЫ РОЖДЕНИЯ ПЕРЕД ПОКУПКОЙ УСЛУГ (кроме пополнений и тарифов)
+            if buy_type == "service" or key in ["destiny_card", "destiny_card_update"]:
+                from cache import get_temp_birth_data
+                birth_data = await get_temp_birth_data(vk_id)
+                if not birth_data:
+                    state_data = {
+                        "step": "waiting_birth_date",
+                        "conv_id": obj.get("conversation_message_id"),
+                        "original_intent": {"cmd": "buy", "type": buy_type, "key": key}
+                    }
+                    await set_user_state(vk_id, json.dumps(state_data))
+                    await safe_edit(
+                        peer_id=peer_id,
+                        conversation_message_id=obj.get("conversation_message_id"),
+                        message="🔮 ДЛЯ АКТИВАЦИИ ПОТОКА МНЕ НУЖНА ТВОЯ ДАТА РОЖДЕНИЯ\n\nЧтобы я могла настроиться на твою энергию и провести ритуал, шепни мне дату своего рождения (например, 15.04.1990):"
+                    )
+                    return
+
             user = await get_user(vk_id)
             if not user: return
             balance = int(user.get("balance", 0) or 0)
