@@ -99,6 +99,7 @@ def profile_menu_kb() -> str:
 def settings_menu_kb(vk_id: int) -> str:
     """Меню Настроек"""
     buttons = [
+        ("📝 Изменить данные", {"cmd": "profile_action", "action": "change_data"}, KeyboardButtonColor.PRIMARY),
         ("🔄 Сбросить аккаунт", {"cmd": "profile_action", "action": "reset_account"}, KeyboardButtonColor.SECONDARY),
         ("❌ Отменить подписку", {"cmd": "profile_action", "action": "cancel_sub"}, KeyboardButtonColor.SECONDARY),
         ("📞 Поддержка", "support", KeyboardButtonColor.PRIMARY),
