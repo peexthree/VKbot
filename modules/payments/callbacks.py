@@ -23,7 +23,6 @@ async def safe_edit(peer_id, message, conversation_message_id=None, keyboard=Non
         **kwargs
     )
 
-from vkbottle.tools.dev.keyboard.action import VKPay
 
 from cache import acquire_lock, check_throttle, release_lock, set_fsm_state, redis_client
 from cards_data import get_card_data
@@ -506,9 +505,19 @@ async def _message_event_handler_wrapped(event: dict):
                 p["last_cart_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 await update_user(vk_id, {"purchased_sections": p})
 
-                kb = Keyboard(inline=True).add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={rubles}"))
-                kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
-                await ghost_edit(bot.api, peer_id, f"💳 ПОПОЛНЕНИЕ БАЛАНСА\n\nВы выбрали пакет: {energy_amount} ✨\nСтоимость: {rubles} RUB\n\nНажмите кнопку ниже для оплаты через VK Pay.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+                from modules.payments.yookassa import create_yookassa_payment
+                payment_url = await create_yookassa_payment(
+                    amount=rubles,
+                    description=f"Пополнение баланса: {energy_amount} энергии",
+                    user_id=vk_id
+                )
+
+                if payment_url:
+                    kb = Keyboard(inline=True).add(OpenLink(link=payment_url, label="💳 ОПЛАТИТЬ КАРТОЙ"))
+                    kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                    await ghost_edit(bot.api, peer_id, f"💳 ПОПОЛНЕНИЕ БАЛАНСА\n\nВы выбрали пакет: {energy_amount} ✨\nСтоимость: {rubles} RUB\n\nНажмите кнопку ниже для перехода к оплате.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
+                else:
+                    await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании платежа. Попробуйте позже.", random_id=0)
                 return
 
             if balance >= amount_needed:
@@ -550,7 +559,17 @@ async def _message_event_handler_wrapped(event: dict):
                     await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=0, keyboard=get_main_keyboard(vk_id))
             else:
                 diff_rubles = math.ceil((amount_needed - balance) / 10)
-                kb = Keyboard(inline=True).add(VKPay(hash=f"action=pay-to-group&group_id=219181948&amount={diff_rubles}")).row()
+                from modules.payments.yookassa import create_yookassa_payment
+                payment_url = await create_yookassa_payment(
+                    amount=diff_rubles,
+                    description=f"Доплата за услугу {key}",
+                    user_id=vk_id
+                )
+
+                kb = Keyboard(inline=True)
+                if payment_url:
+                    kb.add(OpenLink(link=payment_url, label="💳 ОПЛАТИТЬ КАРТОЙ")).row()
+
                 kb.add(Callback("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}), color=KeyboardButtonColor.POSITIVE).row()
                 kb.add(OpenLink(link="https://vk.com/@taroanti-oferta", label="📜 ПУБЛИЧНАЯ ОФЕРТА"))
                 await ghost_edit(bot.api, peer_id=peer_id, message=f"🛑 НЕДОСТАТОЧНО ЭНЕРГИИ.\nТвой баланс: {balance} ✨. Требуется: {amount_needed} ✨.\nСистема не может вскрыть этот слой матрицы.\n\nОплати недостающие {amount_needed - balance} энергии за {diff_rubles} RUB или позови друга, чтобы получить 500 ✨ бесплатно.\n\nСовершая оплату, вы принимаете условия публичной оферты: https://vk.com/@taroanti-oferta", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
