@@ -51,13 +51,26 @@ async def set_temp_birth_data(vk_id: int | str, data: dict, ttl: int = 86400):
     await redis_client.set(f"birth:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl)
 
 async def get_temp_birth_data(vk_id: int | str) -> dict | None:
-    """Получает данные рождения из Redis"""
+    """Получает данные рождения из Redis, если нет - пробует подтянуть из Supabase"""
     res = await redis_client.get(f"birth:{vk_id}")
     if res:
         try:
             return json.loads(res)
         except Exception:
-            return None
+            pass
+
+    # Если в Redis пусто, пробуем Supabase
+    from database import get_user
+    user = await get_user(int(vk_id))
+    if user and user.get("birth_date"):
+        data = {
+            "date": user.get("birth_date"),
+            "time": user.get("birth_time", "12:00"),
+            "city": user.get("birth_city", "")
+        }
+        await set_temp_birth_data(vk_id, data)
+        return data
+
     return None
 
 async def delete_temp_birth_data(vk_id: int | str):

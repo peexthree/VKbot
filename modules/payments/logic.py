@@ -26,7 +26,12 @@ async def process_payment_and_generate(vk_id: int, section: str):
 
         # Для микро-инсайта, услуг и т.д. нам нужны данные
         if not birth_data and section not in ["oracle", "antitaro"]:
-            await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "target_section": section, "is_upsell": (section == "oracle_upsell")}))
+            await set_user_state(vk_id, json.dumps({
+                "step": "waiting_birth_date",
+                "target_section": section,
+                "is_upsell": (section == "oracle_upsell"),
+                "original_intent": {"cmd": "process_payment_and_generate", "section": section}
+            }))
             await bot.api.messages.send(
                 peer_id=vk_id,
                 message="🔮 ТВОЙ ЗВЕЗДНЫЙ КАНАЛ ВРЕМЕННО ЗАКРЫТ\n\nЧтобы я могла продолжить чтение твоей судьбы, мне нужно заново настроиться на твою энергию. Шепни мне свою ДАТУ рождения (например, 15.04.1990):",
@@ -173,7 +178,19 @@ async def execute_generation(
             if not birth_data:
                 # В теории мы уже проверили это в process_payment_and_generate, но для надежности
                 await stop_dynamic_typing(peer_id)
-                await bot.api.messages.send(peer_id=peer_id, message="🛑 Твои данные рождения истекли. Пожалуйста, введи их заново.", random_id=0)
+                await set_user_state(vk_id, json.dumps({
+                    "step": "waiting_birth_date",
+                    "target_section": target_section,
+                    "original_intent": {
+                        "cmd": "execute_generation",
+                        "target_section": target_section,
+                        "partner_name": partner_name,
+                        "partner_date": partner_date,
+                        "card_id": card_id,
+                        "card_data": card_data
+                    }
+                }))
+                await bot.api.messages.send(peer_id=peer_id, message="🛑 Твои данные рождения истекли. Чтобы завершить ритуал, шепни мне дату своего рождения (например, 15.04.1990):", random_id=0)
                 return
 
             res_data = await generate_section(
