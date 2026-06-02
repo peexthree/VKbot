@@ -209,18 +209,23 @@ async def execute_generation(
             if res_text:
                 # 1. Очистка от ВСТУПЛЕНИЕ
                 res_text = re.sub(r"(?i)\bВСТУПЛЕНИЕ\b", "", res_text)
-                # 2. Очистка от запрещенных символов
+                # 2. Очистка от артефактов экранирования (n/nn) и запрещенных символов
+                # Сначала заменяем строковые \n на реальные переносы строк, чтобы избежать появления "n" или "nn"
+                res_text = res_text.replace('\\\\n', '\n').replace('\\n', '\n')
                 res_text = res_text.replace("#", "").replace("*", "").replace("|", "").replace("\\", "")
 
-                display_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
+                # Чистый текст для истории и PDF (без меток и добавок чата)
+                full_reading_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
 
                 # 3. Программный заголовок для хиромантии и сонника
                 if target_section == "palmistry":
-                    if not display_text.upper().startswith("ХИРОМАНТИЯ"):
-                        display_text = "ХИРОМАНТИЯ\n\n" + display_text
+                    if not full_reading_text.upper().startswith("ХИРОМАНТИЯ"):
+                        full_reading_text = "ХИРОМАНТИЯ\n\n" + full_reading_text
                 elif target_section == "dream":
-                    if not display_text.upper().startswith("СОННИК"):
-                        display_text = "СОННИК\n\n" + display_text
+                    if not full_reading_text.upper().startswith("СОННИК"):
+                        full_reading_text = "СОННИК\n\n" + full_reading_text
+
+                display_text = full_reading_text
 
                 # Сохраняем в историю
                 history = user.get("readings_history", [])
@@ -259,12 +264,12 @@ async def execute_generation(
                     save_data["purchased_sections"] = purchased
 
                 if isinstance(res_data, dict):
-                    res_data["text"] = display_text
+                    res_data["text"] = full_reading_text # Для PDF сохраняем чистый текст без добавок чата
                     if image_urls:
                         res_data["palm_photos"] = image_urls
                     save_data["latest_reading_data"] = res_data
                 else:
-                    save_data["latest_reading_data"] = {"text": display_text}
+                    save_data["latest_reading_data"] = {"text": full_reading_text}
 
                 await update_user(vk_id, save_data)
 
@@ -361,19 +366,33 @@ async def execute_generation(
                     asyncio.create_task(auto_gen_pdf_task(vk_id, peer_id, display_text, "dream", u_name, b_info))
 
                 if isinstance(res_data, dict):
+                    # В чат выводим сокращенную версию: Текст + Уровень активации + Аффирмации
+                    # Остальное (Прогноз на 30 дней, Факты и т.д.) остается только в PDF
+                    chat_text = full_reading_text
+
                     act_lvl = res_data.get('activation_level')
                     if act_lvl:
-                        display_text += f"\n\n⚡ УРОВЕНЬ АКТИВАЦИИ: {act_lvl}%"
+                        chat_text += f"\n\n⚡ УРОВЕНЬ АКТИВАЦИИ: {act_lvl}%"
                         if res_data.get('activation_comment'):
-                            display_text += f"\n{res_data.get('activation_comment')}"
+                            chat_text += f"\n{res_data.get('activation_comment')}"
 
                     affirmations = res_data.get('affirmations')
                     if affirmations:
                         if isinstance(affirmations, list):
-                            affirmations = "\n".join([f"- {a}" for a in affirmations])
-                        display_text += f"\n\nТвои аффирмации:\n{affirmations}"
+                            affirmations_list = [f"- {a}" for a in affirmations]
+                            affirmations_text = "\n".join(affirmations_list)
+                        else:
+                            affirmations_text = str(affirmations)
+                        chat_text += f"\n\nТвои аффирмации:\n{affirmations_text}"
 
-                    display_text += "\n\n------------------\n✨ Твой сакральный отчет со всеми деталями, кодами и картой энергии готов к загрузке. Нажми на кнопку ниже, чтобы сохранить это знание навсегда."
+                    chat_text += "\n\n------------------\n✨ Твой сакральный отчет со всеми деталями, кодами и картой энергии готов к загрузке. Нажми на кнопку ниже, чтобы сохранить это знание навсегда."
+                    display_text = chat_text
+
+                # Финальная очистка от возможных остатков JSON-разметки если что-то пошло не так
+                if display_text.strip().startswith('{') or '"text":' in display_text:
+                    display_text = re.sub(r'\{.*"text":\s*', '', display_text, flags=re.DOTALL)
+                    display_text = re.sub(r'",\s*"shadow_side".*', '', display_text, flags=re.DOTALL)
+                    display_text = display_text.strip('"').strip()
 
                 typing_msg_id = await stop_dynamic_typing(peer_id)
 
