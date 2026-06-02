@@ -228,7 +228,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
             # Если мы пришли сюда из процесса покупки (старый формат), переходим к сдвигу колоды
             if target_section := state_dict.get("target_section"):
-                await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": target_section}))
+                # Сохраняем остальные метаданные при переходе к сдвигу
+                state_dict["step"] = "global_cut"
+                await set_user_state(vk_id, json.dumps(state_dict))
                 kb = Keyboard(inline=True).add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
                 await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="✨ ДАННЫЕ ПРИНЯТЫ. ТЕПЕРЬ ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ.\n\nЖми кнопку ниже.", keyboard=kb.get_json())
                 return
