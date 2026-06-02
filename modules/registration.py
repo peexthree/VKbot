@@ -160,17 +160,19 @@ async def start_handler(message: Message, skip_lock: bool = False):
             "✨ ДОБРО ПОЖАЛОВАТЬ В АНТИ-ТАР ✨\n\n"
             f"Здравствуй, {first_name}. Я — твой проводник в мир самопознания и глубоких инсайтов.\n\n"
             "Здесь мы отбросим лишнее, чтобы услышать истинный голос твоего сердца и шепот звезд.\n\n"
-            "Выбери того, кто будет оберегать тебя на этом пути. Сейчас тебе доступны двое, но помни — "
-            "великие мастера вроде Шэпса или Распутина откроются тебе позже, когда твоя связь с матрицей окрепнет."
+            "Выбери того, кто будет оберегать тебя на этом пути. Сейчас тебе доступны трое сильных проводников, "
+            "которые помогут тебе вскрыть слои реальности."
         )
 
         kb = Keyboard(inline=True)
-        kb.add(Callback("🌸 ОЛЕСЯ ИВОНЧЕНКО", payload={"cmd": "choose_onboarding_skin", "skin": "Олеся Ивонченко"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🌸 ОЛЕСЯ ИВОНЧЕНКО", payload={"cmd": "choose_onboarding_skin", "skin": "olesya"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
-        kb.add(Callback("🕯 СЕРЬЕЗНЫЙ АСКЕТ", payload={"cmd": "choose_onboarding_skin", "skin": "Серьезный Аскет"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🕯 АЛЕКСАНДР ШЕПС", payload={"cmd": "choose_onboarding_skin", "skin": "sheps_alex"}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+        kb.add(Callback("🧠 ВОЛЬФ МЕССИНГ", payload={"cmd": "choose_onboarding_skin", "skin": "messing"}), color=KeyboardButtonColor.PRIMARY)
 
         # Загружаем фото Олеси для велком-месседжа
-        att = await upload_local_photo(bot.api, SKIN_ASSETS["Олеся Ивонченко"], peer_id=vk_id)
+        att = await upload_local_photo(bot.api, SKIN_ASSETS["olesya"], peer_id=vk_id)
 
         msg_id = await message.answer(welcome_text, attachment=att, keyboard=kb.get_json())
         await set_last_bot_msg(vk_id, msg_id)
@@ -198,18 +200,29 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
 
         # Получаем временные данные из Redis
         temp_data = await get_temp_birth_data(vk_id) or {}
-        bdate = temp_data.get("date") or "Не указана"
-        city = temp_data.get("city") or "Не указан"
+        bdate = temp_data.get("date")
+        city = temp_data.get("city")
 
-        await set_user_state(
-            vk_id,
-            json.dumps({
-                "step": "confirm_data",
-                "date": bdate,
-                "time": temp_data.get("time", "12:00"),
-                "city": city
-            })
-        )
+        # Если данных не хватает (пустые или отсутствуют), отправляем на ручной ввод
+        if not bdate or not city or bdate == "Не указана" or city == "Не указан":
+            state_dict = await get_fsm_step(vk_id) or {}
+            state_dict.update({"step": "waiting_birth_date", "conv_id": conversation_message_id})
+            await set_user_state(vk_id, json.dumps(state_dict))
+            text = (
+                "Твой выбор согревает сердце. Чтобы я могла настроить твою личную карту звездного неба, "
+                "мне нужны твои данные.\n\n"
+                "Напиши свою ДАТУ рождения (например, 15.04.1990):"
+            )
+            return await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id)
+
+        state_dict = await get_fsm_step(vk_id) or {}
+        state_dict.update({
+            "step": "confirm_data",
+            "date": bdate,
+            "time": temp_data.get("time", "12:00"),
+            "city": city
+        })
+        await set_user_state(vk_id, json.dumps(state_dict))
 
         kb = Keyboard(inline=True)
         kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
