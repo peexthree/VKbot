@@ -1,5 +1,6 @@
 import json
 import random
+import re
 from loguru import logger
 from cards_data import get_card_data
 from ai.logic import generate_text, clean_ai_json

@@ -1,5 +1,4 @@
 import json
-import pytest
 from ai.logic import clean_ai_json
 
 def test_clean_ai_json_valid():
