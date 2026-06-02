@@ -156,10 +156,35 @@ def clean_ai_json(raw: str) -> str:
         match = re.search(r'([\[{].*[\]}])', cleaned, re.DOTALL)
         if match:
             cleaned = match.group(1)
+        else:
+            # Если не нашли закрытых скобок, пробуем найти хотя бы открывающую
+            match_open = re.search(r'([\[{].*)', cleaned, re.DOTALL)
+            if match_open:
+                cleaned = match_open.group(1)
 
     # Очистка от управляющих символов, которые ломают JSON (кроме легальных пробельных)
-    # Оставляем \n \r \t но json.loads(strict=False) с ними справится лучше
-    # Но некоторые невидимые символы лучше вычистить
     cleaned = re.sub(r'[\x00-\x1F\x7F-\x9F]', lambda m: m.group() if m.group() in '\n\r\t' else '', cleaned)
+
+    # Попытка восстановить битый JSON (базовое исправление для обрезанных ответов)
+    if cleaned.startswith('{') and not cleaned.endswith('}'):
+        # Если JSON объект обрезан, пробуем закрыть его
+        # Это грубое исправление, но лучше чем ничего
+        # Сначала закрываем кавычки, если они открыты (нечетное количество неэкранированных кавычек)
+        quotes_count = len(re.findall(r'(?<!\\)"', cleaned))
+        if quotes_count % 2 != 0:
+            cleaned += '"'
+
+        # Закрываем массив, если он открыт
+        brackets_count = cleaned.count('[') - cleaned.count(']')
+        if brackets_count > 0:
+            cleaned += ']' * brackets_count
+
+        cleaned += '}'
+    elif cleaned.startswith('[') and not cleaned.endswith(']'):
+        # Аналогично для списка
+        quotes_count = len(re.findall(r'(?<!\\)"', cleaned))
+        if quotes_count % 2 != 0:
+            cleaned += '"'
+        cleaned += ']'
 
     return cleaned

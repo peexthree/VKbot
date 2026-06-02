@@ -248,15 +248,27 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
                 # Очистка от артефактов экранирования (n/nn) во всех строковых полях
                 for k, v in data.items():
                     if isinstance(v, str):
-                        data[k] = v.replace('\\n', '\n').replace('\\\\n', '\n')
+                        data[k] = v.replace('\\\\n', '\n').replace('\\n', '\n')
+                    elif isinstance(v, list):
+                        data[k] = [i.replace('\\\\n', '\n').replace('\\n', '\n') if isinstance(i, str) else i for i in v]
                 return data
             except Exception as e:
-                logger.error(f"Failed to parse JSON from AI: {e}. Raw text: {res}")
-                # Даже если не JSON, чистим от артефактов
-                return {"text": res.replace('\\n', '\n').replace('\\\\n', '\n')}
+                logger.error(f"Failed to parse JSON from AI: {e}. Attempting manual extraction.")
+
+                # Попытка ручного извлечения 'text' через regex если JSON сломан совсем
+                text_match = re.search(r'"text":\s*"(.*?)"(?=,\s*"|\s*})', res, re.DOTALL)
+                if text_match:
+                    extracted_text = text_match.group(1).replace('\\\\n', '\n').replace('\\n', '\n').replace('\\"', '"')
+                    return {"text": extracted_text}
+
+                # Если даже regex не помог, отдаем очищенный сырой текст без JSON-структуры
+                # (убираем возможные скобки и названия полей в начале)
+                fallback_text = res.replace('\\\\n', '\n').replace('\\n', '\n')
+                fallback_text = re.sub(r'^\{.*?"text":\s*"', '', fallback_text, flags=re.DOTALL)
+                return {"text": fallback_text}
         return {"text": "Ошибка генерации."}
     else:
         res = await generate_text(prompt, skin=skin, image_urls=image_urls)
         if res:
-            return res.replace('\\n', '\n').replace('\\\\n', '\n')
+            return res.replace('\\\\n', '\n').replace('\\n', '\n')
         return res
