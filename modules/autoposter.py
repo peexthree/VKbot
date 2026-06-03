@@ -1,5 +1,3 @@
-import asyncio
-import datetime
 import json
 import random
 import os
@@ -22,21 +20,19 @@ def load_content():
 
 async def generate_post():
     content = load_content()
-    skin_map = content["SKIN_MAP"]
+    skin_ids = list(content["TONES"].keys())
     topics_by_category = content["TOPICS"]
 
     # Выбор случайного персонажа и темы
-    skin_id = random.choice(list(skin_map.keys()))
+    skin_id = random.choice(skin_ids)
     category = random.choice(list(topics_by_category.keys()))
     topic = random.choice(topics_by_category[category])
 
-    skin_instruction = skin_map.get(skin_id, "")
     logger.info(f"Генерация поста: персонаж {skin_id}, тема '{topic}'")
 
-    # Формирование промпта
+    # Формирование промпта. Тон голоса (TOV) добавится автоматически в generate_text
     prompt = (
-        f"{skin_instruction}\n\n"
-        f"Напиши пост в стиле твоего Tone of Voice на тему: «{topic}».\n"
+        f"Напиши пост на тему: «{topic}».\n"
         f"Используй в посте актуальную новостную повестку (астрологические события недели, громкие научные новости или виральные мемы), "
         f"адаптируй их под свой характер. Сделай мощный призыв перейти в бота.\n"
         f"Текст должен быть коротким, цепляющим, для стены ВК.\n"
@@ -45,6 +41,7 @@ async def generate_post():
         f"https://vk.me/club{GROUP_ID}?ref=autopost_{topic.replace(' ', '_').replace('?', '').replace('!', '')}"
     )
 
+    # Мы передаем skin_id, и generate_text сам возьмет нужный TOV из SKIN_MAP в prompts/personas.py
     text = await generate_text(prompt, skin=skin_id)
     if not text:
         logger.error("Не удалось сгенерировать текст поста")
@@ -68,11 +65,9 @@ async def post_to_vk():
 
         # Подготовка фото
         photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
-        # upload_local_photo умный и ищет в cards/ или cards/uslugi/
         attachment = await upload_local_photo(bot.api, photo_filename)
 
         # 1. Публикация в Канал
-        # Используем channel=1 как указал пользователь
         res = await bot.api.wall.post(
             owner_id=-GROUP_ID,
             from_group=1,
@@ -100,7 +95,7 @@ def setup_autoposter():
 
     # 19:00 MSK ± 15 минут
     hour = 19
-    minute = random.randint(0, 30) # от 19:00 до 19:30
+    minute = random.randint(0, 30)
 
     scheduler.add_job(
         post_to_vk,
