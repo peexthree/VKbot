@@ -4,6 +4,10 @@ import datetime
 import json
 import os
 import warnings
+import hashlib
+import hmac
+import base64
+from urllib.parse import parse_qsl, urlencode
 import sentry_sdk
 from aiohttp import web
 from loguru import logger
@@ -30,6 +34,70 @@ with warnings.catch_warnings():
 
 async def handle_ping(request):
     return web.Response(text="Bot is alive")
+
+def verify_vk_signature(query_string: str, secret: str) -> bool:
+    """Проверка подписи параметров запуска VK Mini App"""
+    try:
+        query_params = dict(parse_qsl(query_string))
+        if "sign" not in query_params:
+            return False
+
+        vk_sign = query_params.pop("sign")
+        vk_params = {k: v for k, v in query_params.items() if k.startswith("vk_")}
+        sorted_params = sorted(vk_params.items())
+        check_str = urlencode(sorted_params)
+
+        hash_code = hmac.new(
+            secret.encode("utf-8"),
+            check_str.encode("utf-8"),
+            hashlib.sha256
+        ).digest()
+
+        expected_sign = base64.b64encode(hash_code).decode("utf-8")
+        expected_sign = expected_sign.replace("+", "-").replace("/", "_").rstrip("=")
+
+        return hmac.compare_digest(expected_sign, vk_sign)
+    except Exception as e:
+        logger.error(f"Signature verification error: {e}")
+        return False
+
+async def handle_user_info(request):
+    """Эндпоинт для получения данных пользователя в Мини-приложении"""
+    from database import get_user
+    from modules.utils.logic import calculate_user_rank
+
+    vk_params = request.headers.get("X-VK-Params")
+    if not vk_params:
+        return web.json_response({"error": "Missing X-VK-Params header"}, status=400)
+
+    app_secret = os.environ.get("VK_MINI_APP_SECRET")
+    if not app_secret:
+        logger.error("VK_MINI_APP_SECRET is not set in environment")
+        return web.json_response({"error": "Server configuration error"}, status=500)
+
+    if not verify_vk_signature(vk_params, app_secret):
+        return web.json_response({"error": "Invalid signature"}, status=403)
+
+    try:
+        params_dict = dict(parse_qsl(vk_params))
+        vk_user_id = int(params_dict.get("vk_user_id", 0))
+    except (ValueError, TypeError):
+        return web.json_response({"error": "Invalid vk_user_id"}, status=400)
+
+    if not vk_user_id:
+        return web.json_response({"error": "vk_user_id not found in params"}, status=400)
+
+    user = await get_user(vk_user_id)
+    if not user:
+        return web.json_response({"error": "User not found"}, status=404)
+
+    level, rank = calculate_user_rank(user)
+
+    return web.json_response({
+        "balance": int(user.get("balance", 0) or 0),
+        "level": level,
+        "status": rank
+    })
 
 def sanitize_photo_sizes(data: dict) -> dict:
     """Исправляет неизвестные типы размеров фото, чтобы vkbottle не падал"""
@@ -356,8 +424,22 @@ async def main():
     asyncio.create_task(daily_forecast_cron_safe())
 
     app = web.Application()
+
+    import aiohttp_cors
+    cors = aiohttp_cors.setup(app, defaults={
+        "https://vkbotmini.vercel.app": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_headers="*",
+        )
+    })
+
     app.router.add_get('/', handle_ping)
     app.router.add_post('/vk/callback', handle_vk_webhook)
+
+    user_info_resource = app.router.add_resource("/api/user/info")
+    user_info_resource.add_route("GET", handle_user_info)
+    cors.add(user_info_resource)
 
     from modules.payments.yookassa import yookassa_webhook
     app.router.add_post('/yookassa/webhook', yookassa_webhook)
