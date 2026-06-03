@@ -38,14 +38,24 @@ async def handle_ping(request):
 def verify_vk_signature(query_string: str, secret: str) -> bool:
     """Проверка подписи параметров запуска VK Mini App"""
     try:
-        query_params = dict(parse_qsl(query_string))
+        # Используем keep_blank_values=True, чтобы не терять пустые параметры
+        query_params = dict(parse_qsl(query_string, keep_blank_values=True))
         if "sign" not in query_params:
             return False
 
         vk_sign = query_params.pop("sign")
-        vk_params = {k: v for k, v in query_params.items() if k.startswith("vk_")}
+
+        # Фильтруем параметры: только те, что начинаются на vk_,
+        # исключая vk_share_ и vk_group_ (они не участвуют в подписи)
+        vk_params = {
+            k: v for k, v in query_params.items()
+            if k.startswith("vk_") and not k.startswith("vk_share_") and not k.startswith("vk_group_")
+        }
+
         sorted_params = sorted(vk_params.items())
         check_str = urlencode(sorted_params)
+
+        logger.warning(f"Check string for signature: {check_str}")
 
         hash_code = hmac.new(
             secret.encode("utf-8"),
@@ -63,10 +73,21 @@ def verify_vk_signature(query_string: str, secret: str) -> bool:
 
 async def handle_user_info(request):
     """Эндпоинт для получения данных пользователя в Мини-приложении"""
+    # Явная обработка preflight OPTIONS запросов
+    if request.method == 'OPTIONS':
+        headers = {
+            'Access-Control-Allow-Origin': 'https://vkbotmini.vercel.app',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'X-VK-Params, Content-Type',
+        }
+        return web.Response(headers=headers)
+
     from database import get_user
     from modules.utils.logic import calculate_user_rank
 
     vk_params = request.headers.get("X-VK-Params")
+    logger.debug(f"Params received in X-VK-Params: {vk_params}")
+
     if not vk_params:
         return web.json_response({"error": "Missing X-VK-Params header"}, status=400)
 
