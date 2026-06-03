@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 import aiofiles
 from loguru import logger
-from vkbottle import PhotoMessageUploader, PhotoWallUploader
+from vkbottle import PhotoMessageUploader
 from cache import acquire_lock, redis_client, release_lock
 from modules.utils.consts import (
     SKIN_ASSETS, cover_cache, _anchor_batch, ANCHOR_BATCH_SIZE, ADMIN_ID
@@ -156,7 +156,11 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
         return ""
 
     try:
-        uploader = PhotoWallUploader(bot_api)
+        # ХАК: Используем PhotoMessageUploader вместо PhotoWallUploader,
+        # так как PhotoWallUploader требует токен пользователя (User Token),
+        # а у нас только токен группы. PhotoMessageUploader позволяет получить
+        # photo_id, который VK принимает и при публикации на стену.
+        uploader = PhotoMessageUploader(bot_api)
         filepath = os.path.join("cards", filename)
         if not os.path.exists(filepath):
             logger.error(f"Файл не найден для wall_photo: {filepath}")
@@ -164,7 +168,8 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
 
         async with aiofiles.open(filepath, 'rb') as f:
             data = await f.read()
-            raw_photo_id = await uploader.upload(file_source=data)
+            # peer_id=0 для PhotoMessageUploader при получении общего photo_id
+            raw_photo_id = await uploader.upload(file_source=data, peer_id=0)
 
             if raw_photo_id:
                 try:
