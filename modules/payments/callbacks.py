@@ -104,24 +104,13 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             card_id = payload.get("card")
             user = await get_user(vk_id)
 
-            # Формируем Deep Link
-            share_url = f"https://vk.me/club219181948?ref=result_{card_id}" if card_id else "https://vk.me/club219181948?ref=result"
-            # Статическое изображение героя (брендинг)
-            hero_image = "https://sun9-41.userapi.com/s/v1/ig2/g1MLzwV-fLHVxliq4YLLRhxE4sQffxpFGlPetnJuGBq8dgXLP16vj7gdhBo6-lCgAyF6YJir9tv-1DKrFdE-8u6x.jpg?size=1024x1024&quality=96&crop=0,0,1024,1024&ava=1"
-
-            title = "Анти-Таро — Твой цифровой проводник"
             card_name = "Тайный Аркан"
-            character_name = "Проводник"
             thesis_snippet = "Твой путь начертан звездами."
 
             if user:
                 if card_id:
                     c_data = get_card_data(card_id)
                     card_name = c_data.get("name", card_name)
-
-                from modules.utils.consts import SKIN_DISPLAY_NAMES
-                active_skin = user.get("active_skin", "olesya")
-                character_name = SKIN_DISPLAY_NAMES.get(active_skin, character_name)
 
                 import re
                 latest_text = user.get("latest_reading_text") or ""
@@ -138,45 +127,33 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     if sentences:
                         thesis_snippet = sentences[0].strip()
 
-                title = f"Тайны {card_name} раскрыты!"
-
-            # Шаблон текста
-            comment = f"Мне выпал Аркан {card_name}! Проводник {character_name} сказал мне: «{thesis_snippet}». Узнай свою судьбу в Анти-Таро!"
-
-            # Ограничение 150 символов для комментария
-            if len(comment) > 150:
-                allowed_thesis_len = 150 - (len(comment) - len(thesis_snippet))
-                if allowed_thesis_len > 3:
-                    thesis_snippet = thesis_snippet[:allowed_thesis_len-3] + "..."
-                else:
-                    thesis_snippet = ""
-                comment = f"Мне выпал Аркан {card_name}! Проводник {character_name} сказал мне: «{thesis_snippet}». Узнай свою судьбу в Анти-Таро!"
-
-            import urllib.parse
-            encoded_comment = urllib.parse.quote(comment)
-            encoded_title = urllib.parse.quote(title)
-            encoded_image = urllib.parse.quote(hero_image)
-            encoded_url = urllib.parse.quote(share_url)
-
-            final_share_link = f"https://vk.com/share.php?url={encoded_url}&title={encoded_title}&comment={encoded_comment}&image={encoded_image}"
-
-            event_data = {
-                "type": "open_link",
-                "link": final_share_link
-            }
-
-            # Защитная проверка длины JSON-строки (лимит ВК 1000 символов)
-            json_str = json.dumps(event_data, ensure_ascii=False)
-            while len(json_str) > 950 and len(comment) > 10:
-                comment = comment[:-5] + "..."
-                encoded_comment = urllib.parse.quote(comment)
-                final_share_link = f"https://vk.com/share.php?url={encoded_url}&title={encoded_title}&comment={encoded_comment}&image={encoded_image}"
-                event_data["link"] = final_share_link
-                json_str = json.dumps(event_data, ensure_ascii=False)
-
+            # 1. Отвечаем мгновенно, чтобы убрать спиннер
             await bot.api.messages.send_message_event_answer(
                 event_id=event_id, user_id=vk_id, peer_id=peer_id,
-                event_data=json.dumps(event_data)
+                event_data=json.dumps({"type": "show_snackbar", "text": "Карточка для пересылки готова!"})
+            )
+
+            # 2. Формируем виральное сообщение
+            ref_link = f"https://vk.me/club219181948?ref=result_{card_id}" if card_id else "https://vk.me/club219181948?ref=result"
+            viral_text = f"Смотри, какой Аркан выпал мне в Анти-Таро: {card_name}. {thesis_snippet}\n\nПопробуй и ты: {ref_link}"
+
+            # Загружаем картинку (карту или брендинг)
+            photo_file = f"{card_id}.jpeg" if card_id and os.path.exists(os.path.join("cards", f"{card_id}.jpeg")) else "uslugi/main_menu.jpeg"
+            attachment = await upload_local_photo(bot.api, photo_file, peer_id=vk_id)
+
+            # 3. Отправляем карточку для шаринга
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message=viral_text,
+                attachment=attachment,
+                random_id=0
+            )
+
+            # 4. Отправляем инструкцию отдельным сообщением
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message="👆 Просто перешли это сообщение своим друзьям!",
+                random_id=0
             )
         elif cmd in ["buy", "buy_skin"]:
             # Defer answering until payment logic completes (to show success/error snackbar)
