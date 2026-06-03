@@ -96,24 +96,14 @@ async def post_to_vk():
         photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
         attachment = await upload_wall_photo(bot.api, photo_filename)
 
-        # 1. Публикация в Канал (channel=1)
-        res_channel = await bot.api.wall.post(
-            owner_id=-GROUP_ID,
-            from_group=1,
-            message=text,
-            attachments=attachment,
-            **{"channel": 1}
-        )
-        logger.info(f"Пост опубликован в канал: {res_channel.post_id}")
-
-        # 2. Публикация на Стену сообщества (полный дубль)
+        # Публикация на Стену сообщества
         res_wall = await bot.api.wall.post(
             owner_id=-GROUP_ID,
             from_group=1,
             message=text,
             attachments=attachment
         )
-        logger.info(f"Пост продублирован на стену: {res_wall.post_id}")
+        logger.info(f"Пост опубликован на стену: {res_wall.post_id}")
 
         # Записываем в историю публикаций
         topic_slug = post_data["topic"].replace(' ', '_').replace('?', '').replace('!', '')
