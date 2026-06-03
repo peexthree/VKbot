@@ -111,7 +111,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
             if user:
                 from modules.utils.consts import SKIN_DISPLAY_NAMES
-                from cards_data import get_card_data
                 active_skin = user.get("active_skin", "olesya")
                 character_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
                 latest_data = user.get("latest_reading_data", {})
