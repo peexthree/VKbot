@@ -101,52 +101,42 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             from modules.skins import unlock_skin
             await unlock_skin(bot.api, vk_id, "jack_sparrow")
 
-            section = payload.get("section")
             card_id = payload.get("card")
             user = await get_user(vk_id)
 
-            share_url = "https://vk.com/club219181948"
+            share_url = "https://vk.me/club219181948"
             title = "Анти-Таро — Твой цифровой проводник"
             comment = "Узнай свой путь в Анти-Таро — заходи в бота!"
 
             if user:
-                from modules.utils.consts import SKIN_DISPLAY_NAMES
-                active_skin = user.get("active_skin", "olesya")
-                character_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
-                latest_data = user.get("latest_reading_data", {})
-
                 card_name = "Тайный Аркан"
                 if card_id:
                     c_data = get_card_data(card_id)
                     card_name = c_data.get("name", card_name)
 
-                thesis = ""
-                if latest_data and "shadow_side" in latest_data:
-                    thesis = latest_data["shadow_side"]
-                    if isinstance(thesis, list) and thesis:
-                        thesis = thesis[0]
-                    # Ограничиваем длину тезиса для URL
-                    thesis = (thesis[:100] + '...') if len(thesis) > 100 else thesis
-
-                if card_id or section:
-                    title = f"Тайны {card_name} раскрыты!"
-                    comment = (
-                        f"Мне выпал Аркан {card_name}! 🃏\n"
-                        f"Проводник {character_name} открыл мне тайну: {thesis}\n\n"
-                        "Узнай свой путь в Анти-Таро — заходи в бота! ✨"
-                    )
+                title = f"Тайны {card_name} раскрыты!"
+                comment = f"Мне выпал Аркан {card_name}! 🃏\nУзнай свой путь в Анти-Таро — заходи в бота! ✨"
 
             import urllib.parse
             encoded_comment = urllib.parse.quote(comment)
             encoded_title = urllib.parse.quote(title)
             final_share_link = f"https://vk.com/share.php?url={share_url}&title={encoded_title}&comment={encoded_comment}"
 
+            event_data = {
+                "type": "open_link",
+                "link": final_share_link
+            }
+
+            # Защитная проверка длины JSON-строки (лимит ВК 1000 символов)
+            if len(json.dumps(event_data, ensure_ascii=False)) > 900:
+                short_comment = "Узнай свой путь в Анти-Таро — заходи в бота! ✨"
+                encoded_short_comment = urllib.parse.quote(short_comment)
+                final_share_link = f"https://vk.com/share.php?url={share_url}&title={encoded_title}&comment={encoded_short_comment}"
+                event_data["link"] = final_share_link
+
             await bot.api.messages.send_message_event_answer(
                 event_id=event_id, user_id=vk_id, peer_id=peer_id,
-                event_data=json.dumps({
-                    "type": "open_link",
-                    "link": final_share_link
-                })
+                event_data=json.dumps(event_data)
             )
         elif cmd in ["buy", "buy_skin"]:
             # Defer answering until payment logic completes (to show success/error snackbar)
