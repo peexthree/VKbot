@@ -116,15 +116,15 @@ def after_pdf_kb(section: str, card: str = None) -> str:
     kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": section, "card": card}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
     # Ачивка Джека Воробья: засчитываем по факту клика на коллбэк и показываем ссылку
-    kb.add(Callback("📤 Поделиться в VK", payload={"cmd": "share_click"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("📤 Поделиться в VK", payload={"cmd": "share_click", "section": section, "card": card}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
 
-def post_pdf_kb(section: str) -> str:
+def post_pdf_kb(section: str, card: str = None) -> str:
     """Клавиатура ПОСЛЕ того как PDF уже получен"""
     kb = Keyboard(inline=True)
-    kb.add(Callback("📤 Поделиться в VK", payload={"cmd": "share_click"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("📤 Поделиться в VK", payload={"cmd": "share_click", "section": section, "card": card}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()

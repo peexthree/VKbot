@@ -23,7 +23,8 @@ def generate_premium_pdf(
     energy_map: str = "",
     current_date: str = "",
     palm_photos: list[str] = None,
-    interesting_facts: str = ""
+    interesting_facts: str = "",
+    character_name: str = "Проводник"
 ):
     try:
         template = jinja_env.get_template('report.html')
@@ -69,7 +70,8 @@ def generate_premium_pdf(
             energy_map=energy_map,
             current_date=current_date,
             palm_photos=palm_photos,
-            interesting_facts=interesting_facts
+            interesting_facts=interesting_facts,
+            character_name=character_name
         )
 
         from weasyprint import HTML

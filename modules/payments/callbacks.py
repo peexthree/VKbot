@@ -100,11 +100,53 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         elif cmd == "share_click":
             from modules.skins import unlock_skin
             await unlock_skin(bot.api, vk_id, "jack_sparrow")
+
+            section = payload.get("section")
+            card_id = payload.get("card")
+            user = await get_user(vk_id)
+
+            share_url = "https://vk.com/club219181948"
+            title = "Анти-Таро — Твой цифровой проводник"
+            comment = "Узнай свой путь в Анти-Таро — заходи в бота!"
+
+            if user:
+                from modules.utils.consts import SKIN_DISPLAY_NAMES
+                from cards_data import get_card_data
+                active_skin = user.get("active_skin", "olesya")
+                character_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
+                latest_data = user.get("latest_reading_data", {})
+
+                card_name = "Тайный Аркан"
+                if card_id:
+                    c_data = get_card_data(card_id)
+                    card_name = c_data.get("name", card_name)
+
+                thesis = ""
+                if latest_data and "shadow_side" in latest_data:
+                    thesis = latest_data["shadow_side"]
+                    if isinstance(thesis, list) and thesis:
+                        thesis = thesis[0]
+                    # Ограничиваем длину тезиса для URL
+                    thesis = (thesis[:100] + '...') if len(thesis) > 100 else thesis
+
+                if card_id or section:
+                    title = f"Тайны {card_name} раскрыты!"
+                    comment = (
+                        f"Мне выпал Аркан {card_name}! 🃏\n"
+                        f"Проводник {character_name} открыл мне тайну: {thesis}\n\n"
+                        "Узнай свой путь в Анти-Таро — заходи в бота! ✨"
+                    )
+
+            import urllib.parse
+            encoded_comment = urllib.parse.quote(comment)
+            encoded_title = urllib.parse.quote(title)
+            final_share_link = f"https://vk.com/share.php?url={share_url}&title={encoded_title}&comment={encoded_comment}"
+
             await bot.api.messages.send_message_event_answer(
                 event_id=event_id, user_id=vk_id, peer_id=peer_id,
                 event_data=json.dumps({
                     "type": "open_link",
-                    "link": "https://vk.com/share.php?url=https://vk.com/club219181948"
+                    "link": final_share_link
                 })
             )
         elif cmd in ["buy", "buy_skin"]:
@@ -400,6 +442,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             u_name = user.get("first_name") or user.get("purchased_sections", {}).get("first_name", "Адепт")
             card_data = get_card_data(card_id) if card_id else {}
             current_date_str = datetime.datetime.now().strftime("%d.%m.%Y")
+
+            from modules.utils.consts import SKIN_DISPLAY_NAMES
+            active_skin = user.get("active_skin", "olesya")
+            char_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
+
             async with pdf_semaphore:
                 success = await asyncio.to_thread(
                     generate_premium_pdf,
@@ -423,7 +470,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     energy_map=latest_data.get("energy_map", ""),
                     current_date=current_date_str,
                     palm_photos=latest_data.get("palm_photos"),
-                    interesting_facts=latest_data.get("interesting_facts", "")
+                    interesting_facts=latest_data.get("interesting_facts", ""),
+                    character_name=char_name
                 )
             if success and os.path.exists(pdf_name):
                 try:
@@ -433,7 +481,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         return
 
                     from modules.keyboards import post_pdf_kb
-                    kb = post_pdf_kb(section)
+                    kb = post_pdf_kb(section, card=card_id)
                     await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=0, keyboard=kb)
 
                 finally:
@@ -593,11 +641,13 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     return
 
                 if buy_type == "skin":
+                    from modules.utils.consts import SKIN_DISPLAY_NAMES
+                    char_name = SKIN_DISPLAY_NAMES.get(key, "Проводник")
                     await process_skin_action_logic(vk_id, peer_id, skip_lock=True, payload={"cmd": "set_skin", "skin": key}, conversation_message_id=obj.get("conversation_message_id"))
                     if event_id:
                         await bot.api.messages.send_message_event_answer(
                             event_id=event_id, user_id=vk_id, peer_id=peer_id,
-                            event_data=json.dumps({"type": "show_snackbar", "text": "🎭 Новый Проводник открыт! ✨"})
+                            event_data=json.dumps({"type": "show_snackbar", "text": f"🎭 {char_name} теперь твой Проводник! ✨"})
                         )
                     return
 
@@ -767,11 +817,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             if skin_att: atts.append(skin_att)
             if card_att: atts.append(card_att)
 
-            p_display = "Проводник"
-            for k, v in SKIN_ASSETS.items():
-                if v == SKIN_ASSETS.get(active_skin, "o.png") and k != active_skin:
-                    p_display = k
-                    break
+            from modules.utils.consts import SKIN_DISPLAY_NAMES
+            p_display = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
 
             # 3. Обновляем ТЕКУЩЕЕ сообщение, добавляя информацию о карте и картинки
             ritual_text = (

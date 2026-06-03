@@ -113,10 +113,13 @@ async def settings_handler_logic(
     try:
         user = await get_user(vk_id)
         balance = user.get("balance", 0) if user else 0
+        from modules.utils.consts import SKIN_DISPLAY_NAMES
+        active_skin = user.get("active_skin", "olesya")
+        char_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
         text = (
             "⚙️ НАСТРОЙКИ\n"
             f"✨ Баланс: {balance} Энергии звезд\n\n"
-            "Здесь ты можешь управлять своим аккаунтом и Проводником."
+            f"Здесь ты можешь управлять своим аккаунтом и Проводником ({char_name})."
         )
         kb_json = get_settings_keyboard()
         att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
