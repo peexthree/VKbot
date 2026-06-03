@@ -41,13 +41,15 @@ async def process_payment_and_generate(vk_id: int, section: str):
 
         if section == "micro_insight":
             active_skin = user.get("active_skin", "olesya")
+            from modules.utils.consts import SKIN_DISPLAY_NAMES
+            character_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
             from ai_service import generate_text
             b_info = f"{birth_data.get('date')} {birth_data.get('city')}"
             prompt = (
                 f"Пользователь купил микро-инсайт. Его данные: {b_info}. "
                 f"Теги: {user.get('tags', [])}. "
                 f"Дай ОДИН короткий, дерзкий и точный совет или предсказание на ближайший час. "
-                f"Стиль: {active_skin}. Максимум 2 предложения. Без жирного шрифта."
+                f"Стиль: {active_skin} (имя: {character_name}). Максимум 2 предложения. Без жирного шрифта."
             )
             insight = await generate_text(prompt, skin=active_skin)
             from modules.keyboards import get_main_reply_keyboard
@@ -339,7 +341,7 @@ async def execute_generation(
 
                 if target_section == "dream":
                     # Автоматическая генерация PDF для сонника
-                    async def auto_gen_pdf_task(v_id, p_id, txt, s_name, u_n, b_i):
+                    async def auto_gen_pdf_task(v_id, p_id, txt, s_name, u_n, b_i, char_n):
                         pdf_name = f"report_{v_id}_{s_name}.pdf"
                         from modules.utils import generate_premium_pdf, upload_pdf_to_vk, pdf_semaphore
                         import os
@@ -352,7 +354,8 @@ async def execute_generation(
                                 text_content=txt,
                                 output_filename=pdf_name,
                                 card_id="uslugi/dream",
-                                current_date=datetime.datetime.now().strftime("%d.%m.%Y")
+                                current_date=datetime.datetime.now().strftime("%d.%m.%Y"),
+                                character_name=char_n
                             )
                         if success and os.path.exists(pdf_name):
                             try:
@@ -362,8 +365,10 @@ async def execute_generation(
                             finally:
                                 if os.path.exists(pdf_name): os.remove(pdf_name)
 
+                    from modules.utils.consts import SKIN_DISPLAY_NAMES
+                    char_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
                     b_info = f"{birth_data.get('date')} {birth_data.get('time')} {birth_data.get('city')}"
-                    asyncio.create_task(auto_gen_pdf_task(vk_id, peer_id, display_text, "dream", u_name, b_info))
+                    asyncio.create_task(auto_gen_pdf_task(vk_id, peer_id, display_text, "dream", u_name, b_info, char_name))
 
                 if isinstance(res_data, dict):
                     # В чат выводим сокращенную версию: Текст + Уровень активации + Аффирмации

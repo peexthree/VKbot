@@ -169,7 +169,10 @@ async def yookassa_webhook(request: web.Request):
             # Уведомление пользователю (через инлайн-кнопку для пуша)
             try:
                 from modules.bot_init import bot
-                push_text = f"✨ БАЛАНС ПОПОЛНЕН! ✨\nЗачислено {energy_bonus} Энергии звезд за оплату {amount_rub} RUB.\nПроводники приветствуют тебя!"
+                from modules.utils.consts import SKIN_DISPLAY_NAMES
+                active_skin = user.get("active_skin", "olesya")
+                character_name = SKIN_DISPLAY_NAMES.get(active_skin, "Твой Проводник")
+                push_text = f"✨ БАЛАНС ПОПОЛНЕН! ✨\nЗачислено {energy_bonus} Энергии звезд за оплату {amount_rub} RUB.\n{character_name} приветствует тебя!"
 
                 # Ручное создание клавиатуры во избежание циклического импорта
                 keyboard = {

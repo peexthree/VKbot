@@ -124,7 +124,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         {"key": "oracle", "title": "🔮 Спроси у звёзд", "desc": "500 Энергии. Ответ на твой самый важный вопрос.", "image_name": "uslugi/QUEST.jpeg", "category": "tarot"},
         {"key": "antitaro", "title": "🃏 Анти-Таро", "desc": "500 Энергии. Взгляд на ситуацию без розовых очков.", "image_name": "uslugi/ANTITARO.jpeg", "category": "tarot"},
         {"key": "all", "title": "👑 VIP", "desc": "3000 Энергии. Полный доступ ко всем твоим тайнам.", "image_name": "uslugi/VIP.jpeg", "category": "deep"},
-        {"key": "micro_insight", "title": "🔮 Спроси у звёзд (Микро)", "desc": "100 Энергии. Быстрый совет от твоего Проводника.", "image_name": "uslugi/QUEST.jpeg", "category": "tarot"},
+        {"key": "micro_insight", "title": "🔮 Спроси у звёзд (Микро)", "desc": "100 Энергии. Быстрый совет от твоего персонального Проводника.", "image_name": "uslugi/QUEST.jpeg", "category": "tarot"},
         {"key": "card_of_day", "title": "🎴 Карта дня", "desc": "Бесплатно. Твое личное напутствие на сегодня.", "image_name": "uslugi/cardofday.jpeg", "category": "tarot"},
     ]
 
