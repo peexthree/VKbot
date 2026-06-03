@@ -257,6 +257,7 @@ MYSTIC_STATUS_PHRASES = [
 ]
 
 ADMIN_ID = int(os.environ.get("ADMIN_ID", 27260796))
+GROUP_ID = int(os.environ.get("GROUP_ID", 219181948))
 
 # Global state for typing animations
 _typing_tasks: dict[int, asyncio.Task] = {}
