@@ -9,6 +9,7 @@ from modules.bot_init import bot
 from ai_service import generate_text
 from modules.utils.consts import SKIN_VISUALS
 from modules.utils.photos import upload_local_photo
+from database.autoposter import get_recent_topics, add_post_history
 
 # Загрузка тем и персонажей
 CONTENT_PATH = "data/content_core.json"
@@ -23,21 +24,39 @@ async def generate_post():
     skin_ids = list(content["TONES"].keys())
     topics_by_category = content["TOPICS"]
 
+    # 1. Получаем список последних 30 тем (слагов), чтобы избежать повторов
+    recent_slugs = await get_recent_topics(limit=30)
+
+    # Собираем все доступные темы
+    all_available_topics = []
+    for cat, t_list in topics_by_category.items():
+        for t in t_list:
+            t_slug = t.replace(' ', '_').replace('?', '').replace('!', '')
+            if t_slug not in recent_slugs:
+                all_available_topics.append((cat, t))
+
+    # Если все темы уже были использованы, берем любую
+    if not all_available_topics:
+        logger.warning("Все темы из списка уже были опубликованы за последние 30 дней. Сбрасываю фильтр.")
+        for cat, t_list in topics_by_category.items():
+            for t in t_list:
+                all_available_topics.append((cat, t))
+
     # Выбор случайного персонажа и темы
     skin_id = random.choice(skin_ids)
-    category = random.choice(list(topics_by_category.keys()))
-    topic = random.choice(topics_by_category[category])
+    category, topic = random.choice(all_available_topics)
 
     logger.info(f"Генерация поста: персонаж {skin_id}, тема '{topic}'")
 
-    # Формирование промпта. Тон голоса (TOV) добавится автоматически в generate_text
+    # Формирование промпта.
     prompt = (
-        f"Напиши пост на тему: «{topic}».\n"
+        f"Напиши пост на тему: «{topic}» для проекта «Анти-Тар».\n"
         f"Используй в посте актуальную новостную повестку (астрологические события недели, громкие научные новости или виральные мемы), "
-        f"адаптируй их под свой характер. Сделай мощный призыв перейти в бота.\n"
-        f"Текст должен быть коротким, цепляющим, для стены ВК.\n"
-        f"В конце добавь фиксированный призыв:\n"
-        f"Заходи в Зал Пророков и забери свой первый разбор абсолютно бесплатно: "
+        f"адаптируй их под свой характер. Сделай интригующее вступление.\n"
+        f"Текст должен быть коротким, цепляющим, для стены ВК. Обращайся к аудитории как Проводник.\n"
+        f"В конце обязательно добавь 5 хэштегов. Первые два: #АнтиТаро #Психология. Остальные три — релевантные теме поста.\n"
+        f"В самом конце добавь фиксированный призыв:\n"
+        f"Заходи в Зал Пророков Анти-Тар и забери свой первый разбор абсолютно бесплатно: "
         f"https://vk.me/club{GROUP_ID}?ref=autopost_{topic.replace(' ', '_').replace('?', '').replace('!', '')}"
     )
 
@@ -77,6 +96,10 @@ async def post_to_vk():
         )
         post_id = res.post_id
         logger.info(f"Пост опубликован в канал: {post_id}")
+
+        # Записываем в историю публикаций (используем тот же слаг, что и в ref)
+        topic_slug = post_data["topic"].replace(' ', '_').replace('?', '').replace('!', '')
+        await add_post_history(topic_slug)
 
         # 2. Репост на стену сообщества
         repost_msg = "Мы опубликовали новый совет в нашем Канале. Читай первым!"

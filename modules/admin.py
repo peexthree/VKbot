@@ -215,6 +215,8 @@ async def show_admin_broadcast(peer_id: int, conversation_message_id: int = None
     kb = Keyboard(inline=True)
     kb.add(Callback("📝 СОЗДАТЬ ПРИЗЫВ", payload={"cmd": "admin_cmd", "action": "broadcast_start"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
+    kb.add(Callback("🚀 НОВЫЙ АВТОПОСТ", payload={"cmd": "admin_cmd", "action": "trigger_autopost"}), color=KeyboardButtonColor.POSITIVE)
+    kb.row()
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
@@ -330,6 +332,12 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
                 await asyncio.sleep(0.05)
             except: pass
         await bot.api.messages.send(peer_id=peer_id, message=f"✅ Рассылка завершена. Доставлено: {success}/{len(users)}", random_id=0)
+        await show_admin_broadcast(peer_id, conversation_message_id)
+    elif action == "trigger_autopost":
+        await bot.api.messages.send(peer_id=peer_id, message="🔮 Запуск генерации нового поста...", random_id=0)
+        from modules.autoposter import post_to_vk
+        asyncio.create_task(post_to_vk())
+        await bot.api.messages.send(peer_id=peer_id, message="✅ Задача на автопостинг поставлена в очередь.", random_id=0)
         await show_admin_broadcast(peer_id, conversation_message_id)
     elif action == "mass_energy_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_energy_target", "conv_id": conversation_message_id}))
