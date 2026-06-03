@@ -342,6 +342,9 @@ async def main():
     from modules.utils import warmup_task
     asyncio.create_task(warmup_task())
 
+    from modules.autoposter import setup_autoposter
+    setup_autoposter()
+
     async def daily_forecast_cron_safe():
         while True:
             try:
