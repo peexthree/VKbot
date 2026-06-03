@@ -7,8 +7,8 @@ from apscheduler.triggers.cron import CronTrigger
 
 from modules.bot_init import bot
 from ai_service import generate_text
-from modules.utils.consts import SKIN_VISUALS
-from modules.utils.photos import upload_local_photo
+from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES
+from modules.utils.photos import upload_wall_photo
 from database.autoposter import get_recent_topics, add_post_history
 
 # Загрузка тем и персонажей
@@ -45,29 +45,39 @@ async def generate_post():
     # Выбор случайного персонажа и темы
     skin_id = random.choice(skin_ids)
     category, topic = random.choice(all_available_topics)
+    skin_name = SKIN_DISPLAY_NAMES.get(skin_id, skin_id)
 
     logger.info(f"Генерация поста: персонаж {skin_id}, тема '{topic}'")
 
     # Формирование промпта.
     prompt = (
         f"Напиши пост на тему: «{topic}» для проекта «Анти-Тар».\n"
+        f"Ты — {skin_name}. Начни пост с того, что представишься и скажешь, что тебе сегодня дарована воля написать этот пост.\n"
         f"Используй в посте актуальную новостную повестку (астрологические события недели, громкие научные новости или виральные мемы), "
         f"адаптируй их под свой характер. Сделай интригующее вступление.\n"
-        f"Текст должен быть коротким, цепляющим, для стены ВК. Обращайся к аудитории как Проводник.\n"
+        f"Текст должен быть коротким, цепляющим, для стены ВК.\n"
         f"В конце обязательно добавь 5 хэштегов. Первые два: #АнтиТаро #Психология. Остальные три — релевантные теме поста.\n"
-        f"В самом конце добавь фиксированный призыв:\n"
+        f"НЕ ДОБАВЛЯЙ в генерируемый текст заголовок темы и призывы к действию, я добавлю их сам."
+    )
+
+    # Мы передаем skin_id, и generate_text сам возьмет нужный TOV из SKIN_MAP в prompts/personas.py
+    ai_text = await generate_text(prompt, skin=skin_id)
+    if not ai_text:
+        logger.error("Не удалось сгенерировать текст поста")
+        return None
+
+    # Формируем финальный текст с архитектурой по заказу
+    final_text = (
+        f"Ежедневный постинг АНТИ-ТАР\n"
+        f"Персонаж: {skin_name}\n"
+        f"Тема: «{topic}»\n\n"
+        f"{ai_text}\n\n"
         f"Заходи в Зал Пророков Анти-Тар и забери свой первый разбор абсолютно бесплатно: "
         f"https://vk.me/club{GROUP_ID}?ref=autopost_{topic.replace(' ', '_').replace('?', '').replace('!', '')}"
     )
 
-    # Мы передаем skin_id, и generate_text сам возьмет нужный TOV из SKIN_MAP в prompts/personas.py
-    text = await generate_text(prompt, skin=skin_id)
-    if not text:
-        logger.error("Не удалось сгенерировать текст поста")
-        return None
-
     return {
-        "text": text,
+        "text": final_text,
         "skin_id": skin_id,
         "topic": topic,
         "category": category
@@ -82,33 +92,32 @@ async def post_to_vk():
         text = post_data["text"]
         skin_id = post_data["skin_id"]
 
-        # Подготовка фото
+        # Подготовка фото для стены
         photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
-        attachment = await upload_local_photo(bot.api, photo_filename)
+        attachment = await upload_wall_photo(bot.api, photo_filename)
 
-        # 1. Публикация в Канал
-        res = await bot.api.wall.post(
+        # 1. Публикация в Канал (channel=1)
+        res_channel = await bot.api.wall.post(
             owner_id=-GROUP_ID,
             from_group=1,
             message=text,
             attachments=attachment,
             **{"channel": 1}
         )
-        post_id = res.post_id
-        logger.info(f"Пост опубликован в канал: {post_id}")
+        logger.info(f"Пост опубликован в канал: {res_channel.post_id}")
 
-        # Записываем в историю публикаций (используем тот же слаг, что и в ref)
+        # 2. Публикация на Стену сообщества (полный дубль)
+        res_wall = await bot.api.wall.post(
+            owner_id=-GROUP_ID,
+            from_group=1,
+            message=text,
+            attachments=attachment
+        )
+        logger.info(f"Пост продублирован на стену: {res_wall.post_id}")
+
+        # Записываем в историю публикаций
         topic_slug = post_data["topic"].replace(' ', '_').replace('?', '').replace('!', '')
         await add_post_history(topic_slug)
-
-        # 2. Репост на стену сообщества
-        repost_msg = "Мы опубликовали новый совет в нашем Канале. Читай первым!"
-        await bot.api.wall.repost(
-            object=f"wall-{GROUP_ID}_{post_id}",
-            message=repost_msg,
-            group_id=GROUP_ID
-        )
-        logger.info(f"Сделан репост записи {post_id} на стену")
 
     except Exception as e:
         logger.exception(f"Ошибка при автопостинге: {e}")
