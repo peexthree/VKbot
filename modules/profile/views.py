@@ -342,7 +342,18 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         return
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
-        text = override_ref.strip().upper() if override_ref else message.text.strip().upper()
+        ref_text = override_ref.strip() if override_ref else message.text.strip()
+        text = ref_text.upper()
+
+        # Проверка на автопостинг (ref=autopost_topic_name)
+        if ref_text.lower().startswith("autopost_"):
+            topic_name = ref_text[9:] # Отрезаем "autopost_"
+            from database.autoposter import record_post_click
+            await record_post_click(vk_id, topic_name)
+            logger.info(f"Зафиксирован клик по автопосту: {topic_name} от пользователя {vk_id}")
+            # После фиксации клика продолжаем обычный старт
+            from modules.registration import start_handler
+            return await start_handler(message, skip_lock=True)
 
         # Поддержка старых кодов (на всякий случай) и новых шифров
         match_old = re.match(r"^(ПРОМО|ПЕЧАТЬ)-(\d+)$", text)
