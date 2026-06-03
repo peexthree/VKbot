@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 import aiofiles
 from loguru import logger
-from vkbottle import PhotoMessageUploader
+from vkbottle import PhotoMessageUploader, PhotoWallUploader
 from cache import acquire_lock, redis_client, release_lock
 from modules.utils.consts import (
     SKIN_ASSETS, cover_cache, _anchor_batch, ANCHOR_BATCH_SIZE, ADMIN_ID
@@ -118,6 +118,68 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
         return ""
     finally:
         await release_lock(lock_key)
+
+
+async def upload_wall_photo(bot_api, filename: str) -> str:
+    """Специальная загрузка фото для постов на стену сообщества."""
+    if not filename:
+        return ""
+    if filename in SKIN_ASSETS:
+        filename = SKIN_ASSETS[filename]
+
+    # Умный поиск файла
+    if not os.path.exists(os.path.join("cards", filename)):
+        if "uslugi/" in filename:
+            alt_filename = filename.replace("uslugi/", "")
+            if os.path.exists(os.path.join("cards", alt_filename)):
+                filename = alt_filename
+        else:
+            alt_filename = f"uslugi/{filename}"
+            if os.path.exists(os.path.join("cards", alt_filename)):
+                filename = alt_filename
+
+    # Кэш для фото на стене
+    try:
+        cached_id = await redis_client.get(f"wall_photo:{filename}")
+        if cached_id:
+            return cached_id
+    except Exception as e:
+        logger.error(f"Ошибка чтения wall_photo из Redis: {str(e)}")
+
+    lock_key = f"upload_wall_lock:{filename}"
+    locked = await acquire_lock(lock_key, ttl=30)
+    if not locked:
+        for _ in range(10):
+            await asyncio.sleep(2)
+            cached_id = await redis_client.get(f"wall_photo:{filename}")
+            if cached_id: return cached_id
+        return ""
+
+    try:
+        uploader = PhotoWallUploader(bot_api)
+        filepath = os.path.join("cards", filename)
+        if not os.path.exists(filepath):
+            logger.error(f"Файл не найден для wall_photo: {filepath}")
+            return ""
+
+        async with aiofiles.open(filepath, 'rb') as f:
+            data = await f.read()
+            raw_photo_id = await uploader.upload(file_source=data)
+
+            if raw_photo_id:
+                try:
+                    await redis_client.set(f"wall_photo:{filename}", raw_photo_id)
+                except Exception as e:
+                    logger.error(f"Ошибка сохранения wall_photo в Redis: {str(e)}")
+                return raw_photo_id
+
+            return ""
+    except Exception as e:
+        logger.error(f"Критическая ошибка при wall_photo {filename}: {str(e)}")
+        return ""
+    finally:
+        await release_lock(lock_key)
+
 
 async def warmup_task():
     if not await acquire_lock("warmup_lock", ttl=3600):
