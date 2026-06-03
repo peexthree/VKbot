@@ -1,6 +1,7 @@
 import os
 import random
 import asyncio
+import aiohttp
 from pathlib import Path
 import aiofiles
 from loguru import logger
@@ -140,27 +141,24 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
 
     # Кэш для фото на стене
     try:
-        cached_id = await redis_client.get(f"wall_photo:{filename}")
+        cached_id = await redis_client.get(f"wall_photo_v2:{filename}")
         if cached_id:
             return cached_id
     except Exception as e:
         logger.error(f"Ошибка чтения wall_photo из Redis: {str(e)}")
 
-    lock_key = f"upload_wall_lock:{filename}"
+    lock_key = f"upload_wall_lock_v2:{filename}"
     locked = await acquire_lock(lock_key, ttl=30)
     if not locked:
         for _ in range(10):
             await asyncio.sleep(2)
-            cached_id = await redis_client.get(f"wall_photo:{filename}")
+            cached_id = await redis_client.get(f"wall_photo_v2:{filename}")
             if cached_id: return cached_id
         return ""
 
     try:
-        # ХАК: Используем PhotoMessageUploader вместо PhotoWallUploader,
-        # так как PhotoWallUploader требует токен пользователя (User Token),
-        # а у нас только токен группы. PhotoMessageUploader позволяет получить
-        # photo_id, который VK принимает и при публикации на стену.
-        uploader = PhotoMessageUploader(bot_api)
+        # Пытаемся загрузить через photos.getMessagesUploadServer с получением Photo-объекта
+        # чтобы иметь доступ к access_key.
         filepath = os.path.join("cards", filename)
         if not os.path.exists(filepath):
             logger.error(f"Файл не найден для wall_photo: {filepath}")
@@ -168,20 +166,42 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
 
         async with aiofiles.open(filepath, 'rb') as f:
             data = await f.read()
-            # peer_id=0 для PhotoMessageUploader при получении общего photo_id
-            raw_photo_id = await uploader.upload(file_source=data, peer_id=0)
 
-            if raw_photo_id:
+            # Получаем сервер загрузки для сообщений
+            server = await bot_api.photos.get_messages_upload_server()
+
+            # Загружаем файл
+            async with aiohttp.ClientSession() as session:
+                form = aiohttp.FormData()
+                form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
+                async with session.post(server.upload_url, data=form) as resp:
+                    upload_data = await resp.json()
+
+            # Сохраняем фото
+            saved_photos = await bot_api.photos.save_messages_photo(
+                photo=upload_data['photo'],
+                server=upload_data['server'],
+                hash=upload_data['hash']
+            )
+
+            if saved_photos:
+                photo = saved_photos[0]
+                # Формируем полный ID с access_key для надежности
+                photo_attachment_id = f"photo{photo.owner_id}_{photo.id}"
+                if photo.access_key:
+                    photo_attachment_id += f"_{photo.access_key}"
+
                 try:
-                    await redis_client.set(f"wall_photo:{filename}", raw_photo_id)
+                    await redis_client.set(f"wall_photo_v2:{filename}", photo_attachment_id)
                 except Exception as e:
                     logger.error(f"Ошибка сохранения wall_photo в Redis: {str(e)}")
-                return raw_photo_id
+                return photo_attachment_id
 
             return ""
     except Exception as e:
         logger.error(f"Критическая ошибка при wall_photo {filename}: {str(e)}")
-        return ""
+        # Фолбэк на старый метод если новый упал
+        return await upload_local_photo(bot_api, filename)
     finally:
         await release_lock(lock_key)
 
