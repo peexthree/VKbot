@@ -112,6 +112,27 @@ def calculate_user_rank(user: dict) -> tuple[int, str]:
     rank = rank_names[min(max(0, level - 1) // 3, len(rank_names)-1)]
     return level, rank
 
+def calculate_exp_progress(user: dict) -> int:
+    """Рассчитывает прогресс опыта до следующего уровня в процентах"""
+    unlocked_cards = user.get("unlocked_cards", {})
+    if isinstance(unlocked_cards, list):
+        unlocked_count = len(unlocked_cards)
+    elif isinstance(unlocked_cards, dict):
+        unlocked_count = len(unlocked_cards)
+    else:
+        unlocked_count = 0
+
+    total_cards_received = user.get("total_cards_received", 0) or 0
+
+    # Исходя из формулы уровня: level = 1 + (unlocked_count // 5) + (total_cards_received // 10)
+    # Уровень повышается при достижении каждых 5 открытых карт ИЛИ каждых 10 полученных раскладов.
+    # Прогресс — это то, насколько пользователь близок к следующему повышению уровня
+    # по любому из этих двух путей.
+    card_progress = (unlocked_count % 5) * 20
+    reading_progress = (total_cards_received % 10) * 10
+
+    return max(card_progress, reading_progress)
+
 def get_syndicate_rank(count: int) -> str:
     """Возвращает ранг в системе"""
     if count >= 10: return "Теневой Архитектор"
