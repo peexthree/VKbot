@@ -1,11 +1,12 @@
 import json
 import datetime
+import random
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import BotLabeler, Message
 from database import get_user, set_user_state
 from modules.bot_init import bot
-from modules.utils import ADMIN_ID, get_fsm_step, acquire_lock, release_lock
+from modules.utils import ADMIN_ID, get_fsm_step, acquire_lock, release_lock, get_main_keyboard
 
 labeler = BotLabeler()
 
@@ -42,6 +43,12 @@ async def is_waiting_support_question(message: Message) -> bool:
 @labeler.message(func=is_waiting_support_question)
 async def process_support_question(message: Message):
     vk_id = message.from_id
+
+    if message.text.lower() in ["отмена", "назад", "cancel"]:
+        await set_user_state(vk_id, "")
+        await message.answer("Связь прервана. Возвращаюсь в главное меню.", keyboard=get_main_keyboard(vk_id))
+        return
+
     if not await acquire_lock(f"support_{vk_id}"): return
 
     try:
@@ -79,7 +86,9 @@ async def process_support_question(message: Message):
         kb = Keyboard(inline=True)
         kb.add(Callback("📝 ОТВЕТИТЬ", payload={"cmd": "admin_reply_start", "user_id": vk_id}), color=KeyboardButtonColor.POSITIVE)
 
-        await bot.api.messages.send(peer_id=ADMIN_ID, message=admin_msg, keyboard=kb.get_json(), random_id=0)
+        logger.info(f"Sending support question from {vk_id} to admin {ADMIN_ID}")
+        res = await bot.api.messages.send(peer_id=ADMIN_ID, message=admin_msg, keyboard=kb.get_json(), random_id=random.getrandbits(64))
+        logger.info(f"Support message sent to admin. Result: {res}")
 
         # Сбрасываем стейт
         await set_user_state(vk_id, "")
@@ -87,7 +96,7 @@ async def process_support_question(message: Message):
         await message.answer("✅ Твой вопрос отправлен. Ожидай ответа от техподдержки в ближайшее время.")
 
     except Exception as e:
-        logger.error(f"Error in process_support_question: {e}")
+        logger.exception(f"Error in process_support_question: {e}")
         await message.answer("❌ Произошла ошибка при отправке вопроса. Попробуй позже.")
     finally:
         await release_lock(f"support_{vk_id}")
@@ -96,10 +105,16 @@ async def process_support_question(message: Message):
 
 async def admin_reply_start_logic(admin_id: int, user_id: int):
     """Админ нажал 'Ответить'"""
-    if admin_id != ADMIN_ID: return
+    if admin_id != ADMIN_ID:
+        logger.warning(f"Unauthorized admin access attempt by {admin_id}")
+        return
+
+    if not user_id:
+        logger.error("admin_reply_start_logic: user_id is missing")
+        return
 
     await set_user_state(admin_id, json.dumps({"step": "waiting_admin_reply", "target_user_id": user_id}))
-    await bot.api.messages.send(peer_id=admin_id, message=f"Напиши текст ответа для пользователя {user_id}:", random_id=0)
+    await bot.api.messages.send(peer_id=admin_id, message=f"Напиши текст ответа для пользователя {user_id}:", random_id=random.getrandbits(64))
 
 async def is_waiting_admin_reply(message: Message) -> bool:
     if message.from_id != ADMIN_ID: return False
@@ -139,7 +154,7 @@ async def process_admin_reply(message: Message):
     )
 
     try:
-        await bot.api.messages.send(peer_id=target_user_id, message=user_msg, random_id=0)
+        await bot.api.messages.send(peer_id=target_user_id, message=user_msg, random_id=random.getrandbits(64))
         await message.answer(f"✅ Ответ успешно отправлен пользователю {target_user_id}.")
     except Exception as e:
         logger.error(f"Failed to send reply to {target_user_id}: {e}")

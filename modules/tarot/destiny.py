@@ -1,3 +1,4 @@
+import random
 import datetime
 import json
 from loguru import logger
@@ -86,7 +87,7 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
     cost = 1000 if is_update else 1500
     if balance < cost:
         from modules.services import show_tariffs
-        await bot.api.messages.send(peer_id=peer_id, message=f"❌ Недостаточно энергии для {'обновления' if is_update else 'активации'} Карты Судьбы.", random_id=0)
+        await bot.api.messages.send(peer_id=peer_id, message=f"❌ Недостаточно энергии для {'обновления' if is_update else 'активации'} Карты Судьбы.", random_id=random.getrandbits(64))
         await show_tariffs(vk_id, peer_id)
         return
 
@@ -113,7 +114,7 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
 
             # Переводим на ввод данных
             await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "target_section": "destiny_card_update" if is_update else "destiny_card"}))
-            await bot.api.messages.send(peer_id=peer_id, message="🛑 Для расчета КАРТЫ СУДЬБЫ мне нужно заново настроиться на твою энергию. Энергия возвращена. Пожалуйста, введи свою ДАТУ рождения (например, 15.04.1990):", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Для расчета КАРТЫ СУДЬБЫ мне нужно заново настроиться на твою энергию. Энергия возвращена. Пожалуйста, введи свою ДАТУ рождения (например, 15.04.1990):", random_id=random.getrandbits(64))
             return
 
         birth_date = birth_data.get("date", "")
@@ -150,7 +151,7 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
             if not is_update:
                 purchased.pop("destiny_card_purchased", None)
             await update_user(vk_id, {"balance": balance, "purchased_sections": purchased})
-            await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам (пустой ответ). Энергия возвращена.", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам (пустой ответ). Энергия возвращена.", random_id=random.getrandbits(64))
             return
 
         # Сохраняем в историю и спец поле
@@ -213,4 +214,4 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         if not is_update:
             purchased.pop("destiny_card_purchased", None)
         await update_user(vk_id, {"balance": balance, "purchased_sections": purchased})
-        await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам. Энергия возвращена.", random_id=0)
+        await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам. Энергия возвращена.", random_id=random.getrandbits(64))
