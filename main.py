@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import json
 import os
+import re
 import warnings
 import hashlib
 import hmac
@@ -157,6 +158,63 @@ async def handle_user_info(request):
         "visit_streak": user.get("visit_streak", 0),
         "exp_progress": exp_progress
     })
+
+async def handle_grimoire(request):
+    """Эндпоинт для получения истории раскладов пользователя (Гримуар)"""
+    from database import get_user
+
+    vk_params = request.headers.get("X-VK-Params")
+    if not vk_params:
+        return web.json_response({"error": "Missing X-VK-Params header"}, status=400)
+
+    app_secret = os.environ.get("VK_MINI_APP_SECRET")
+    if not app_secret:
+        logger.error("VK_MINI_APP_SECRET is not set in environment")
+        return web.json_response({"error": "Server configuration error"}, status=500)
+
+    if not verify_vk_signature(vk_params, app_secret):
+        return web.json_response({"error": "Invalid signature"}, status=403)
+
+    try:
+        params_dict = dict(parse_qsl(vk_params))
+        vk_user_id = int(params_dict.get("vk_user_id", 0))
+    except (ValueError, TypeError):
+        return web.json_response({"error": "Invalid vk_user_id"}, status=400)
+
+    if not vk_user_id:
+        return web.json_response({"error": "vk_user_id not found in params"}, status=400)
+
+    user = await get_user(vk_user_id)
+    if not user:
+        return web.json_response({"error": "User not found"}, status=404)
+
+    history = user.get("readings_history") or []
+    if not isinstance(history, list):
+        history = []
+
+    # Обработка истории: расчет ID, экстракция названия карты, сортировка
+    formatted_history = []
+    for item in history:
+        text = item.get("text", "")
+        # Попытка достать название карты из текста: "🃏 Шут — Новые начала"
+        card_match = re.search(r"🃏 (.*?) —", text)
+        title = card_match.group(1) if card_match else item.get("title", "Разбор")
+
+        # Генерация уникального ID на основе контента
+        content_str = f"{item.get('title')}{item.get('date')}{text}"
+        item_id = hashlib.sha256(content_str.encode()).hexdigest()[:16]
+
+        formatted_history.append({
+            "id": item_id,
+            "title": title,
+            "date": item.get("date", ""),
+            "text": text
+        })
+
+    # Сортировка от новых к старым (реверс, так как добавляются в конец)
+    formatted_history = formatted_history[::-1]
+
+    return web.json_response(formatted_history)
 
 def sanitize_photo_sizes(data: dict) -> dict:
     """Исправляет неизвестные типы размеров фото, чтобы vkbottle не падал"""
@@ -500,6 +558,10 @@ async def main():
     user_info_resource = app.router.add_resource("/api/user/info")
     user_info_resource.add_route("GET", handle_user_info)
     cors.add(user_info_resource)
+
+    grimoire_resource = app.router.add_resource("/api/profile/grimoire")
+    grimoire_resource.add_route("GET", handle_grimoire)
+    cors.add(grimoire_resource)
 
     from modules.payments.yookassa import yookassa_webhook
     app.router.add_post('/yookassa/webhook', yookassa_webhook)
