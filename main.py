@@ -67,6 +67,8 @@ def verify_vk_signature(query_string: str, secret: str) -> bool:
         expected_sign = base64.b64encode(hash_code).decode("utf-8")
         expected_sign = expected_sign.replace("+", "-").replace("/", "_").rstrip("=")
 
+        logger.warning(f"Signature mismatch! Expected (computed): {expected_sign} | Received from VK: {vk_sign}")
+
         return hmac.compare_digest(expected_sign, vk_sign)
     except Exception as e:
         logger.error(f"Signature verification error: {e}")
