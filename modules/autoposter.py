@@ -115,8 +115,8 @@ async def post_to_vk():
 def setup_autoposter():
     scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
 
-    # 19:00 MSK ± 15 минут
-    hour = 19
+    # 15:00 MSK ± 15 минут
+    hour = 15
     minute = random.randint(0, 30)
 
     scheduler.add_job(

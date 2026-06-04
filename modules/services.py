@@ -256,7 +256,7 @@ async def process_synastry_time(message: Message):
             "partner_date": partner_date,
             "partner_time": partner_time
         }))
-        msg_id = await message.answer(f"Время {partner_time} принято. И последнее — в какой городе родился партнер (например, Москва или 'не знаю')?")
+        msg_id = await message.answer(f"Время {partner_time} принято. И последнее — в каком городе родился партнер (например, Москва или 'не знаю')?")
         await set_last_bot_msg(vk_id, msg_id)
     finally:
         await release_lock(vk_id)

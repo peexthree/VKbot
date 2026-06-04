@@ -62,7 +62,7 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
 
     # Ряд 4
     kb.add(Callback("🧭 Путеводитель", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
-    kb.add(Callback("🎭 Персонажи", payload={"cmd": "hall_of_prophets"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🎭 Зал пророков", payload={"cmd": "hall_of_prophets"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
     # Ряд 5 - Карта судьбы (Всегда видна)
@@ -91,7 +91,7 @@ def profile_menu_kb() -> str:
         ("✨ Баланс энергии", "balance", KeyboardButtonColor.PRIMARY),
         ("📜 Мои разборы", "history_menu", KeyboardButtonColor.PRIMARY),
         ("🃏 Гримуар", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
-        ("🔄 Сменить скин", {"cmd": "profile_action", "action": "change_skin"}, KeyboardButtonColor.PRIMARY),
+        ("🎭 Зал пророков", {"cmd": "profile_action", "action": "change_skin"}, KeyboardButtonColor.PRIMARY),
         ("⚙️ Настройки", {"cmd": "profile_action", "action": "settings"}, KeyboardButtonColor.SECONDARY),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])

@@ -170,6 +170,8 @@ async def start_handler(message: Message, skip_lock: bool = False):
         kb.add(Callback("🕯 АЛЕКСАНДР ШЕПС", payload={"cmd": "choose_onboarding_skin", "skin": "sheps_alex"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
         kb.add(Callback("🧠 ВОЛЬФ МЕССИНГ", payload={"cmd": "choose_onboarding_skin", "skin": "messing"}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+        kb.add(Callback("🎭 ЗАЛ ПРОРОКОВ", payload={"cmd": "skin_page", "idx": 0}), color=KeyboardButtonColor.SECONDARY)
 
         # Загружаем фото Олеси для велком-месседжа
         att = await upload_local_photo(bot.api, SKIN_ASSETS["olesya"], peer_id=vk_id)
