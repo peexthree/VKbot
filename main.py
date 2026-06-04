@@ -38,6 +38,9 @@ async def handle_ping(request):
 def verify_vk_signature(query_string: str, secret: str) -> bool:
     """Проверка подписи параметров запуска VK Mini App"""
     try:
+        # Очищаем секрет от возможных пробелов по краям
+        secret = secret.strip()
+
         # 1. Разбираем строку, оставляем только параметры с префиксом vk_
         query_params = dict(parse_qsl(query_string, keep_blank_values=True))
         if "sign" not in query_params:
@@ -54,8 +57,6 @@ def verify_vk_signature(query_string: str, secret: str) -> bool:
         ])
         check_str = "&".join([f"{k}={query_params[k]}" for k in sorted_keys])
 
-        logger.warning(f"Check string for signature: {check_str}")
-
         # 3. HMAC-SHA256
         hash_code = hmac.new(
             secret.encode("utf-8"),
@@ -67,9 +68,15 @@ def verify_vk_signature(query_string: str, secret: str) -> bool:
         expected_sign = base64.b64encode(hash_code).decode("utf-8")
         expected_sign = expected_sign.replace("+", "-").replace("/", "_").rstrip("=")
 
-        logger.warning(f"Signature mismatch! Expected (computed): {expected_sign} | Received from VK: {vk_sign}")
+        # Принудительно очищаем обе строки от пробелов и символов переноса строки
+        clean_expected = str(expected_sign).strip()
+        clean_vk_sign = str(vk_sign).strip()
 
-        return hmac.compare_digest(expected_sign, vk_sign)
+        if not hmac.compare_digest(clean_expected, clean_vk_sign):
+            logger.warning(f"Signature mismatch! Expected (computed): {clean_expected} | Received from VK: {clean_vk_sign}")
+            return False
+
+        return True
     except Exception as e:
         logger.error(f"Signature verification error: {e}")
         return False
