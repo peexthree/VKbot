@@ -38,31 +38,32 @@ async def handle_ping(request):
 def verify_vk_signature(query_string: str, secret: str) -> bool:
     """Проверка подписи параметров запуска VK Mini App"""
     try:
-        # Используем keep_blank_values=True, чтобы не терять пустые параметры
+        # 1. Разбираем строку, оставляем только параметры с префиксом vk_
         query_params = dict(parse_qsl(query_string, keep_blank_values=True))
         if "sign" not in query_params:
             return False
 
         vk_sign = query_params.pop("sign")
 
+        # 2. Сортируем ключи и создаем строку в формате key=value
         # Фильтруем параметры: только те, что начинаются на vk_,
         # исключая vk_share_ и vk_group_ (они не участвуют в подписи)
-        vk_params = {
-            k: v for k, v in query_params.items()
+        sorted_keys = sorted([
+            k for k in query_params.keys()
             if k.startswith("vk_") and not k.startswith("vk_share_") and not k.startswith("vk_group_")
-        }
-
-        sorted_params = sorted(vk_params.items())
-        check_str = urlencode(sorted_params)
+        ])
+        check_str = "&".join([f"{k}={query_params[k]}" for k in sorted_keys])
 
         logger.warning(f"Check string for signature: {check_str}")
 
+        # 3. HMAC-SHA256
         hash_code = hmac.new(
             secret.encode("utf-8"),
             check_str.encode("utf-8"),
             hashlib.sha256
         ).digest()
 
+        # 4. Base64 с заменой символов (стандарт для VK)
         expected_sign = base64.b64encode(hash_code).decode("utf-8")
         expected_sign = expected_sign.replace("+", "-").replace("/", "_").rstrip("=")
 
