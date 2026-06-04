@@ -7,7 +7,7 @@ import warnings
 import hashlib
 import hmac
 import base64
-from urllib.parse import parse_qsl, urlencode
+from urllib.parse import parse_qsl
 import sentry_sdk
 from aiohttp import web
 from loguru import logger
