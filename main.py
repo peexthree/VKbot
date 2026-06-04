@@ -93,7 +93,7 @@ async def handle_user_info(request):
         return web.Response(headers=headers)
 
     from database import get_user
-    from modules.utils.logic import calculate_user_rank
+    from modules.utils.logic import calculate_user_rank, calculate_exp_progress
 
     vk_params = request.headers.get("X-VK-Params")
     logger.debug(f"Params received in X-VK-Params: {vk_params}")
@@ -124,10 +124,38 @@ async def handle_user_info(request):
 
     level, rank = calculate_user_rank(user)
 
+    # Расчет cycle_days
+    created_at_str = user.get("created_at")
+    cycle_days = 0
+    if created_at_str:
+        try:
+            created_at = datetime.datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+            now = datetime.datetime.now(datetime.timezone.utc)
+            cycle_days = (now - created_at).days
+        except Exception as e:
+            logger.error(f"Error calculating cycle_days: {e}")
+
+    # Расчет grimoire_count (уникальные карты 0-78)
+    unlocked_cards = user.get("unlocked_cards") or {}
+    grimoire_count = len(unlocked_cards)
+
+    # syndicate_count
+    purchased = user.get("purchased_sections") or {}
+    syndicate_count = purchased.get("syndicate_count", 0)
+
+    # exp_progress
+    exp_progress = calculate_exp_progress(user)
+
     return web.json_response({
         "balance": int(user.get("balance", 0) or 0),
         "level": level,
-        "status": rank
+        "status": rank,
+        "cycle_days": max(0, cycle_days),
+        "active_skin": user.get("active_skin", "olesya"),
+        "grimoire_count": grimoire_count,
+        "syndicate_count": syndicate_count,
+        "visit_streak": user.get("visit_streak", 0),
+        "exp_progress": exp_progress
     })
 
 def sanitize_photo_sizes(data: dict) -> dict:
