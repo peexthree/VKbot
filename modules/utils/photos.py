@@ -33,7 +33,7 @@ async def flush_anchors(bot_api):
             peer_id=ADMIN_ID,
             message=f"System Anchor Batch ({len(_anchor_batch)} files)",
             attachment=attachments_str,
-            random_id=0
+            random_id=random.getrandbits(64)
         )
     except Exception as e:
         logger.error(f"Ошибка массового якорения фото: {str(e)}")
@@ -75,7 +75,7 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
     if not locked:
         if peer_id:
             try:
-                await bot_api.messages.send(peer_id=peer_id, message="Открываю гримуар...", random_id=0)
+                await bot_api.messages.send(peer_id=peer_id, message="Открываю гримуар...", random_id=random.getrandbits(64))
             except Exception: pass
         for _ in range(15):
             await asyncio.sleep(2)

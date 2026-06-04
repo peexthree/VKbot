@@ -1,3 +1,4 @@
+import random
 from loguru import logger
 from vkbottle import Keyboard
 from database import get_user, update_user
@@ -51,7 +52,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         res = await generate_text(prompt, skin=user.get("active_skin", "olesya"))
         if not res:
             if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨")
-            else: await bot.api.messages.send(peer_id=vk_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨", random_id=0)
+            else: await bot.api.messages.send(peer_id=vk_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨", random_id=random.getrandbits(64))
             return
 
         unlocked = user.get("unlocked_cards", {}) or {}
@@ -85,7 +86,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         logger.error(f"Ошибка в Оракуле: {e}")
         err = "Звезды сегодня немного запутались. Попробуем еще раз чуть позже ✨"
         if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=err)
-        else: await bot.api.messages.send(peer_id=vk_id, message=err, random_id=0)
+        else: await bot.api.messages.send(peer_id=vk_id, message=err, random_id=random.getrandbits(64))
     finally:
         await stop_dynamic_typing(vk_id)
         if not skip_lock: await release_lock(lock_key)

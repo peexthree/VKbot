@@ -146,14 +146,14 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 peer_id=peer_id,
                 message=viral_text,
                 attachment=attachment,
-                random_id=0
+                random_id=random.getrandbits(64)
             )
 
             # 4. Отправляем инструкцию отдельным сообщением
             await bot.api.messages.send(
                 peer_id=peer_id,
                 message="👆 Просто перешли это сообщение своим друзьям!",
-                random_id=0
+                random_id=random.getrandbits(64)
             )
         elif cmd in ["buy", "buy_skin"]:
             # Defer answering until payment logic completes (to show success/error snackbar)
@@ -436,9 +436,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             latest_data = user.get("latest_reading_data", {})
             if not latest_data and user.get("latest_reading_text"): latest_data = {"text": user.get("latest_reading_text")}
             if not latest_data or "text" not in latest_data:
-                await bot.api.messages.send(peer_id=peer_id, message="Текст разбора не найден. Сгенерируйте разбор заново.", random_id=0)
+                await bot.api.messages.send(peer_id=peer_id, message="Текст разбора не найден. Сгенерируйте разбор заново.", random_id=random.getrandbits(64))
                 return
-            await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=random.getrandbits(64))
             pdf_name = f"report_{vk_id}_{section}.pdf"
 
             # Берем данные рождения из Redis
@@ -483,16 +483,16 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 try:
                     doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{section}.pdf", peer_id=peer_id)
                     if not doc:
-                        await bot.api.messages.send(peer_id=peer_id, message="Ошибка при загрузке PDF в систему ВК. Попробуйте позже.", random_id=0)
+                        await bot.api.messages.send(peer_id=peer_id, message="Ошибка при загрузке PDF в систему ВК. Попробуйте позже.", random_id=random.getrandbits(64))
                         return
 
                     from modules.keyboards import post_pdf_kb
                     kb = post_pdf_kb(section, card=card_id)
-                    await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=0, keyboard=kb)
+                    await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=random.getrandbits(64), keyboard=kb)
 
                 finally:
                     if os.path.exists(pdf_name): await asyncio.to_thread(os.remove, pdf_name)
-            else: await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=0)
+            else: await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=random.getrandbits(64))
         elif cmd == "profile_action":
             action, conv_id = payload.get("action"), obj.get("conversation_message_id")
             if action == "settings": await settings_handler(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
@@ -628,7 +628,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
                     await ghost_edit(bot.api, peer_id, f"💳 ПОПОЛНЕНИЕ БАЛАНСА\n\nВы выбрали пакет: {energy_amount} ✨\nСтоимость: {rubles} RUB\n\nНажмите кнопку ниже для перехода к оплате.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb.get_json())
                 else:
-                    await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании платежа. Попробуйте позже.", random_id=0)
+                    await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании платежа. Попробуйте позже.", random_id=random.getrandbits(64))
                 return
 
             if balance >= amount_needed:
@@ -685,7 +685,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                             event_data=json.dumps({"type": "show_snackbar", "text": f"✨ Транзит активирован! Баланс: {new_balance} ✨"})
                         )
                     else:
-                        await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=0, keyboard=get_main_keyboard(vk_id))
+                        await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=random.getrandbits(64), keyboard=get_main_keyboard(vk_id))
             else:
                 if event_id:
                     await bot.api.messages.send_message_event_answer(
@@ -764,7 +764,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             )
         elif cmd == "show_offer":
             offer_url = "https://vk.com/@taroanti-oferta"
-            await bot.api.messages.send(peer_id=peer_id, message=f"📜 ПУБЛИЧНАЯ ОФЕРТА:\n{offer_url}", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message=f"📜 ПУБЛИЧНАЯ ОФЕРТА:\n{offer_url}", random_id=random.getrandbits(64))
         elif cmd == "skip_birth_time":
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "waiting_birth_time": return
