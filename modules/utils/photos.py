@@ -186,10 +186,14 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
 
             if saved_photos:
                 photo = saved_photos[0]
+                logger.debug(f"Photo saved: owner_id={photo.owner_id}, id={photo.id}, has_access_key={bool(photo.access_key)}")
+
                 # Формируем полный ID с access_key для надежности
                 photo_attachment_id = f"photo{photo.owner_id}_{photo.id}"
                 if photo.access_key:
                     photo_attachment_id += f"_{photo.access_key}"
+                else:
+                    logger.warning(f"Access key missing for photo {filename}! Post might be invisible on wall.")
 
                 try:
                     await redis_client.set(f"wall_photo_v2:{filename}", photo_attachment_id)

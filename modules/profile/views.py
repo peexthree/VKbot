@@ -711,7 +711,7 @@ async def show_guide_syndicate_logic(vk_id: int, peer_id: int, conversation_mess
             "• Мастер Вербовки (3 адепта)\n"
             "• Теневой Кардинал (5 адептов)\n"
             "• Теневой Архитектор (10 адептов)\n\n"
-            "Высшие ранги получают доступ к закрытым тестам и эксклюзивным скинам персонажей."
+            "Высшие ранги получают доступ к закрытым тестам и эксклюзивным Проводникам в Зале пророков."
         )
         typing_msg_id = await stop_dynamic_typing(peer_id)
         from modules.keyboards import get_guide_sub_keyboard

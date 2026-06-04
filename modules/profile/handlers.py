@@ -76,7 +76,7 @@ async def cancel_reset_account(message: Message):
 async def settings_back_to_profile(message: Message):
     await show_profile_logic(message.from_id, message.peer_id, message)
 
-@labeler.message(func=lambda m: m.text and m.text.lower() == "выбрать персонажа")
+@labeler.message(func=lambda m: m.text and m.text.lower() in ["выбрать персонажа", "зал пророков"])
 async def settings_choose_character(message: Message = None, vk_id: int = None, peer_id: int = None, skip_lock: bool = False, idx: int = 0, edit_msg_id: int = None):
     v_id = vk_id or (message.from_id if message else None)
     p_id = peer_id or (message.peer_id if message else None)
