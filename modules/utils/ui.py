@@ -148,7 +148,7 @@ async def ghost_edit(
         message=message,
         keyboard=keyboard,
         attachment=attachment,
-        random_id=random.getrandbits(64),
+        random_id=random.getrandbits(63),
         **kwargs
     )
 
@@ -172,7 +172,7 @@ async def ghost_edit(
 async def send_temp_message(bot_api, peer_id: int, message: str, delay: int = 5, **kwargs):
     """Отправляет временное сообщение, которое удаляется через delay секунд"""
     try:
-        mid = await bot_api.messages.send(peer_id=peer_id, message=message, random_id=random.getrandbits(64), **kwargs)
+        mid = await bot_api.messages.send(peer_id=peer_id, message=message, random_id=random.getrandbits(63), **kwargs)
 
         async def _delete_after():
             await asyncio.sleep(delay)
@@ -216,7 +216,7 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                     last_phrase = phrase
 
                     if msg_id is None:
-                        resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=random.getrandbits(64))
+                        resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=random.getrandbits(63))
                         if isinstance(resp, int):
                             msg_id = resp
                         elif isinstance(resp, dict):
@@ -242,7 +242,7 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
                                 await asyncio.sleep(2.0)
                             # Если не удалось отредактировать (например, сообщение удалено), шлем новое
                             logger.debug(f"Typing edit failed for {peer_id}, sending new: {edit_err}")
-                            resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=random.getrandbits(64))
+                            resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=random.getrandbits(63))
                             msg_id = resp
                             # Важно: если мы перешли на новое сообщение, больше не используем старый conversation_message_id
                             if conversation_message_id == msg_id:

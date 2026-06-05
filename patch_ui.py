@@ -1,3 +1,4 @@
+import random
 import re
 
 with open('modules/utils/ui.py', 'r') as f:
@@ -88,7 +89,7 @@ new_ghost_edit = """async def ghost_edit(
         message=message,
         keyboard=keyboard,
         attachment=attachment,
-        random_id=0,
+        random_id=random.getrandbits(63),
         **kwargs
     )
 
@@ -120,7 +121,7 @@ new_typing_loop = """            while True:
                     last_phrase = phrase
 
                     if msg_id is None:
-                        resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
+                        resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=random.getrandbits(63))
                         msg_id = resp
                         _typing_msg_ids[peer_id] = msg_id
                         await set_last_bot_msg(peer_id, msg_id)
@@ -139,7 +140,7 @@ new_typing_loop = """            while True:
                                 await asyncio.sleep(2.0)
                             # Если не удалось отредактировать (например, сообщение удалено), шлем новое
                             logger.debug(f"Typing edit failed, sending new: {edit_err}")
-                            resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=0)
+                            resp = await bot_api.messages.send(peer_id=peer_id, message=phrase, random_id=random.getrandbits(63))
                             msg_id = resp
                             # Важно: если мы перешли на новое сообщение, больше не используем старый conversation_message_id
                             if conversation_message_id == msg_id:

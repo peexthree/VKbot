@@ -87,7 +87,7 @@ async def process_support_question(message: Message):
         kb.add(Callback("📝 ОТВЕТИТЬ", payload={"cmd": "admin_reply_start", "user_id": vk_id}), color=KeyboardButtonColor.POSITIVE)
 
         logger.info(f"Sending support question from {vk_id} to admin {ADMIN_ID}")
-        res = await bot.api.messages.send(peer_id=ADMIN_ID, message=admin_msg, keyboard=kb.get_json(), random_id=random.getrandbits(64))
+        res = await bot.api.messages.send(peer_id=ADMIN_ID, message=admin_msg, keyboard=kb.get_json(), random_id=random.getrandbits(63))
         logger.info(f"Support message sent to admin. Result: {res}")
 
         # Сбрасываем стейт
@@ -114,7 +114,7 @@ async def admin_reply_start_logic(admin_id: int, user_id: int):
         return
 
     await set_user_state(admin_id, json.dumps({"step": "waiting_admin_reply", "target_user_id": user_id}))
-    await bot.api.messages.send(peer_id=admin_id, message=f"Напиши текст ответа для пользователя {user_id}:", random_id=random.getrandbits(64))
+    await bot.api.messages.send(peer_id=admin_id, message=f"Напиши текст ответа для пользователя {user_id}:", random_id=random.getrandbits(63))
 
 async def is_waiting_admin_reply(message: Message) -> bool:
     if message.from_id != ADMIN_ID: return False
@@ -154,7 +154,7 @@ async def process_admin_reply(message: Message):
     )
 
     try:
-        await bot.api.messages.send(peer_id=target_user_id, message=user_msg, random_id=random.getrandbits(64))
+        await bot.api.messages.send(peer_id=target_user_id, message=user_msg, random_id=random.getrandbits(63))
         await message.answer(f"✅ Ответ успешно отправлен пользователю {target_user_id}.")
     except Exception as e:
         logger.error(f"Failed to send reply to {target_user_id}: {e}")

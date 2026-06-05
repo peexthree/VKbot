@@ -1,3 +1,4 @@
+import random
 import re
 
 with open('modules/tarot/destiny.py', 'r') as f:
@@ -9,7 +10,7 @@ new_logic = """    try:
         if not birth_date:
             await stop_dynamic_typing(peer_id)
             await update_user(vk_id, {"balance": balance})
-            await bot.api.messages.send(peer_id=peer_id, message="🛑 Ошибка: не указана дата рождения. Пожалуйста, заполните профиль.", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Ошибка: не указана дата рождения. Пожалуйста, заполните профиль.", random_id=random.getrandbits(63))
             return
 
         card_index = calculate_destiny_card(birth_date)
@@ -37,7 +38,7 @@ new_logic = """    try:
         if not res_text:
             await stop_dynamic_typing(peer_id)
             await update_user(vk_id, {"balance": balance})
-            await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам (пустой ответ). Энергия возвращена.", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам (пустой ответ). Энергия возвращена.", random_id=random.getrandbits(63))
             return
 
         # Сохраняем в историю и спец поле"""

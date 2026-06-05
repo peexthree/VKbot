@@ -44,12 +44,12 @@ async def donut_handler(event: dict):
             await bot.api.messages.send(
                 peer_id=vk_id,
                 message=f"🌟 VK Donut подписка успешно {action}!\nТебе начислено {energy_added} Энергии звезд.\nТвой баланс: {new_balance} ✨.",
-                random_id=random.getrandbits(64)
+                random_id=random.getrandbits(63)
             )
             await bot.api.messages.send(
                 peer_id=ADMIN_ID,
                 message=f"💰 [DONUT] Пользователь vk.com/id{vk_id} {action} подписку на {amount_rub} RUB (+{energy_added} ✨)",
-                random_id=random.getrandbits(64)
+                random_id=random.getrandbits(63)
             )
         except Exception as e:
             logger.error(f"Donut notification error: {e}")
@@ -61,6 +61,6 @@ async def donut_handler(event: dict):
             await bot.api.messages.send(
                 peer_id=vk_id,
                 message=f"🥀 Твоя VK Donut подписка {action}. Ты больше не получаешь регулярную Энергию звезд.",
-                random_id=random.getrandbits(64)
+                random_id=random.getrandbits(63)
             )
         except Exception: pass

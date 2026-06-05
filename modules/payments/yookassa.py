@@ -1,3 +1,4 @@
+import random
 import ipaddress
 import json
 import os
@@ -191,7 +192,7 @@ async def yookassa_webhook(request: web.Request):
                 await bot.api.messages.send(
                     peer_id=user_id,
                     message=push_text,
-                    random_id=0,
+                    random_id=random.getrandbits(63),
                     keyboard=json.dumps(keyboard)
                 )
             except Exception as push_err:

@@ -39,7 +39,7 @@ async def _send_catalog_page(
     total_items = len(items)
     if not items:
         try:
-            await bot.api.messages.send(peer_id=peer_id, message="Раздел пуст.", random_id=random.getrandbits(64))
+            await bot.api.messages.send(peer_id=peer_id, message="Раздел пуст.", random_id=random.getrandbits(63))
         except Exception:
             pass
         return
@@ -92,7 +92,7 @@ async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
     if not user:
         try:
             from modules.bot_init import bot
-            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=random.getrandbits(64))
+            await bot.api.messages.send(peer_id=peer_id, message="ДАННЫЕ ОТСУТСТВУЮТ. Напишите 'Начать'.", random_id=random.getrandbits(63))
         except Exception as e:
             logger.error(f"Ignored Exception: {str(e)}")
         return False

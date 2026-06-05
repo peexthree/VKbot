@@ -1,3 +1,4 @@
+import random
 import re
 
 with open('modules/tarot/destiny.py', 'r') as f:
@@ -12,7 +13,7 @@ new_logic = """    try:
             purchased = user.get("purchased_sections", {})
             purchased.pop("destiny_card_purchased", None)
             await update_user(vk_id, {"balance": balance + 1500, "purchased_sections": purchased})
-            await bot.api.messages.send(peer_id=peer_id, message="🛑 Ошибка: не указана дата рождения. Пожалуйста, заполните профиль в настройках (Энергия возвращена).", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Ошибка: не указана дата рождения. Пожалуйста, заполните профиль в настройках (Энергия возвращена).", random_id=random.getrandbits(63))
             return
 
         card_index = calculate_destiny_card(birth_date)
@@ -42,7 +43,7 @@ new_logic = """    try:
             purchased = user.get("purchased_sections", {})
             purchased.pop("destiny_card_purchased", None)
             await update_user(vk_id, {"balance": balance + 1500, "purchased_sections": purchased})
-            await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам (пустой ответ). Энергия возвращена.", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам (пустой ответ). Энергия возвращена.", random_id=random.getrandbits(63))
             return
 
         # Сохраняем в историю и спец поле"""

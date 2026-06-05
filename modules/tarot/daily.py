@@ -23,7 +23,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
             await set_user_state(vk_id, '{"step": "waiting_birth_date", "target_section": "card_of_day"}')
             msg = "🔮 ЧТОБЫ ПОЛУЧИТЬ КАРТУ ДНЯ, МНЕ НУЖНО НАСТРОИТЬСЯ НА ТВОЮ ЭНЕРГИЮ.\n\nШепни мне свою ДАТУ рождения (например, 15.04.1990):"
             if conv_msg_id: await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=msg)
-            else: await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=random.getrandbits(64))
+            else: await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=random.getrandbits(63))
             return
 
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conv_msg_id)
@@ -38,7 +38,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
                 err_msg = "Ты уже получил напутствие на сегодня. Возвращайся завтра или спроси совета у Оракула ✨"
                 await stop_dynamic_typing(peer_id)
                 if conv_msg_id: await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=err_msg)
-                else: await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=random.getrandbits(64))
+                else: await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=random.getrandbits(63))
                 return
 
         await set_user_state(vk_id, json.dumps({"step": "global_cut", "target_section": "card_of_day"}))
@@ -58,7 +58,7 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         logger.error(f"Ошибка в Карте Дня: {e}")
         err_msg = "Кажется, Вселенная сейчас хранит молчание. Попробуй заглянуть чуть позже ✨"
         if conv_msg_id: await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=err_msg)
-        else: await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=random.getrandbits(64))
+        else: await bot.api.messages.send(peer_id=peer_id, message=err_msg, random_id=random.getrandbits(63))
     finally:
         await stop_dynamic_typing(peer_id)
         if not skip_lock: await release_lock(vk_id)
