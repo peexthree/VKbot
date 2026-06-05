@@ -441,7 +441,7 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
             if ref_purchased.get("syndicate_count", 0) == 5:
                 push_msg += "\n\nТвой ранг повышен до: Теневой Кардинал! Теперь тебе открыты скрытые возможности."
 
-            await bot.api.messages.send(peer_id=referrer_id, message=push_msg, random_id=random.getrandbits(64))
+            await bot.api.messages.send(peer_id=referrer_id, message=push_msg, random_id=random.getrandbits(63))
         except Exception as e:
             logger.error(f"Push notification failed: {str(e)}")
     finally:

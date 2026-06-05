@@ -1,3 +1,4 @@
+import random
 from loguru import logger
 from modules.utils.consts import CHARACTER_DESCRIPTIONS, SKIN_VISUALS
 from modules.utils import upload_local_photo
@@ -46,7 +47,7 @@ async def send_trigger_message(api, vk_id: int, skin_id: str):
             peer_id=vk_id,
             message=msg,
             attachment=att,
-            random_id=0
+            random_id=random.getrandbits(63)
         )
     except Exception as e:
         logger.error(f"Error sending trigger message for {skin_id} to {vk_id}: {e}")

@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import json
 import os
+import random
 import re
 import warnings
 import hashlib
@@ -25,6 +26,9 @@ if sentry_dsn:
 
 # Настройка логирования loguru (отключаем enqueue из-за проблем с пиклингом динамических исключений vkbottle)
 logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=False)
+
+import logging
+logging.getLogger("vkbottle").setLevel(logging.INFO)
 
 # КРИТИЧЕСКИЙ ХАК ДЛЯ PYTHON 3.14+
 with warnings.catch_warnings():
@@ -342,11 +346,11 @@ async def main():
                         tags = user.get("tags", [])
                         tag_context = f" Твои запросы по теме {tags[0]} все еще ждут ответа." if tags else ""
                         msg = f"✦ ТВОЯ МАТРИЦА ЗАТУХАЕТ ✦\n\nТебя не было 3 дня. Потоки энергии слабеют.{tag_context} Вернись и забери свой ежедневный дар (+100 ✨), пока связь не прервалась полностью."
-                        try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
+                        try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=random.getrandbits(63))
                         except Exception: pass
                     elif days_since == 7:
                         msg = "✦ КРИТИЧЕСКИЙ РАЗРЫВ ✦\n\nПрошла неделя. Твой Проводник ждет тебя. Сегодня я приготовил для тебя особенный инсайт, доступный только 24 часа. Не дай своим тайнам кануть в бездну."
-                        try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0)
+                        try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=random.getrandbits(63))
                         except Exception: pass
 
                 async def process_abandoned_cart(user):
@@ -365,7 +369,7 @@ async def main():
                         msg = "✦ ТВОЙ ВЫБОР ВСЕ ЕЩЕ ЖДЕТ ✦\n\nЯ заметил, что ты интересовался энергией звезд, но связь оборвалась. Только для тебя — Матрица дает скидку 10% на пополнение в течение следующего часа. Используй этот шанс."
                         try:
                             kb = Keyboard(inline=True).add(Callback("ЗАБРАТЬ СО СКИДКОЙ ✨", payload={"cmd": "buy", "type": "abandoned_10", "key": last_cart_item}), color=KeyboardButtonColor.POSITIVE)
-                            await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=0)
+                            await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=random.getrandbits(63))
                             purchased["last_cart_stage"] = 1
                             await update_user(vk_id, {"purchased_sections": purchased})
                         except Exception: pass
@@ -373,7 +377,7 @@ async def main():
                         msg = "✦ ВОЗВРАЩЕНИЕ К ЗВЕЗДАМ ✦\n\nВчера ты остановился в шаге от ответов. За это время 42 человека уже открыли свои Карты Судьбы. Звезды еще ждут. Возвращаю тебе твою персональную скидку 15% до конца дня."
                         try:
                             kb = Keyboard(inline=True).add(Callback("ЗАБРАТЬ СО СКИДКОЙ 15% ✨", payload={"cmd": "buy", "type": "abandoned_15", "key": last_cart_item}), color=KeyboardButtonColor.POSITIVE)
-                            await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=0)
+                            await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=random.getrandbits(63))
                             # Очищаем, чтобы не спамить больше
                             purchased["last_cart_at"] = None
                             purchased["last_cart_stage"] = 2
@@ -397,7 +401,7 @@ async def main():
                                 try:
                                     kb = Keyboard(inline=True).add(Callback("🃏 ПОЛУЧИТЬ КАРТУ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.POSITIVE)
                                     kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
-                                    await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=0)
+                                    await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=random.getrandbits(63))
                                     purchased["card_of_day_notif_sent"] = now.isoformat()
                                     await update_user(vk_id, {"purchased_sections": purchased})
                                 except Exception: pass
@@ -464,7 +468,7 @@ async def main():
                                     peer_id=vk_id,
                                     message=f"✦ ШЕПОТ ЗВЕЗД ✦\n📅 {date_str}\n-----------------\n{forecast}\n-----------------\n✨ Твой Проводник всегда рядом.",
                                     keyboard=kb.get_json(),
-                                    random_id=0
+                                    random_id=random.getrandbits(63)
                                 )
                                 if not has_sub:
                                     await update_user(vk_id, {"transit_trial_days": trial_days + 1})
@@ -489,7 +493,7 @@ async def main():
                                 peer_id=vk_id,
                                 message=msg,
                                 keyboard=kb_json,
-                                random_id=0
+                                random_id=random.getrandbits(63)
                             )
                             await update_user(vk_id, {"transit_trial_days": 4})
                         except Exception as e:

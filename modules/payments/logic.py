@@ -1,3 +1,4 @@
+import random
 import asyncio
 import datetime
 import json
@@ -35,7 +36,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
             await bot.api.messages.send(
                 peer_id=vk_id,
                 message="🔮 ТВОЙ ЗВЕЗДНЫЙ КАНАЛ ВРЕМЕННО ЗАКРЫТ\n\nЧтобы я могла продолжить чтение твоей судьбы, мне нужно заново настроиться на твою энергию. Шепни мне свою ДАТУ рождения (например, 15.04.1990):",
-                random_id=0
+                random_id=random.getrandbits(63)
             )
             return
 
@@ -56,7 +57,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
             await bot.api.messages.send(
                 peer_id=vk_id,
                 message=f"✦ ШЕПОТ МАТРИЦЫ ✦\n\n{insight}",
-                random_id=0,
+                random_id=random.getrandbits(63),
                 keyboard=get_main_reply_keyboard(vk_id)
             )
             # Призрачный интерфейс: возвращаем пользователя в меню услуг
@@ -68,18 +69,18 @@ async def process_payment_and_generate(vk_id: int, section: str):
         if section == "all":
             purchased.update({"sex": True, "money": True, "shadow": True, "final": True, "all": True})
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_oracle_question"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
             return
         elif section == "synastry":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_synastry_name"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
             return
         elif section == "palmistry":
             purchased[section] = True
@@ -95,7 +96,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 "- Пальцы выпрямлены\n"
                 "- Крупный план"
             )
-            await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0, keyboard=get_main_keyboard(vk_id))
+            await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
             return
         elif section == "dream":
             purchased[section] = True
@@ -109,7 +110,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 "- Любые важные детали\n\n"
                 "Чем подробнее опишешь - тем точнее будет разбор."
             )
-            await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=0, keyboard=get_main_keyboard(vk_id))
+            await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
             return
         else:
             purchased[section] = True
@@ -120,13 +121,13 @@ async def process_payment_and_generate(vk_id: int, section: str):
             if last_mid:
                 await delete_bot_message(bot.api, vk_id, mid=last_mid)
 
-            msg_id = await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=0, keyboard=get_main_keyboard(vk_id))
+            msg_id = await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
             await set_last_bot_msg(vk_id, msg_id)
 
         await set_user_state(vk_id, f'{{"step": "global_cut", "target_section": "{section}"}}')
         kb = Keyboard(inline=True)
         kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        await bot.api.messages.send(peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=0)
+        await bot.api.messages.send(peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=random.getrandbits(63))
     finally:
         await release_lock(lock_key)
 
@@ -192,7 +193,7 @@ async def execute_generation(
                         "card_data": card_data
                     }
                 }))
-                await bot.api.messages.send(peer_id=peer_id, message="🛑 Твои данные рождения истекли. Чтобы завершить ритуал, шепни мне дату своего рождения (например, 15.04.1990):", random_id=0)
+                await bot.api.messages.send(peer_id=peer_id, message="🛑 Твои данные рождения истекли. Чтобы завершить ритуал, шепни мне дату своего рождения (например, 15.04.1990):", random_id=random.getrandbits(63))
                 return
 
             res_data = await generate_section(
@@ -361,7 +362,7 @@ async def execute_generation(
                             try:
                                 doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{s_name}.pdf", peer_id=p_id)
                                 if doc:
-                                    await bot.api.messages.send(peer_id=p_id, message="Твой PDF-отчет по сну готов:", attachment=doc, random_id=0)
+                                    await bot.api.messages.send(peer_id=p_id, message="Твой PDF-отчет по сну готов:", attachment=doc, random_id=random.getrandbits(63))
                             finally:
                                 if os.path.exists(pdf_name): os.remove(pdf_name)
 

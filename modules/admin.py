@@ -308,47 +308,47 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
     elif action == "clear_redis":
         await clear_photo_cache()
-        await bot.api.messages.send(peer_id=peer_id, message="Кэш фото в Redis очищен.", random_id=random.getrandbits(64))
+        await bot.api.messages.send(peer_id=peer_id, message="Кэш фото в Redis очищен.", random_id=random.getrandbits(63))
         await show_admin_system(peer_id, conversation_message_id)
     elif action == "search_user_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_user_search", "conv_id": conversation_message_id}))
-        await bot.api.messages.send(peer_id=peer_id, message="Введите VK ID адепта для поиска:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=random.getrandbits(64))
+        await bot.api.messages.send(peer_id=peer_id, message="Введите VK ID адепта для поиска:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=random.getrandbits(63))
     elif action == "broadcast_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_broadcast_message", "conv_id": conversation_message_id}))
-        await bot.api.messages.send(peer_id=peer_id, message="📝 Введите текст призыва (рассылки).\n\nОн будет отправлен всем адептам Синдиката.", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "broadcast"})).get_json(), random_id=random.getrandbits(64))
+        await bot.api.messages.send(peer_id=peer_id, message="📝 Введите текст призыва (рассылки).\n\nОн будет отправлен всем адептам Синдиката.", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "broadcast"})).get_json(), random_id=random.getrandbits(63))
     elif action == "broadcast_confirm":
         bt = await redis_client.get(f"admin:broadcast_text:{vk_id}")
         if not bt:
-            await bot.api.messages.send(peer_id=peer_id, message="❌ Текст призыва утерян. Начните заново.", random_id=random.getrandbits(64))
+            await bot.api.messages.send(peer_id=peer_id, message="❌ Текст призыва утерян. Начните заново.", random_id=random.getrandbits(63))
             await show_admin_broadcast(peer_id, conversation_message_id)
             return
         bt = bt.decode('utf-8') if isinstance(bt, bytes) else bt
-        await bot.api.messages.send(peer_id=peer_id, message="🚀 Запуск трансмиссии...", random_id=random.getrandbits(64))
+        await bot.api.messages.send(peer_id=peer_id, message="🚀 Запуск трансмиссии...", random_id=random.getrandbits(63))
         users = await get_all_users()
         success = 0
         for u in users:
             try:
-                await bot.api.messages.send(peer_id=u["vk_id"], message=f"📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{bt}", random_id=random.getrandbits(64))
+                await bot.api.messages.send(peer_id=u["vk_id"], message=f"📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{bt}", random_id=random.getrandbits(63))
                 success += 1
                 await asyncio.sleep(0.05)
             except: pass
-        await bot.api.messages.send(peer_id=peer_id, message=f"✅ Рассылка завершена. Доставлено: {success}/{len(users)}", random_id=random.getrandbits(64))
+        await bot.api.messages.send(peer_id=peer_id, message=f"✅ Рассылка завершена. Доставлено: {success}/{len(users)}", random_id=random.getrandbits(63))
         await show_admin_broadcast(peer_id, conversation_message_id)
     elif action == "trigger_autopost":
-        await bot.api.messages.send(peer_id=peer_id, message="🔮 Запуск генерации нового поста...", random_id=random.getrandbits(64))
+        await bot.api.messages.send(peer_id=peer_id, message="🔮 Запуск генерации нового поста...", random_id=random.getrandbits(63))
         from modules.autoposter import post_to_vk
         asyncio.create_task(post_to_vk())
-        await bot.api.messages.send(peer_id=peer_id, message="✅ Задача на автопостинг поставлена в очередь.", random_id=random.getrandbits(64))
+        await bot.api.messages.send(peer_id=peer_id, message="✅ Задача на автопостинг поставлена в очередь.", random_id=random.getrandbits(63))
         await show_admin_broadcast(peer_id, conversation_message_id)
     elif action == "mass_energy_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_energy_target", "conv_id": conversation_message_id}))
-        await bot.api.messages.send(peer_id=peer_id, message="Введите ID и количество энергии через пробел (например: 12345 500):", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=random.getrandbits(64))
+        await bot.api.messages.send(peer_id=peer_id, message="Введите ID и количество энергии через пробел (например: 12345 500):", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=random.getrandbits(63))
     elif payload.get("cmd") == "admin_user_op":
         op, target = payload.get("op"), payload.get("target")
         if op == "view_profile":
             user = await get_user(target)
             if not user:
-                await bot.api.messages.send(peer_id=peer_id, message="Адепт не найден.", random_id=random.getrandbits(64))
+                await bot.api.messages.send(peer_id=peer_id, message="Адепт не найден.", random_id=random.getrandbits(63))
                 return
             purchased, skins, has_full = user.get("purchased_sections", {}), user.get("purchased_skins", []), user.get("has_full_chart", False)
             current_page = payload.get("page", 0)
@@ -384,12 +384,12 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         elif op == "direct_msg_start":
             curr_page = payload.get("page", 0)
             await set_fsm_state(vk_id, json.dumps({"step": "admin_user_direct_message", "target": target, "conv_id": conversation_message_id, "page": curr_page}))
-            await bot.api.messages.send(peer_id=peer_id, message=f"📝 Введите сообщение для адепта {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=random.getrandbits(64))
+            await bot.api.messages.send(peer_id=peer_id, message=f"📝 Введите сообщение для адепта {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=random.getrandbits(63))
 
         elif op == "edit_balance":
             curr_page = payload.get("page", 0)
             await set_fsm_state(vk_id, json.dumps({"step": "admin_user_edit_balance", "target": target, "conv_id": conversation_message_id, "page": curr_page}))
-            await bot.api.messages.send(peer_id=peer_id, message=f"Введите НОВОЕ значение баланса для {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=random.getrandbits(64))
+            await bot.api.messages.send(peer_id=peer_id, message=f"Введите НОВОЕ значение баланса для {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=random.getrandbits(63))
         elif op == "full_unlock":
             user = await get_user(target)
             if user:
@@ -397,13 +397,13 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
                 p = user.get("purchased_sections", {})
                 for s in ["sex", "money", "shadow", "final", "synastry", "antitaro"]: p[s] = True
                 await update_user(target, {"purchased_sections": p, "has_full_chart": True})
-                await bot.api.messages.send(peer_id=peer_id, message=f"✅ Все услуги разблокированы для {target}", random_id=random.getrandbits(64))
-                await bot.api.messages.send(peer_id=target, message="🌟 Магистр даровал вам полный доступ ко всем тайнам Синдиката!", random_id=random.getrandbits(64))
+                await bot.api.messages.send(peer_id=peer_id, message=f"✅ Все услуги разблокированы для {target}", random_id=random.getrandbits(63))
+                await bot.api.messages.send(peer_id=target, message="🌟 Магистр даровал вам полный доступ ко всем тайнам Синдиката!", random_id=random.getrandbits(63))
                 await show_admin_users(peer_id, conversation_message_id, page=curr_page)
         elif op == "give_card_start":
             curr_page = payload.get("page", 0)
             await set_fsm_state(vk_id, json.dumps({"step": "admin_user_give_card", "target": target, "conv_id": conversation_message_id, "page": curr_page}))
-            await bot.api.messages.send(peer_id=peer_id, message=f"Введите ID карты (0-77) для выдачи адепту {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=random.getrandbits(64))
+            await bot.api.messages.send(peer_id=peer_id, message=f"Введите ID карты (0-77) для выдачи адепту {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=random.getrandbits(63))
 
 async def _is_admin_fsm(message: Message) -> bool:
     if message.from_id != ADMIN_ID: return False
@@ -450,7 +450,7 @@ async def admin_fsm_handler(message: Message):
             await update_user(target_id, {"unlocked_cards": unlocked})
             await set_fsm_state(vk_id, "")
             await message.answer(f"✅ Карта {card_id} выдана адепту {target_id}")
-            await bot.api.messages.send(peer_id=target_id, message=f"🎁 Магистр Синдиката даровал вам новую карту в Гримуар: {card_data.get('name')}!", random_id=random.getrandbits(64))
+            await bot.api.messages.send(peer_id=target_id, message=f"🎁 Магистр Синдиката даровал вам новую карту в Гримуар: {card_data.get('name')}!", random_id=random.getrandbits(63))
             await show_admin_users(message.peer_id, conv_id, page=curr_page)
         except: await message.answer("Введите число ID карты (0-77).")
     elif step == "admin_energy_target":
@@ -468,7 +468,7 @@ async def admin_fsm_handler(message: Message):
             await update_user(target_id, {"balance": new_balance})
             await set_fsm_state(vk_id, "")
             await message.answer(f"Зачислено {amount} ✨ пользователю {target_id}. Итого: {new_balance}")
-            try: await bot.api.messages.send(peer_id=target_id, message=f"⚡️ Магистр даровал вам {amount} Энергии звезд!\nВаш баланс: {new_balance}", random_id=random.getrandbits(64))
+            try: await bot.api.messages.send(peer_id=target_id, message=f"⚡️ Магистр даровал вам {amount} Энергии звезд!\nВаш баланс: {new_balance}", random_id=random.getrandbits(63))
             except: pass
             await show_admin_users(message.peer_id, conv_id)
         except: await message.answer("Ошибка в числах.")
@@ -476,7 +476,7 @@ async def admin_fsm_handler(message: Message):
         try:
             target_id, text = fsm_data.get("target"), message.text.strip()
             curr_page = fsm_data.get("page", 0)
-            await bot.api.messages.send(peer_id=target_id, message=f"💬 СООБЩЕНИЕ ОТ МАГИСТРА:\n\n{text}", random_id=random.getrandbits(64))
+            await bot.api.messages.send(peer_id=target_id, message=f"💬 СООБЩЕНИЕ ОТ МАГИСТРА:\n\n{text}", random_id=random.getrandbits(63))
             await set_fsm_state(vk_id, "")
             await message.answer(f"✅ Сообщение успешно отправлено адепту {target_id}")
             await process_admin_cmd(vk_id, message.peer_id, {"cmd": "admin_user_op", "op": "view_profile", "target": target_id, "page": curr_page}, conversation_message_id=conv_id)

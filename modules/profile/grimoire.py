@@ -1,3 +1,4 @@
+import random
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from loguru import logger
 
@@ -166,7 +167,7 @@ async def view_card_direct(
         unlocked_cards = _normalize_unlocked_cards(user.get("unlocked_cards"))
 
         if str(card_id) not in unlocked_cards:
-            await bot.api.messages.send(peer_id=peer_id, message="Эта карта ещё не открыта.", random_id=0)
+            await bot.api.messages.send(peer_id=peer_id, message="Эта карта ещё не открыта.", random_id=random.getrandbits(63))
             return
 
         # Проводник (скин)

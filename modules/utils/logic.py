@@ -1,5 +1,5 @@
-import json
 import random
+import json
 import string
 import datetime
 from loguru import logger
@@ -86,7 +86,7 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
                 await bot.api.messages.send(
                     peer_id=peer_id,
                     message=bonus_text,
-                    random_id=0
+                    random_id=random.getrandbits(63)
                 )
             except Exception as e:
                 logger.error(f"Ошибка: {str(e)}")
