@@ -20,11 +20,11 @@ new_main_menu = """def main_menu_kb(vk_id: int, user: dict | None = None) -> str
     kb.row()
 
     # Ряд 4
-    kb.add(Callback("🧭 Путеводитель", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🎭 Зал пророков", payload={"cmd": "hall_of_prophets"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
-    # Ряд 5 - Карта судьбы
-    kb.add(Callback("⭐ Моя карта судьбы", payload={"cmd": "destiny_card_info"}), color=KeyboardButtonColor.PRIMARY)
+    # Ряд 5
+    kb.add(Callback("🧭 Путеводитель", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
     # Ряд 6
