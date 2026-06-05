@@ -1,4 +1,3 @@
-import random
 import re
 
 with open('modules/utils/ui.py', 'r') as f:

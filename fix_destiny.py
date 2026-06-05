@@ -1,4 +1,3 @@
-import random
 import re
 
 with open('modules/tarot/destiny.py', 'r') as f:
