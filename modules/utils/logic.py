@@ -12,7 +12,8 @@ async def get_fsm_step(vk_id: int) -> dict | None:
         try:
             return json.loads(data)
         except Exception:
-            return None
+            # Fallback if state is stored as a raw string
+            return {"step": data}
     return None
 
 async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int):

@@ -12,7 +12,7 @@ labeler = BotLabeler()
 
 async def support_handler_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
     """Инициализация обращения в поддержку"""
-    await set_user_state(vk_id, "waiting_support_question")
+    await set_user_state(vk_id, json.dumps({"step": "waiting_support_question"}))
 
     text = (
         "📞 ТЕХНИЧЕСКАЯ ПОДДЕРЖКА\n\n"
