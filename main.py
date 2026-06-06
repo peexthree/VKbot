@@ -420,7 +420,9 @@ async def main():
                         except ValueError:
                             pass
                     trial_days = user.get("transit_trial_days", 0)
-                    if has_sub or trial_days < 3:
+                    is_muted = purchased.get("whisper_muted", False)
+
+                    if (has_sub or trial_days < 3) and not is_muted:
                         core_profile = user.get("core_profile", "")
                         active_skin = user.get("active_skin", "olesya")
                         tags = user.get("tags", [])

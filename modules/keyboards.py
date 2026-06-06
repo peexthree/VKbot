@@ -95,12 +95,15 @@ def profile_menu_kb() -> str:
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
-def settings_menu_kb(vk_id: int) -> str:
+def settings_menu_kb(vk_id: int, is_muted: bool = False) -> str:
     """Меню Настроек"""
+    sub_label = "🔔 Включить Шепот" if is_muted else "🔕 Отключить Шепот"
+    sub_action = "resume_sub" if is_muted else "cancel_sub"
+
     buttons = [
         ("📝 Изменить данные", {"cmd": "profile_action", "action": "change_data"}, KeyboardButtonColor.PRIMARY),
         ("🔄 Сбросить аккаунт", {"cmd": "profile_action", "action": "reset_account"}, KeyboardButtonColor.SECONDARY),
-        ("❌ Отменить подписку", {"cmd": "profile_action", "action": "cancel_sub"}, KeyboardButtonColor.SECONDARY),
+        (sub_label, {"cmd": "profile_action", "action": sub_action}, KeyboardButtonColor.SECONDARY),
         ("📞 Поддержка", "support", KeyboardButtonColor.PRIMARY),
     ]
     if vk_id == ADMIN_ID:
@@ -237,8 +240,8 @@ async def get_main_inline_keyboard(vk_id: int, user: dict | None) -> str:
 def get_profile_inline_keyboard() -> str:
     return profile_menu_kb()
 
-def get_settings_inline_keyboard(vk_id: int = 0) -> str:
-    return settings_menu_kb(vk_id)
+def get_settings_inline_keyboard(vk_id: int = 0, is_muted: bool = False) -> str:
+    return settings_menu_kb(vk_id, is_muted=is_muted)
 
 def get_syndicate_inline_keyboard(is_promo_used: bool) -> str:
     # Оставляем старую логику для синдиката, но причесываем
@@ -277,11 +280,14 @@ def get_guide_sub_keyboard(action_label: str, action_payload: dict) -> str:
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
-def get_advanced_settings_inline_keyboard(vk_id: int) -> str:
+def get_advanced_settings_inline_keyboard(vk_id: int, is_muted: bool = False) -> str:
     """Меню системных настроек"""
+    sub_label = "🔔 Включить Шепот" if is_muted else "🔕 Отключить Шепот"
+    sub_action = "resume_sub" if is_muted else "cancel_sub"
+
     buttons = [
         ("🔄 Сбросить аккаунт", {"cmd": "profile_action", "action": "reset_account"}, KeyboardButtonColor.SECONDARY),
-        ("❌ Отменить подписку", {"cmd": "profile_action", "action": "cancel_sub"}, KeyboardButtonColor.SECONDARY),
+        (sub_label, {"cmd": "profile_action", "action": sub_action}, KeyboardButtonColor.SECONDARY),
         ("👤 В ПРОФИЛЬ", "profile_menu", KeyboardButtonColor.PRIMARY),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ]

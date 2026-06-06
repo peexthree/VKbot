@@ -506,8 +506,19 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="Для калибровки звездного пути напиши свою ДАТУ рождения (например, 15.04.1990):", keyboard=kb.get_json(), attachment=att)
             elif action == "change_skin": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=conv_id)
             elif action == "cancel_sub":
-                await update_user(vk_id, {"transit_sub_expires_at": None})
-                await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="Транзит (Подписка) успешно отменен.")
+                user = await get_user(vk_id)
+                purchased = user.get("purchased_sections", {})
+                purchased["whisper_muted"] = True
+                await update_user(vk_id, {"purchased_sections": purchased})
+                from modules.keyboards import settings_menu_kb
+                await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="Шепот звезд успешно отключен. Ты больше не будешь получать ежедневные послания, но доступ к услугам подписки сохранен.", keyboard=settings_menu_kb(vk_id, is_muted=True))
+            elif action == "resume_sub":
+                user = await get_user(vk_id)
+                purchased = user.get("purchased_sections", {})
+                purchased["whisper_muted"] = False
+                await update_user(vk_id, {"purchased_sections": purchased})
+                from modules.keyboards import settings_menu_kb
+                await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="Шепот звезд снова активен! Завтра ты получишь новое послание.", keyboard=settings_menu_kb(vk_id, is_muted=False))
             elif action == "reset_account":
                 await set_user_state(vk_id, json.dumps({"step": "waiting_reset_confirm"}))
                 kb = Keyboard(inline=True).add(Callback("ПОДТВЕРДИТЬ СБРОС", payload={"cmd": "profile_action", "action": "confirm_reset"}), color=KeyboardButtonColor.NEGATIVE).row().add(Callback("Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.PRIMARY)
