@@ -10,12 +10,12 @@ def get_profile_keyboard() -> str:
 
     return get_profile_inline_keyboard()
 
-def get_settings_keyboard() -> str:
-    return get_settings_inline_keyboard()
+def get_settings_keyboard(is_muted: bool = False, vk_id: int = 0) -> str:
+    return get_settings_inline_keyboard(vk_id=vk_id, is_muted=is_muted)
 
-def get_advanced_settings_keyboard(vk_id: int) -> str:
+def get_advanced_settings_keyboard(vk_id: int, is_muted: bool = False) -> str:
     from modules.keyboards import get_advanced_settings_inline_keyboard
-    return get_advanced_settings_inline_keyboard(vk_id)
+    return get_advanced_settings_inline_keyboard(vk_id, is_muted=is_muted)
 
 
 def get_skin_keyboard(skin_name: str, is_owned: bool) -> str:

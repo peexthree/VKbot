@@ -141,6 +141,20 @@ async def show_profile_logic(
         minutes = int((total_seconds % 3600) // 60)
         time_str = f"{hours}ч {minutes}м" if hours > 0 else f"{minutes}м"
 
+        # Определение статуса Шепота звезд
+        expires_str = user.get("transit_sub_expires_at")
+        whisper_status = "Не активна"
+        if expires_str:
+            import datetime as dt
+            try:
+                # В Supabase может быть ISO с Z или без. Преобразуем к TZ-aware UTC для сравнения.
+                exp_date = dt.datetime.fromisoformat(expires_str.replace('Z', '+00:00'))
+                now_utc = dt.datetime.now(dt.timezone.utc)
+                if exp_date > now_utc:
+                    whisper_status = f"до {exp_date.strftime('%d.%m.%Y')}"
+            except Exception:
+                pass
+
         profile_text = (
             "💳 ЛИЧНЫЙ ПРОФИЛЬ\n\n"
             f"👤 {first_name} | {rank}\n"
@@ -149,6 +163,7 @@ async def show_profile_logic(
             f"{destiny_info}"
             f"💬 {greeting}\n\n"
             f"📊 ТВОЯ СТАТИСТИКА:\n"
+            f"🛰 Шепот звезд: {whisper_status}\n"
             f"🔘 Нажатий: {clicks} | ⏳ В пути: {time_str}\n"
             f"💰 Внесено: {total_rubles} RUB\n\n"
             f"✨ БАЛАНС: {balance} Энергии звезд\n"
@@ -569,13 +584,17 @@ async def show_advanced_settings_logic(
     try:
         await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
+        user = await get_user(vk_id)
+        purchased = user.get("purchased_sections", {}) if user else {}
+        is_muted = purchased.get("whisper_muted", False)
+
         text = (
             "⚙️ СИСТЕМНЫЕ НАСТРОЙКИ\n\n"
             "Здесь ты можешь управлять своим аккаунтом и подписками."
         )
 
         from modules.profile.keyboards import get_advanced_settings_keyboard
-        kb_json = get_advanced_settings_keyboard(vk_id)
+        kb_json = get_advanced_settings_keyboard(vk_id, is_muted=is_muted)
 
         att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
 

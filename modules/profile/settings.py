@@ -116,12 +116,14 @@ async def settings_handler_logic(
         from modules.utils.consts import SKIN_DISPLAY_NAMES
         active_skin = user.get("active_skin", "olesya")
         char_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
+        purchased = user.get("purchased_sections", {})
+        is_muted = purchased.get("whisper_muted", False)
         text = (
             "⚙️ НАСТРОЙКИ\n"
             f"✨ Баланс: {balance} Энергии звезд\n\n"
             f"Здесь ты можешь управлять своим аккаунтом и Проводником в Зале пророков ({char_name})."
         )
-        kb_json = get_settings_keyboard()
+        kb_json = get_settings_keyboard(is_muted=is_muted, vk_id=vk_id)
         att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, keyboard=kb_json, attachment=att)
     finally:
