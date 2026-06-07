@@ -5,7 +5,6 @@ import aiohttp
 from pathlib import Path
 import aiofiles
 from loguru import logger
-from vkbottle import PhotoMessageUploader
 from cache import acquire_lock, redis_client, release_lock
 from modules.utils.consts import (
     SKIN_ASSETS, cover_cache, _anchor_batch, ANCHOR_BATCH_SIZE, ADMIN_ID
@@ -83,7 +82,6 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
             if cached: return cached
         return ""
     try:
-        uploader = PhotoMessageUploader(bot_api)
         filepath = os.path.join("cards", filename)
         if not os.path.exists(filepath):
             logger.error(f"Файл не найден: {filepath}")
@@ -95,25 +93,49 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                 logger.warning(f"Файл {filename} слишком мал ({len(data)} байт), пропуск загрузки.")
                 return ""
 
-            # Retry mechanism for upload
-            raw_photo_id = None
+            # Резервный механизм загрузки через сырые запросы для обхода проблем валидации
+            photo_attachment_id = None
             last_err = None
             for attempt in range(3):
                 try:
-                    raw_photo_id = await uploader.upload(file_source=data, peer_id=0)
-                    if raw_photo_id:
+                    # 1. Получаем сервер
+                    server = await bot_api.photos.get_messages_upload_server()
+
+                    # 2. Загружаем файл
+                    async with aiohttp.ClientSession() as session:
+                        form = aiohttp.FormData()
+                        form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
+                        async with session.post(server.upload_url, data=form) as resp:
+                            upload_data = await resp.json()
+
+                    # 3. Сохраняем (сырой запрос). vkbottle.request возвращает содержимое поля 'response'
+                    saved_photos = await bot_api.request(
+                        "photos.saveMessagesPhoto",
+                        {
+                            "photo": upload_data['photo'],
+                            "server": upload_data['server'],
+                            "hash": upload_data['hash']
+                        }
+                    )
+
+                    if saved_photos and isinstance(saved_photos, list):
+                        photo = saved_photos[0]
+                        photo_attachment_id = f"photo{photo['owner_id']}_{photo['id']}"
+                        if photo.get("access_key"):
+                            photo_attachment_id += f"_{photo['access_key']}"
                         break
+
                 except Exception as ex:
                     last_err = ex
                     logger.warning(f"Попытка {attempt+1} загрузки {filename} не удалась: {ex}")
                     await asyncio.sleep(1 * (attempt + 1))
 
-            if not raw_photo_id:
+            if not photo_attachment_id:
                 logger.error(f"Не удалось загрузить {filename} после 3 попыток. Последняя ошибка: {last_err}")
                 return ""
 
-            await _anchor_photo_and_cache(bot_api, filename, raw_photo_id)
-            return raw_photo_id
+            await _anchor_photo_and_cache(bot_api, filename, photo_attachment_id)
+            return photo_attachment_id
     except Exception as e:
         logger.error(f"Критическая ошибка при обработке {filename}: {str(e)}")
         return ""
@@ -177,21 +199,29 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                 async with session.post(server.upload_url, data=form) as resp:
                     upload_data = await resp.json()
 
-            # Сохраняем фото
-            saved_photos = await bot_api.photos.save_messages_photo(
-                photo=upload_data['photo'],
-                server=upload_data['server'],
-                hash=upload_data['hash']
+            # Сохраняем фото через сырой запрос, чтобы избежать ошибок валидации новых типов (например, type: base)
+            # в моделях vkbottle. vkbottle.request возвращает содержимое поля 'response'
+            saved_photos = await bot_api.request(
+                "photos.saveMessagesPhoto",
+                {
+                    "photo": upload_data['photo'],
+                    "server": upload_data['server'],
+                    "hash": upload_data['hash']
+                }
             )
 
-            if saved_photos:
+            if saved_photos and isinstance(saved_photos, list):
                 photo = saved_photos[0]
-                logger.debug(f"Photo saved: owner_id={photo.owner_id}, id={photo.id}, has_access_key={bool(photo.access_key)}")
+                owner_id = photo.get("owner_id")
+                photo_id = photo.get("id")
+                access_key = photo.get("access_key")
+
+                logger.debug(f"Photo saved: owner_id={owner_id}, id={photo_id}, has_access_key={bool(access_key)}")
 
                 # Формируем полный ID с access_key для надежности
-                photo_attachment_id = f"photo{photo.owner_id}_{photo.id}"
-                if photo.access_key:
-                    photo_attachment_id += f"_{photo.access_key}"
+                photo_attachment_id = f"photo{owner_id}_{photo_id}"
+                if access_key:
+                    photo_attachment_id += f"_{access_key}"
                 else:
                     logger.warning(f"Access key missing for photo {filename}! Post might be invisible on wall.")
 
