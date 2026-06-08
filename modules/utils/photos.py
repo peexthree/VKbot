@@ -7,7 +7,7 @@ import aiofiles
 from loguru import logger
 from cache import acquire_lock, redis_client, release_lock
 from modules.utils.consts import (
-    SKIN_ASSETS, cover_cache, _anchor_batch, ANCHOR_BATCH_SIZE, ADMIN_ID
+    SKIN_ASSETS, cover_cache, _anchor_batch, ANCHOR_BATCH_SIZE, ADMIN_ID, GROUP_ID
 )
 
 async def get_cached_photo(filename: str) -> str | None:
@@ -106,8 +106,9 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                         form = aiohttp.FormData()
                         form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
                         async with session.post(server.upload_url, data=form) as resp:
-                            if resp.status == 504:
-                                raise Exception("VK Server 504 Gateway Timeout")
+                            if resp.status == 504 or "text/html" in resp.headers.get("Content-Type", ""):
+                                logger.warning(f"VK Server error (Status: {resp.status}, Attempt {attempt+1}). Retrying...")
+                                raise Exception(f"VK Server returned error/HTML (Status: {resp.status})")
                             try:
                                 upload_data = await resp.json()
                             except Exception:
@@ -130,7 +131,11 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                         photo_attachment_id = f"photo{photo['owner_id']}_{photo['id']}"
                         if photo.get("access_key"):
                             photo_attachment_id += f"_{photo['access_key']}"
-                        break
+
+                        if photo_attachment_id:
+                            break
+
+                    raise Exception("VK API returned empty or invalid response in photos.saveMessagesPhoto")
 
                 except Exception as ex:
                     last_err = ex
@@ -187,8 +192,6 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
         return ""
 
     try:
-        # Пытаемся загрузить через photos.getMessagesUploadServer с получением Photo-объекта
-        # чтобы иметь доступ к access_key.
         filepath = os.path.join("cards", filename)
         if not os.path.exists(filepath):
             logger.error(f"Файл не найден для wall_photo: {filepath}")
@@ -199,29 +202,32 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
 
             # Механизм повторных попыток для обхода 504 и проблем с MIME-типами
             photo_attachment_id = None
+            last_err = None
             for attempt in range(3):
                 try:
-                    # 1. Получаем сервер загрузки
-                    server = await bot_api.photos.get_messages_upload_server()
+                    # 1. Получаем сервер загрузки для стены (group_id должен быть положительным)
+                    server = await bot_api.photos.get_wall_upload_server(group_id=GROUP_ID)
 
                     # 2. Загружаем файл
                     async with aiohttp.ClientSession() as session:
                         form = aiohttp.FormData()
                         form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
                         async with session.post(server.upload_url, data=form) as resp:
-                            if resp.status == 504:
-                                raise Exception("VK Server 504 Gateway Timeout")
+                            if resp.status == 504 or "text/html" in resp.headers.get("Content-Type", ""):
+                                logger.warning(f"VK Wall Upload Server error (Status: {resp.status}, Attempt {attempt+1}). Retrying...")
+                                raise Exception(f"VK Server returned error/HTML (Status: {resp.status})")
                             try:
                                 upload_data = await resp.json()
                             except Exception:
                                 raw_text = await resp.text()
-                                logger.error(f"Failed to decode JSON from VK. Status: {resp.status}, Body: {raw_text[:200]}")
-                                raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})") from None
+                                logger.error(f"Failed to decode JSON from VK Wall. Status: {resp.status}, Body: {raw_text[:200]}")
+                                raise Exception(f"Invalid JSON from VK Wall (MIME: {resp.content_type})") from None
 
-                    # 3. Сохраняем фото через сырой запрос
+                    # 3. Сохраняем фото на стену через сырой запрос
                     saved_photos = await bot_api.request(
-                        "photos.saveMessagesPhoto",
+                        "photos.saveWallPhoto",
                         {
+                            "group_id": GROUP_ID,
                             "photo": upload_data['photo'],
                             "server": upload_data['server'],
                             "hash": upload_data['hash']
@@ -238,9 +244,14 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                         if access_key:
                             photo_attachment_id += f"_{access_key}"
 
-                        logger.debug(f"Wall photo uploaded successfully on attempt {attempt+1}")
-                        break
+                        if photo_attachment_id:
+                            logger.debug(f"Wall photo uploaded successfully on attempt {attempt+1}")
+                            break
+
+                    raise Exception("VK API returned empty or invalid response in photos.saveWallPhoto")
+
                 except Exception as ex:
+                    last_err = ex
                     logger.warning(f"Попытка {attempt+1} wall_photo {filename} не удалась: {ex}")
                     if attempt < 2:
                         await asyncio.sleep(2)
