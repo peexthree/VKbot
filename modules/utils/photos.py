@@ -113,7 +113,7 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                             except Exception:
                                 raw_text = await resp.text()
                                 logger.error(f"Failed to decode JSON from VK. Status: {resp.status}, Body: {raw_text[:200]}")
-                                raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})")
+                                raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})") from None
 
                     # 3. Сохраняем (сырой запрос)
                     saved_photos = await bot_api.request(
@@ -216,7 +216,7 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                             except Exception:
                                 raw_text = await resp.text()
                                 logger.error(f"Failed to decode JSON from VK. Status: {resp.status}, Body: {raw_text[:200]}")
-                                raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})")
+                                raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})") from None
 
                     # 3. Сохраняем фото через сырой запрос
                     saved_photos = await bot_api.request(
