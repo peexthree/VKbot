@@ -405,7 +405,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             from modules.keyboards import get_natal_chart_inline_keyboard
             kb_json = get_natal_chart_inline_keyboard(user.get("purchased_sections", {}))
             att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
-            await ghost_edit(bot.api, peer_id, "🔮 ТВОЯ НАТАЛЬНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb_json, attachment=att)
+            await ghost_edit(bot.api, peer_id, "🔮 ТВОЯ ЗВЕЗДНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.", conversation_message_id=obj.get("conversation_message_id"), keyboard=kb_json, attachment=att)
         elif cmd == "history_menu":
             from database import add_event
             asyncio.create_task(add_event(vk_id, "history_open"))

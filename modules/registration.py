@@ -167,7 +167,7 @@ async def start_handler(message: Message, skip_lock: bool = False):
         kb = Keyboard(inline=True)
         kb.add(Callback("🌸 ОЛЕСЯ ИВОНЧЕНКО", payload={"cmd": "choose_onboarding_skin", "skin": "olesya"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
-        kb.add(Callback("🕯 АЛЕКСАНДР ШЕПС", payload={"cmd": "choose_onboarding_skin", "skin": "sheps_alex"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🕯 АЛЕКСАНДР ШЕППС", payload={"cmd": "choose_onboarding_skin", "skin": "sheps_alex"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
         kb.add(Callback("🧠 ВОЛЬФ МЕССИНГ", payload={"cmd": "choose_onboarding_skin", "skin": "messing"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
