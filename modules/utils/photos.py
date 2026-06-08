@@ -5,10 +5,27 @@ import aiohttp
 from pathlib import Path
 import aiofiles
 from loguru import logger
+from vkbottle import API
 from cache import acquire_lock, redis_client, release_lock
 from modules.utils.consts import (
     SKIN_ASSETS, cover_cache, _anchor_batch, ANCHOR_BATCH_SIZE, ADMIN_ID, GROUP_ID
 )
+
+_user_api: API | None = None
+
+def get_user_api() -> API | None:
+    """Инициализирует и возвращает API клиента пользователя (ленивая инициализация)."""
+    global _user_api
+    if _user_api is not None:
+        return _user_api
+
+    token = os.environ.get("USER_ACCESS_TOKEN")
+    if not token:
+        logger.warning("USER_ACCESS_TOKEN не найден в .env. Загрузка на стену будет идти через токен группы (возможна ошибка 27).")
+        return None
+
+    _user_api = API(token.strip())
+    return _user_api
 
 async def get_cached_photo(filename: str) -> str | None:
     if filename in cover_cache:
@@ -200,13 +217,18 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
         async with aiofiles.open(filepath, 'rb') as f:
             data = await f.read()
 
+            # Инициализируем API пользователя для загрузки на стену
+            user_api = get_user_api()
+            # Если токен пользователя есть - используем его, иначе фолбэк на bot_api
+            upload_client = user_api if user_api else bot_api
+
             # Механизм повторных попыток для обхода 504 и проблем с MIME-типами
             photo_attachment_id = None
             last_err = None
             for attempt in range(3):
                 try:
                     # 1. Получаем сервер загрузки для стены (group_id должен быть положительным)
-                    server = await bot_api.photos.get_wall_upload_server(group_id=GROUP_ID)
+                    server = await upload_client.photos.get_wall_upload_server(group_id=GROUP_ID)
 
                     # 2. Загружаем файл
                     async with aiohttp.ClientSession() as session:
@@ -224,7 +246,7 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                                 raise Exception(f"Invalid JSON from VK Wall (MIME: {resp.content_type})") from None
 
                     # 3. Сохраняем фото на стену через сырой запрос
-                    saved_photos = await bot_api.request(
+                    saved_photos = await upload_client.request(
                         "photos.saveWallPhoto",
                         {
                             "group_id": GROUP_ID,
@@ -266,8 +288,7 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
             return ""
     except Exception as e:
         logger.error(f"Критическая ошибка при wall_photo {filename}: {str(e)}")
-        # Фолбэк на старый метод если новый упал
-        return await upload_local_photo(bot_api, filename)
+        return ""
     finally:
         await release_lock(lock_key)
 
