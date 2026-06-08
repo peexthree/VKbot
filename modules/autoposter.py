@@ -11,7 +11,7 @@ from modules.bot_init import bot
 from ai_service import generate_text
 from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES
 from modules.utils.photos import upload_wall_photo
-from modules.utils.logic import slugify
+from modules.utils.logic import slugify, clean_topic_ref
 from database.autoposter import get_recent_topics, add_post_history
 
 # Загрузка тем и персонажей
@@ -82,7 +82,7 @@ async def generate_post():
         return None
 
     # Формируем финальный текст для СТЕНЫ (чистый текст от ИИ + ссылка)
-    topic_ref = slugify(topic)
+    topic_ref = clean_topic_ref(topic)
     final_text = (
         f"{ai_text}\n\n"
         f"Заходи в Зал Пророков Анти-Тар и забери свой первый разбор абсолютно бесплатно: "

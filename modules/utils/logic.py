@@ -193,3 +193,8 @@ def slugify(text: str) -> str:
     # 4. Убираем двойные подчеркивания
     text = re.sub(r'_+', '_', text)
     return text.strip("_")
+
+def clean_topic_ref(text: str) -> str:
+    """Очищает тему для использования в параметре ref (лимит 40 символов)"""
+    slug = slugify(text)
+    return slug[:40].strip("_")
