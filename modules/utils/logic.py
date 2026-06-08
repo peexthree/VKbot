@@ -2,6 +2,7 @@ import random
 import json
 import string
 import datetime
+import re
 from loguru import logger
 from database import get_user_state, update_user
 from cache import acquire_lock, release_lock
@@ -170,3 +171,25 @@ def generate_shadow_cipher() -> str:
     # Исключаем похожие символы для удобства (O и 0, I и 1)
     chars = chars.replace('O', '').replace('0', '').replace('I', '').replace('1', '')
     return ''.join(random.choice(chars) for _ in range(6))
+
+def transliterate(text: str) -> str:
+    """Простая транслитерация кириллицы в латиницу"""
+    mapping = {
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
+        'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+        'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'kh', 'ц': 'ts',
+        'ч': 'ch', 'ш': 'sh', 'щ': 'shch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+    }
+    return "".join(mapping.get(c, c) for c in text.lower())
+
+def slugify(text: str) -> str:
+    """Создает безопасный латинский слаг из кириллической строки"""
+    # 1. Транслитерация
+    text = transliterate(text)
+    # 2. Пробелы в нижнее подчеркивание
+    text = text.replace(" ", "_")
+    # 3. Очистка от всего, кроме латиницы, цифр и _
+    text = re.sub(r'[^a-z0-9_]', '', text)
+    # 4. Убираем двойные подчеркивания
+    text = re.sub(r'_+', '_', text)
+    return text.strip("_")

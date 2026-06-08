@@ -106,9 +106,16 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                         form = aiohttp.FormData()
                         form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
                         async with session.post(server.upload_url, data=form) as resp:
-                            upload_data = await resp.json()
+                            if resp.status == 504:
+                                raise Exception("VK Server 504 Gateway Timeout")
+                            try:
+                                upload_data = await resp.json()
+                            except Exception:
+                                raw_text = await resp.text()
+                                logger.error(f"Failed to decode JSON from VK. Status: {resp.status}, Body: {raw_text[:200]}")
+                                raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})")
 
-                    # 3. Сохраняем (сырой запрос). vkbottle.request возвращает содержимое поля 'response'
+                    # 3. Сохраняем (сырой запрос)
                     saved_photos = await bot_api.request(
                         "photos.saveMessagesPhoto",
                         {
@@ -128,7 +135,8 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                 except Exception as ex:
                     last_err = ex
                     logger.warning(f"Попытка {attempt+1} загрузки {filename} не удалась: {ex}")
-                    await asyncio.sleep(1 * (attempt + 1))
+                    if attempt < 2:
+                        await asyncio.sleep(2)
 
             if not photo_attachment_id:
                 logger.error(f"Не удалось загрузить {filename} после 3 попыток. Последняя ошибка: {last_err}")
@@ -189,42 +197,55 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
         async with aiofiles.open(filepath, 'rb') as f:
             data = await f.read()
 
-            # Получаем сервер загрузки для сообщений
-            server = await bot_api.photos.get_messages_upload_server()
+            # Механизм повторных попыток для обхода 504 и проблем с MIME-типами
+            photo_attachment_id = None
+            for attempt in range(3):
+                try:
+                    # 1. Получаем сервер загрузки
+                    server = await bot_api.photos.get_messages_upload_server()
 
-            # Загружаем файл
-            async with aiohttp.ClientSession() as session:
-                form = aiohttp.FormData()
-                form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
-                async with session.post(server.upload_url, data=form) as resp:
-                    upload_data = await resp.json()
+                    # 2. Загружаем файл
+                    async with aiohttp.ClientSession() as session:
+                        form = aiohttp.FormData()
+                        form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
+                        async with session.post(server.upload_url, data=form) as resp:
+                            if resp.status == 504:
+                                raise Exception("VK Server 504 Gateway Timeout")
+                            try:
+                                upload_data = await resp.json()
+                            except Exception:
+                                raw_text = await resp.text()
+                                logger.error(f"Failed to decode JSON from VK. Status: {resp.status}, Body: {raw_text[:200]}")
+                                raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})")
 
-            # Сохраняем фото через сырой запрос, чтобы избежать ошибок валидации новых типов (например, type: base)
-            # в моделях vkbottle. vkbottle.request возвращает содержимое поля 'response'
-            saved_photos = await bot_api.request(
-                "photos.saveMessagesPhoto",
-                {
-                    "photo": upload_data['photo'],
-                    "server": upload_data['server'],
-                    "hash": upload_data['hash']
-                }
-            )
+                    # 3. Сохраняем фото через сырой запрос
+                    saved_photos = await bot_api.request(
+                        "photos.saveMessagesPhoto",
+                        {
+                            "photo": upload_data['photo'],
+                            "server": upload_data['server'],
+                            "hash": upload_data['hash']
+                        }
+                    )
 
-            if saved_photos and isinstance(saved_photos, list):
-                photo = saved_photos[0]
-                owner_id = photo.get("owner_id")
-                photo_id = photo.get("id")
-                access_key = photo.get("access_key")
+                    if saved_photos and isinstance(saved_photos, list):
+                        photo = saved_photos[0]
+                        owner_id = photo.get("owner_id")
+                        photo_id = photo.get("id")
+                        access_key = photo.get("access_key")
 
-                logger.debug(f"Photo saved: owner_id={owner_id}, id={photo_id}, has_access_key={bool(access_key)}")
+                        photo_attachment_id = f"photo{owner_id}_{photo_id}"
+                        if access_key:
+                            photo_attachment_id += f"_{access_key}"
 
-                # Формируем полный ID с access_key для надежности
-                photo_attachment_id = f"photo{owner_id}_{photo_id}"
-                if access_key:
-                    photo_attachment_id += f"_{access_key}"
-                else:
-                    logger.warning(f"Access key missing for photo {filename}! Post might be invisible on wall.")
+                        logger.debug(f"Wall photo uploaded successfully on attempt {attempt+1}")
+                        break
+                except Exception as ex:
+                    logger.warning(f"Попытка {attempt+1} wall_photo {filename} не удалась: {ex}")
+                    if attempt < 2:
+                        await asyncio.sleep(2)
 
+            if photo_attachment_id:
                 try:
                     await redis_client.set(f"wall_photo_v2:{filename}", photo_attachment_id)
                 except Exception as e:

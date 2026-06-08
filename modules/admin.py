@@ -358,8 +358,9 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
             stats_rub = purchased.get("stats_total_rubles", 0)
             last_active = user.get("last_active_date", "???")
 
+            is_blocked = purchased.get("is_blocked", False)
             text = (
-                f"👤 ПРОФИЛЬ АДЕПТА: {target}\n"
+                f"👤 ПРОФИЛЬ АДЕПТА: {target} {'[🔴 ЗАБЛОКИРОВАН]' if is_blocked else ''}\n"
                 f"Имя: {user.get('first_name', '???')}\n"
                 f"Баланс: {user.get('balance', 0)} ✨\n"
                 f"Потрачено: {stats_rub} RUB\n"
@@ -377,6 +378,11 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
             kb.add(Callback("👑 FULL UNLOCK", payload={"cmd": "admin_user_op", "op": "full_unlock", "target": target, "page": current_page}), color=KeyboardButtonColor.POSITIVE)
             kb.row()
             kb.add(Callback("🎁 КАРТА", payload={"cmd": "admin_user_op", "op": "give_card_start", "target": target, "page": current_page}), color=KeyboardButtonColor.SECONDARY)
+            kb.row()
+            # Кнопки Блокировки и Удаления
+            block_label = "🟢 РАЗБЛОКИРОВАТЬ" if is_blocked else "🔴 ЗАБЛОКИРОВАТЬ"
+            kb.add(Callback(block_label, payload={"cmd": "admin_user_op", "op": "toggle_block", "target": target, "page": current_page}), color=KeyboardButtonColor.SECONDARY)
+            kb.add(Callback("🗑 УДАЛИТЬ", payload={"cmd": "admin_user_op", "op": "delete_user", "target": target, "page": current_page}), color=KeyboardButtonColor.NEGATIVE)
             kb.row()
             kb.add(Callback("⬅️ К СПИСКУ", payload={"cmd": "admin_nav", "menu": "users", "page": current_page}), color=KeyboardButtonColor.SECONDARY)
             await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
@@ -404,6 +410,38 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
             curr_page = payload.get("page", 0)
             await set_fsm_state(vk_id, json.dumps({"step": "admin_user_give_card", "target": target, "conv_id": conversation_message_id, "page": curr_page}))
             await bot.api.messages.send(peer_id=peer_id, message=f"Введите ID карты (0-77) для выдачи адепту {target}:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page})).get_json(), random_id=random.getrandbits(63))
+
+        elif op == "toggle_block":
+            user = await get_user(target)
+            if user:
+                curr_page = payload.get("page", 0)
+                p = user.get("purchased_sections", {})
+                new_state = not p.get("is_blocked", False)
+                p["is_blocked"] = new_state
+                await update_user(target, {"purchased_sections": p})
+                status_msg = "заблокирован" if new_state else "разблокирован"
+                await bot.api.messages.send(peer_id=peer_id, message=f"✅ Адепт {target} {status_msg}.", random_id=random.getrandbits(63))
+                await process_admin_cmd(vk_id, peer_id, {"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page}, conversation_message_id=conversation_message_id)
+
+        elif op == "delete_user":
+            curr_page = payload.get("page", 0)
+            text = f"⚠️ ВЫ УВЕРЕНЫ, ЧТО ХОТИТЕ ПОЛНОСТЬЮ УДАЛИТЬ АДЕПТА {target}?\n\nЭто действие необратимо и сотрет все его данные из матрицы."
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🔥 ДА, УДАЛИТЬ", payload={"cmd": "admin_user_op", "op": "confirm_delete", "target": target, "page": curr_page}), color=KeyboardButtonColor.NEGATIVE)
+            kb.row()
+            kb.add(Callback("⬅️ ОТМЕНА", payload={"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page}), color=KeyboardButtonColor.PRIMARY)
+            await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
+        elif op == "confirm_delete":
+            from database import delete_user
+            success = await delete_user(target)
+            curr_page = payload.get("page", 0)
+            if success:
+                await bot.api.messages.send(peer_id=peer_id, message=f"✅ Адепт {target} навсегда удален из матрицы.", random_id=random.getrandbits(63))
+                await show_admin_users(peer_id, conversation_message_id, page=curr_page)
+            else:
+                await bot.api.messages.send(peer_id=peer_id, message=f"❌ Ошибка при удалении адепта {target}.", random_id=random.getrandbits(63))
+                await process_admin_cmd(vk_id, peer_id, {"cmd": "admin_user_op", "op": "view_profile", "target": target, "page": curr_page}, conversation_message_id=conversation_message_id)
 
 async def _is_admin_fsm(message: Message) -> bool:
     if message.from_id != ADMIN_ID: return False
