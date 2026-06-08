@@ -11,6 +11,7 @@ from modules.bot_init import bot
 from ai_service import generate_text
 from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES
 from modules.utils.photos import upload_wall_photo
+from modules.utils.logic import slugify
 from database.autoposter import get_recent_topics, add_post_history
 
 # Загрузка тем и персонажей
@@ -33,7 +34,7 @@ async def generate_post():
     all_available_topics = []
     for cat, t_list in topics_by_category.items():
         for t in t_list:
-            t_slug = t.replace(' ', '_').replace('?', '').replace('!', '')
+            t_slug = slugify(t)
             if t_slug not in recent_slugs:
                 all_available_topics.append((cat, t))
 
@@ -81,7 +82,7 @@ async def generate_post():
         return None
 
     # Формируем финальный текст для СТЕНЫ (чистый текст от ИИ + ссылка)
-    topic_ref = topic.replace(' ', '_').replace('?', '').replace('!', '')
+    topic_ref = slugify(topic)
     final_text = (
         f"{ai_text}\n\n"
         f"Заходи в Зал Пророков Анти-Тар и забери свой первый разбор абсолютно бесплатно: "
@@ -108,6 +109,10 @@ async def post_to_vk():
         photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
         attachment = await upload_wall_photo(bot.api, photo_filename)
 
+        if not attachment:
+            logger.error(f"Аборт публикации: не удалось загрузить фото {photo_filename}")
+            return
+
         # Публикация на Стену сообщества
         res_wall = await bot.api.wall.post(
             owner_id=-GROUP_ID,
@@ -118,7 +123,7 @@ async def post_to_vk():
         logger.info(f"Пост опубликован на стену: {res_wall.post_id}")
 
         # Записываем в историю публикаций
-        topic_slug = post_data["topic"].replace(' ', '_').replace('?', '').replace('!', '')
+        topic_slug = slugify(post_data["topic"])
         await add_post_history(topic_slug)
 
     except Exception as e:

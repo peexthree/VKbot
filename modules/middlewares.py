@@ -7,12 +7,22 @@ from vkbottle import BaseMiddleware
 from vkbottle.bot import Message
 
 from cache import check_and_set_throttle_warning, check_throttle
-from database import update_user
+from database import update_user, get_user
 
 
 class ThrottleMiddleware(BaseMiddleware[Message]):
     async def pre(self):
         vk_id = self.event.from_id
+
+        # Проверка на блокировку пользователя
+        user_data = await get_user(vk_id)
+        if user_data and user_data.get("purchased_sections", {}).get("is_blocked"):
+            try:
+                await self.event.answer("Вы заблокированы в системе.")
+            except:
+                pass
+            self.stop("Blocked")
+            return
 
         # Обновляем дату последней активности асинхронно
         asyncio.create_task(update_user(vk_id, {"last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat()}))
