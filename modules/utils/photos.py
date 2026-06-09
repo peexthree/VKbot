@@ -138,8 +138,19 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                         )
 
                         if saved_photos:
-                            photo = saved_photos[0] if hasattr(saved_photos, "__getitem__") or isinstance(saved_photos, list) else saved_photos
+                            # Если пришел сырой ответ со словарем "response", забираем его содержимое
+                            if isinstance(saved_photos, dict) and "response" in saved_photos:
+                                data_object = saved_photos["response"]
+                            else:
+                                data_object = saved_photos
 
+                            # Теперь безопасно берем первый элемент, если это список/массив
+                            if isinstance(data_object, list) and data_object:
+                                photo = data_object[0]
+                            else:
+                                photo = data_object
+
+                            # Достаем ID фотографии
                             if isinstance(photo, dict):
                                 owner_id = photo.get("owner_id")
                                 photo_id = photo.get("id")
@@ -253,8 +264,19 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                         )
 
                         if saved_photos:
-                            photo = saved_photos[0] if hasattr(saved_photos, "__getitem__") or isinstance(saved_photos, list) else saved_photos
+                            # Если пришел сырой ответ со словарем "response", забираем его содержимое
+                            if isinstance(saved_photos, dict) and "response" in saved_photos:
+                                data_object = saved_photos["response"]
+                            else:
+                                data_object = saved_photos
 
+                            # Теперь безопасно берем первый элемент, если это список/массив
+                            if isinstance(data_object, list) and data_object:
+                                photo = data_object[0]
+                            else:
+                                photo = data_object
+
+                            # Достаем ID фотографии
                             if isinstance(photo, dict):
                                 owner_id = photo.get("owner_id")
                                 photo_id = photo.get("id")
