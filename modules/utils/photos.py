@@ -137,8 +137,8 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                             }
                         )
 
-                        if saved_photos and isinstance(saved_photos, list):
-                            photo = saved_photos[0]
+                        if saved_photos:
+                            photo = saved_photos[0] if hasattr(saved_photos, "__getitem__") or isinstance(saved_photos, list) else saved_photos
 
                             if isinstance(photo, dict):
                                 owner_id = photo.get("owner_id")
@@ -252,8 +252,8 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                             }
                         )
 
-                        if saved_photos and isinstance(saved_photos, list):
-                            photo = saved_photos[0]
+                        if saved_photos:
+                            photo = saved_photos[0] if hasattr(saved_photos, "__getitem__") or isinstance(saved_photos, list) else saved_photos
 
                             if isinstance(photo, dict):
                                 owner_id = photo.get("owner_id")
@@ -283,7 +283,7 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                 try:
                     await redis_client.set(f"wall_photo_v2:{filename}", photo_attachment_id)
                 except Exception as e:
-                    logger.error(f"Ошибка сохранения wall_photo в Redis: {str(e)}")
+                    logger.error(f"Ошибка сохранения wall_photo in Redis: {str(e)}")
                 return photo_attachment_id
 
             logger.error(f"Не удалось загрузить wall_photo {filename} после 3 попыток. Последняя ошибка: {last_err}")
