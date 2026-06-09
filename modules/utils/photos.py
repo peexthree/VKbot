@@ -139,12 +139,24 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
 
                         if saved_photos and isinstance(saved_photos, list):
                             photo = saved_photos[0]
-                            tmp_id = f"photo{photo['owner_id']}_{photo['id']}"
-                            if photo.get("access_key"):
-                                tmp_id += f"_{photo['access_key']}"
 
-                            photo_attachment_id = tmp_id
-                            break
+                            if isinstance(photo, dict):
+                                owner_id = photo.get("owner_id")
+                                photo_id = photo.get("id")
+                                access_key = photo.get("access_key")
+                            else:
+                                owner_id = getattr(photo, "owner_id", None)
+                                photo_id = getattr(photo, "id", None)
+                                access_key = getattr(photo, "access_key", None)
+
+                            if owner_id is not None and photo_id is not None:
+                                tmp_id = f"photo{owner_id}_{photo_id}"
+                                if access_key:
+                                    tmp_id += f"_{access_key}"
+
+                                photo_attachment_id = tmp_id
+                                logger.debug(f"Photo uploaded successfully: {photo_attachment_id}")
+                                break
 
                     except Exception as ex:
                         last_err = ex
@@ -242,17 +254,24 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
 
                         if saved_photos and isinstance(saved_photos, list):
                             photo = saved_photos[0]
-                            owner_id = photo.get("owner_id")
-                            photo_id = photo.get("id")
-                            access_key = photo.get("access_key")
 
-                            tmp_id = f"photo{owner_id}_{photo_id}"
-                            if access_key:
-                                tmp_id += f"_{access_key}"
+                            if isinstance(photo, dict):
+                                owner_id = photo.get("owner_id")
+                                photo_id = photo.get("id")
+                                access_key = photo.get("access_key")
+                            else:
+                                owner_id = getattr(photo, "owner_id", None)
+                                photo_id = getattr(photo, "id", None)
+                                access_key = getattr(photo, "access_key", None)
 
-                            photo_attachment_id = tmp_id
-                            logger.debug(f"Wall photo uploaded successfully on attempt {attempt+1}")
-                            break
+                            if owner_id is not None and photo_id is not None:
+                                tmp_id = f"photo{owner_id}_{photo_id}"
+                                if access_key:
+                                    tmp_id += f"_{access_key}"
+
+                                photo_attachment_id = tmp_id
+                                logger.debug(f"Wall photo uploaded successfully: {photo_attachment_id}")
+                                break
 
                     except Exception as ex:
                         last_err = ex
