@@ -126,7 +126,7 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                                 upload_data = await resp.json()
                             except Exception:
                                 raw_text = await resp.text()
-                                raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})")
+                                raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})") from None
 
                         saved_photos = await bot_api.request(
                             "photos.saveMessagesPhoto",
@@ -228,7 +228,7 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                                 upload_data = await resp.json()
                             except Exception:
                                 raw_text = await resp.text()
-                                raise Exception(f"Invalid JSON from VK Wall (MIME: {resp.content_type})")
+                                raise Exception(f"Invalid JSON from VK Wall (MIME: {resp.content_type})") from None
 
                         saved_photos = await upload_client.request(
                             "photos.saveWallPhoto",
