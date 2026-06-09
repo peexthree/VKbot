@@ -72,7 +72,6 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
     if filename in SKIN_ASSETS:
         filename = SKIN_ASSETS[filename]
 
-    # Умный поиск файла (корень cards/ или подпапка uslugi/)
     if not os.path.exists(os.path.join("cards", filename)):
         if "uslugi/" in filename:
             alt_filename = filename.replace("uslugi/", "")
@@ -110,30 +109,25 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                 logger.warning(f"Файл {filename} слишком мал ({len(data)} байт), пропуск загрузки.")
                 return ""
 
-            # Резервный механизм загрузки через сырые запросы для обхода проблем валидации
             photo_attachment_id = None
             last_err = None
+
             async with aiohttp.ClientSession() as session:
                 for attempt in range(3):
                     try:
-                        # 1. Получаем сервер
                         server = await bot_api.photos.get_messages_upload_server()
 
-                        # 2. Загружаем файл
                         form = aiohttp.FormData()
                         form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
                         async with session.post(server.upload_url, data=form) as resp:
                             if resp.status == 504 or "text/html" in resp.headers.get("Content-Type", ""):
-                                logger.warning(f"VK Server error (Status: {resp.status}, Attempt {attempt+1}). Retrying...")
                                 raise Exception(f"VK Server returned error/HTML (Status: {resp.status})")
                             try:
                                 upload_data = await resp.json()
                             except Exception:
                                 raw_text = await resp.text()
-                                logger.error(f"Failed to decode JSON from VK. Status: {resp.status}, Body: {raw_text[:200]}")
                                 raise Exception(f"Invalid JSON from VK (MIME: {resp.content_type})") from None
 
-                        # 3. Сохраняем (сырой запрос)
                         saved_photos = await bot_api.request(
                             "photos.saveMessagesPhoto",
                             {
@@ -143,15 +137,13 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                             }
                         )
 
-                        if not saved_photos or not isinstance(saved_photos, list):
-                            raise Exception("VK API returned empty or invalid response in photos.saveMessagesPhoto")
+                        if saved_photos and isinstance(saved_photos, list):
+                            photo = saved_photos[0]
+                            tmp_id = f"photo{photo['owner_id']}_{photo['id']}"
+                            if photo.get("access_key"):
+                                tmp_id += f"_{photo['access_key']}"
 
-                        photo = saved_photos[0]
-                        photo_attachment_id = f"photo{photo['owner_id']}_{photo['id']}"
-                        if photo.get("access_key"):
-                            photo_attachment_id += f"_{photo['access_key']}"
-
-                        if photo_attachment_id:
+                            photo_attachment_id = tmp_id
                             break
 
                     except Exception as ex:
@@ -160,12 +152,13 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
                         if attempt < 2:
                             await asyncio.sleep(2)
 
-            if not photo_attachment_id:
-                logger.error(f"Не удалось загрузить {filename} после 3 попыток. Последняя ошибка: {last_err}")
-                return ""
+            if photo_attachment_id:
+                await _anchor_photo_and_cache(bot_api, filename, photo_attachment_id)
+                return photo_attachment_id
 
-            await _anchor_photo_and_cache(bot_api, filename, photo_attachment_id)
-            return photo_attachment_id
+            logger.error(f"Не удалось загрузить {filename} после 3 попыток. Последняя ошибка: {last_err}")
+            return ""
+
     except Exception as e:
         logger.error(f"Критическая ошибка при обработке {filename}: {str(e)}")
         return ""
@@ -180,7 +173,6 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
     if filename in SKIN_ASSETS:
         filename = SKIN_ASSETS[filename]
 
-    # Умный поиск файла
     if not os.path.exists(os.path.join("cards", filename)):
         if "uslugi/" in filename:
             alt_filename = filename.replace("uslugi/", "")
@@ -191,7 +183,6 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
             if os.path.exists(os.path.join("cards", alt_filename)):
                 filename = alt_filename
 
-    # Кэш для фото на стене
     try:
         cached_id = await redis_client.get(f"wall_photo_v2:{filename}")
         if cached_id:
@@ -217,35 +208,28 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
         async with aiofiles.open(filepath, 'rb') as f:
             data = await f.read()
 
-            # Инициализируем API пользователя для загрузки на стену
             user_api = get_user_api()
-            # Если токен пользователя есть - используем его, иначе фолбэк на bot_api
             upload_client = user_api if user_api else bot_api
 
-            # Механизм повторных попыток для обхода 504 и проблем с MIME-типами
             photo_attachment_id = None
             last_err = None
+
             async with aiohttp.ClientSession() as session:
                 for attempt in range(3):
                     try:
-                        # 1. Получаем сервер загрузки для стены (group_id должен быть положительным)
                         server = await upload_client.photos.get_wall_upload_server(group_id=GROUP_ID)
 
-                        # 2. Загружаем файл
                         form = aiohttp.FormData()
                         form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
                         async with session.post(server.upload_url, data=form) as resp:
                             if resp.status == 504 or "text/html" in resp.headers.get("Content-Type", ""):
-                                logger.warning(f"VK Wall Upload Server error (Status: {resp.status}, Attempt {attempt+1}). Retrying...")
                                 raise Exception(f"VK Server returned error/HTML (Status: {resp.status})")
                             try:
                                 upload_data = await resp.json()
                             except Exception:
                                 raw_text = await resp.text()
-                                logger.error(f"Failed to decode JSON from VK Wall. Status: {resp.status}, Body: {raw_text[:200]}")
                                 raise Exception(f"Invalid JSON from VK Wall (MIME: {resp.content_type})") from None
 
-                        # 3. Сохраняем фото на стену через сырой запрос
                         saved_photos = await upload_client.request(
                             "photos.saveWallPhoto",
                             {
@@ -256,19 +240,17 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                             }
                         )
 
-                        if not saved_photos or not isinstance(saved_photos, list):
-                            raise Exception("VK API returned empty or invalid response in photos.saveWallPhoto")
+                        if saved_photos and isinstance(saved_photos, list):
+                            photo = saved_photos[0]
+                            owner_id = photo.get("owner_id")
+                            photo_id = photo.get("id")
+                            access_key = photo.get("access_key")
 
-                        photo = saved_photos[0]
-                        owner_id = photo.get("owner_id")
-                        photo_id = photo.get("id")
-                        access_key = photo.get("access_key")
+                            tmp_id = f"photo{owner_id}_{photo_id}"
+                            if access_key:
+                                tmp_id += f"_{access_key}"
 
-                        photo_attachment_id = f"photo{owner_id}_{photo_id}"
-                        if access_key:
-                            photo_attachment_id += f"_{access_key}"
-
-                        if photo_attachment_id:
+                            photo_attachment_id = tmp_id
                             logger.debug(f"Wall photo uploaded successfully on attempt {attempt+1}")
                             break
 
@@ -285,7 +267,9 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                     logger.error(f"Ошибка сохранения wall_photo в Redis: {str(e)}")
                 return photo_attachment_id
 
+            logger.error(f"Не удалось загрузить wall_photo {filename} после 3 попыток. Последняя ошибка: {last_err}")
             return ""
+
     except Exception as e:
         logger.error(f"Критическая ошибка при wall_photo {filename}: {str(e)}")
         return ""
