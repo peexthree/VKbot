@@ -130,10 +130,10 @@ async def post_to_vk():
         logger.exception(f"Ошибка при автопостинге: {e}")
 
 def setup_autoposter():
-    scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
+    scheduler = AsyncIOScheduler(timezone="UTC")
 
-    # 15:00 MSK ± 15 минут
-    hour = 15
+    # 10:00 UTC + 0..30 минут
+    hour = 10
     minute = random.randint(0, 30)
 
     scheduler.add_job(
@@ -143,5 +143,5 @@ def setup_autoposter():
     )
 
     scheduler.start()
-    logger.info(f"Автопостинг настроен на {hour}:{minute:02d} MSK ежедневно")
+    logger.info(f"Автопостинг настроен на {hour}:{minute:02d} UTC ежедневно")
     return scheduler
