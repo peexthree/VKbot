@@ -44,28 +44,32 @@ async def upload_pdf_to_vk(bot_api, filepath: str, title: str, peer_id: int) -> 
                     }
                 )
 
-                # Развертывание ответа: docs.save может возвращать объект или список
+                # Развертывание ответа: docs.save возвращает структуру {"response": {"type": "doc", "doc": {...}}}
                 if res_data:
+                    # 1. Извлекаем response, если ВК вернул сырой dict
                     if isinstance(res_data, dict) and "response" in res_data:
-                        data_object = res_data["response"]
-                    else:
-                        data_object = res_data
+                        res_data = res_data["response"]
 
-                    if isinstance(data_object, list) and data_object:
-                        doc_obj = data_object[0]
-                    else:
-                        doc_obj = data_object
+                    # 2. Ищем данные самого документа (ВК упаковывает их в ключ "doc")
+                    doc_info = None
+                    if isinstance(res_data, dict):
+                        if "doc" in res_data:
+                            doc_info = res_data["doc"]
+                        elif "id" in res_data:  # на случай, если пришел уже развернутый объект
+                            doc_info = res_data
 
-                    if isinstance(doc_obj, dict):
-                        owner_id = doc_obj.get("owner_id")
-                        doc_id = doc_obj.get("id")
-                        # Для документов формат вложения: doc<owner_id>_<doc_id>
+                    # 3. Собираем и строго возвращаем строку вложения
+                    if doc_info and isinstance(doc_info, dict):
+                        owner_id = doc_info.get("owner_id")
+                        doc_id = doc_info.get("id")
+
                         if owner_id is not None and doc_id is not None:
                             attachment = f"doc{owner_id}_{doc_id}"
-                            if doc_obj.get("access_key"):
-                                attachment += f"_{doc_obj['access_key']}"
+                            access_key = doc_info.get("access_key")
+                            if access_key:
+                                attachment += f"_{access_key}"
 
-                            logger.success(f"Документ {title} успешно загружен в ВК (попытка {attempt+1})")
+                            logger.success(f"Документ {title} успешно загружен в ВК (попытка {attempt+1}): {attachment}")
                             return attachment
             except Exception as e:
                 last_err = e
