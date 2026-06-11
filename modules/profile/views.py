@@ -433,16 +433,13 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         referrer_balance = int(referrer.get("balance", 0) or 0) + 500
 
         purchased["promo_used"] = True
+        purchased["referrer_id"] = referrer_id
         await update_user(vk_id, {"balance": user_balance, "purchased_sections": purchased})
 
         ref_purchased = referrer.get("purchased_sections", {})
         ref_purchased["syndicate_count"] = ref_purchased.get("syndicate_count", 0) + 1
         ref_purchased["syndicate_energy"] = ref_purchased.get("syndicate_energy", 0) + 500
         await update_user(referrer_id, {"balance": referrer_balance, "purchased_sections": ref_purchased})
-
-        if ref_purchased["syndicate_count"] >= 5:
-            from modules.skins import unlock_skin
-            await unlock_skin(bot.api, referrer_id, "fluffy")
 
         # Трекинг успешного использования шифра
         from database import add_event
