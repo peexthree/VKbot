@@ -1,0 +1,2 @@
+2026-06-11 05:22:23.494 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-06-11 05:22:23.504 | WARNING  | main:verify_vk_signature:81 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
