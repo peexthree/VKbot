@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import json
 import re
+import hashlib
 from loguru import logger
 from vkbottle import Keyboard, Callback, KeyboardButtonColor
 from database import get_user, update_user, set_user_state
@@ -278,6 +279,22 @@ async def execute_generation(
                 else:
                     save_data["latest_reading_data"] = {"text": full_reading_text}
 
+                # --- ИНКРЕМЕНТ СЧЕТЧИКОВ ПРОГРЕССА ---
+                save_data["rituals_count"] = (user.get("rituals_count", 0) or 0) + 1
+
+                if target_section == "dream":
+                    save_data["dreams_analyzed_count"] = (user.get("dreams_analyzed_count", 0) or 0) + 1
+
+                if target_section == "synastry" and partner_name and partner_date:
+                    p_hash = hashlib.md5(f"{partner_name.lower().strip()}{partner_date.strip()}".encode()).hexdigest()
+                    hashes = user.get("compatibility_partners_hashes", [])
+                    if not isinstance(hashes, list): hashes = []
+                    if p_hash not in hashes:
+                        hashes.append(p_hash)
+                        save_data["compatibility_partners_hashes"] = hashes
+                        save_data["compatibility_partners_count"] = (user.get("compatibility_partners_count", 0) or 0) + 1
+                # ------------------------------------
+
                 await update_user(vk_id, save_data)
 
                 async def extract_and_save_tags(v_id: int, text: str):
@@ -319,19 +336,17 @@ async def execute_generation(
                     await unlock_skin(bot.api, vk_id, "anubis")
 
                 # fluffy: приглашенные друзья достигли 3 уровня
-                if level >= 3 and not purchased.get("reached_level_3_notified"):
-                    purchased["reached_level_3_notified"] = True
-                    await update_user(vk_id, {"purchased_sections": purchased})
+                if level >= 3 and not user.get("level_3_counted"):
+                    await update_user(vk_id, {"level_3_counted": True})
 
                     referrer_id = purchased.get("referrer_id")
                     if referrer_id:
                         referrer = await get_user(referrer_id)
                         if referrer:
-                            ref_purchased = referrer.get("purchased_sections", {})
-                            ref_purchased["active_referrals"] = ref_purchased.get("active_referrals", 0) + 1
-                            await update_user(referrer_id, {"purchased_sections": ref_purchased})
+                            current_active_refs = (referrer.get("active_referrals_count", 0) or 0) + 1
+                            await update_user(referrer_id, {"active_referrals_count": current_active_refs})
 
-                            if ref_purchased["active_referrals"] >= 5:
+                            if current_active_refs >= 5:
                                 await unlock_skin(bot.api, referrer_id, "fluffy")
                 # --------------
 

@@ -4,7 +4,7 @@ import string
 import datetime
 import re
 from loguru import logger
-from database import get_user_state, update_user
+from database import get_user_state, update_user, get_user
 from cache import acquire_lock, release_lock
 
 async def get_fsm_step(vk_id: int) -> dict | None:
@@ -37,18 +37,21 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
         if not await acquire_lock(lock_key, ttl=10):
             return
         try:
-            from database import get_user
-            current_user = await get_user(vk_id)
-            if not current_user:
+            # Получаем свежие данные пользователя под локом
+            fresh_user = await get_user(vk_id)
+            if not fresh_user:
                 return
-            current_last_bonus = current_user.get("last_daily_bonus_date")
+
+            current_last_bonus = fresh_user.get("last_daily_bonus_date")
             if current_last_bonus:
                 try:
                     if now_date <= datetime.date.fromisoformat(current_last_bonus):
                         return
                 except ValueError: pass
-            current_balance = int(current_user.get("balance", 0) or 0)
-            visit_streak = current_user.get("visit_streak", 0)
+
+            current_balance = int(fresh_user.get("balance", 0) or 0)
+            visit_streak = fresh_user.get("visit_streak", 0)
+
             if current_last_bonus:
                 try:
                     last_bonus_date = datetime.date.fromisoformat(current_last_bonus)
@@ -60,6 +63,7 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
                     visit_streak = 1
             else:
                 visit_streak = 1
+
             # Эскалация бонуса в зависимости от стрика
             bonus_amount = 100 + min(visit_streak * 20, 400) # Макс бонус 500
             new_balance = current_balance + bonus_amount
@@ -67,7 +71,8 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
             await update_user(vk_id, {
                 "balance": new_balance,
                 "last_daily_bonus_date": now_date.isoformat(),
-                "visit_streak": visit_streak
+                "visit_streak": visit_streak,
+                "rituals_count": (fresh_user.get("rituals_count", 0) or 0) + 1
             })
             user["balance"] = new_balance
             user["last_daily_bonus_date"] = now_date.isoformat()

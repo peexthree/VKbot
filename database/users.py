@@ -16,7 +16,9 @@ async def create_user(vk_id: int, first_name: str = ""):
         "purchased_skins": ["olesya"], "transit_trial_days": 0, "transit_sub_expires_at": None, "unlocked_cards": {},
         "weekly_log": [], "visit_streak": 0, "total_cards_received": 0, "last_daily_bonus_date": None,
         "welcome_bonus_received": False, "tags": [], "latest_reading_text": None, "latest_reading_data": {},
-        "readings_history": []
+        "readings_history": [],
+        "used_skins_count": 0, "compatibility_partners_count": 0, "compatibility_partners_hashes": [],
+        "dreams_analyzed_count": 0, "rituals_count": 0, "active_referrals_count": 0, "level_3_counted": False
     }
     headers = HEADERS.copy()
     headers["Prefer"] = "return=representation"

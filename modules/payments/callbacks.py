@@ -91,11 +91,13 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         cmd = payload.get("cmd")
         # Специфические ответы для специальных кнопок
         if cmd == "skin_quest":
-            from modules.skins import get_quest_text
-            quest_text = get_quest_text(payload.get("skin"))
+            from modules.skins import get_dynamic_quest_text
+            quest_text = await get_dynamic_quest_text(vk_id, payload.get("skin"))
+            # Убираем разметку Markdown (звездочки) для снэкбара, если он используется
+            clean_quest = quest_text.replace("**", "").replace("*", "")
             await bot.api.messages.send_message_event_answer(
                 event_id=event_id, user_id=vk_id, peer_id=peer_id,
-                event_data=json.dumps({"type": "show_snackbar", "text": quest_text})
+                event_data=json.dumps({"type": "show_snackbar", "text": clean_quest})
             )
         elif cmd == "share_click":
             from modules.skins import unlock_skin
