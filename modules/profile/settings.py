@@ -1,4 +1,5 @@
 import json
+import random
 from loguru import logger
 from vkbottle import Callback
 from vkbottle.bot import Message
