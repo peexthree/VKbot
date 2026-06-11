@@ -1,8 +1,9 @@
 import json
+import random
 from vkbottle import Keyboard, Callback, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 from database import set_user_state
-from modules.utils import get_fsm_step, acquire_lock, release_lock
+from modules.utils import get_fsm_step, acquire_lock, release_lock, bot
 from .daily import card_of_day_logic
 
 labeler = BotLabeler()
@@ -40,7 +41,12 @@ async def process_oracle_question(message: Message):
     try:
         await set_user_state(vk_id, json.dumps({"step": "oracle_cut", "question": message.text.strip()}))
         kb = Keyboard(inline=True).add(Callback("✦ ОБРЕЗАТЬ КОЛОДУ", payload={"cmd": "oracle_cut"}), color=KeyboardButtonColor.PRIMARY)
-        await message.answer("✨ ШАГ 2 ИЗ 3: СОПРИКОСНОВЕНИЕ ✨\nКоснись колоды, чтобы она почувствовала твое присутствие.", keyboard=kb.get_json())
+        await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message="✨ ШАГ 2 ИЗ 3: СОПРИКОСНОВЕНИЕ ✨\nКоснись колоды, чтобы она почувствовала твое присутствие.",
+            keyboard=kb.get_json(),
+            random_id=random.getrandbits(63)
+        )
     finally: await release_lock(vk_id)
 
 

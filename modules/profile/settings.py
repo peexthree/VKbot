@@ -138,7 +138,12 @@ async def settings_change_data_logic(vk_id: int, message: Message, skip_lock: bo
         await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date"}))
         from vkbottle import Keyboard, KeyboardButtonColor, Callback
         kb = Keyboard(inline=True).add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
-        await message.answer("Для калибровки звездного пути напиши свою ДАТУ рождения (например, 15.04.1990):", keyboard=kb.get_json())
+        await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message="Для калибровки звездного пути напиши свою ДАТУ рождения (например, 15.04.1990):",
+            keyboard=kb.get_json(),
+            random_id=random.getrandbits(63)
+        )
     finally:
         if not skip_lock:
             await release_lock(vk_id)

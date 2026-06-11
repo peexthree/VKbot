@@ -480,18 +480,14 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     character_name=char_name
                 )
             if success and os.path.exists(pdf_name):
-                try:
-                    doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{section}.pdf", peer_id=peer_id)
-                    if not doc:
-                        await bot.api.messages.send(peer_id=peer_id, message="Ошибка при загрузке PDF в систему ВК. Попробуйте позже.", random_id=random.getrandbits(63))
-                        return
+                doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{section}.pdf", peer_id=peer_id)
+                if not doc:
+                    await bot.api.messages.send(peer_id=peer_id, message="Ошибка при загрузке PDF в систему ВК. Попробуйте позже.", random_id=random.getrandbits(63))
+                    return
 
-                    from modules.keyboards import post_pdf_kb
-                    kb = post_pdf_kb(section, card=card_id)
-                    await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=random.getrandbits(63), keyboard=kb)
-
-                finally:
-                    if os.path.exists(pdf_name): await asyncio.to_thread(os.remove, pdf_name)
+                from modules.keyboards import post_pdf_kb
+                kb = post_pdf_kb(section, card=card_id)
+                await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=random.getrandbits(63), keyboard=kb)
             else: await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=random.getrandbits(63))
         elif cmd == "profile_action":
             action, conv_id = payload.get("action"), obj.get("conversation_message_id")

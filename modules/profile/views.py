@@ -204,7 +204,12 @@ async def god_mode_logic(vk_id: int, message: Message, skip_lock: bool = False):
         new_balance = int(user.get("balance", 0) or 0) + 100000
         await update_user(vk_id, {"balance": new_balance})
         kb_json = await get_sections_keyboard(vk_id, user)
-        await message.answer("ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.", keyboard=kb_json)
+        await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message="ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.",
+            keyboard=kb_json,
+            random_id=random.getrandbits(63)
+        )
     finally:
         await stop_dynamic_typing(message.peer_id)
         if not skip_lock:
@@ -340,7 +345,12 @@ async def enter_seal_logic(vk_id: int, message: Message, skip_lock: bool = False
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
         kb_json = get_cancel_seal_keyboard()
-        await message.answer("Введи Теневой Шифр, который тебе передал другой адепт:", keyboard=kb_json)
+        await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message="Введи Теневой Шифр, который тебе передал другой адепт:",
+            keyboard=kb_json,
+            random_id=random.getrandbits(63)
+        )
     finally:
         await stop_dynamic_typing(message.peer_id)
         if not skip_lock:

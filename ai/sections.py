@@ -27,6 +27,12 @@ async def extract_tags(text: str) -> list[str]:
         return []
     try:
         clean = clean_ai_json(res)
+
+        # Регулярка для извлечения первого JSON-массива (для защиты от мусора в конце)
+        match = re.search(r'\[.*\]', clean, re.DOTALL)
+        if match:
+            clean = match.group(0)
+
         data = json.loads(clean, strict=False)
         if isinstance(data, list):
             return data

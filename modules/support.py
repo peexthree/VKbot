@@ -46,7 +46,12 @@ async def process_support_question(message: Message):
 
     if message.text.lower() in ["отмена", "назад", "cancel"]:
         await set_user_state(vk_id, "")
-        await message.answer("Связь прервана. Возвращаюсь в главное меню.", keyboard=get_main_keyboard(vk_id))
+        await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message="Связь прервана. Возвращаюсь в главное меню.",
+            keyboard=get_main_keyboard(vk_id),
+            random_id=random.getrandbits(63)
+        )
         return
 
     if not await acquire_lock(f"support_{vk_id}"): return
