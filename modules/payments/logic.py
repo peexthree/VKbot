@@ -359,12 +359,9 @@ async def execute_generation(
                                 character_name=char_n
                             )
                         if success and os.path.exists(pdf_name):
-                            try:
-                                doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{s_name}.pdf", peer_id=p_id)
-                                if doc:
-                                    await bot.api.messages.send(peer_id=p_id, message="Твой PDF-отчет по сну готов:", attachment=doc, random_id=random.getrandbits(63))
-                            finally:
-                                if os.path.exists(pdf_name): os.remove(pdf_name)
+                            doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{s_name}.pdf", peer_id=p_id)
+                            if doc:
+                                await bot.api.messages.send(peer_id=p_id, message="Твой PDF-отчет по сну готов:", attachment=doc, random_id=random.getrandbits(63))
 
                     from modules.utils.consts import SKIN_DISPLAY_NAMES
                     char_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")

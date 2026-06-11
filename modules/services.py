@@ -19,7 +19,8 @@ from modules.utils import (
     ghost_edit,
     get_last_bot_msg,
     set_last_bot_msg,
-    delete_bot_message
+    delete_bot_message,
+    extract_msg_id
 )
 
 labeler = BotLabeler()
@@ -192,7 +193,12 @@ async def process_synastry_name(message: Message):
 
         partner_name = message.text.strip()
         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_date", "partner_name": partner_name}))
-        msg_id = await message.answer(f"Имя {partner_name} согрело колоду ✨ Теперь введи, пожалуйста, дату рождения партнера (например, 15.04.1990):")
+        resp = await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message=f"Имя {partner_name} согрело колоду ✨ Теперь введи, пожалуйста, дату рождения партнера (например, 15.04.1990):",
+            random_id=random.getrandbits(63)
+        )
+        msg_id = extract_msg_id(resp)
         await set_last_bot_msg(vk_id, msg_id)
     finally:
         await release_lock(vk_id)
@@ -223,7 +229,12 @@ async def process_synastry_date(message: Message):
             "partner_name": partner_name,
             "partner_date": partner_date
         }))
-        msg_id = await message.answer(f"Дата {partner_date} принята. Теперь напиши время рождения партнера (например, 14:30 или 'не знаю'):")
+        resp = await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message=f"Дата {partner_date} принята. Теперь напиши время рождения партнера (например, 14:30 или 'не знаю'):",
+            random_id=random.getrandbits(63)
+        )
+        msg_id = extract_msg_id(resp)
         await set_last_bot_msg(vk_id, msg_id)
     finally:
         await release_lock(vk_id)
@@ -256,7 +267,12 @@ async def process_synastry_time(message: Message):
             "partner_date": partner_date,
             "partner_time": partner_time
         }))
-        msg_id = await message.answer(f"Время {partner_time} принято. И последнее — в каком городе родился партнер (например, Москва или 'не знаю')?")
+        resp = await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message=f"Время {partner_time} принято. И последнее — в каком городе родился партнер (например, Москва или 'не знаю')?",
+            random_id=random.getrandbits(63)
+        )
+        msg_id = extract_msg_id(resp)
         await set_last_bot_msg(vk_id, msg_id)
     finally:
         await release_lock(vk_id)
@@ -287,7 +303,12 @@ async def process_dream_text(message: Message):
         await redis_client.set(f"dream_text:{vk_id}", dream_text, ex=600)
 
         # Сообщаем о начале анализа
-        conv_id = await message.answer("✦ СОН ПРИНЯТ. ПОГРУЖАЮСЬ В ТВОЕ ПОДСОЗНАНИЕ...")
+        resp = await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message="✦ СОН ПРИНЯТ. ПОГРУЖАЮСЬ В ТВОЕ ПОДСОЗНАНИЕ...",
+            random_id=random.getrandbits(63)
+        )
+        conv_id = extract_msg_id(resp)
 
         # Запускаем генерацию
         from modules.payments.logic import execute_generation
@@ -354,7 +375,12 @@ async def process_palmistry_photos(message: Message):
             await redis_client.set(f"palmistry_photos:{vk_id}", json.dumps(final_photos), ex=600)
 
             # Сообщаем о начале анализа
-            conv_id = await message.answer("✦ ФОТО ПОЛУЧЕНЫ. ИНИЦИИРУЮ ГЛУБОКИЙ АНАЛИЗ ЛАДОНЕЙ...")
+            resp = await bot.api.messages.send(
+                peer_id=message.peer_id,
+                message="✦ ФОТО ПОЛУЧЕНЫ. ИНИЦИИРУЮ ГЛУБОКИЙ АНАЛИЗ ЛАДОНЕЙ...",
+                random_id=random.getrandbits(63)
+            )
+            conv_id = extract_msg_id(resp)
 
             # Запускаем генерацию
             from modules.payments.logic import execute_generation
@@ -405,10 +431,13 @@ async def process_synastry_city(message: Message):
 
         kb = Keyboard(inline=True)
         kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        msg_id = await message.answer(
-            "✨ ШАГ 2 ИЗ 3: НАСТРОЙКА ✨\nПрикоснись к колоде, чтобы настроиться на вашу связь.",
-            keyboard=kb.get_json()
+        resp = await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message="✨ ШАГ 2 ИЗ 3: НАСТРОЙКА ✨\nПрикоснись к колоде, чтобы настроиться на вашу связь.",
+            keyboard=kb.get_json(),
+            random_id=random.getrandbits(63)
         )
+        msg_id = extract_msg_id(resp)
         await set_last_bot_msg(vk_id, msg_id)
     except Exception as e:
         logger.error(f"Ошибка в процессе синастрии: {str(e)}")

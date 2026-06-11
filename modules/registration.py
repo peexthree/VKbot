@@ -27,7 +27,8 @@ from modules.utils import (
     send_temp_message,
     delete_bot_message,
     get_last_bot_msg,
-    set_last_bot_msg
+    set_last_bot_msg,
+    extract_msg_id
 )
 from modules.utils.consts import MYSTIC_STATUS_PHRASES
 import random
@@ -176,7 +177,14 @@ async def start_handler(message: Message, skip_lock: bool = False):
         # Загружаем фото Олеси для велком-месседжа
         att = await upload_local_photo(bot.api, SKIN_ASSETS["olesya"], peer_id=vk_id)
 
-        msg_id = await message.answer(welcome_text, attachment=att, keyboard=kb.get_json())
+        resp = await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message=welcome_text,
+            attachment=att,
+            keyboard=kb.get_json(),
+            random_id=random.getrandbits(63)
+        )
+        msg_id = extract_msg_id(resp)
         await set_last_bot_msg(vk_id, msg_id)
         await set_user_state(vk_id, "onboarding_skin_selection")
 
@@ -258,7 +266,12 @@ async def send_registration_confirmation(message: Message, state_dict: dict):
         f"☾ Город: {state_dict.get('city')}\n\n"
         "Посмотри внимательно, всё ли правильно? Точность важна для верного предсказания."
     )
-    await message.answer(text, keyboard=kb.get_json())
+    await bot.api.messages.send(
+        peer_id=message.peer_id,
+        message=text,
+        keyboard=kb.get_json(),
+        random_id=random.getrandbits(63)
+    )
 
 async def is_waiting_birth_date(message: Message) -> bool:
     if not message.text or any(message.text.startswith(e) for e in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
