@@ -3,7 +3,8 @@ import random
 from vkbottle import Keyboard, Callback, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 from database import set_user_state
-from modules.utils import get_fsm_step, acquire_lock, release_lock, bot
+from modules.utils import get_fsm_step, acquire_lock, release_lock
+from modules.bot_init import bot
 from .daily import card_of_day_logic
 
 labeler = BotLabeler()
