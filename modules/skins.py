@@ -17,6 +17,97 @@ SKIN_QUEST_SNACKBARS = {
     "anubis": "Врата мертвых закрыты. Достигни 5 уровня Гримуара и активируй все разделы бота."
 }
 
+def get_progress_bar(current: int, total: int) -> str:
+    percent = min(100, int((current / total) * 100))
+    filled = min(10, int(percent / 10))
+    bar = "▒" * filled + "░" * (10 - filled)
+    return f"{bar} {percent}%"
+
+async def get_dynamic_quest_text(vk_id: int, skin_id: str) -> str:
+    user = await get_user(vk_id)
+    if not user:
+        return "Данные пользователя не найдены."
+
+    # Названия и условия
+    skin_names = {
+        "fluffy": "Флаффи", "vanga": "Ванга", "ai_mom": "AI Mom",
+        "honest_oracle": "Честный Оракул", "pythia": "Пифия", "freud": "Фрейд",
+        "jack_sparrow": "Джек Соловей", "cleopatra": "Клеопатра", "anubis": "Анубис"
+    }
+
+    name = skin_names.get(skin_id, skin_id.capitalize())
+
+    base_text = f"🔒 {name}\nСтатус: В процессе пробуждения\n\n"
+    footer = "\n\n💡 Выполни условия, и Проводник заговорит с тобой."
+
+    if skin_id == "fluffy":
+        curr = user.get("active_referrals_count", 0) or 0
+        total = 5
+        bar = get_progress_bar(curr, total)
+        return f"{base_text}➔ Пригласить 5 активных друзей (ур. 3): [ {curr} / {total} ]\n{bar}{footer}"
+
+    elif skin_id == "vanga":
+        curr = user.get("visit_streak", 0) or 0
+        total = 7
+        bar = get_progress_bar(curr, total)
+        return f"{base_text}➔ Ежедневный стрик: [ {curr} / {total} ]\n{bar}{footer}"
+
+    elif skin_id == "ai_mom":
+        curr = user.get("rituals_count", 0) or 0
+        total = 30
+        bar = get_progress_bar(curr, total)
+        return f"{base_text}➔ Совершить 30 ритуалов: [ {curr} / {total} ]\n{bar}{footer}"
+
+    elif skin_id == "pythia":
+        curr = user.get("dreams_analyzed_count", 0) or 0
+        total = 10
+        bar = get_progress_bar(curr, total)
+        return f"{base_text}➔ Разборы в Соннике: [ {curr} / {total} ]\n{bar}{footer}"
+
+    elif skin_id == "freud":
+        curr = user.get("compatibility_partners_count", 0) or 0
+        total = 3
+        bar = get_progress_bar(curr, total)
+        return f"{base_text}➔ Проверки совместимости: [ {curr} / {total} ]\n{bar}{footer}"
+
+    elif skin_id == "cleopatra":
+        # Профиль на 100% (дата, время, город)
+        from cache import get_temp_birth_data
+        temp_birth = await get_temp_birth_data(vk_id)
+        has_profile = temp_birth and temp_birth.get("date") and temp_birth.get("time") and temp_birth.get("city")
+        profile_status = "[ Найдено ]" if has_profile else "[ Не заполнен ]"
+
+        curr_skins = user.get("used_skins_count", 0) or 0
+        total_skins = 3
+        bar_skins = get_progress_bar(curr_skins, total_skins)
+
+        return f"{base_text}➔ Заполнить профиль: {profile_status}\n➔ Применить 3 маски: [ {curr_skins} / {total_skins} ]\n{bar_skins}{footer}"
+
+    elif skin_id == "anubis":
+        from modules.utils.logic import calculate_user_rank
+        level, _ = calculate_user_rank(user)
+        total_lvl = 5
+        bar_lvl = get_progress_bar(level, total_lvl)
+
+        history = user.get("readings_history", [])
+        used_sections = {h.get("section") for h in history} if isinstance(history, list) else set()
+        core_sections = {"sex", "money", "shadow", "final", "synastry", "palmistry", "dream", "oracle", "antitaro"}
+        found_sections = core_sections.intersection(used_sections)
+
+        return f"{base_text}➔ Достичь 5 уровня: [ {level} / {total_lvl} ]\n{bar_lvl}\n➔ Активировать все разделы: [ {len(found_sections)} / {len(core_sections)} ]{footer}"
+
+    elif skin_id == "honest_oracle":
+        tags = user.get("tags", [])
+        has_crisis = "выход-из-кризиса" in tags
+        has_freedom = "свобода" in tags
+        status = f"[{'✅' if has_crisis else '░'}] Кризис | [{'✅' if has_freedom else '░'}] Свобода"
+        return f"{base_text}➔ Собрать комбо тегов:\n{status}{footer}"
+
+    elif skin_id == "jack_sparrow":
+        return f"{base_text}➔ Поделиться раскладом на стене ВК: [ 0 / 1 ]\n░░░░░░░░░░ 0%{footer}"
+
+    return get_quest_text(skin_id)
+
 def get_quest_text(skin_id: str) -> str:
     return SKIN_QUEST_SNACKBARS.get(skin_id, "Квест временно недоступен.")
 

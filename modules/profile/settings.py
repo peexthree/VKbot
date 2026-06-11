@@ -18,6 +18,7 @@ async def _send_skins_page(
     purchased_skins: list[str],
     idx: int,
     edit_msg_id: int | None,
+    user: dict = None
 ):
     # Категории: 1 (базовые), 2 (премиум), 3 (ачивки)
     categories = {
@@ -75,7 +76,32 @@ async def _send_skins_page(
         if cat == 2:
             kb.add(Callback("💎 КУПИТЬ (1500 ✨)", payload={"cmd": "buy_skin", "skin": s_key}), color=KeyboardButtonColor.PRIMARY)
         elif cat == 3:
-            kb.add(Callback("🔒 КАК ОТКРЫТЬ?", payload={"cmd": "skin_quest", "skin": s_key}), color=KeyboardButtonColor.SECONDARY)
+            label = "🔒 КАК ОТКРЫТЬ?"
+            if user:
+                if s_key == "fluffy":
+                    curr, total = user.get("active_referrals_count", 0) or 0, 5
+                    label = f"🔒 Прогресс: {curr}/{total}"
+                elif s_key == "vanga":
+                    curr, total = user.get("visit_streak", 0) or 0, 7
+                    label = f"🔒 Прогресс: {curr}/{total}"
+                elif s_key == "ai_mom":
+                    curr, total = user.get("rituals_count", 0) or 0, 30
+                    label = f"🔒 Прогресс: {curr}/{total}"
+                elif s_key == "pythia":
+                    curr, total = user.get("dreams_analyzed_count", 0) or 0, 10
+                    label = f"🔒 Прогресс: {curr}/{total}"
+                elif s_key == "freud":
+                    curr, total = user.get("compatibility_partners_count", 0) or 0, 3
+                    label = f"🔒 Прогресс: {curr}/{total}"
+                elif s_key == "cleopatra":
+                    curr, total = user.get("used_skins_count", 0) or 0, 3
+                    label = f"🔒 Прогресс: {curr}/{total}"
+                elif s_key == "anubis":
+                    from modules.utils.logic import calculate_user_rank
+                    level, _ = calculate_user_rank(user)
+                    label = f"🔒 Уровень: {level}/5"
+
+            kb.add(Callback(label, payload={"cmd": "skin_quest", "skin": s_key}), color=KeyboardButtonColor.SECONDARY)
 
     # Row 2: Navigation
     kb.row()
@@ -219,7 +245,8 @@ async def settings_choose_character_logic(
             peer_id=peer_id,
             purchased_skins=purchased_skins,
             idx=idx,
-            edit_msg_id=edit_msg_id
+            edit_msg_id=edit_msg_id,
+            user=user
         )
     finally:
         if not skip_lock:
@@ -260,11 +287,20 @@ async def process_skin_action_logic(
             if target_skin in free_skins or target_skin in purchased_skins:
                 purchased = user.get("purchased_sections", {})
                 used_skins = purchased.get("used_skins", [])
+                counted_skins = purchased.get("counted_skins", []) # Новый список для учета прогресса с нуля
+                updates = {"active_skin": target_skin}
+
                 if target_skin not in used_skins:
                     used_skins.append(target_skin)
                     purchased["used_skins"] = used_skins
 
-                await update_user(vk_id, {"active_skin": target_skin, "purchased_sections": purchased})
+                if target_skin not in counted_skins:
+                    counted_skins.append(target_skin)
+                    purchased["counted_skins"] = counted_skins
+                    updates["used_skins_count"] = (user.get("used_skins_count", 0) or 0) + 1
+
+                updates["purchased_sections"] = purchased
+                await update_user(vk_id, updates)
 
                 # Проверка на Клеопатру
                 if len(used_skins) >= 3:
@@ -288,11 +324,27 @@ async def process_skin_action_logic(
             if balance >= price:
                 new_balance = balance - price
                 purchased_skins.append(target_skin)
-                await update_user(vk_id, {
+
+                purchased = user.get("purchased_sections", {})
+                used_skins = purchased.get("used_skins", [])
+                counted_skins = purchased.get("counted_skins", [])
+                updates = {
                     "balance": new_balance,
                     "purchased_skins": purchased_skins,
                     "active_skin": target_skin
-                })
+                }
+
+                if target_skin not in used_skins:
+                    used_skins.append(target_skin)
+                    purchased["used_skins"] = used_skins
+
+                if target_skin not in counted_skins:
+                    counted_skins.append(target_skin)
+                    purchased["counted_skins"] = counted_skins
+                    updates["used_skins_count"] = (user.get("used_skins_count", 0) or 0) + 1
+
+                updates["purchased_sections"] = purchased
+                await update_user(vk_id, updates)
                 from modules.skins import send_trigger_message
                 await send_trigger_message(bot.api, vk_id, target_skin)
                 from modules.profile.views import show_profile_logic

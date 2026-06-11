@@ -1,0 +1,4 @@
+2026-06-11 22:15:18.311 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-06-11 22:15:18.321 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-06-11 22:15:18.330 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-06-11 22:15:18.341 | WARNING  | main:verify_vk_signature:81 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
