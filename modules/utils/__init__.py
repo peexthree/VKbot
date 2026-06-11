@@ -3,7 +3,8 @@ from .consts import (
 )
 from .ui import (
     ghost_edit, stop_dynamic_typing, start_dynamic_typing,
-    delete_bot_message, get_last_bot_msg, set_last_bot_msg, send_temp_message
+    delete_bot_message, get_last_bot_msg, set_last_bot_msg, send_temp_message,
+    extract_msg_id
 )
 from .photos import (
     get_cached_photo, flush_anchors, upload_local_photo, warmup_task, clear_photo_cache
@@ -26,6 +27,7 @@ __all__ = [
     "THEATRICAL_PHRASES", "SKIN_ASSETS", "ADMIN_ID", "jinja_env", "pdf_semaphore",
     "ghost_edit", "stop_dynamic_typing", "start_dynamic_typing",
     "delete_bot_message", "get_last_bot_msg", "set_last_bot_msg", "send_temp_message",
+    "extract_msg_id",
     "get_cached_photo", "flush_anchors", "upload_local_photo", "warmup_task", "clear_photo_cache",
     "generate_premium_pdf", "upload_pdf_to_vk",
     "get_main_keyboard", "get_dynamic_keyboard", "get_sections_keyboard", "get_storefront_keyboard",
