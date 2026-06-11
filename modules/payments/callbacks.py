@@ -250,8 +250,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             await update_user(vk_id, updates)
 
             if date and time and city:
-                from modules.skins import unlock_skin
-                await unlock_skin(bot.api, vk_id, "cleopatra")
+                purchased = user.get("purchased_sections", {}) if user else {}
+                used_skins = purchased.get("used_skins", [])
+                if len(used_skins) >= 3:
+                    from modules.skins import unlock_skin
+                    await unlock_skin(bot.api, vk_id, "cleopatra")
 
             # РЕЗОЛВ ОРИГИНАЛЬНОГО НАМЕРЕНИЯ
             if original_intent:

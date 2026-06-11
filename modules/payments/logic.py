@@ -241,12 +241,16 @@ async def execute_generation(
                     "palmistry": "Хиромантия", "dream": "Толкование сна"
                 }
 
-                history.append({
+                history_item = {
                     "title": titles.get(target_section, "Разбор"),
                     "date": datetime.datetime.now().strftime("%d.%m.%Y"),
                     "text": display_text,
                     "section": target_section
-                })
+                }
+                if target_section == "synastry" and partner_name:
+                    history_item["partner_name"] = partner_name
+
+                history.append(history_item)
 
                 save_data = {
                     "latest_reading_text": display_text,
@@ -280,7 +284,7 @@ async def execute_generation(
                     new_tags = await extract_tags(text)
                     if new_tags:
                         await update_user(v_id, {"tags": new_tags})
-                        if "выход-из-кризиса" in new_tags or "освобождение-от-прошлого" in new_tags:
+                        if "выход-из-кризиса" in new_tags and "свобода" in new_tags:
                             from modules.skins import unlock_skin
                             await unlock_skin(bot.api, v_id, "honest_oracle")
 
@@ -288,26 +292,47 @@ async def execute_generation(
 
                 # --- Ачивки ---
                 from modules.skins import unlock_skin
+                from modules.utils.logic import calculate_user_rank
 
-                # 15 генераций
-                if len(history) >= 15:
+                # ai_mom: 30 генераций
+                if len(history) >= 30:
                     await unlock_skin(bot.api, vk_id, "ai_mom")
 
-                # pythia
+                # pythia: 10 снов
                 dream_count = sum(1 for h in history if h.get("section") == "dream")
-                if dream_count >= 5:
+                if dream_count >= 10:
                     await unlock_skin(bot.api, vk_id, "pythia")
 
-                # freud
-                if target_section == "sex":
+                # freud: 3 разных партнера в синастрии
+                synastry_partners = {h.get("partner_name") for h in history if h.get("section") == "synastry" and h.get("partner_name")}
+                if len(synastry_partners) >= 3:
                     await unlock_skin(bot.api, vk_id, "freud")
 
-                # anubis
-                base_used = len(history) > 0 # At least one reading
-                # Actually, anubis requires base, sex, money, shadow, final.
+                # Уровень и ранг для дальнейших проверок
+                user_for_level = {**user, **save_data} # Совмещаем текущие данные и новые для расчета
+                level, _ = calculate_user_rank(user_for_level)
+
+                # anubis: 5 уровень + все разделы
                 used_sections = {h.get("section") for h in history}
-                if {"sex", "money", "shadow", "final"}.issubset(used_sections):
+                core_sections = {"sex", "money", "shadow", "final", "synastry", "palmistry", "dream", "oracle", "antitaro"}
+                if level >= 5 and core_sections.issubset(used_sections):
                     await unlock_skin(bot.api, vk_id, "anubis")
+
+                # fluffy: приглашенные друзья достигли 3 уровня
+                if level >= 3 and not purchased.get("reached_level_3_notified"):
+                    purchased["reached_level_3_notified"] = True
+                    await update_user(vk_id, {"purchased_sections": purchased})
+
+                    referrer_id = purchased.get("referrer_id")
+                    if referrer_id:
+                        referrer = await get_user(referrer_id)
+                        if referrer:
+                            ref_purchased = referrer.get("purchased_sections", {})
+                            ref_purchased["active_referrals"] = ref_purchased.get("active_referrals", 0) + 1
+                            await update_user(referrer_id, {"purchased_sections": ref_purchased})
+
+                            if ref_purchased["active_referrals"] >= 5:
+                                await unlock_skin(bot.api, referrer_id, "fluffy")
                 # --------------
 
                 from modules.keyboards import after_pdf_kb, vertical_kb

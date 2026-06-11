@@ -258,7 +258,20 @@ async def process_skin_action_logic(
 
         if action == "set_skin":
             if target_skin in free_skins or target_skin in purchased_skins:
-                await update_user(vk_id, {"active_skin": target_skin})
+                purchased = user.get("purchased_sections", {})
+                used_skins = purchased.get("used_skins", [])
+                if target_skin not in used_skins:
+                    used_skins.append(target_skin)
+                    purchased["used_skins"] = used_skins
+
+                await update_user(vk_id, {"active_skin": target_skin, "purchased_sections": purchased})
+
+                # Проверка на Клеопатру
+                if len(used_skins) >= 3:
+                    if user.get("birth_date") and user.get("birth_time") and user.get("birth_city"):
+                        from modules.skins import unlock_skin
+                        await unlock_skin(bot.api, vk_id, "cleopatra")
+
                 from modules.profile.views import show_profile_logic
                 await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
             else:
