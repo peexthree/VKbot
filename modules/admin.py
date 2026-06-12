@@ -38,7 +38,6 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     kb.add(Callback("📈 АНАЛИТИКА", payload={"cmd": "admin_nav", "menu": "analytics"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("👥 АДЕПТЫ", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.PRIMARY)
-    kb.row()
     kb.add(Callback("📢 ВЕЩАНИЕ", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("💎 VIP ХАБ", payload={"cmd": "admin_nav", "menu": "vip"}), color=KeyboardButtonColor.POSITIVE)
@@ -46,7 +45,6 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     kb.add(Callback("⚡ SQL", payload={"cmd": "admin_cmd", "action": "sql_exec_start"}), color=KeyboardButtonColor.NEGATIVE)
     kb.row()
     kb.add(Callback("📜 ЛОГИ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
     kb.add(Callback("🏠 ВЫХОД", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
