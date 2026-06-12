@@ -207,13 +207,11 @@ async def confirm_reset_account_logic(vk_id: int, message: Message, skip_lock: b
         await update_user(vk_id, {
             "readings_history": [],
             "tags": [],
-            "latest_reading_text": None,
-            "latest_reading_data": {},
             "core_profile": ""
         })
         # Удаляем данные из Redis
-        from cache import delete_temp_birth_data
-        await delete_temp_birth_data(vk_id)
+        from cache import clear_all_pii
+        await clear_all_pii(vk_id)
         await set_user_state(vk_id, "")
         await message.answer("Твои личные данные и история полностью стерты. Твой путь чист, но сила звезд (баланс) осталась с тобой.")
     finally:

@@ -129,6 +129,17 @@ async def start_handler(message: Message, skip_lock: bool = False):
                 vk_id=vk_id,
                 first_name=first_name
             )
+
+            # Трекинг регистрации (событие создается до сохранения ПД в Redis для чистоты истории)
+            from database import add_event
+            metadata = {"first_name": first_name}
+            if hasattr(message, "ref") and message.ref:
+                metadata["source"] = "referral"
+                metadata["ref_code"] = message.ref
+            else:
+                metadata["source"] = "organic"
+            await add_event(vk_id, "registration", metadata)
+
             # Сохраняем начальные данные в Redis на 24 часа
             if bdate or city:
                 await set_temp_birth_data(vk_id, {
@@ -137,16 +148,6 @@ async def start_handler(message: Message, skip_lock: bool = False):
                     "city": city or ""
                 })
 
-            # Трекинг регистрации
-            from database import add_event
-            metadata = {"first_name": first_name}
-            if hasattr(message, "ref") and message.ref:
-                metadata["source"] = "referral"
-                metadata["ref_code"] = message.ref
-            else:
-                metadata["source"] = "organic"
-
-            await add_event(vk_id, "registration", metadata)
 
         # Обновляем имя и пол если изменились
         if user:
@@ -244,7 +245,7 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
             f"Твои данные:\n"
             f"☾ Дата рождения: {bdate}\n"
             f"☾ Город рождения: {city}\n\n"
-            "Скажи, всё ли верно указано?"
+                "Скажи, всё ли верно указано? Данные будут стерты через 24 часа в целях безопасности."
         )
 
         await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
@@ -264,7 +265,7 @@ async def send_registration_confirmation(message: Message, state_dict: dict):
         f"☾ Дата: {state_dict.get('date')}\n"
         f"☾ Время: {state_dict.get('time', '12:00')}\n"
         f"☾ Город: {state_dict.get('city')}\n\n"
-        "Посмотри внимательно, всё ли правильно? Точность важна для верного предсказания."
+        "Посмотри внимательно, всё ли правильно? Точность важна. Мы храним эти данные только 24 часа."
     )
     await bot.api.messages.send(
         peer_id=message.peer_id,
@@ -442,6 +443,10 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
     # Берем данные из Redis
     temp_data = await get_temp_birth_data(vk_id) or {}
     core_profile = f"{temp_data.get('date')} {temp_data.get('time')} {temp_data.get('city')}"
+    # Сохраняем core_profile в Redis на 24 часа для контекста ИИ
+    if core_profile.strip():
+        from cache import redis_client
+        await redis_client.set(f"user:core_profile:{vk_id}", core_profile, ex=86400)
 
     # Ритуал интеграции
     ritual_steps = [

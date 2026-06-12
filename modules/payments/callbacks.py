@@ -113,11 +113,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     card_name = c_data.get("name", card_name)
 
                 import re
-                latest_text = user.get("latest_reading_text") or ""
-                if not latest_text:
-                    latest_data = user.get("latest_reading_data", {})
-                    if isinstance(latest_data, dict):
-                        latest_text = latest_data.get("text", "")
+                from cache import get_latest_reading
+                latest_reading = await get_latest_reading(vk_id)
+                latest_text = ""
+                if latest_reading:
+                    latest_text = latest_reading.get("text", "")
 
                 if latest_text:
                     # Очистка от технических заголовков
@@ -235,9 +235,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
             user = await get_user(vk_id)
             updates = {
-                "birth_date": date,
-                "birth_time": time,
-                "birth_city": city,
                 "is_registered": True
             }
 
@@ -436,10 +433,15 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             section, card_id = payload.get("section", "report"), payload.get("card", "")
             user = await get_user(vk_id)
             if not user: return
-            latest_data = user.get("latest_reading_data", {})
-            if not latest_data and user.get("latest_reading_text"): latest_data = {"text": user.get("latest_reading_text")}
+
+            from cache import get_latest_reading
+            latest_reading = await get_latest_reading(vk_id)
+            latest_data = {}
+            if latest_reading:
+                latest_data = latest_reading.get("data") or {"text": latest_reading.get("text")}
+
             if not latest_data or "text" not in latest_data:
-                await bot.api.messages.send(peer_id=peer_id, message="Текст разбора не найден. Сгенерируйте разбор заново.", random_id=random.getrandbits(63))
+                await bot.api.messages.send(peer_id=peer_id, message="Текст разбора стерт из соображений безопасности. Сгенерируйте разбор заново.", random_id=random.getrandbits(63))
                 return
             await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=random.getrandbits(63))
             pdf_name = f"report_{vk_id}_{section}.pdf"
@@ -502,7 +504,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": conv_id}))
                 kb = Keyboard(inline=True).add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
                 att = await upload_local_photo(bot.api, "uslugi/settings.jpeg", peer_id=vk_id)
-                await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="Для калибровки звездного пути напиши свою ДАТУ рождения (например, 15.04.1990):", keyboard=kb.get_json(), attachment=att)
+                await ghost_edit(bot.api, peer_id, conversation_message_id=conv_id, message="Для калибровки звездного пути напиши свою ДАТУ рождения (например, 15.04.1990). Данные будут храниться 24 часа для проведения ритуалов.", keyboard=kb.get_json(), attachment=att)
             elif action == "change_skin": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, edit_msg_id=conv_id)
             elif action == "cancel_sub":
                 user = await get_user(vk_id)
@@ -528,13 +530,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 await update_user(vk_id, {
                     "readings_history": [],
                     "tags": [],
-                    "latest_reading_text": None,
-                    "latest_reading_data": {},
                     "core_profile": ""
                 })
                 # Удаляем данные из Redis
-                from cache import delete_temp_birth_data
-                await delete_temp_birth_data(vk_id)
+                from cache import clear_all_pii
+                await clear_all_pii(vk_id)
                 await set_user_state(vk_id, "")
                 await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="Твои личные данные и история полностью стерты. Твой путь чист, но сила звезд (баланс) осталась с тобой.")
             elif action == "back_to_profile":

@@ -48,34 +48,83 @@ async def get_fsm_state(vk_id: int | str):
 
 async def set_temp_birth_data(vk_id: int | str, data: dict, ttl: int = 86400):
     """Сохраняет данные рождения в Redis на 24 часа"""
-    await redis_client.set(f"birth:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl)
+    await redis_client.set(f"user:birth_data:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl)
 
 async def get_temp_birth_data(vk_id: int | str) -> dict | None:
-    """Получает данные рождения из Redis, если нет - пробует подтянуть из Supabase"""
-    res = await redis_client.get(f"birth:{vk_id}")
+    """Получает данные рождения из Redis на 24 часа (строгий TTL)"""
+    res = await redis_client.get(f"user:birth_data:{vk_id}")
     if res:
         try:
             return json.loads(res)
         except Exception:
             pass
+    return None
 
-    # Если в Redis пусто, пробуем Supabase
-    from database import get_user
-    user = await get_user(int(vk_id))
-    if user and user.get("birth_date"):
-        data = {
-            "date": user.get("birth_date"),
-            "time": user.get("birth_time", "12:00"),
-            "city": user.get("birth_city", "")
-        }
-        await set_temp_birth_data(vk_id, data)
-        return data
+async def get_core_profile(vk_id: int | str) -> str:
+    """Получает core_profile из Redis"""
+    res = await redis_client.get(f"user:core_profile:{vk_id}")
+    return res.decode() if isinstance(res, bytes) else (res or "")
 
+async def add_reading_to_history(vk_id: int | str, item: dict, ttl: int = 86400):
+    """Добавляет разбор в историю в Redis на 24 часа"""
+    history = await get_readings_history(vk_id)
+    history.append(item)
+    await redis_client.set(f"user:readings_history:{vk_id}", json.dumps(history, ensure_ascii=False), ex=ttl)
+
+async def get_readings_history(vk_id: int | str) -> list:
+    """Получает историю разборов из Redis"""
+    res = await redis_client.get(f"user:readings_history:{vk_id}")
+    if res:
+        try:
+            return json.loads(res)
+        except Exception:
+            pass
+    return []
+
+async def set_destiny_card_data(vk_id: int | str, data: dict, ttl: int = 86400):
+    """Сохраняет данные карты судьбы в Redis на 24 часа"""
+    await redis_client.set(f"user:destiny_card:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl)
+
+async def get_destiny_card_data(vk_id: int | str) -> dict | None:
+    """Получает данные карты судьбы из Redis"""
+    res = await redis_client.get(f"user:destiny_card:{vk_id}")
+    if res:
+        try:
+            return json.loads(res)
+        except Exception:
+            pass
     return None
 
 async def delete_temp_birth_data(vk_id: int | str):
     """Удаляет данные рождения из Redis"""
-    await redis_client.delete(f"birth:{vk_id}")
+    await redis_client.delete(f"user:birth_data:{vk_id}")
+
+async def clear_all_pii(vk_id: int | str):
+    """Полная очистка всех персональных данных из Redis"""
+    keys = [
+        f"user:birth_data:{vk_id}",
+        f"user:latest_reading:{vk_id}",
+        f"user:readings_history:{vk_id}",
+        f"user:core_profile:{vk_id}",
+        f"user:destiny_card:{vk_id}"
+    ]
+    for k in keys:
+        await redis_client.delete(k)
+
+async def set_latest_reading(vk_id: int | str, text: str, data: dict = None, ttl: int = 86400):
+    """Сохраняет последний разбор в Redis на 24 часа"""
+    payload = {"text": text, "data": data or {}}
+    await redis_client.set(f"user:latest_reading:{vk_id}", json.dumps(payload, ensure_ascii=False), ex=ttl)
+
+async def get_latest_reading(vk_id: int | str) -> dict | None:
+    """Получает последний разбор из Redis"""
+    res = await redis_client.get(f"user:latest_reading:{vk_id}")
+    if res:
+        try:
+            return json.loads(res)
+        except Exception:
+            pass
+    return None
 
 TAROT_NAMES_CACHE = None
 

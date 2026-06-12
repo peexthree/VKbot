@@ -17,7 +17,8 @@ async def destiny_card_info_logic(vk_id: int, peer_id: int, conversation_message
     if not user: return
 
     purchased = user.get("purchased_sections", {})
-    destiny_data = user.get("destiny_card_data")
+    from cache import get_destiny_card_data
+    destiny_data = await get_destiny_card_data(vk_id)
 
     if purchased.get("destiny_card_purchased") and destiny_data:
         # ВЫВОД КУПЛЕННОЙ КАРТЫ
@@ -85,6 +86,11 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
 
     # Списываем энергию
     cost = 1000 if is_update else 1500
+    from cache import get_destiny_card_data
+    if is_update and not await get_destiny_card_data(vk_id):
+        await bot.api.messages.send(peer_id=peer_id, message="🛑 Твои данные Карты Судьбы стерты из соображений безопасности. Пожалуйста, активируй карту заново.", random_id=random.getrandbits(63))
+        return
+
     if balance < cost:
         from modules.services import show_tariffs
         await bot.api.messages.send(peer_id=peer_id, message=f"❌ Недостаточно энергии для {'обновления' if is_update else 'активации'} Карты Судьбы.", random_id=random.getrandbits(63))
@@ -133,10 +139,13 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         from ai_service import generate_section
         active_skin = user.get("active_skin", "olesya")
 
+        from cache import get_core_profile
+        core_profile = await get_core_profile(vk_id)
+
         # Специальный промпт для карты судьбы
         res_data = await generate_section(
             "destiny_card", birth_date, birth_data.get("time", ""),
-            birth_data.get("city", ""), user.get("core_profile", ""),
+            birth_data.get("city", ""), core_profile,
             user.get("first_name", "Адепт"), user.get("sex_val", 0),
             skin=active_skin, card_id=str(db_idx), card_data=card_data,
             return_json=True,
@@ -154,9 +163,12 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
             await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам (пустой ответ). Энергия возвращена.", random_id=random.getrandbits(63))
             return
 
-        # Сохраняем в историю и спец поле
-        history = user.get("readings_history", [])
-        history.append({
+        # Сохраняем последний разбор в Redis на 24 часа
+        from cache import set_latest_reading, add_reading_to_history, set_destiny_card_data
+        await set_latest_reading(vk_id, res_text, data=res_data if isinstance(res_data, dict) else None)
+
+        # Сохраняем в историю в Redis
+        await add_reading_to_history(vk_id, {
             "title": "⭐ КАРТА СУДЬБЫ",
             "date": datetime.datetime.now().strftime("%d.%m.%Y"),
             "text": res_text,
@@ -164,23 +176,15 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
             "is_destiny": True
         })
 
-        update_data = {
-            "readings_history": history,
-            "destiny_card_data": {
-                "card_id": str(db_idx),
-                "text": res_text,
-                "date": datetime.datetime.now().strftime("%d.%m.%Y"),
-                "interesting_facts": res_data.get("interesting_facts", "") if isinstance(res_data, dict) else ""
-            },
-            "latest_reading_text": res_text
-        }
+        # Сохраняем данные карты в Redis
+        await set_destiny_card_data(vk_id, {
+            "card_id": str(db_idx),
+            "text": res_text,
+            "date": datetime.datetime.now().strftime("%d.%m.%Y"),
+            "interesting_facts": res_data.get("interesting_facts", "") if isinstance(res_data, dict) else ""
+        })
 
-        if isinstance(res_data, dict):
-            res_data["text"] = res_text
-            update_data["latest_reading_data"] = res_data
-        else:
-            update_data["latest_reading_data"] = {"text": res_text}
-
+        update_data = {}
         await update_user(vk_id, update_data)
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
