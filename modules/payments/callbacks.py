@@ -535,9 +535,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     "core_profile": ""
                 })
                 # Удаляем данные из Redis
-                from cache import delete_temp_birth_data, redis_client
-                await delete_temp_birth_data(vk_id)
-                await redis_client.delete(f"user:latest_reading:{vk_id}")
+                from cache import clear_all_pii
+                await clear_all_pii(vk_id)
                 await set_user_state(vk_id, "")
                 await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message="Твои личные данные и история полностью стерты. Твой путь чист, но сила звезд (баланс) осталась с тобой.")
             elif action == "back_to_profile":

@@ -251,9 +251,12 @@ async def execute_generation(
                 if target_section == "synastry" and partner_name:
                     history_item["partner_name"] = partner_name
 
-                from cache import set_latest_reading, add_reading_to_history
+                from cache import set_latest_reading, add_reading_to_history, get_readings_history
                 await add_reading_to_history(vk_id, history_item)
                 await set_latest_reading(vk_id, display_text, data=res_data if isinstance(res_data, dict) else None)
+
+                # Получаем обновленную историю из Redis для проверки достижений
+                history = await get_readings_history(vk_id)
 
                 save_data = {}
 

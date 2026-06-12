@@ -99,6 +99,18 @@ async def delete_temp_birth_data(vk_id: int | str):
     """Удаляет данные рождения из Redis"""
     await redis_client.delete(f"user:birth_data:{vk_id}")
 
+async def clear_all_pii(vk_id: int | str):
+    """Полная очистка всех персональных данных из Redis"""
+    keys = [
+        f"user:birth_data:{vk_id}",
+        f"user:latest_reading:{vk_id}",
+        f"user:readings_history:{vk_id}",
+        f"user:core_profile:{vk_id}",
+        f"user:destiny_card:{vk_id}"
+    ]
+    for k in keys:
+        await redis_client.delete(k)
+
 async def set_latest_reading(vk_id: int | str, text: str, data: dict = None, ttl: int = 86400):
     """Сохраняет последний разбор в Redis на 24 часа"""
     payload = {"text": text, "data": data or {}}
