@@ -80,26 +80,26 @@ async def _send_skins_page(
             if user:
                 if s_key == "fluffy":
                     curr, total = user.get("active_referrals_count", 0) or 0, 5
-                    label = f"🔒 Прогресс: {curr}/{total}"
+                    label = f"🔒 УСЛОВИЯ ({curr}/{total})"
                 elif s_key == "vanga":
                     curr, total = user.get("visit_streak", 0) or 0, 7
-                    label = f"🔒 Прогресс: {curr}/{total}"
+                    label = f"🔒 УСЛОВИЯ ({curr}/{total})"
                 elif s_key == "ai_mom":
                     curr, total = user.get("rituals_count", 0) or 0, 30
-                    label = f"🔒 Прогресс: {curr}/{total}"
+                    label = f"🔒 УСЛОВИЯ ({curr}/{total})"
                 elif s_key == "pythia":
                     curr, total = user.get("dreams_analyzed_count", 0) or 0, 10
-                    label = f"🔒 Прогресс: {curr}/{total}"
+                    label = f"🔒 УСЛОВИЯ ({curr}/{total})"
                 elif s_key == "freud":
                     curr, total = user.get("compatibility_partners_count", 0) or 0, 3
-                    label = f"🔒 Прогресс: {curr}/{total}"
+                    label = f"🔒 УСЛОВИЯ ({curr}/{total})"
                 elif s_key == "cleopatra":
                     curr, total = user.get("used_skins_count", 0) or 0, 3
-                    label = f"🔒 Прогресс: {curr}/{total}"
+                    label = f"🔒 УСЛОВИЯ ({curr}/{total})"
                 elif s_key == "anubis":
                     from modules.utils.logic import calculate_user_rank
                     level, _ = calculate_user_rank(user)
-                    label = f"🔒 Уровень: {level}/5"
+                    label = f"🔒 УСЛОВИЯ ({level}/5)"
 
             kb.add(Callback(label, payload={"cmd": "skin_quest", "skin": s_key}), color=KeyboardButtonColor.SECONDARY)
 

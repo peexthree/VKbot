@@ -23,6 +23,53 @@ def get_progress_bar(current: int, total: int) -> str:
     bar = "▒" * filled + "░" * (10 - filled)
     return f"{bar} {percent}%"
 
+async def get_short_quest_text(vk_id: int, skin_id: str) -> str:
+    """Возвращает ультра-короткий текст квеста (до 80 символов) для снэкбара."""
+    user = await get_user(vk_id)
+    if not user:
+        return "Ошибка: пользователь не найден."
+
+    if skin_id == "fluffy":
+        curr, total = user.get("active_referrals_count", 0) or 0, 5
+        return f"Друзья: {curr}/{total}. Пригласи еще {max(0, total - curr)} адептов!"
+    elif skin_id == "vanga":
+        curr, total = user.get("visit_streak", 0) or 0, 7
+        return f"Стрик: {curr}/{total}. Заходи каждый день без пропусков!"
+    elif skin_id == "ai_mom":
+        curr, total = user.get("rituals_count", 0) or 0, 30
+        return f"Ритуалы: {curr}/{total}. Осталось совершить {max(0, total - curr)} разборов!"
+    elif skin_id == "pythia":
+        curr, total = user.get("dreams_analyzed_count", 0) or 0, 10
+        return f"Сонник: {curr}/{total}. Сделай еще {max(0, total - curr)} толкований снов!"
+    elif skin_id == "freud":
+        curr, total = user.get("compatibility_partners_count", 0) or 0, 3
+        return f"Партнеры: {curr}/{total}. Проверь совместимость еще с {max(0, total - curr)}!"
+    elif skin_id == "cleopatra":
+        curr, total = user.get("used_skins_count", 0) or 0, 3
+        from cache import get_temp_birth_data
+        temp_birth = await get_temp_birth_data(vk_id)
+        has_profile = temp_birth and temp_birth.get("date") and temp_birth.get("time") and temp_birth.get("city")
+        p_status = "100%" if has_profile else "0%"
+        return f"Профиль: {p_status}. Маски: {curr}/{total}. Примени еще {max(0, total - curr)} облика!"
+    elif skin_id == "anubis":
+        from modules.utils.logic import calculate_user_rank
+        level, _ = calculate_user_rank(user)
+        history = user.get("readings_history", [])
+        used_sections = {h.get("section") for h in history} if isinstance(history, list) else set()
+        core_sections = {"sex", "money", "shadow", "final", "synastry", "palmistry", "dream", "oracle", "antitaro"}
+        found = core_sections.intersection(used_sections)
+        return f"Уровень: {level}/5. Разделы: {len(found)}/9. Активируй всё!"
+    elif skin_id == "honest_oracle":
+        tags = user.get("tags", [])
+        c, f = ("[v]" if "выход-из-кризиса" in tags else "[ ]"), ("[v]" if "свобода" in tags else "[ ]")
+        return f"Теги: Кризис {c}, Свобода {f}. Собери комбо!"
+    elif skin_id == "jack_sparrow":
+        return "Стена: 0/1. Поделись любым результатом на своей стене!"
+    elif skin_id == "saint_germain":
+        return "Путь алхимика: Стань Доном или купи VIP-пакет энергии!"
+
+    return get_quest_text(skin_id)[:80]
+
 async def get_dynamic_quest_text(vk_id: int, skin_id: str) -> str:
     user = await get_user(vk_id)
     if not user:
