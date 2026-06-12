@@ -19,8 +19,10 @@ async def test_get_short_quest_text_length():
 
     skins = ["fluffy", "vanga", "ai_mom", "pythia", "freud", "cleopatra", "anubis", "honest_oracle", "jack_sparrow", "saint_germain"]
 
-    with patch("modules.skins.get_user", new_callable=AsyncMock) as mock_get_user:
+    with patch("modules.skins.get_user", new_callable=AsyncMock) as mock_get_user, \
+         patch("cache.get_temp_birth_data", new_callable=AsyncMock) as mock_get_temp_birth:
         mock_get_user.return_value = mock_user
+        mock_get_temp_birth.return_value = {"date": "10.10.1990", "time": "10:00", "city": "Moscow"}
 
         for skin in skins:
             text = await get_short_quest_text(12345, skin)
