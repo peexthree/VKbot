@@ -43,6 +43,8 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     kb.row()
     kb.add(Callback("💎 VIP ХАБ", payload={"cmd": "admin_nav", "menu": "vip"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
+    kb.add(Callback("⚡ SQL", payload={"cmd": "admin_cmd", "action": "sql_exec_start"}), color=KeyboardButtonColor.NEGATIVE)
+    kb.row()
     kb.add(Callback("📜 ЛОГИ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
     kb.add(Callback("🏠 ВЫХОД", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
@@ -93,6 +95,9 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None):
     # Memory
     label = "🧠 ВЫКЛ ПАМЯТЬ" if tag_memory_active else "🧠 ВКЛ ПАМЯТЬ"
     kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_tag_memory"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+
+    kb.add(Callback("⚡ ВЫПОЛНИТЬ SQL", payload={"cmd": "admin_cmd", "action": "sql_exec_start"}), color=KeyboardButtonColor.NEGATIVE)
     kb.row()
 
     kb.add(Callback("🧹 ОЧИСТИТЬ REDIS", payload={"cmd": "admin_cmd", "action": "clear_redis"}), color=KeyboardButtonColor.NEGATIVE)
@@ -340,6 +345,9 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         asyncio.create_task(post_to_vk())
         await bot.api.messages.send(peer_id=peer_id, message="✅ Задача на автопостинг поставлена в очередь.", random_id=random.getrandbits(63))
         await show_admin_broadcast(peer_id, conversation_message_id)
+    elif action == "sql_exec_start":
+        await set_fsm_state(vk_id, json.dumps({"step": "admin_sql_exec", "conv_id": conversation_message_id}))
+        await bot.api.messages.send(peer_id=peer_id, message="⚡ ВВЕДИТЕ SQL-ЗАПРОС ДЛЯ ВЫПОЛНЕНИЯ:\n\nБудьте осторожны, изменения необратимы.", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "main"})).get_json(), random_id=random.getrandbits(63))
     elif action == "mass_energy_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_energy_target", "conv_id": conversation_message_id}))
         await bot.api.messages.send(peer_id=peer_id, message="Введите ID и количество энергии через пробел (например: 12345 500):", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=random.getrandbits(63))
@@ -447,7 +455,7 @@ async def _is_admin_fsm(message: Message) -> bool:
     if message.from_id != ADMIN_ID: return False
     fsm_data = await get_fsm_step(message.from_id)
     if not fsm_data: return False
-    return fsm_data.get("step") in ["admin_user_search", "admin_broadcast_message", "admin_energy_target", "admin_user_edit_balance", "admin_user_give_card", "admin_user_direct_message"]
+    return fsm_data.get("step") in ["admin_user_search", "admin_broadcast_message", "admin_energy_target", "admin_user_edit_balance", "admin_user_give_card", "admin_user_direct_message", "admin_sql_exec"]
 
 @labeler.message(func=_is_admin_fsm)
 async def admin_fsm_handler(message: Message):
@@ -529,6 +537,30 @@ async def admin_fsm_handler(message: Message):
         kb.row()
         kb.add(Callback("❌ ОТМЕНА", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.NEGATIVE)
         await ghost_edit(bot.api, message.peer_id, f"ПРЕВЬЮ ПРИЗЫВА:\n\n📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{text}\n\nОтправить всем адептам?", keyboard=kb.get_json(), conversation_message_id=conv_id)
+    elif step == "admin_sql_exec":
+        sql = message.text.strip()
+        await set_fsm_state(vk_id, "")
+        from database import call_rpc
+        await bot.api.messages.send(peer_id=vk_id, message="⏳ Выполнение запроса...", random_id=random.getrandbits(63))
+
+        result = await call_rpc("exec_sql", {"sql_query": sql})
+
+        if result is True or result is None:
+             await bot.api.messages.send(peer_id=vk_id, message="✅ Запрос выполнен (без возвращаемых данных).", random_id=random.getrandbits(63))
+        elif isinstance(result, list):
+            res_json = json.dumps(result, ensure_ascii=False, indent=2)
+            if len(res_json) < 3800:
+                await bot.api.messages.send(peer_id=vk_id, message=f"✅ РЕЗУЛЬТАТ:\n\n{res_json}", random_id=random.getrandbits(63))
+            else:
+                with open(f"sql_result_{vk_id}.json", "w", encoding="utf-8") as f:
+                    f.write(res_json)
+                from modules.utils import upload_pdf_to_vk
+                doc = await upload_pdf_to_vk(bot.api, f"sql_result_{vk_id}.json", "result.json", peer_id=vk_id)
+                await bot.api.messages.send(peer_id=vk_id, message="✅ Результат слишком велик, отправляю файлом:", attachment=doc, random_id=random.getrandbits(63))
+                os.remove(f"sql_result_{vk_id}.json")
+        else:
+            await bot.api.messages.send(peer_id=vk_id, message=f"❓ РЕЗУЛЬТАТ:\n\n{result}", random_id=random.getrandbits(63))
+        await show_admin_main(vk_id, conv_id)
 
 async def show_admin_console(peer_id: int, conversation_message_id: int = None):
     await show_admin_main(peer_id, conversation_message_id=conversation_message_id)

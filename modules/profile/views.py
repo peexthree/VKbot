@@ -119,7 +119,8 @@ async def show_profile_logic(
         progress_bar = "█" * progress + "░" * (10 - progress)
 
         destiny_info = ""
-        destiny_data = user.get("destiny_card_data")
+        from cache import get_destiny_card_data
+        destiny_data = await get_destiny_card_data(vk_id)
         if destiny_data:
             from cards_data import get_card_data
             c_data = get_card_data(destiny_data.get("card_id", "0"))
@@ -486,11 +487,12 @@ async def show_history_logic(
         user = await get_user(vk_id)
         if not user: return
 
-        history = user.get("readings_history", [])
+        from cache import get_readings_history, get_destiny_card_data
+        history = await get_readings_history(vk_id)
 
         # Специальный заголовок для Карты Судьбы (только на 0 странице)
         destiny_text = ""
-        destiny_data = user.get("destiny_card_data")
+        destiny_data = await get_destiny_card_data(vk_id)
         if page == 0 and destiny_data:
             from cards_data import get_card_data
             c_data = get_card_data(destiny_data.get("card_id", "0"))
@@ -534,8 +536,9 @@ async def show_history_item_logic(
         user = await get_user(vk_id)
         if not user: return
 
-        history = user.get("readings_history", [])
-        if not history or idx >= len(history):
+        from cache import get_readings_history, get_destiny_card_data
+        history = await get_readings_history(vk_id)
+        if idx != -1 and (not history or idx >= len(history)):
             return
 
         # История хранится в прямом порядке, но отображаем мы последние сначала (через [::-1])
@@ -545,8 +548,10 @@ async def show_history_item_logic(
         # Это значит idx 0 соответствует последнему элементу и т.д.
 
         if idx == -1:
-            destiny_data = user.get("destiny_card_data")
-            if not destiny_data: return
+            destiny_data = await get_destiny_card_data(vk_id)
+            if not destiny_data:
+                await bot.api.messages.send(peer_id=peer_id, message="🛑 Данные Карты Судьбы стерты из соображений безопасности.", random_id=random.getrandbits(63))
+                return
             item = {
                 "title": "⭐ КАРТА СУДЬБЫ",
                 "date": destiny_data.get("date"),

@@ -197,9 +197,12 @@ async def execute_generation(
                 await bot.api.messages.send(peer_id=peer_id, message="🛑 Твои данные рождения истекли. Чтобы завершить ритуал, шепни мне дату своего рождения (например, 15.04.1990):", random_id=random.getrandbits(63))
                 return
 
+            from cache import get_core_profile
+            core_profile = await get_core_profile(vk_id)
+
             res_data = await generate_section(
                 target_section, birth_data.get("date"), birth_data.get("time"),
-                birth_data.get("city"), user.get("core_profile", ""),
+                birth_data.get("city"), core_profile,
                 u_name, u_sex,
                 partner_name=partner_name, partner_date=partner_date, skin=active_skin,
                 card_id=card_id, card_data=card_data, tags=tags, return_json=True,
@@ -231,10 +234,7 @@ async def execute_generation(
 
                 display_text = full_reading_text
 
-                # Сохраняем в историю
-                history = user.get("readings_history", [])
-                if not isinstance(history, list): history = []
-
+                # Сохраняем в историю в Redis (вместо Supabase)
                 titles = {
                     "sex": "Сексуальность", "money": "Богатство", "shadow": "Тень",
                     "final": "Путь", "synastry": "Синастрия", "oracle": "Оракул",
@@ -251,12 +251,11 @@ async def execute_generation(
                 if target_section == "synastry" and partner_name:
                     history_item["partner_name"] = partner_name
 
-                history.append(history_item)
+                from cache import set_latest_reading, add_reading_to_history
+                await add_reading_to_history(vk_id, history_item)
+                await set_latest_reading(vk_id, display_text, data=res_data if isinstance(res_data, dict) else None)
 
-                save_data = {
-                    "latest_reading_text": display_text,
-                    "readings_history": history
-                }
+                save_data = {}
 
                 # Сбрасываем флаг покупки, так как услуга использована
                 purchased = user.get("purchased_sections", {})
@@ -271,13 +270,7 @@ async def execute_generation(
                     purchased["card_of_day_last_used"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                     save_data["purchased_sections"] = purchased
 
-                if isinstance(res_data, dict):
-                    res_data["text"] = full_reading_text # Для PDF сохраняем чистый текст без добавок чата
-                    if image_urls:
-                        res_data["palm_photos"] = image_urls
-                    save_data["latest_reading_data"] = res_data
-                else:
-                    save_data["latest_reading_data"] = {"text": full_reading_text}
+                # latest_reading_data больше не сохраняем в Supabase
 
                 # --- ИНКРЕМЕНТ СЧЕТЧИКОВ ПРОГРЕССА ---
                 save_data["rituals_count"] = (user.get("rituals_count", 0) or 0) + 1

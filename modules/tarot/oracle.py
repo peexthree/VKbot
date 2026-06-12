@@ -45,7 +45,9 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         else:
             gender_instruction = "ОБРАЩАЙСЯ К ПОЛЬЗОВАТЕЛЮ НЕЙТРАЛЬНО, БЕЗ УКАЗАНИЯ ПОЛА."
 
-        core, tags = user.get("core_profile", ""), user.get("tags", [])
+        from cache import get_core_profile
+        core = await get_core_profile(vk_id)
+        tags = user.get("tags", [])
         prompt = f"{gender_instruction} " + (f"Прошлый анализ: {core}. " if core else "") + (f"Фокус: [{', '.join(tags)}]. " if tags else "")
         prompt += f"Пользователь задает вопрос: <user_input>{text}</user_input>. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
 

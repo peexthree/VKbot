@@ -423,7 +423,8 @@ async def main():
                     is_muted = purchased.get("whisper_muted", False)
 
                     if (has_sub or trial_days < 3) and not is_muted:
-                        core_profile = user.get("core_profile", "")
+                        from cache import get_core_profile
+                        core_profile = await get_core_profile(vk_id)
                         active_skin = user.get("active_skin", "olesya")
                         tags = user.get("tags", [])
                         tags_str = ", ".join(tags) if tags else "отсутствует"
