@@ -34,16 +34,18 @@ async def generate_post(is_morning: bool = True):
     active_poll = await get_active_poll()
     if active_poll:
         try:
-            # Вытягиваем данные опроса из ВК
-            poll_data = await bot.api.polls.get_by_id(
-                owner_id=active_poll["owner_id"],
-                poll_id=active_poll["poll_id"]
-            )
-            if poll_data and poll_data.answers:
-                # Определяем вариант с максимальным количеством голосов
-                winner = max(poll_data.answers, key=lambda a: a.votes)
-                forced_topic = winner.text
-                logger.info(f"Тема выбрана пользователями через опрос: {forced_topic}")
+            # Вытягиваем данные опроса из ВК (метод getById возвращает список)
+            res = await bot.api.request("polls.getById", {
+                "owner_id": active_poll["owner_id"],
+                "poll_id": active_poll["poll_id"]
+            })
+            if res and isinstance(res, list) and len(res) > 0:
+                poll_data = res[0]
+                if poll_data.get("answers"):
+                    # Определяем вариант с максимальным количеством голосов
+                    winner = max(poll_data["answers"], key=lambda a: a.get("votes", 0))
+                    forced_topic = winner.get("text")
+                    logger.info(f"Тема выбрана пользователями через опрос: {forced_topic}")
         except Exception as e:
             logger.error(f"Не удалось получить результаты опроса: {e}")
             forced_topic = active_poll["topic_name"]
