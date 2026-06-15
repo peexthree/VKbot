@@ -2,7 +2,7 @@ import json
 import asyncio
 import re
 from loguru import logger
-from vkbottle import Callback, Keyboard, KeyboardButtonColor
+from vkbottle import Callback, Keyboard, KeyboardButtonColor, VKAPIError
 from vkbottle.bot import BotLabeler, Message
 
 from ai_service import generate_text, extract_birth_data
@@ -55,11 +55,16 @@ async def reset_user_handler(message: Message):
         await delete_temp_birth_data(vk_id)
         await set_user_state(vk_id, "")
 
-        await message.answer(
-            "✨ ТВОЙ ПУТЬ ПЕРЕЗАГРУЖЕН ✨\n\n"
-            "Текущее состояние и временные данные очищены. Твой профиль и баланс сохранены.\n"
-            "Если ты застрял — теперь ты можешь начать диалог заново."
-        )
+        try:
+            await message.answer(
+                "✨ ТВОЙ ПУТЬ ПЕРЕЗАГРУЖЕН ✨\n\n"
+                "Текущее состояние и временные данные очищены. Твой профиль и баланс сохранены.\n"
+                "Если ты застрял — теперь ты можешь начать диалог заново."
+            )
+        except VKAPIError[912]:
+            logger.warning(f"Bot lacks permission to answer in chat (PeerID={message.peer_id})")
+            return
+
         logger.info(f"Пользователь {vk_id} выполнил мягкий сброс (FSM/Redis)")
     except Exception as e:
         logger.error(f"Ошибка в reset_user_handler: {e}")
@@ -189,9 +194,13 @@ async def start_handler(message: Message, skip_lock: bool = False):
         await set_last_bot_msg(vk_id, msg_id)
         await set_user_state(vk_id, "onboarding_skin_selection")
 
+    except VKAPIError[912]:
+        logger.warning(f"Bot lacks permission to start in chat (PeerID={message.peer_id})")
     except Exception as e:
         logger.error(f"Ошибка в start_handler: {e}")
-        await message.answer("Произошла ошибка при инициализации. Попробуй ещё раз.")
+        try:
+            await message.answer("Произошла ошибка при инициализации. Попробуй ещё раз.")
+        except: pass
     finally:
         if not skip_lock:
             await release_lock(vk_id)
@@ -267,12 +276,15 @@ async def send_registration_confirmation(message: Message, state_dict: dict):
         f"☾ Город: {state_dict.get('city')}\n\n"
         "Посмотри внимательно, всё ли правильно? Точность важна. Мы храним эти данные только 24 часа."
     )
-    await bot.api.messages.send(
-        peer_id=message.peer_id,
-        message=text,
-        keyboard=kb.get_json(),
-        random_id=random.getrandbits(63)
-    )
+    try:
+        await bot.api.messages.send(
+            peer_id=message.peer_id,
+            message=text,
+            keyboard=kb.get_json(),
+            random_id=random.getrandbits(63)
+        )
+    except VKAPIError[912]:
+        logger.warning(f"Bot lacks permission to send registration confirmation in chat (PeerID={message.peer_id})")
 
 async def is_waiting_birth_date(message: Message) -> bool:
     if not message.text or any(message.text.startswith(e) for e in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
@@ -300,7 +312,10 @@ async def process_birth_date(message: Message):
 
         # Проверка на адекватность года
         if not validate_birth_year(text):
-            await message.answer("🌌 Звезды не видят людей из этого времени. Пожалуйста, введи корректный год рождения (1920-2026):")
+            try:
+                await message.answer("🌌 Звезды не видят людей из этого времени. Пожалуйста, введи корректный год рождения (1920-2026):")
+            except VKAPIError[912]:
+                logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
             return
 
         # 1. Быстрая проверка регуляркой
@@ -308,12 +323,15 @@ async def process_birth_date(message: Message):
             state_dict.update({"step": "waiting_birth_time", "date": text})
             await set_user_state(vk_id, json.dumps(state_dict))
             kb = Keyboard(inline=True).add(Callback("⏳ НЕ ПОМНЮ", payload={"cmd": "skip_birth_time"}), color=KeyboardButtonColor.SECONDARY)
-            await message.answer(
-                f"☾ {text} — прекрасный день для начала пути.\n\n"
-                "Теперь шепни мне ВРЕМЯ своего рождения (например, 14:30).\n"
-                "Если время скрыто в тумане прошлого — просто нажми кнопку ниже.",
-                keyboard=kb.get_json()
-            )
+            try:
+                await message.answer(
+                    f"☾ {text} — прекрасный день для начала пути.\n\n"
+                    "Теперь шепни мне ВРЕМЯ своего рождения (например, 14:30).\n"
+                    "Если время скрыто в тумане прошлого — просто нажми кнопку ниже.",
+                    keyboard=kb.get_json()
+                )
+            except VKAPIError[912]:
+                logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
             return
 
         # 2. Умное распознавание (Fallback на ИИ)
@@ -349,17 +367,26 @@ async def process_birth_date(message: Message):
             if found_date and not found_city:
                 state_dict["step"] = "waiting_birth_city"
                 await set_user_state(vk_id, json.dumps(state_dict))
-                await message.answer(f"Я зафиксировал твою дату рождения ({found_date})! Теперь, пожалуйста, напиши город, в котором ты родился, чтобы Оракул точно рассчитал твои дома.")
+                try:
+                    await message.answer(f"Я зафиксировал твою дату рождения ({found_date})! Теперь, пожалуйста, напиши город, в котором ты родился, чтобы Оракул точно рассчитал твои дома.")
+                except VKAPIError[912]:
+                    logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
             elif found_city and not found_date:
                 state_dict["step"] = "waiting_birth_date"
                 await set_user_state(vk_id, json.dumps(state_dict))
-                await message.answer(f"Город {found_city} принят. Теперь напиши дату своего рождения (ДД.ММ.ГГГГ):")
+                try:
+                    await message.answer(f"Город {found_city} принят. Теперь напиши дату своего рождения (ДД.ММ.ГГГГ):")
+                except VKAPIError[912]:
+                    logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
             elif found_date and found_city:
                 state_dict["step"] = "confirm_data"
                 await set_user_state(vk_id, json.dumps(state_dict))
                 await send_registration_confirmation(message, state_dict)
             else:
-                await message.answer("Я не смогла разобрать данные. Пожалуйста, напиши дату своего рождения в формате ДД.ММ.ГГГГ:")
+                try:
+                    await message.answer("Я не смогла разобрать данные. Пожалуйста, напиши дату своего рождения в формате ДД.ММ.ГГГГ:")
+                except VKAPIError[912]:
+                    logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
     finally:
         await release_lock(vk_id)
 
@@ -379,7 +406,10 @@ async def process_birth_time(message: Message):
         if re.match(r"^\d{2}:\d{2}$", text):
             state_dict.update({"step": "waiting_birth_city", "time": text})
             await set_user_state(vk_id, json.dumps(state_dict))
-            await message.answer("🕯 Время зафиксировано. И последний штрих — в каком ГОРОДЕ ты увидел свой первый звездный свет?")
+            try:
+                await message.answer("🕯 Время зафиксировано. И последний штрих — в каком ГОРОДЕ ты увидел свой первый звездный свет?")
+            except VKAPIError[912]:
+                logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
             return
 
         # Fallback на ИИ
@@ -396,9 +426,15 @@ async def process_birth_time(message: Message):
             else:
                 state_dict["step"] = "waiting_birth_city"
                 await set_user_state(vk_id, json.dumps(state_dict))
-                await message.answer(f"Время {found_time} зафиксировано. А в каком городе ты родился?")
+                try:
+                    await message.answer(f"Время {found_time} зафиксировано. А в каком городе ты родился?")
+                except VKAPIError[912]:
+                    logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
         else:
-            await message.answer("Пожалуйста, введи время в формате ЧЧ:ММ (например, 14:30) или нажми кнопку 'НЕ ПОМНЮ':")
+            try:
+                await message.answer("Пожалуйста, введи время в формате ЧЧ:ММ (например, 14:30) или нажми кнопку 'НЕ ПОМНЮ':")
+            except VKAPIError[912]:
+                logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
     finally:
         await release_lock(vk_id)
 
