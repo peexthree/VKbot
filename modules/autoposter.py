@@ -11,8 +11,6 @@ from modules.bot_init import bot
 from ai_service import generate_text
 from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES
 from modules.utils.photos import upload_wall_photo
-from modules.utils.logic import slugify, clean_topic_ref
-from database.autoposter import get_recent_topics, add_post_history
 
 # Загрузка тем и персонажей
 CONTENT_PATH = "data/content_core.json"
@@ -137,17 +135,17 @@ async def generate_post(is_morning: bool = True):
 
     prompt = (
         f"Текущая дата: {current_date_str}, день недели: {current_day}. "
-        f"Напиши виральный пост для паблика Анти-Тар.\n"
+        "Напиши виральный пост для паблика Анти-Тар.\n"
         f"Твоя роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
         f"Рубрика поста: {rubric}. Инструкция: {rubric_instructions.get(rubric)}\n\n"
         f"Базовая тема: «{topic}».\n\n"
-        f"Технические требования:\n"
-        f"- Используй ЭМОДЗИ (⚡, 🔮, 💀, 👁, -) СТРОГО как маркеры списков или редкие акценты (не более 3-5 на весь пост).\n"
-        f"- РАЗРЕШЕНО использовать КАПС только для 2-3 самых важных слов-триггеров во всем тексте.\n"
-        f"- Текст должен быть нативным, без приветствий и лишней воды.\n"
-        f"- Хэштеги в конце (5 штук): #АнтиТар #Психология + 3 по теме.\n"
-        f"- В самом конце добавь нативный призыв нажать кнопку «Написать сообществу» под постом (каждый раз формулируй по-разному в своем стиле).\n"
-        f"- НИКАКИХ внешних ссылок!"
+        "Технические требования:\n"
+        "- Используй ЭМОДЗИ (⚡, 🔮, 💀, 👁, -) СТРОГО как маркеры списков или редкие акценты (не более 3-5 на весь пост).\n"
+        "- РАЗРЕШЕНО использовать КАПС только для 2-3 самых важных слов-триггеров во всем тексте.\n"
+        "- Текст должен быть нативным, без приветствий и лишней воды.\n"
+        "- Хэштеги в конце (5 штук): #АнтиТар #Психология + 3 по теме.\n"
+        "- В самом конце добавь нативный призыв нажать кнопку «Написать сообществу» под постом (каждый раз формулируй по-разному в своем стиле).\n"
+        "- НИКАКИХ внешних ссылок!"
     )
 
     # Мы передаем skin_id, и generate_text сам возьмет нужный TOV из SKIN_MAP в prompts/personas.py
@@ -235,7 +233,7 @@ async def post_to_vk(is_morning: bool = True):
                 await save_active_poll(poll.id, poll.owner_id, "Голосование", poll_options)
 
         if not attachments:
-            logger.error(f"Аборт публикации: нет вложений")
+            logger.error("Аборт публикации: нет вложений")
             return
 
         # Публикация на Стену сообщества
