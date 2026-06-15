@@ -7,7 +7,6 @@ import aiohttp
 from configs.models import MODELS
 from prompts.base import BASE_SYSTEM_INSTRUCTION
 from prompts.personas import SKIN_MAP
-from ai.core import get_session
 
 SANITIZATION_TABLE = str.maketrans({
     '*': '',
@@ -50,95 +49,98 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
 
     last_exception = Exception("Unknown error")
     tov_instruction = SKIN_MAP.get(skin, SKIN_MAP["olesya"])
-    session = get_session()
 
-    for model, version in MODELS:
-        for api_key in api_keys:
-            url = f"https://generativelanguage.googleapis.com/{version}/{model}:generateContent?key={api_key}"
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(total=90),
+        connector=aiohttp.TCPConnector(limit=10)
+    ) as session:
+        for model, version in MODELS:
+            for api_key in api_keys:
+                url = f"https://generativelanguage.googleapis.com/{version}/{model}:generateContent?key={api_key}"
 
-            # Премиальная инструкция для более глубоких ответов
-            premium_context = (
-                "Используй метафоры высокого уровня, но сочетай их с современным технологическим или психологическим контекстом. "
-                "Твой ответ должен казаться невероятно личным и глубоким. Избегай общих фраз. "
-                "Структурируй ответ так, чтобы он был удобен для чтения в мессенджере (короткие абзацы, тире)."
-            )
+                # Премиальная инструкция для более глубоких ответов
+                premium_context = (
+                    "Используй метафоры высокого уровня, но сочетай их с современным технологическим или психологическим контекстом. "
+                    "Твой ответ должен казаться невероятно личным и глубоким. Избегай общих фраз. "
+                    "Структурируй ответ так, чтобы он был удобен для чтения в мессенджере (короткие абзацы, тире)."
+                )
 
-            if json_mode:
-                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}\nВерни ТОЛЬКО валидный JSON. Все переносы строк внутри строковых полей должны быть экранированы как \\\\n. Не используй реальные переносы строк внутри JSON-строк."
-            else:
-                final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}"
+                if json_mode:
+                    final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}\nВерни ТОЛЬКО валидный JSON. Все переносы строк внутри строковых полей должны быть экранированы как \\\\n. Не используй реальные переносы строк внутри JSON-строк."
+                else:
+                    final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}"
 
-            parts = [{"text": final_prompt}]
-            if image_urls:
-                for img_url in image_urls:
-                    try:
-                        async with session.get(img_url, timeout=10) as img_resp:
-                            if img_resp.status == 200:
-                                img_data = await img_resp.read()
-                                parts.append({
-                                    "inline_data": {
-                                        "mime_type": "image/jpeg",
-                                        "data": base64.b64encode(img_data).decode("utf-8")
-                                    }
-                                })
-                    except Exception as e:
-                        logger.error(f"Failed to fetch image for AI: {e}")
-
-            payload = {
-                "contents": [{"parts": parts}]
-            }
-
-            try:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)) as resp:
-                    if resp.status == 200:
-                        res_data = await resp.json()
+                parts = [{"text": final_prompt}]
+                if image_urls:
+                    for img_url in image_urls:
                         try:
-                            parts = res_data['candidates'][0]['content']['parts']
-                            text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
+                            async with session.get(img_url, timeout=10) as img_resp:
+                                if img_resp.status == 200:
+                                    img_data = await img_resp.read()
+                                    parts.append({
+                                        "inline_data": {
+                                            "mime_type": "image/jpeg",
+                                            "data": base64.b64encode(img_data).decode("utf-8")
+                                        }
+                                    })
+                        except Exception as e:
+                            logger.error(f"Failed to fetch image for AI: {e}")
 
-                            if not text and parts:
-                                text = parts[-1].get("text", "")
+                payload = {
+                    "contents": [{"parts": parts}]
+                }
 
-                            if not json_mode:
-                                text = text.translate(SANITIZATION_TABLE)
-
-                            # Добавляем маркер для TTS если нужно (будущая фича)
-                            # text = "[VOICE_ENABLED] " + text
-
-                            return text
-                        except (KeyError, IndexError):
-                            continue
-                    elif resp.status == 429:
-                        logger.warning(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
-                        for i in range(1, 4):
-                            await asyncio.sleep(2 ** i)
+                try:
+                    async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)) as resp:
+                        if resp.status == 200:
+                            res_data = await resp.json()
                             try:
-                                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=25)) as retry_resp:
-                                    if retry_resp.status == 200:
-                                        res_data = await retry_resp.json()
-                                        parts = res_data['candidates'][0]['content']['parts']
-                                        text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
-                                        if not text and parts:
-                                            text = parts[-1].get("text", "")
-                                        if not json_mode:
-                                            text = text.translate(SANITIZATION_TABLE)
-                                        return text
-                                    elif retry_resp.status != 429:
-                                        break
-                            except Exception:
-                                break
-                        continue
-                    else:
-                        error_text = await resp.text()
-                        logger.error(f"Text API Error status {resp.status} on {model}. Error details: {error_text}")
-                        continue
-            except asyncio.TimeoutError:
-                logger.warning(f"Timeout on {model}. Trying next.")
-                continue
-            except Exception as e:
-                last_exception = e
-                logger.error(f"Ошибка: {str(e)}")
-                continue
+                                parts = res_data['candidates'][0]['content']['parts']
+                                text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
+
+                                if not text and parts:
+                                    text = parts[-1].get("text", "")
+
+                                if not json_mode:
+                                    text = text.translate(SANITIZATION_TABLE)
+
+                                # Добавляем маркер для TTS если нужно (будущая фича)
+                                # text = "[VOICE_ENABLED] " + text
+
+                                return text
+                            except (KeyError, IndexError):
+                                continue
+                        elif resp.status == 429:
+                            logger.warning(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
+                            for i in range(1, 4):
+                                await asyncio.sleep(2 ** i)
+                                try:
+                                    async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=25)) as retry_resp:
+                                        if retry_resp.status == 200:
+                                            res_data = await retry_resp.json()
+                                            parts = res_data['candidates'][0]['content']['parts']
+                                            text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
+                                            if not text and parts:
+                                                text = parts[-1].get("text", "")
+                                            if not json_mode:
+                                                text = text.translate(SANITIZATION_TABLE)
+                                            return text
+                                        elif retry_resp.status != 429:
+                                            break
+                                except Exception:
+                                    break
+                            continue
+                        else:
+                            error_text = await resp.text()
+                            logger.error(f"Text API Error status {resp.status} on {model}. Error details: {error_text}")
+                            continue
+                except asyncio.TimeoutError:
+                    logger.warning(f"Timeout on {model}. Trying next.")
+                    continue
+                except Exception as e:
+                    last_exception = e
+                    logger.error(f"Ошибка: {str(e)}")
+                    continue
 
     logger.error(f"All keys and models exhausted or failed for text generation. Last error: {last_exception}")
     return None

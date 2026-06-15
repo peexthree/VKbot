@@ -323,6 +323,9 @@ async def main():
     bot.labeler.load(profile.labeler)
     bot.labeler.load(payments.labeler)
 
+    from modules.autoposter import labeler as autoposter_labeler
+    bot.labeler.load(autoposter_labeler)
+
     import modules.admin as admin
     bot.labeler.load(admin.labeler)
 
