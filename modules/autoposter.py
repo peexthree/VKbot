@@ -6,6 +6,8 @@ from datetime import timezone, timedelta
 from loguru import logger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from vkbottle.bot import BotLabeler
+from vkbottle import GroupEventType
 
 from modules.bot_init import bot
 from ai_service import generate_text
@@ -15,6 +17,19 @@ from modules.utils.photos import upload_wall_photo
 # Загрузка тем и персонажей
 CONTENT_PATH = "data/content_core.json"
 GROUP_ID = int(os.environ.get("GROUP_ID", "219181948"))
+
+labeler = BotLabeler()
+
+@labeler.raw_event(GroupEventType.WALL_POST_NEW, dataclass=dict)
+async def ignore_self_wall_posts(event: dict):
+    """
+    Защита от самопостинга: игнорируем события о новых постах,
+    если они созданы самим сообществом.
+    """
+    obj = event.get("object", {})
+    from_id = obj.get("from_id", 0)
+    if from_id == -GROUP_ID:
+        return "ok"
 
 def load_content():
     with open(CONTENT_PATH, "r", encoding="utf-8") as f:
@@ -265,6 +280,10 @@ async def post_to_vk(is_morning: bool = True):
                 from database.autoposter import save_active_poll
                 await save_active_poll(poll.id, poll.owner_id, "Голосование", poll_options)
 
+        if not text or text.strip() == "" or text == "Post text":
+            logger.error("Аборт публикации: пустой или некорректный текст поста")
+            return
+
         if not attachments:
             logger.error("Аборт публикации: нет вложений")
             return
@@ -290,13 +309,13 @@ def setup_autoposter():
     bash_tz = "Asia/Yekaterinburg"
     scheduler = AsyncIOScheduler(timezone=bash_tz)
 
-    # 🌅 Утренний выход: 08:00 - 09:00
+    # 🌅 Утренний выход: ровно 08:00
     morning_hour = 8
-    morning_minute = random.randint(0, 59)
+    morning_minute = 0
 
-    # 🌌 Вечерний выход: 19:00 - 21:00
-    evening_hour = random.randint(19, 20)
-    evening_minute = random.randint(0, 59)
+    # 🌌 Вечерний выход: ровно 19:00
+    evening_hour = 19
+    evening_minute = 0
 
     # Утреннее задание
     scheduler.add_job(
