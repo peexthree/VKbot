@@ -210,7 +210,39 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
         logger.info(f"message_event_handler triggered by vk_id={vk_id}, cmd={cmd}")
 
-        if cmd == "retry_registration":
+        if cmd == "whisper_fomo_reverify":
+            await safe_edit(peer_id=peer_id, message="✦ ВОССТАНОВЛЕНИЕ КАНАЛА СВЯЗИ...", conversation_message_id=obj.get("conversation_message_id"))
+            try:
+                users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
+                bdate, city = "", ""
+                if users_info:
+                    info = users_info[0]
+                    bdate = info.bdate or ""
+                    if info.city and hasattr(info.city, "title"): city = info.city.title
+
+                if bdate and city:
+                    # Если данные в ВК есть, показываем экран подтверждения
+                    state_dict = {"step": "confirm_data", "date": bdate, "time": "12:00", "city": city, "conv_id": obj.get("conversation_message_id")}
+                    await set_user_state(vk_id, json.dumps(state_dict))
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+                    kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+                    text = (
+                        f"Я нашла твои данные в системе. Это поможет восстановить поток:\n\n"
+                        f"☾ Дата: {bdate}\n"
+                        f"☾ Город: {city}\n\n"
+                        "Всё верно? Мы сотрем их через 24 часа для твоей безопасности."
+                    )
+                    await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message=text, keyboard=kb.get_json())
+                else:
+                    # Если данных нет, просим ввести вручную
+                    await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}))
+                    await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Для восстановления Шепота звезд мне нужны твои данные. Напиши свою ДАТУ рождения (например, 15.04.1990):")
+            except Exception as e:
+                logger.error(f"Error in whisper_fomo_reverify: {e}")
+                await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}))
+                await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Не удалось получить данные автоматически. Напиши свою ДАТУ рождения (например, 15.04.1990):")
+        elif cmd == "retry_registration":
             await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}))
             await safe_edit(peer_id=peer_id, message="Понял. Давай попробуем еще раз. Напиши свою ДАТУ рождения (например, 15.04.1990):", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "edit_onboarding_data":
@@ -242,6 +274,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             if user and not user.get("welcome_bonus_received"):
                 updates["balance"] = (user.get("balance", 0) or 0) + 700
                 updates["welcome_bonus_received"] = True
+
+            # Сбрасываем флаг FOMO при любой успешной регистрации/обновлении данных
+            purchased = user.get("purchased_sections", {}) if user else {}
+            purchased["whisper_fomo_sent"] = False
+            updates["purchased_sections"] = purchased
 
             # Сохраняем всё одним запросом в Supabase
             await update_user(vk_id, updates)
