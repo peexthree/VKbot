@@ -17,18 +17,93 @@ async def get_recent_topics(limit: int = 30) -> List[str]:
         logger.error(f"Error in get_recent_topics: {e}")
     return []
 
-async def add_post_history(topic_name: str):
-    """Записывает публикацию поста в историю"""
+async def add_post_history(topic_name: str, skin_id: str = None):
+    """Записывает публикацию поста в историю и в ежедневный лог"""
     if not URL or not KEY or core.session is None: return False
-    payload = {
+
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    # 1. Запись в общую историю
+    payload_history = {
         "topic_name": topic_name,
-        "published_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "published_at": now_iso
     }
+
+    # 2. Запись в ежедневный лог (для контроля повторов за 24ч)
+    payload_daily = {
+        "skin_id": skin_id or "unknown",
+        "topic_name": topic_name,
+        "published_at": now_iso
+    }
+
     try:
-        async with core.session.post(f"{URL}/rest/v1/post_history", headers=HEADERS, json=payload) as r:
-            return r.status in (200, 201, 204)
+        async with core.session.post(f"{URL}/rest/v1/post_history", headers=HEADERS, json=payload_history) as r:
+            logger.info(f"Post history updated: {r.status}")
+
+        async with core.session.post(f"{URL}/rest/v1/post_daily_log", headers=HEADERS, json=payload_daily) as r:
+            logger.info(f"Daily log updated: {r.status}")
+
+        return True
     except Exception as e:
         logger.error(f"Error in add_post_history: {e}")
+    return False
+
+async def get_daily_used_content():
+    """Возвращает персонажей и темы, использованные за последние 24 часа"""
+    if not URL or not KEY or core.session is None: return [], []
+    try:
+        # 24 часа назад
+        time_limit = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)).isoformat()
+        url = f"{URL}/rest/v1/post_daily_log?select=skin_id,topic_name&published_at=gt.{time_limit}"
+        async with core.session.get(url, headers=HEADERS) as r:
+            if r.status == 200:
+                data = await r.json()
+                skins = [item["skin_id"] for item in data]
+                topics = [item["topic_name"] for item in data]
+                return skins, topics
+    except Exception as e:
+        logger.error(f"Error in get_daily_used_content: {e}")
+    return [], []
+
+async def save_active_poll(poll_id: int, owner_id: int, topic_name: str, options: list):
+    """Сохраняет активный опрос в базу"""
+    if not URL or not KEY or core.session is None: return False
+    payload = {
+        "poll_id": poll_id,
+        "owner_id": owner_id,
+        "topic_name": topic_name,
+        "options": options,
+        "is_active": True
+    }
+    try:
+        async with core.session.post(f"{URL}/rest/v1/active_polls", headers=HEADERS, json=payload) as r:
+            return r.status in (200, 201, 204)
+    except Exception as e:
+        logger.error(f"Error in save_active_poll: {e}")
+    return False
+
+async def get_active_poll():
+    """Возвращает последний активный опрос"""
+    if not URL or not KEY or core.session is None: return None
+    try:
+        url = f"{URL}/rest/v1/active_polls?select=*&is_active=eq.true&order=created_at.desc&limit=1"
+        async with core.session.get(url, headers=HEADERS) as r:
+            if r.status == 200:
+                data = await r.json()
+                return data[0] if data else None
+    except Exception as e:
+        logger.error(f"Error in get_active_poll: {e}")
+    return None
+
+async def close_poll(id: int):
+    """Помечает опрос как закрытый"""
+    if not URL or not KEY or core.session is None: return False
+    try:
+        url = f"{URL}/rest/v1/active_polls?id=eq.{id}"
+        async with core.session.patch(url, headers=HEADERS, json={"is_active": False}) as r:
+            return r.status in (200, 204)
+    except Exception as e:
+        logger.error(f"Error in close_poll: {e}")
     return False
 
 async def record_post_click(vk_id: int, topic_name: str):
