@@ -11,7 +11,6 @@ from ai.core import get_session
 
 SANITIZATION_TABLE = str.maketrans({
     '*': '',
-    '#': '',
     '_': '',
     '—': '-',
     '`': '',
