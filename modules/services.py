@@ -7,7 +7,6 @@ from vkbottle import (
     Callback,
     Keyboard,
     KeyboardButtonColor,
-    VKAPIError,
 )
 from vkbottle.bot import BotLabeler, Message
 
@@ -482,21 +481,15 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
 @labeler.message(func=lambda m: m.text and m.text.lower() in ['🔮 глубокие разборы', 'глубокие разборы', '✦ услуги', 'услуги', '✦ услуги 🛒'] and not m.attachments)
 async def show_services_handler(message: Message):
     logger.info(f"show_services_handler triggered by from_id={message.from_id}")
-    try:
-        last_mid = await get_last_bot_msg(message.from_id)
-        if last_mid:
-            await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
-        await show_services(message.from_id, message.peer_id, 0)
-    except VKAPIError[912]:
-        logger.warning(f"Bot lacks permission to perform this action in chat (PeerID={message.peer_id})")
+    last_mid = await get_last_bot_msg(message.from_id)
+    if last_mid:
+        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
+    await show_services(message.from_id, message.peer_id, 0)
 
 
 @labeler.message(func=lambda m: m.text and m.text.lower() in ['🛰 тарифы', '💳 пополнить'] and not m.attachments)
 async def show_tariffs_handler(message: Message):
-    try:
-        last_mid = await get_last_bot_msg(message.from_id)
-        if last_mid:
-            await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
-        await show_tariffs(message.from_id, message.peer_id, 0)
-    except VKAPIError[912]:
-        logger.warning(f"Bot lacks permission to show tariffs in chat (PeerID={message.peer_id})")
+    last_mid = await get_last_bot_msg(message.from_id)
+    if last_mid:
+        await delete_bot_message(bot.api, message.peer_id, mid=last_mid)
+    await show_tariffs(message.from_id, message.peer_id, 0)
