@@ -7,7 +7,6 @@ import aiohttp
 from configs.models import MODELS
 from prompts.base import BASE_SYSTEM_INSTRUCTION
 from prompts.personas import SKIN_MAP
-from ai.core import get_session
 
 SANITIZATION_TABLE = str.maketrans({
     '*': '',
