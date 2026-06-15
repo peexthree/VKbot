@@ -111,9 +111,9 @@ async def generate_post(is_morning: bool = True):
 
     logger.info(f"Генерация поста: {rubric}, персонаж {skin_id}, тема '{topic}'")
 
-    # Получаем текущую дату по UTC+5 (Башкирия)
-    tz_bash = timezone(timedelta(hours=5))
-    now = datetime.datetime.now(tz_bash)
+    # Получаем текущую дату по UTC+3 (Москва)
+    tz_msk = timezone(timedelta(hours=3))
+    now = datetime.datetime.now(tz_msk)
     days_of_week = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
     current_day = days_of_week[now.weekday()]
     current_date_str = now.strftime("%d.%m.%Y")
@@ -305,9 +305,9 @@ async def post_to_vk(is_morning: bool = True):
         logger.exception(f"Ошибка при автопостинге: {e}")
 
 def setup_autoposter():
-    # Таймзона Башкортостана (UTC+5)
-    bash_tz = "Asia/Yekaterinburg"
-    scheduler = AsyncIOScheduler(timezone=bash_tz)
+    # Таймзона Москвы (UTC+3)
+    msk_tz = "Europe/Moscow"
+    scheduler = AsyncIOScheduler(timezone=msk_tz)
 
     # 🌅 Утренний выход: ровно 08:00
     morning_hour = 8
@@ -334,5 +334,5 @@ def setup_autoposter():
     )
 
     scheduler.start()
-    logger.info(f"Автопостинг настроен (UTC+5): Утро {morning_hour}:{morning_minute:02d}, Вечер {evening_hour}:{evening_minute:02d}")
+    logger.info(f"Автопостинг настроен (MSK): Утро {morning_hour}:{morning_minute:02d}, Вечер {evening_hour}:{evening_minute:02d}")
     return scheduler

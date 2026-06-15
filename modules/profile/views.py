@@ -1,7 +1,7 @@
 import re
 import random
 from loguru import logger
-from vkbottle import Keyboard, KeyboardButtonColor, Callback
+from vkbottle import Keyboard, KeyboardButtonColor, Callback, VKAPIError
 from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state
@@ -205,12 +205,17 @@ async def god_mode_logic(vk_id: int, message: Message, skip_lock: bool = False):
         new_balance = int(user.get("balance", 0) or 0) + 100000
         await update_user(vk_id, {"balance": new_balance})
         kb_json = await get_sections_keyboard(vk_id, user)
-        await bot.api.messages.send(
-            peer_id=message.peer_id,
-            message="ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.",
-            keyboard=kb_json,
-            random_id=random.getrandbits(63)
-        )
+        try:
+            await bot.api.messages.send(
+                peer_id=message.peer_id,
+                message="ЛАЙН ПОДАЛ ГОЛОС. ВАМ НАЧИСЛЕНО 100 000 ЭНЕРГИИ ЗВЕЗД.",
+                keyboard=kb_json,
+                random_id=random.getrandbits(63)
+            )
+        except VKAPIError[912]:
+            logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
+    except VKAPIError[912]:
+        logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
     finally:
         await stop_dynamic_typing(message.peer_id)
         if not skip_lock:
@@ -346,12 +351,15 @@ async def enter_seal_logic(vk_id: int, message: Message, skip_lock: bool = False
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
         kb_json = get_cancel_seal_keyboard()
-        await bot.api.messages.send(
-            peer_id=message.peer_id,
-            message="Введи Теневой Шифр, который тебе передал другой адепт:",
-            keyboard=kb_json,
-            random_id=random.getrandbits(63)
-        )
+        try:
+            await bot.api.messages.send(
+                peer_id=message.peer_id,
+                message="Введи Теневой Шифр, который тебе передал другой адепт:",
+                keyboard=kb_json,
+                random_id=random.getrandbits(63)
+            )
+        except VKAPIError[912]:
+            logger.warning(f"Bot lacks permission in chat (PeerID={message.peer_id})")
     finally:
         await stop_dynamic_typing(message.peer_id)
         if not skip_lock:
@@ -464,7 +472,10 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
             if ref_purchased.get("syndicate_count", 0) == 5:
                 push_msg += "\n\nТвой ранг повышен до: Теневой Кардинал! Теперь тебе открыты скрытые возможности."
 
-            await bot.api.messages.send(peer_id=referrer_id, message=push_msg, random_id=random.getrandbits(63))
+            try:
+                await bot.api.messages.send(peer_id=referrer_id, message=push_msg, random_id=random.getrandbits(63))
+            except VKAPIError[912]:
+                logger.warning(f"Bot lacks permission to send referral push in chat (PeerID={referrer_id})")
         except Exception as e:
             logger.error(f"Push notification failed: {str(e)}")
     finally:
@@ -550,7 +561,10 @@ async def show_history_item_logic(
         if idx == -1:
             destiny_data = await get_destiny_card_data(vk_id)
             if not destiny_data:
-                await bot.api.messages.send(peer_id=peer_id, message="🛑 Данные Карты Судьбы стерты из соображений безопасности.", random_id=random.getrandbits(63))
+                try:
+                    await bot.api.messages.send(peer_id=peer_id, message="🛑 Данные Карты Судьбы стерты из соображений безопасности.", random_id=random.getrandbits(63))
+                except VKAPIError[912]:
+                    logger.warning(f"Bot lacks permission in chat (PeerID={peer_id})")
                 return
             item = {
                 "title": "⭐ КАРТА СУДЬБЫ",
