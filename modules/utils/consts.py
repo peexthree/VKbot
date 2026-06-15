@@ -82,6 +82,52 @@ SKIN_DISPLAY_NAMES = {
     "anubis": "Анубис"
 }
 
+SKIN_SHORT_NAMES = {
+    "olesya": "ОЛЕСЯ",
+    "sheps_alex": "ШЕППС",
+    "messing": "МЕССИНГ",
+    "guzeeva": "ГУЗИЕВА",
+    "cherevatov": "ЧЕРЕВАТОВ",
+    "nostradamus": "НОСТРАДАМУС",
+    "rasputin": "РАСПУТИН",
+    "kaliostro": "КАЛИОСТРО",
+    "blinovskaya": "БЛЕНОВСКАЯ",
+    "professor": "ПРОФЕССОР",
+    "fluffy": "ФЛАФФИ",
+    "vanga": "ВАНГА",
+    "ai_mom": "МАМА",
+    "honest_oracle": "ОРАКУЛ",
+    "saint_germain": "СЕН-ЖЕРМЕН",
+    "pythia": "ПИФИЯ",
+    "freud": "ФРЕЙД",
+    "jack_sparrow": "СОЛОВЕЙ",
+    "cleopatra": "КЛЕОПАТРА",
+    "anubis": "АНУБИС"
+}
+
+SKIN_EMOJIS = {
+    "olesya": "⚡",
+    "sheps_alex": "🕯",
+    "messing": "🧠",
+    "guzeeva": "👠",
+    "cherevatov": "💀",
+    "nostradamus": "📜",
+    "rasputin": "☦",
+    "kaliostro": "🍷",
+    "blinovskaya": "🎈",
+    "professor": "🎓",
+    "fluffy": "😈",
+    "vanga": "👵",
+    "ai_mom": "🥘",
+    "honest_oracle": "🚬",
+    "saint_germain": "🎭",
+    "pythia": "🔮",
+    "freud": "🛋",
+    "jack_sparrow": "⚓",
+    "cleopatra": "👑",
+    "anubis": "⚖"
+}
+
 CHARACTER_DESCRIPTIONS = {
     # --- КАТЕГОРИЯ 1: БАЗОВЫЕ ---
     "olesya": {

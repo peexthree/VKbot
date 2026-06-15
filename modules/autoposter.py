@@ -9,7 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from modules.bot_init import bot
 from ai_service import generate_text
-from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES
+from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES, SKIN_EMOJIS
 from modules.utils.photos import upload_wall_photo
 
 # Загрузка тем и персонажей
@@ -87,6 +87,7 @@ async def generate_post(is_morning: bool = True):
     tone = random.choice(tones)
 
     # Логика Битвы Архетипов
+    opponent_id = ""
     opponent_name = ""
     if rubric == "BATTLE":
         opponents = [s for s in skin_ids if s != skin_id]
@@ -116,7 +117,10 @@ async def generate_post(is_morning: bool = True):
         "BATTLE": (
             f"Битва Архетипов. Это диалог-стычка между тобой ({skin_name}) и персонажем {opponent_name}. "
             f"Вы спорите на тему «{topic}». Ты гнешь свою линию, {opponent_name} — свою. "
-            "Диалог должен быть динамичным, острым и коротким. В конце — твой финальный едкий вывод."
+            "Диалог должен быть динамичным, острым и коротким. Каждая реплика должна начинаться с новой строки в формате:\n"
+            f"{SKIN_EMOJIS.get(skin_id, '👁')} {SKIN_SHORT_NAMES.get(skin_id, skin_id)}: Текст реплики...\n"
+            f"{SKIN_EMOJIS.get(opponent_id, '👁')} {SKIN_SHORT_NAMES.get(opponent_id, opponent_id)}: Текст реплики...\n"
+            "В конце диалога обязательно добавь свой финальный едкий вывод без префикса имени."
         ),
         "PRACTICUM": (
             "Классический жесткий практикум. Вскрой боль темы и дай 3 конкретных шага (дефисы), как сломать старый сценарий завтра."
@@ -142,11 +146,11 @@ async def generate_post(is_morning: bool = True):
         f"Рубрика поста: {rubric}. Инструкция: {rubric_instructions.get(rubric)}\n\n"
         f"Базовая тема: «{topic}».\n\n"
         "Технические требования:\n"
-        "- Используй ЭМОДЗИ (⚡, 🔮, 💀, 👁, -) СТРОГО как маркеры списков или редкие акценты (не более 3-5 на весь пост).\n"
-        "- РАЗРЕШЕНО использовать КАПС только для 2-3 самых важных слов-триггеров во всем тексте.\n"
+        "- Используй ЭМОДЗИ СТРОГО как маркеры персонажей в начале реплик (для Битвы) или как редкие акценты (не более 3-5 на весь пост).\n"
+        "- РАЗРЕШЕНО использовать КАПС для имен персонажей в Битве и для 2-3 важных слов-триггеров в тексте.\n"
         "- Текст должен быть нативным, без приветствий и лишней воды.\n"
-        "- Хэштеги в конце (5 штук): #АнтиТар #Психология + 3 по теме.\n"
-        "- В самом конце добавь нативный призыв нажать кнопку «Написать сообществу» под постом (каждый раз формулируй по-разному в своем стиле).\n"
+        "- В конце текста добавь нативный призыв нажать кнопку «Написать сообществу» под постом (каждый раз формулируй по-разному в своем стиле).\n"
+        "- СРАЗУ ПОСЛЕ ПРИЗЫВА, самой последней строкой, выведи 5 хэштегов: #АнтиТар #Психология + 3 по теме.\n"
         "- НИКАКИХ внешних ссылок!"
     )
 
@@ -157,18 +161,29 @@ async def generate_post(is_morning: bool = True):
         return None
 
     # Агрессивный предохранитель хэштегов: обрабатываем именно ai_text
-    ai_lines = ai_text.strip().split('\n')
+    ai_lines = [line.strip() for line in ai_text.strip().split('\n') if line.strip()]
     if ai_lines:
-        last_line = ai_lines[-1].strip()
-        # Разбиваем строку на отдельные слова/теги
-        words = last_line.split()
+        # Ищем строку с хэштегами (обычно последняя или предпоследняя)
+        tag_line_index = -1
+        for i in range(len(ai_lines) - 1, max(-1, len(ai_lines) - 3), -1):
+            words = ai_lines[i].split()
+            # Если в строке 3-10 слов и она последняя ИЛИ содержит # ИЛИ длинные слова (теги)
+            if 3 <= len(words) <= 10:
+                if i == len(ai_lines) - 1 or any(w.startswith('#') or len(w) > 10 for w in words):
+                    tag_line_index = i
+                    break
 
-        # Если в строке от 3 до 7 слов (страховка, что это именно блок хэштегов)
-        if 3 <= len(words) <= 7:
-            # Принудительно чистим от старых решеток, точек и вешаем ровно одну # в начало каждого слова
-            fixed_tags = [f"#{word.lstrip('#').rstrip('.,')}" for word in words]
-            ai_lines[-1] = " ".join(fixed_tags)
-            ai_text = "\n".join(ai_lines)
+        if tag_line_index != -1:
+            words = ai_lines[tag_line_index].split()
+            fixed_tags = [f"#{word.lstrip('#').rstrip('.,!?;')}" for word in words]
+            ai_lines[tag_line_index] = " ".join(fixed_tags)
+
+            # Если теги не в самом конце - переносим их в конец
+            if tag_line_index != len(ai_lines) - 1:
+                tags = ai_lines.pop(tag_line_index)
+                ai_lines.append(tags)
+
+        ai_text = "\n\n".join(ai_lines)
 
     # Нативный текст без ссылок
     final_text = ai_text.strip()
@@ -176,6 +191,7 @@ async def generate_post(is_morning: bool = True):
     return {
         "text": final_text,
         "skin_id": skin_id,
+        "opponent_id": opponent_id,
         "topic": topic,
         "category": category,
         "rubric": rubric
@@ -202,23 +218,38 @@ async def post_to_vk(is_morning: bool = True):
 
         text = post_data["text"]
         skin_id = post_data["skin_id"]
+        opponent_id = post_data.get("opponent_id")
         rubric = post_data["rubric"]
         topic = post_data["topic"]
 
         # Подготовка вложений (Фото персонажа или Карта Таро)
         attachments = []
 
-        # Шанс 20% на карту Таро вместо лица персонажа, если это не опрос
-        if random.random() < 0.2 and rubric != "POLL":
-            card_id = random.randint(0, 77)
-            photo_filename = f"cards/{card_id}.jpeg"
-            logger.info(f"Выбрана карта Таро для поста: {photo_filename}")
-        else:
-            photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
+        if rubric == "BATTLE" and opponent_id:
+            # Для Битвы - всегда два персонажа
+            photo1 = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
+            photo2 = SKIN_VISUALS.get(opponent_id, "main_menu.jpeg")
 
-        attachment = await upload_wall_photo(bot.api, photo_filename)
-        if attachment:
-            attachments.append(attachment)
+            att1 = await upload_wall_photo(bot.api, photo1)
+            att2 = await upload_wall_photo(bot.api, photo2)
+
+            if att1: attachments.append(att1)
+            if att2: attachments.append(att2)
+        else:
+            # Основное фото персонажа
+            photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
+            att = await upload_wall_photo(bot.api, photo_filename)
+            if att:
+                attachments.append(att)
+
+            # Шанс 20% на карту Таро в дополнение (карусель)
+            if random.random() < 0.2 and rubric != "POLL":
+                card_id = random.randint(0, 77)
+                card_filename = f"cards/{card_id}.jpeg"
+                logger.info(f"Выбрана доп. карта Таро для поста: {card_filename}")
+                att_card = await upload_wall_photo(bot.api, card_filename)
+                if att_card:
+                    attachments.append(att_card)
 
         # Если рубрика POLL - создаем и крепим опрос с вариантами тем на завтра
         if rubric == "POLL":
