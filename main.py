@@ -408,8 +408,7 @@ async def main():
 
                     from cache import get_temp_birth_data
                     temp_birth = await get_temp_birth_data(vk_id)
-                    if not temp_birth or not temp_birth.get("city"):
-                        return
+
                     expires_str = user.get("transit_sub_expires_at")
                     has_sub = False
                     if expires_str:
@@ -422,7 +421,23 @@ async def main():
                     trial_days = user.get("transit_trial_days", 0)
                     is_muted = purchased.get("whisper_muted", False)
 
-                    if (has_sub or trial_days < 3) and not is_muted:
+                    # FOMO TRIGGER (День 2: Эмоциональный пуш)
+                    if (has_sub or trial_days < 3) and not is_muted and not (temp_birth and temp_birth.get("city")):
+                        if not purchased.get("whisper_fomo_sent"):
+                            msg = (
+                                "🔮 Матрица перестроилась, и твои планеты вошли в критический сектор. "
+                                "Из соображений безопасности твои сакральные данные были стерты, "
+                                "и я больше не слышу шепот звезд для тебя.\n\n"
+                                "Нажми на кнопку ниже, обнови время рождения и узнай, какой вызов приготовила тебе Вселенная на сегодня."
+                            )
+                            try:
+                                kb = Keyboard(inline=True).add(Callback("🔮 УЗНАТЬ ПРОГНОЗ", payload={"cmd": "whisper_fomo_reverify"}), color=KeyboardButtonColor.POSITIVE)
+                                await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=random.getrandbits(63))
+                                purchased["whisper_fomo_sent"] = True
+                                await update_user(vk_id, {"purchased_sections": purchased})
+                            except Exception: pass
+
+                    if (has_sub or trial_days < 3) and not is_muted and temp_birth and temp_birth.get("city"):
                         from cache import get_core_profile
                         core_profile = await get_core_profile(vk_id)
                         active_skin = user.get("active_skin", "olesya")
