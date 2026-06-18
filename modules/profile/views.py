@@ -1,5 +1,6 @@
 import re
 import random
+import json
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
