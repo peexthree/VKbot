@@ -236,7 +236,7 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
         await set_user_state(vk_id, json.dumps(state_dict))
 
         kb = Keyboard(inline=True)
-        kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+        kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
         kb.add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
 
@@ -256,7 +256,7 @@ async def process_onboarding_skin_logic(vk_id: int, peer_id: int, skin: str, con
 
 async def send_registration_confirmation(message: Message, state_dict: dict):
     kb = Keyboard(inline=True)
-    kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
     kb.add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
 
@@ -265,7 +265,7 @@ async def send_registration_confirmation(message: Message, state_dict: dict):
         f"☾ Дата: {state_dict.get('date')}\n"
         f"☾ Время: {state_dict.get('time', '12:00')}\n"
         f"☾ Город: {state_dict.get('city')}\n\n"
-        "Посмотри внимательно, всё ли правильно? Точность важна. Мы храним эти данные только 24 часа."
+        "Посмотри внимательно, всё ли правильно? Точность важна. Мы храним эти данные только 24 часа в целях безопасности."
     )
     await bot.api.messages.send(
         peer_id=message.peer_id,

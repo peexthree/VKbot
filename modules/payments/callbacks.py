@@ -225,28 +225,38 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     state_dict = {"step": "confirm_data", "date": bdate, "time": "12:00", "city": city, "conv_id": obj.get("conversation_message_id")}
                     await set_user_state(vk_id, json.dumps(state_dict))
                     kb = Keyboard(inline=True)
-                    kb.add(Callback("✅ ДАННЫЕ ВЕРНЫ", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+                    kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
                     kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
                     text = (
-                        f"Я нашла твои данные в системе. Это поможет восстановить поток:\n\n"
+                        "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\n"
+                        "Я нашла твои данные в системе. Пожалуйста, проверь верны ли они:\n\n"
                         f"☾ Дата: {bdate}\n"
-                        f"☾ Город: {city}\n\n"
-                        "Всё верно? Мы сотрем их через 24 часа для твоей безопасности."
+                        f"☾ Город: {city}\n"
+                        "☾ Время: 12:00 (по умолчанию)\n\n"
+                        "Всё верно?"
                     )
                     await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message=text, keyboard=kb.get_json())
                 else:
                     # Если данных нет, просим ввести вручную
                     await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}))
-                    await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Для восстановления Шепота звезд мне нужны твои данные. Напиши свою ДАТУ рождения (например, 15.04.1990):")
+                    await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nДля восстановления Шепота звезд мне нужны твои данные. Напиши свою ДАТУ рождения (например, 15.04.1990):")
             except Exception as e:
                 logger.error(f"Error in whisper_fomo_reverify: {e}")
                 await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}))
-                await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Не удалось получить данные автоматически. Напиши свою ДАТУ рождения (например, 15.04.1990):")
+                await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nНе удалось получить данные автоматически. Напиши свою ДАТУ рождения (например, 15.04.1990):")
         elif cmd == "retry_registration":
-            await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}))
-            await safe_edit(peer_id=peer_id, message="Понял. Давай попробуем еще раз. Напиши свою ДАТУ рождения (например, 15.04.1990):", conversation_message_id=obj.get("conversation_message_id"))
+            state_dict = await get_fsm_step(vk_id) or {}
+            original_intent = state_dict.get("original_intent")
+            new_state = {"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}
+            if original_intent: new_state["original_intent"] = original_intent
+            await set_user_state(vk_id, json.dumps(new_state))
+            await safe_edit(peer_id=peer_id, message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nДавай попробуем еще раз. Напиши свою ДАТУ рождения (например, 15.04.1990):", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "edit_onboarding_data":
-            await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}))
+            state_dict = await get_fsm_step(vk_id) or {}
+            original_intent = state_dict.get("original_intent")
+            new_state = {"step": "waiting_birth_date", "conv_id": obj.get("conversation_message_id")}
+            if original_intent: new_state["original_intent"] = original_intent
+            await set_user_state(vk_id, json.dumps(new_state))
             await safe_edit(peer_id=peer_id, message="Хорошо, давай начнем сначала. Напиши свою ДАТУ рождения (например, 15.04.1990):", conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "confirm_registration":
             state_dict = await get_fsm_step(vk_id)
@@ -293,8 +303,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             # РЕЗОЛВ ОРИГИНАЛЬНОГО НАМЕРЕНИЯ
             if original_intent:
                 oi_cmd = original_intent.get("cmd")
-                if oi_cmd == "buy":
-                    # Рекурсивно вызываем обработчик нажатия кнопки buy
+                if oi_cmd in ["buy", "gen_pdf", "view_history", "buy_destiny_card", "card_of_day"]:
+                    # Рекурсивно вызываем обработчик для команд, обрабатываемых в этом файле
                     event_for_oi = event.copy()
                     event_for_oi["object"]["payload"] = original_intent
                     return await _message_event_handler_wrapped(event_for_oi, skip_lock=True)
@@ -478,7 +488,43 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 latest_data = latest_reading.get("data") or {"text": latest_reading.get("text")}
 
             if not latest_data or "text" not in latest_data:
-                await bot.api.messages.send(peer_id=peer_id, message="Текст разбора стерт из соображений безопасности. Сгенерируйте разбор заново.", random_id=random.getrandbits(63))
+                # Пытаемся восстановить данные для PDF через подтверждение
+                try:
+                    users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
+                    bdate, city = "", ""
+                    if users_info:
+                        info = users_info[0]
+                        bdate = info.bdate or ""
+                        if info.city and hasattr(info.city, "title"): city = info.city.title
+
+                    if bdate and city:
+                        state_dict = {
+                            "step": "confirm_data",
+                            "date": bdate,
+                            "time": "12:00",
+                            "city": city,
+                            "original_intent": {"cmd": "gen_pdf", "section": section, "card": card_id}
+                        }
+                        await set_user_state(vk_id, json.dumps(state_dict))
+
+                        kb = Keyboard(inline=True)
+                        kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+                        kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+
+                        text = (
+                            "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\n"
+                            "Твой разбор был очищен. Чтобы заново сгенерировать его и создать PDF, пожалуйста, проверь свои данные:\n\n"
+                            f"☾ Дата: {bdate}\n"
+                            f"☾ Город: {city}\n"
+                            "☾ Время: 12:00 (по умолчанию)\n\n"
+                            "Всё верно?"
+                        )
+                        await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=random.getrandbits(63))
+                        return
+                except Exception as e:
+                    logger.error(f"Error parsing VK data for PDF retry: {e}")
+
+                await bot.api.messages.send(peer_id=peer_id, message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nТекст разбора был очищен. Сгенерируйте разбор заново в разделе Услуг.", random_id=random.getrandbits(63))
                 return
             await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=random.getrandbits(63))
             pdf_name = f"report_{vk_id}_{section}.pdf"
@@ -622,18 +668,73 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 from cache import get_temp_birth_data
                 birth_data = await get_temp_birth_data(vk_id)
                 if not birth_data:
-                    state_data = {
-                        "step": "waiting_birth_date",
-                        "conv_id": obj.get("conversation_message_id"),
-                        "original_intent": {"cmd": "buy", "type": buy_type, "key": key}
-                    }
-                    await set_user_state(vk_id, json.dumps(state_data))
-                    await safe_edit(
-                        peer_id=peer_id,
-                        conversation_message_id=obj.get("conversation_message_id"),
-                        message="🔮 ДЛЯ АКТИВАЦИИ ПОТОКА МНЕ НУЖНА ТВОЯ ДАТА РОЖДЕНИЯ\n\nЧтобы я могла настроиться на твою энергию и провести ритуал, шепни мне дату своего рождения (например, 15.04.1990):"
-                    )
-                    return
+                    # Пытаемся спарсить из ВК
+                    try:
+                        users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
+                        bdate, city = "", ""
+                        if users_info:
+                            info = users_info[0]
+                            bdate = info.bdate or ""
+                            if info.city and hasattr(info.city, "title"): city = info.city.title
+
+                        original_intent = {"cmd": "buy", "type": buy_type, "key": key}
+                        conv_id = obj.get("conversation_message_id")
+
+                        if bdate and city:
+                            # Данные есть в ВК
+                            state_dict = {
+                                "step": "confirm_data",
+                                "date": bdate,
+                                "time": "12:00",
+                                "city": city,
+                                "conv_id": conv_id,
+                                "original_intent": original_intent
+                            }
+                            await set_user_state(vk_id, json.dumps(state_dict))
+
+                            kb = Keyboard(inline=True)
+                            kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+                            kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+
+                            text = (
+                                "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\n"
+                                "Чтобы я могла провести ритуал, пожалуйста, проверь верны ли твои данные:\n\n"
+                                f"☾ Дата: {bdate}\n"
+                                f"☾ Город: {city}\n"
+                                "☾ Время: 12:00 (по умолчанию)\n\n"
+                                "Всё верно?"
+                            )
+                            await safe_edit(peer_id=peer_id, conversation_message_id=conv_id, message=text, keyboard=kb.get_json())
+                            return
+                        else:
+                            # Данных в ВК нет или неполные
+                            state_data = {
+                                "step": "waiting_birth_date",
+                                "conv_id": conv_id,
+                                "original_intent": original_intent
+                            }
+                            await set_user_state(vk_id, json.dumps(state_data))
+                            await safe_edit(
+                                peer_id=peer_id,
+                                conversation_message_id=conv_id,
+                                message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nЧтобы я могла настроиться на твою энергию и провести ритуал, шепни мне дату своего рождения (например, 15.04.1990):"
+                            )
+                            return
+                    except Exception as e:
+                        logger.error(f"Error parsing VK data during buy: {e}")
+                        # Fallback to manual
+                        state_data = {
+                            "step": "waiting_birth_date",
+                            "conv_id": obj.get("conversation_message_id"),
+                            "original_intent": {"cmd": "buy", "type": buy_type, "key": key}
+                        }
+                        await set_user_state(vk_id, json.dumps(state_data))
+                        await safe_edit(
+                            peer_id=peer_id,
+                            conversation_message_id=obj.get("conversation_message_id"),
+                            message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nЧтобы я могла настроиться на твою энергию и провести ритуал, шепни мне дату своего рождения (например, 15.04.1990):"
+                        )
+                        return
 
             user = await get_user(vk_id)
             if not user: return

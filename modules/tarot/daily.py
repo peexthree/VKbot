@@ -20,8 +20,48 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         from cache import get_temp_birth_data
         birth_data = await get_temp_birth_data(vk_id)
         if not birth_data:
+            # Пытаемся спарсить из ВК
+            try:
+                users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
+                bdate, city = "", ""
+                if users_info:
+                    info = users_info[0]
+                    bdate = info.bdate or ""
+                    if info.city and hasattr(info.city, "title"): city = info.city.title
+
+                if bdate and city:
+                    # Данные есть в ВК, предлагаем подтвердить
+                    state_dict = {
+                        "step": "confirm_data",
+                        "date": bdate,
+                        "time": "12:00",
+                        "city": city,
+                        "conv_id": conv_msg_id,
+                        "original_intent": {"cmd": "card_of_day"}
+                    }
+                    await set_user_state(vk_id, json.dumps(state_dict))
+
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+                    kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+
+                    text = (
+                        "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\n"
+                        "Чтобы я могла настроиться на твою энергию, пожалуйста, проверь верны ли твои данные:\n\n"
+                        f"☾ Дата: {bdate}\n"
+                        f"☾ Город: {city}\n"
+                        "☾ Время: 12:00 (по умолчанию)\n\n"
+                        "Всё верно?"
+                    )
+                    if conv_msg_id: await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=text, keyboard=kb.get_json())
+                    else: await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=random.getrandbits(63))
+                    return
+            except Exception as e:
+                logger.error(f"Error parsing VK data for card of day: {e}")
+
+            # Если данных нет в ВК или ошибка - ручной ввод
             await set_user_state(vk_id, '{"step": "waiting_birth_date", "target_section": "card_of_day"}')
-            msg = "🔮 ЧТОБЫ ПОЛУЧИТЬ КАРТУ ДНЯ, МНЕ НУЖНО НАСТРОИТЬСЯ НА ТВОЮ ЭНЕРГИЮ.\n\nШепни мне свою ДАТУ рождения (например, 15.04.1990):"
+            msg = "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nЧтобы я могла настроиться на твою энергию, шепни мне свою ДАТУ рождения (например, 15.04.1990):"
             if conv_msg_id: await bot.api.messages.edit(peer_id=peer_id, conversation_message_id=conv_msg_id, message=msg)
             else: await bot.api.messages.send(peer_id=peer_id, message=msg, random_id=random.getrandbits(63))
             return
