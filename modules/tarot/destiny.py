@@ -118,9 +118,47 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
                 purchased.pop("destiny_card_purchased", None)
             await update_user(vk_id, {"balance": balance, "purchased_sections": purchased})
 
+            # Пытаемся спарсить из ВК
+            try:
+                users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
+                bdate, city = "", ""
+                if users_info:
+                    info = users_info[0]
+                    bdate = info.bdate or ""
+                    if info.city and hasattr(info.city, "title"): city = info.city.title
+
+                if bdate and city:
+                    # Данные есть в ВК, предлагаем подтвердить
+                    state_dict = {
+                        "step": "confirm_data",
+                        "date": bdate,
+                        "time": "12:00",
+                        "city": city,
+                        "conv_id": conversation_message_id,
+                        "target_section": "destiny_card_update" if is_update else "destiny_card"
+                    }
+                    await set_user_state(vk_id, json.dumps(state_dict))
+
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+                    kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+
+                    text = (
+                        "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\n"
+                        "Чтобы я могла настроиться на твою энергию, пожалуйста, проверь верны ли твои данные:\n\n"
+                        f"☾ Дата: {bdate}\n"
+                        f"☾ Город: {city}\n"
+                        "☾ Время: 12:00 (по умолчанию)\n\n"
+                        "Всё верно? Энергия возвращена на баланс."
+                    )
+                    await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+                    return
+            except Exception as e:
+                logger.error(f"Error parsing VK data for destiny card: {e}")
+
             # Переводим на ввод данных
             await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date", "target_section": "destiny_card_update" if is_update else "destiny_card"}))
-            await bot.api.messages.send(peer_id=peer_id, message="🛑 Для расчета КАРТЫ СУДЬБЫ мне нужно заново настроиться на твою энергию. Энергия возвращена. Пожалуйста, введи свою ДАТУ рождения (например, 15.04.1990):", random_id=random.getrandbits(63))
+            await bot.api.messages.send(peer_id=peer_id, message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nДля расчета КАРТЫ СУДЬБЫ мне нужно заново настроиться на твою энергию. Энергия возвращена. Пожалуйста, введи свою ДАТУ рождения (например, 15.04.1990):", random_id=random.getrandbits(63))
             return
 
         birth_date = birth_data.get("date", "")

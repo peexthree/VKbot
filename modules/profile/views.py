@@ -1,5 +1,6 @@
 import re
 import random
+import json
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
@@ -550,7 +551,44 @@ async def show_history_item_logic(
         if idx == -1:
             destiny_data = await get_destiny_card_data(vk_id)
             if not destiny_data:
-                await bot.api.messages.send(peer_id=peer_id, message="🛑 Данные Карты Судьбы стерты из соображений безопасности.", random_id=random.getrandbits(63))
+                # Пытаемся спарсить из ВК, чтобы предложить восстановить
+                try:
+                    users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
+                    bdate, city = "", ""
+                    if users_info:
+                        info = users_info[0]
+                        bdate = info.bdate or ""
+                        if info.city and hasattr(info.city, "title"): city = info.city.title
+
+                    if bdate and city:
+                        state_dict = {
+                            "step": "confirm_data",
+                            "date": bdate,
+                            "time": "12:00",
+                            "city": city,
+                            "conv_id": conversation_message_id,
+                            "original_intent": {"cmd": "view_history", "idx": -1}
+                        }
+                        await set_user_state(vk_id, json.dumps(state_dict))
+
+                        kb = Keyboard(inline=True)
+                        kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+                        kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+
+                        text = (
+                            "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\n"
+                            "Твой разбор Карты Судьбы был очищен. Чтобы восстановить его, пожалуйста, проверь верны ли твои данные:\n\n"
+                            f"☾ Дата: {bdate}\n"
+                            f"☾ Город: {city}\n"
+                            "☾ Время: 12:00 (по умолчанию)\n\n"
+                            "Всё верно?"
+                        )
+                        await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+                        return
+                except Exception as e:
+                    logger.error(f"Error parsing VK data for history destiny card: {e}")
+
+                await bot.api.messages.send(peer_id=peer_id, message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nТвои данные были очищены. Чтобы снова увидеть Карту Судьбы, активируй её в разделе Услуг.", random_id=random.getrandbits(63))
                 return
             item = {
                 "title": "⭐ КАРТА СУДЬБЫ",

@@ -28,6 +28,45 @@ async def process_payment_and_generate(vk_id: int, section: str):
 
         # Для микро-инсайта, услуг и т.д. нам нужны данные
         if not birth_data and section not in ["oracle", "antitaro"]:
+            # Пытаемся спарсить из ВК
+            try:
+                users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
+                bdate, city = "", ""
+                if users_info:
+                    info = users_info[0]
+                    bdate = info.bdate or ""
+                    if info.city and hasattr(info.city, "title"): city = info.city.title
+
+                original_intent = {"cmd": "process_payment_and_generate", "section": section}
+
+                if bdate and city:
+                    # Данные есть в ВК, предлагаем подтвердить
+                    state_dict = {
+                        "step": "confirm_data",
+                        "date": bdate,
+                        "time": "12:00",
+                        "city": city,
+                        "original_intent": original_intent
+                    }
+                    await set_user_state(vk_id, json.dumps(state_dict))
+
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+                    kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+
+                    text = (
+                        "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\n"
+                        "Чтобы я могла провести ритуал, пожалуйста, проверь верны ли твои данные:\n\n"
+                        f"☾ Дата: {bdate}\n"
+                        f"☾ Город: {city}\n"
+                        "☾ Время: 12:00 (по умолчанию)\n\n"
+                        "Всё верно?"
+                    )
+                    await bot.api.messages.send(peer_id=vk_id, message=text, keyboard=kb.get_json(), random_id=random.getrandbits(63))
+                    return
+            except Exception as e:
+                logger.error(f"Error parsing VK data during process_payment: {e}")
+
             await set_user_state(vk_id, json.dumps({
                 "step": "waiting_birth_date",
                 "target_section": section,
@@ -36,7 +75,7 @@ async def process_payment_and_generate(vk_id: int, section: str):
             }))
             await bot.api.messages.send(
                 peer_id=vk_id,
-                message="🔮 ТВОЙ ЗВЕЗДНЫЙ КАНАЛ ВРЕМЕННО ЗАКРЫТ\n\nЧтобы я могла продолжить чтение твоей судьбы, мне нужно заново настроиться на твою энергию. Шепни мне свою ДАТУ рождения (например, 15.04.1990):",
+                message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nЧтобы я могла продолжить чтение твоей судьбы, мне нужно заново настроиться на твою энергию. Шепни мне свою ДАТУ рождения (например, 15.04.1990):",
                 random_id=random.getrandbits(63)
             )
             return
@@ -182,19 +221,63 @@ async def execute_generation(
             if not birth_data:
                 # В теории мы уже проверили это в process_payment_and_generate, но для надежности
                 await stop_dynamic_typing(peer_id)
+
+                original_intent = {
+                    "cmd": "execute_generation",
+                    "target_section": target_section,
+                    "partner_name": partner_name,
+                    "partner_date": partner_date,
+                    "card_id": card_id,
+                    "card_data": card_data
+                }
+
+                # Пытаемся спарсить из ВК
+                try:
+                    users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
+                    bdate, city = "", ""
+                    if users_info:
+                        info = users_info[0]
+                        bdate = info.bdate or ""
+                        if info.city and hasattr(info.city, "title"): city = info.city.title
+
+                    if bdate and city:
+                        # Данные есть в ВК, предлагаем подтвердить
+                        state_dict = {
+                            "step": "confirm_data",
+                            "date": bdate,
+                            "time": "12:00",
+                            "city": city,
+                            "conv_id": conversation_message_id,
+                            "original_intent": original_intent
+                        }
+                        await set_user_state(vk_id, json.dumps(state_dict))
+
+                        kb = Keyboard(inline=True)
+                        kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
+                        kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
+
+                        text = (
+                            "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\n"
+                            "Чтобы я могла завершить ритуал, пожалуйста, проверь верны ли твои данные:\n\n"
+                            f"☾ Дата: {bdate}\n"
+                            f"☾ Город: {city}\n"
+                            "☾ Время: 12:00 (по умолчанию)\n\n"
+                            "Всё верно?"
+                        )
+                        if conversation_message_id:
+                            await ghost_edit(bot.api, peer_id, text, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+                        else:
+                            await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=random.getrandbits(63))
+                        return
+                except Exception as e:
+                    logger.error(f"Error parsing VK data during execute_generation: {e}")
+
                 await set_user_state(vk_id, json.dumps({
                     "step": "waiting_birth_date",
                     "target_section": target_section,
-                    "original_intent": {
-                        "cmd": "execute_generation",
-                        "target_section": target_section,
-                        "partner_name": partner_name,
-                        "partner_date": partner_date,
-                        "card_id": card_id,
-                        "card_data": card_data
-                    }
+                    "original_intent": original_intent
                 }))
-                await bot.api.messages.send(peer_id=peer_id, message="🛑 Твои данные рождения истекли. Чтобы завершить ритуал, шепни мне дату своего рождения (например, 15.04.1990):", random_id=random.getrandbits(63))
+                await bot.api.messages.send(peer_id=peer_id, message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nЧтобы завершить ритуал, шепни мне дату своего рождения (например, 15.04.1990):", random_id=random.getrandbits(63))
                 return
 
             from cache import get_core_profile
