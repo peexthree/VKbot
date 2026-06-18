@@ -17,7 +17,7 @@ async def get_recent_topics(limit: int = 30) -> List[str]:
         logger.error(f"Error in get_recent_topics: {e}")
     return []
 
-async def add_post_history(topic_name: str, skin_id: str = None):
+async def add_post_history(topic_name: str, skin_id: str = None, rubric: str = None):
     """Записывает публикацию поста в историю и в ежедневный лог"""
     if not URL or not KEY or core.session is None: return False
 
@@ -29,10 +29,11 @@ async def add_post_history(topic_name: str, skin_id: str = None):
         "published_at": now_iso
     }
 
-    # 2. Запись в ежедневный лог (для контроля повторов за 24ч)
+    # 2. Запись в ежедневный лог (для контроля повторов за 72ч)
     payload_daily = {
         "skin_id": skin_id or "unknown",
         "topic_name": topic_name,
+        "rubric": rubric or "unknown",
         "published_at": now_iso
     }
 
@@ -49,21 +50,23 @@ async def add_post_history(topic_name: str, skin_id: str = None):
     return False
 
 async def get_daily_used_content():
-    """Возвращает персонажей и темы, использованные за последние 24 часа"""
-    if not URL or not KEY or core.session is None: return [], []
+    """Возвращает персонажей, темы и рубрики, использованные за последние 72 часа"""
+    if not URL or not KEY or core.session is None: return [], [], []
     try:
-        # 24 часа назад
-        time_limit = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)).isoformat()
-        url = f"{URL}/rest/v1/post_daily_log?select=skin_id,topic_name&published_at=gt.{time_limit}"
+        # 72 часа назад (увеличили память для большего разнообразия)
+        time_limit = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=72)).isoformat()
+        url = f"{URL}/rest/v1/post_daily_log?select=skin_id,topic_name,rubric&published_at=gt.{time_limit}"
         async with core.session.get(url, headers=HEADERS) as r:
             if r.status == 200:
                 data = await r.json()
-                skins = [item["skin_id"] for item in data]
-                topics = [item["topic_name"] for item in data]
-                return skins, topics
+                skins = [item.get("skin_id") for item in data if item.get("skin_id")]
+                topics = [item.get("topic_name") for item in data if item.get("topic_name")]
+                rubrics = [item.get("rubric") for item in data if item.get("rubric")]
+                return skins, topics, rubrics
     except Exception as e:
         logger.error(f"Error in get_daily_used_content: {e}")
-    return [], []
+        return [], [], []
+    return [], [], []
 
 async def save_active_poll(poll_id: int, owner_id: int, topic_name: str, options: list):
     """Сохраняет активный опрос в базу"""
