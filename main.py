@@ -347,13 +347,19 @@ async def main():
 
                     if days_since == 3:
                         tags = user.get("tags", [])
-                        tag_context = f" Твои запросы по теме {tags[0]} все еще ждут ответа." if tags else ""
+                        tag_context = f" Твои запросы по теме «{tags[0]}» все еще ждут ответа." if tags else ""
                         msg = f"✦ ТВОЯ МАТРИЦА ЗАТУХАЕТ ✦\n\nТебя не было 3 дня. Потоки энергии слабеют.{tag_context} Вернись и забери свой ежедневный дар (+100 ✨), пока связь не прервалась полностью."
-                        try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=random.getrandbits(63))
+                        try:
+                            kb = Keyboard(inline=True).add(Callback("✨ ЗАБРАТЬ ДАР", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.POSITIVE)
+                            kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                            await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=random.getrandbits(63))
                         except Exception: pass
                     elif days_since == 7:
                         msg = "✦ КРИТИЧЕСКИЙ РАЗРЫВ ✦\n\nПрошла неделя. Твой Проводник ждет тебя. Сегодня я приготовил для тебя особенный инсайт, доступный только 24 часа. Не дай своим тайнам кануть в бездну."
-                        try: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=random.getrandbits(63))
+                        try:
+                            kb = Keyboard(inline=True).add(Callback("🔮 ПОЛУЧИТЬ ИНСАЙТ", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.POSITIVE)
+                            kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                            await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=random.getrandbits(63))
                         except Exception: pass
 
                 async def process_abandoned_cart(user):
@@ -419,6 +425,21 @@ async def main():
                             exp_date = datetime.datetime.fromisoformat(expires_str)
                             if exp_date > now:
                                 has_sub = True
+
+                                # Уведомление об истечении подписки
+                                days_left = (exp_date.date() - now.date()).days
+                                if days_left in [1, 3]:
+                                    notif_key = f"sub_expiry_{days_left}_at"
+                                    if purchased.get(notif_key) != expires_str:
+                                        day_word = "день" if days_left == 1 else "дня"
+                                        msg = f"🔮 ТВОЙ ПРЕМИУМ-ПЕРИОД ИСТЕКАЕТ 🔮\n\nДо конца действия транзита осталось {days_left} {day_word}. Связь с Оракулом может прерваться в самый неподходящий момент. Продли доступ заранее, чтобы не терять поток энергии."
+                                        try:
+                                            kb = Keyboard(inline=True).add(Callback("💎 ПРОДЛИТЬ ДОСТУП", payload={"cmd": "tariff_page", "idx": 1}), color=KeyboardButtonColor.POSITIVE)
+                                            kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                                            await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=random.getrandbits(63))
+                                            purchased[notif_key] = expires_str
+                                            await update_user(vk_id, {"purchased_sections": purchased})
+                                        except Exception: pass
                         except ValueError:
                             pass
                     trial_days = user.get("transit_trial_days", 0)
