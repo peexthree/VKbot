@@ -1,5 +1,4 @@
 import asyncio
-import os
 from unittest.mock import MagicMock, AsyncMock
 
 # Mocking modules before imports
@@ -22,6 +21,10 @@ async def mock_gen(prompt, skin=None):
     return "MOCK AI RESPONSE"
 
 ai_service.generate_text = AsyncMock(side_effect=mock_gen)
+
+# Mock fetch_trending_news to return empty list to test fallback
+import modules.utils.news
+modules.utils.news.fetch_trending_news = AsyncMock(return_value=[])
 
 from modules.autoposter import generate_post
 

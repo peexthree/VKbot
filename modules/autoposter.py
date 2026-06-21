@@ -102,16 +102,27 @@ async def generate_post(is_morning: bool = True):
         tones = ["Жесткий цинизм", "Дерзкая провокация"]
     else:
         # Вечерний пост: 100% новостной хайп (согласно ТЗ 50% от общего числа постов)
-        news_rubrics = ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]
-        rubric = random.choice(news_rubrics)
-
         news_list = await fetch_trending_news()
         if news_list:
+            news_rubrics = ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]
+            rubric = random.choice(news_rubrics)
             topic = random.choice(news_list)
             category = "Новости"
             logger.info(f"Выбрана новость для рубрики {rubric}: {topic}")
+            tones = ["Эмоциональный разбор", "Высоковибрационный хайп", "Циничный инсайд"]
+        else:
+            # Fallback if news fetch fails
+            logger.warning("Не удалось получить новости, откат к стандартным рубрикам")
+            all_evening_rubrics = ["SUPPORT", "FACT", "POLL"]
+            available_rubrics = [r for r in all_evening_rubrics if r not in used_rubrics]
+            rubric = random.choice(available_rubrics if available_rubrics else all_evening_rubrics)
 
-        tones = ["Эмоциональный разбор", "Высоковибрационный хайп", "Циничный инсайд"]
+            if all_available_topics:
+                category, topic = random.choice(all_available_topics)
+            else:
+                category, topic = random.choice([(c, t) for c, ts in topics_by_category.items() for t in ts])
+
+            tones = ["Психологическое сочувствие", "Глубокий экспертный инсайт"]
 
     tone = random.choice(tones)
 
