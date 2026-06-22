@@ -316,6 +316,9 @@ cover_cache: dict[str, str] = {}
 ANCHOR_BATCH_SIZE = 10
 _anchor_batch: list[str] = []
 
+# Скрытые Сакральные Шифры (промокоды)
+HIDDEN_CIPHER_WORDS = ["ERROR", "SYSTEM", "MATRIX", "BUG", "CODE", "FAIL", "CYBER", "LOG", "VOID"]
+
 # PDF related
 templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'templates')
 jinja_env = Environment(loader=FileSystemLoader('templates'))

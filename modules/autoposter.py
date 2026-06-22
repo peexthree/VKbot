@@ -11,7 +11,8 @@ from vkbottle import GroupEventType
 
 from modules.bot_init import bot
 from ai_service import generate_text
-from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES, SKIN_EMOJIS
+from database.autoposter import get_daily_used_content, get_active_poll, close_poll, save_hidden_promo
+from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES, SKIN_EMOJIS, HIDDEN_CIPHER_WORDS
 from modules.utils.photos import upload_wall_photo
 from modules.utils.news import fetch_trending_news
 
@@ -42,7 +43,6 @@ async def generate_post(is_morning: bool = True):
     topics_by_category = content["TOPICS"]
 
     # 1. Получаем список недавно использованного контента за 72ч
-    from database.autoposter import get_daily_used_content, get_active_poll, close_poll
     used_skins, used_topics, used_rubrics = await get_daily_used_content()
 
     # 2. Проверка активного опроса (результаты вчерашнего голосования)
@@ -126,6 +126,16 @@ async def generate_post(is_morning: bool = True):
 
     tone = random.choice(tones)
 
+    # ГЕНЕРАЦИЯ СКРЫТОГО ШИФРА
+    cipher_base = random.choice(HIDDEN_CIPHER_WORDS)
+    cipher_num = random.randint(100, 999)
+    hidden_code = f"{cipher_base}-{cipher_num}"
+    energy_reward = random.randint(100, 1000)
+
+    # Сохраняем код в БД
+    await save_hidden_promo(hidden_code, energy_reward)
+    logger.info(f"Сгенерирован скрытый шифр для поста: {hidden_code} на {energy_reward} ✨")
+
     # Логика Битвы Архетипов
     opponent_id = ""
     opponent_name = ""
@@ -208,12 +218,22 @@ async def generate_post(is_morning: bool = True):
         )
     }
 
+    # Общая часть требований по маскировке шифра
+    cipher_instruction = (
+        f"КРИТИЧЕСКОЕ ЗАДАНИЕ: Вшей в текст поста скрытый игровой шифр: {hidden_code}. "
+        "Он НЕ должен быть в конце или начале. Он должен быть органично вплетен в середину одного из абзацев, "
+        "как будто это технический баг, системная ошибка или сакральный термин матрицы. "
+        "Пример: '...твой старый сценарий выдал ERROR-404 и больше не работает...'. "
+        "Код должен быть написан именно так: КАПСОМ, латиницей, через дефис."
+    )
+
     if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
         prompt = (
             f"Текущая дата: {current_date_str}, день недели: {current_day}. "
             "Напиши виральный ХАЙПОВЫЙ пост для паблика Анти-Тар.\n"
             f"Твоя роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
             f"Рубрика поста: {rubric}. Инструкция: {rubric_instructions.get(rubric)}\n\n"
+            f"{cipher_instruction}\n\n"
             "Технические требования:\n"
             "- Используй ЭМОДЗИ для создания атмосферы (но не перебарщивай, 5-8 на пост).\n"
             "- Стиль: Эмоциональный, живой, вайб 'для своих девочек', высокий уровень энергии.\n"
@@ -229,6 +249,7 @@ async def generate_post(is_morning: bool = True):
             f"Твоя роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
             f"Рубрика поста: {rubric}. Инструкция: {rubric_instructions.get(rubric)}\n\n"
             f"Базовая тема: «{topic}».\n\n"
+            f"{cipher_instruction}\n\n"
             "Технические требования:\n"
             f"- Акценты: {jitter_caps}.\n"
             "- Используй ЭМОДЗИ СТРОГО как маркеры персонажей в начале реплик (для Битвы) или как редкие акценты (не более 3-5 на весь пост).\n"

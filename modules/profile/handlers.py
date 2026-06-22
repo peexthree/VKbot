@@ -2,6 +2,7 @@ import re
 from vkbottle.bot import BotLabeler, Message
 from modules.states import MyStates
 from modules.utils import get_fsm_step
+from modules.utils.consts import HIDDEN_CIPHER_WORDS
 
 from modules.profile.settings import (
     settings_handler_logic, settings_change_data_logic,
@@ -132,7 +133,7 @@ async def enter_seal_handler(message: Message):
 async def cancel_seal_handler(message: Message):
     await cancel_seal_logic(message.from_id, message.peer_id, message)
 
-@labeler.message(func=lambda m: m.text and bool(re.match(r"(?i)^([A-Z2-9]{6}|(ПРОМО|ПЕЧАТЬ)-\d+)$", m.text.strip().upper())))
+@labeler.message(func=lambda m: m.text and bool(re.match(rf"(?i)^([A-Z2-9]{6}|(ПРОМО|ПЕЧАТЬ)-\d+|({'|'.join(HIDDEN_CIPHER_WORDS)})-\d+)$", m.text.strip().upper())))
 async def apply_promo_handler(message: Message):
     await apply_promo_logic(message.from_id, message)
 
