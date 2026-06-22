@@ -1,5 +1,5 @@
 from .consts import (
-    THEATRICAL_PHRASES, SKIN_ASSETS, ADMIN_ID, jinja_env, pdf_semaphore
+    THEATRICAL_PHRASES, SKIN_ASSETS, ADMIN_ID, jinja_env, pdf_semaphore, HIDDEN_CIPHER_WORDS
 )
 from .ui import (
     ghost_edit, stop_dynamic_typing, start_dynamic_typing,
@@ -24,7 +24,7 @@ from .logic import (
 from cache import acquire_lock, release_lock
 
 __all__ = [
-    "THEATRICAL_PHRASES", "SKIN_ASSETS", "ADMIN_ID", "jinja_env", "pdf_semaphore",
+    "THEATRICAL_PHRASES", "SKIN_ASSETS", "ADMIN_ID", "jinja_env", "pdf_semaphore", "HIDDEN_CIPHER_WORDS",
     "ghost_edit", "stop_dynamic_typing", "start_dynamic_typing",
     "delete_bot_message", "get_last_bot_msg", "set_last_bot_msg", "send_temp_message",
     "extract_msg_id",

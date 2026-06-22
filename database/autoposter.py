@@ -133,3 +133,24 @@ async def record_post_click(vk_id: int, topic_name: str):
     except Exception as e:
         logger.error(f"Error in record_post_click: {e}")
     return False
+
+async def save_hidden_promo(code: str, reward: int, max_uses: int = 10):
+    """Сохраняет новый скрытый промокод в базу"""
+    if not URL or not KEY or core.session is None: return False
+    payload = {
+        "code": code,
+        "energy_reward": reward,
+        "max_uses": max_uses,
+        "current_uses": 0
+    }
+    try:
+        async with core.session.post(f"{URL}/rest/v1/hidden_promos", headers=HEADERS, json=payload) as r:
+            if r.status in (200, 201, 204):
+                logger.success(f"✅ Сохранен скрытый промокод: {code} ({reward} ✨)")
+                return True
+            else:
+                text = await r.text()
+                logger.error(f"Ошибка при сохранении промокода {code}: {r.status} - {text}")
+    except Exception as e:
+        logger.error(f"Error in save_hidden_promo: {e}")
+    return False

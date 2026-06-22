@@ -8,6 +8,7 @@ from modules.bot_init import bot
 from database import get_user, update_user, set_user_state
 from cache import acquire_lock, release_lock
 from modules.utils import (
+    HIDDEN_CIPHER_WORDS,
     upload_local_photo,
     get_sections_keyboard,
     start_dynamic_typing,
@@ -373,7 +374,36 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         ref_text = override_ref.strip() if override_ref else message.text.strip()
         text = ref_text.upper()
 
-        # Проверка на автопостинг (ref=autopost_topic_name)
+        # 1. Проверка на Скрытый Сакральный Шифр (динамические коды)
+        if re.match(rf"^({'|'.join(HIDDEN_CIPHER_WORDS)})-\d+$", text):
+            from database import call_rpc
+            res = await call_rpc("activate_hidden_promo", {"p_user_id": vk_id, "p_code": text})
+
+            if not res or (isinstance(res, dict) and res.get("status") == "error"):
+                error_code = res.get("code") if isinstance(res, dict) else "UNKNOWN"
+                if error_code == "NOT_FOUND":
+                    await message.answer("Матрица не узнает этот шифр. Проверь символы или поищи свежий ключ в последних постах группы.")
+                elif error_code == "ALREADY_ACTIVATED":
+                    await message.answer("Ты уже взламывал этот сектор матрицы и забрал свою награду. Дважды один баг не срабатывает. Ищи новый шифр в свежих постах.")
+                elif error_code == "LIMIT_REACHED":
+                    await message.answer("👹 Опоздал. Скрытый код полностью выжжен и уничтожен. 10 человек оказались быстрее, внимательнее и голоднее тебя. В следующий раз включай уведомления на посты и не спи, когда вселенная раздает ресурсы.")
+                else:
+                    await message.answer("Произошел сбой при дешифрации. Попробуй позже.")
+                return
+
+            # Успешная активация
+            reward = res.get("reward", 0)
+            current_uses = res.get("current_uses", 0)
+            max_uses = res.get("max_uses", 10)
+
+            # Стилизованный ответ
+            await message.answer(
+                f"🔮 Система зафиксировала ввод ключа дешифрации. Ты успешно активировал скрытый шифр и забираешь +{reward} энергии ⚡. "
+                f"Ты был {current_uses}-м по счету (осталось {max_uses - current_uses} активаций). Матрица запомнила твой код."
+            )
+            return
+
+        # 2. Проверка на автопостинг (ref=autopost_topic_name)
         if ref_text.lower().startswith("autopost_"):
             topic_name = ref_text[9:] # Отрезаем "autopost_"
             from database.autoposter import record_post_click
@@ -383,7 +413,7 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
             from modules.registration import start_handler
             return await start_handler(message, skip_lock=True)
 
-        # Поддержка старых кодов (на всякий случай) и новых шифров
+        # 3. Реферальная система (Теневые Шифры)
         match_old = re.match(r"^(ПРОМО|ПЕЧАТЬ)-(\d+)$", text)
         cipher = None
         referrer = None
