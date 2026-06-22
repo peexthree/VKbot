@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from modules.profile.views import apply_promo_logic
 
 @pytest.mark.asyncio
