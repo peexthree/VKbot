@@ -80,7 +80,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         payload = {}
 
     # --- ФИКС ТАЙМАУТА: Отвечаем мгновенно до тяжелых операций ---
-    if event_id and vk_id:
+    if event_id and vk_id and not skip_lock:
         lock_key = f"event_answered:{event_id}"
         # nx=True вернет True если ключ установлен, иначе False/None
         res = await redis_client.set(lock_key, "1", ex=30, nx=True)
