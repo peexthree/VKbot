@@ -28,8 +28,8 @@ async def extract_tags(text: str) -> list[str]:
     try:
         clean = clean_ai_json(res)
 
-        # Регулярка для извлечения первого JSON-массива (для защиты от мусора в конце)
-        match = re.search(r'\[.*\]', clean, re.DOTALL)
+        # Ленивая регулярка: остановится на первой же закрывающей скобке ]
+        match = re.search(r'\[.*?\]', clean, re.DOTALL)
         if match:
             clean = match.group(0)
 
