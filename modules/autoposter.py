@@ -37,7 +37,7 @@ def load_content():
     with open(CONTENT_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
-async def generate_post(is_morning: bool = True):
+async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     content = load_content()
     skin_ids = list(content["TONES"].keys())
     topics_by_category = content["TOPICS"]
@@ -92,7 +92,23 @@ async def generate_post(is_morning: bool = True):
     skin_name = SKIN_DISPLAY_NAMES.get(skin_id, skin_id)
 
     # Выбор рубрики и тона
-    if is_morning:
+    if forced_rubric:
+        rubric = forced_rubric
+        if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
+            news_list = await fetch_trending_news()
+            if news_list:
+                topic = random.choice(news_list)
+                category = "Новости"
+                logger.info(f"Выбрана новость для принудительной рубрики {rubric}: {topic}")
+                tones = ["Эмоциональный разбор", "Высоковибрационный хайп", "Циничный инсайд"]
+            else:
+                logger.warning(f"Не удалось получить новости для принудительной рубрики {rubric}, используем стандартную тему")
+                tones = ["Жесткий цинизм", "Дерзкая провокация"]
+        elif rubric in ["SUPPORT", "FACT", "POLL"]:
+            tones = ["Психологическое сочувствие", "Глубокий экспертный инсайт"]
+        else:
+            tones = ["Жесткий цинизм", "Дерзкая провокация"]
+    elif is_morning:
         all_morning_rubrics = ["PROVOCATION", "MYTH_BUST", "BATTLE", "PRACTICUM"]
         available_rubrics = [r for r in all_morning_rubrics if r not in used_rubrics]
         if not available_rubrics:
@@ -316,9 +332,9 @@ async def create_vk_poll(options: list):
         logger.error(f"Ошибка при создании опроса: {e}")
     return None
 
-async def post_to_vk(is_morning: bool = True):
+async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
     try:
-        post_data = await generate_post(is_morning=is_morning)
+        post_data = await generate_post(is_morning=is_morning, forced_rubric=forced_rubric)
         if not post_data:
             return
 

@@ -219,9 +219,43 @@ async def show_admin_broadcast(peer_id: int, conversation_message_id: int = None
     kb = Keyboard(inline=True)
     kb.add(Callback("📝 СОЗДАТЬ ПРИЗЫВ", payload={"cmd": "admin_cmd", "action": "broadcast_start"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
-    kb.add(Callback("🚀 НОВЫЙ АВТОПОСТ", payload={"cmd": "admin_cmd", "action": "trigger_autopost"}), color=KeyboardButtonColor.POSITIVE)
+    kb.add(Callback("🚀 НОВЫЙ АВТОПОСТ", payload={"cmd": "admin_nav", "menu": "autopost_rubrics"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+    await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
+async def show_admin_autopost_rubrics(peer_id: int, conversation_message_id: int = None, page: int = 0):
+    """Выбор рубрики для автопоста с пагинацией"""
+    rubrics = [
+        "PROVOCATION", "MYTH_BUST", "BATTLE", "PRACTICUM",
+        "NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH",
+        "SUPPORT", "FACT", "POLL"
+    ]
+    limit = 4
+    total_pages = (len(rubrics) + limit - 1) // limit
+    start = page * limit
+    end = start + limit
+    current_rubrics = rubrics[start:end]
+
+    text = (
+        "🚀 ВЫБОР РУБРИКИ ДЛЯ АВТОПОСТА\n\n"
+        "Выберите рубрику, чтобы немедленно сгенерировать и опубликовать пост на стену сообщества.\n"
+        f"Страница {page + 1} из {total_pages}"
+    )
+
+    kb = Keyboard(inline=True)
+    for r in current_rubrics:
+        kb.add(Callback(r, payload={"cmd": "admin_cmd", "action": "trigger_autopost", "rubric": r}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+
+    if total_pages > 1:
+        if page > 0:
+            kb.add(Callback("⬅️ ПРЕД", payload={"cmd": "admin_nav", "menu": "autopost_rubrics", "page": page - 1}), color=KeyboardButtonColor.SECONDARY)
+        if page < total_pages - 1:
+            kb.add(Callback("СЛЕД ➡️", payload={"cmd": "admin_nav", "menu": "autopost_rubrics", "page": page + 1}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
+
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.PRIMARY)
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_vip(peer_id: int, conversation_message_id: int = None):
@@ -280,6 +314,7 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         elif nav_menu == "analytics": await show_admin_analytics(peer_id, conversation_message_id)
         elif nav_menu == "users": await show_admin_users(peer_id, conversation_message_id, page=payload.get("page", 0))
         elif nav_menu == "broadcast": await show_admin_broadcast(peer_id, conversation_message_id)
+        elif nav_menu == "autopost_rubrics": await show_admin_autopost_rubrics(peer_id, conversation_message_id, page=payload.get("page", 0))
         elif nav_menu == "logs": await show_admin_logs(peer_id, conversation_message_id)
         elif nav_menu == "vip": await show_admin_vip(peer_id, conversation_message_id)
         return
@@ -338,10 +373,12 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         await bot.api.messages.send(peer_id=peer_id, message=f"✅ Рассылка завершена. Доставлено: {success}/{len(users)}", random_id=random.getrandbits(63))
         await show_admin_broadcast(peer_id, conversation_message_id)
     elif action == "trigger_autopost":
-        await bot.api.messages.send(peer_id=peer_id, message="🔮 Запуск генерации нового поста...", random_id=random.getrandbits(63))
+        rubric = payload.get("rubric")
+        label = f" ({rubric})" if rubric else ""
+        await bot.api.messages.send(peer_id=peer_id, message=f"🔮 Запуск генерации нового поста{label}...", random_id=random.getrandbits(63))
         from modules.autoposter import post_to_vk
-        asyncio.create_task(post_to_vk())
-        await bot.api.messages.send(peer_id=peer_id, message="✅ Задача на автопостинг поставлена в очередь.", random_id=random.getrandbits(63))
+        asyncio.create_task(post_to_vk(forced_rubric=rubric))
+        await bot.api.messages.send(peer_id=peer_id, message=f"✅ Задача на автопостинг{label} поставлена в очередь.", random_id=random.getrandbits(63))
         await show_admin_broadcast(peer_id, conversation_message_id)
     elif action == "sql_exec_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_sql_exec", "conv_id": conversation_message_id}))
