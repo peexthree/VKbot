@@ -93,6 +93,11 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 f"Стиль: {active_skin} (имя: {character_name}). Максимум 2 предложения. Без жирного шрифта."
             )
             insight = await generate_text(prompt, skin=active_skin)
+            if not insight:
+                # Универсальный возврат через handle_generation_failure
+                await handle_generation_failure(vk_id, vk_id, "micro_insight")
+                return
+
             from modules.keyboards import get_main_reply_keyboard
             await bot.api.messages.send(
                 peer_id=vk_id,
@@ -556,12 +561,15 @@ async def handle_generation_failure(vk_id: int, peer_id: int, target_section: st
     prices = {
         "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
         "synastry": 1500, "palmistry": 1200, "dream": 1000, "all": 3000, "oracle": 500, "antitaro": 500,
+        "micro_insight": 100, "oracle_upsell": 250,
         "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
     }
     price_of_service = prices.get(target_section, 0)
     user = await get_user(vk_id)
     if user and price_of_service > 0:
-        await update_user(vk_id, {"balance": user.get("balance", 0) + price_of_service})
+        # Атомарный инкремент через SQL был бы лучше, но здесь используем текущую практику проекта
+        new_balance = int(user.get("balance", 0) or 0) + price_of_service
+        await update_user(vk_id, {"balance": new_balance})
 
     msg = "🛑 КАНАЛ СВЯЗИ НЕСТАБИЛЕН\n\nЗвезды скрылись за облаками матрицы. Энергия возвращена на твой баланс. Попробуй инициировать ритуал снова через минуту."
 
