@@ -146,7 +146,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     cipher_base = random.choice(HIDDEN_CIPHER_WORDS)
     cipher_num = random.randint(100, 999)
     hidden_code = f"{cipher_base}-{cipher_num}"
-    energy_reward = random.randint(100, 1000)
+    energy_reward = random.randint(50, 200)
 
     # Сохраняем код в БД
     await save_hidden_promo(hidden_code, energy_reward)
