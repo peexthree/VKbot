@@ -543,6 +543,24 @@ async def main():
                 sem = asyncio.Semaphore(5)
                 async def sem_process_user(u):
                     async with sem:
+                        # ПРОВЕРКА НА ИНАКТИВНОСТЬ (10 ДНЕЙ)
+                        last_active = u.get("last_active_date")
+                        purchased = u.get("purchased_sections", {})
+                        is_donut = purchased.get("donut_active", False)
+
+                        if last_active:
+                            try:
+                                # Обрабатываем как ISO строку (может быть с Z или без)
+                                last_active_clean = last_active.replace('Z', '+00:00')
+                                last_date = datetime.datetime.fromisoformat(last_active_clean)
+                                # Приводим now к тому же типу (offset-aware)
+                                days_since = (now - last_date).days
+                                if days_since >= 10 and not is_donut:
+                                    # logger.debug(f"Skipping user {u.get('vk_id')} due to {days_since} days of inactivity")
+                                    return
+                            except Exception as e:
+                                logger.error(f"Error checking inactivity for user {u.get('vk_id')}: {e}")
+
                         await process_user_transit(u)
                 await asyncio.gather(*(sem_process_user(u) for u in users))
                 # Ждем пока минута закончится, чтобы не запустить повторно в ту же минуту
