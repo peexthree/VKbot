@@ -198,7 +198,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     p_stats["stats_total_seconds"] = p_stats.get("stats_total_seconds", 0) + diff_stats
 
             p_stats["stats_last_action_at"] = now_stats.isoformat()
-            await update_user(vk_id, {"purchased_sections": p_stats})
+            # Обновляем также общую дату последней активности для системы ретеншена
+            await update_user(vk_id, {
+                "purchased_sections": p_stats,
+                "last_active_date": now_stats.isoformat()
+            })
 
         if cmd in ["admin_cmd", "admin_nav", "admin_user_op"]:
             await process_admin_cmd(vk_id, peer_id, payload, conversation_message_id=obj.get("conversation_message_id"))
