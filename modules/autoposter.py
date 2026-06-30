@@ -9,9 +9,11 @@ from apscheduler.triggers.cron import CronTrigger
 from vkbottle.bot import BotLabeler
 from vkbottle import GroupEventType
 
+import re
 from modules.bot_init import bot
-from ai_service import generate_text
+from ai_service import generate_text, clean_ai_json
 from database.autoposter import get_daily_used_content, get_active_poll, close_poll, save_hidden_promo, get_least_recent_rubric
+from modules.utils.visual import generate_diagnosis_card
 from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES, SKIN_EMOJIS, HIDDEN_CIPHER_WORDS
 from modules.utils.photos import upload_wall_photo
 from modules.utils.news import fetch_trending_news
@@ -45,6 +47,62 @@ async def ignore_self_wall_posts(event: dict):
     from_id = obj.get("from_id", 0)
     if from_id == -GROUP_ID:
         return "ok"
+
+@labeler.raw_event(GroupEventType.WALL_REPLY_NEW, dataclass=dict)
+async def handle_diagnosis_comment(event: dict):
+    """
+    Интерактив «Вскрытие»: ответ на комментарий с датой рождения.
+    """
+    obj = event.get("object", {})
+    text = obj.get("text", "")
+    from_id = obj.get("from_id", 0)
+    post_id = obj.get("post_id", 0)
+    comment_id = obj.get("id", 0)
+
+    if from_id <= 0: return "ok" # Игнорируем группы и пустые ID
+
+    # Ищем дату рождения (ДД.ММ.ГГГГ или ДД.ММ)
+    date_match = re.search(r"(\d{2}\.\d{2}(?:\.\d{2,4})?)", text)
+    if date_match:
+        birth_date = date_match.group(1)
+        logger.info(f"Получен запрос на вскрытие от {from_id} под постом {post_id}: {birth_date}")
+
+        from database import get_user
+        user = await get_user(from_id)
+
+        if user:
+            # Данные пользователя
+            purchased = user.get("purchased_sections", {})
+            energy = user.get("balance", 0)
+            city = user.get("birth_city", "неизвестен")
+
+            user_context = f"Данные адепта: Дата {birth_date}, Город {city}, Энергия {energy}✨."
+            prompt = (
+                f"Проведи мгновенное «Вскрытие» адепта на основе его данных: {user_context}. "
+                "Твой ответ должен быть максимально ядовитым, жестким, но психологически точным «диагнозом» его текущего состояния. "
+                "Используй стиль Анти-Таро: цинизм, никакой пощады, метафоры матрицы и системных ошибок. "
+                "Объем: 2-3 хлестких предложения. Без приветствий."
+            )
+        else:
+            prompt = (
+                f"Адепт прислал дату {birth_date}, но его нет в нашей базе. "
+                "Твой ответ: «Ты — чистый лист в этой матрице. Заходи в бота, чтобы система тебя просканировала». "
+                "Добавь к этому одну ядовитую фразу о том, что анонимы в системе не имеют веса."
+            )
+
+        diagnosis = await generate_text(prompt, skin="olesya")
+        if diagnosis:
+            try:
+                await bot.api.wall.create_comment(
+                    owner_id=-GROUP_ID,
+                    post_id=post_id,
+                    reply_to_comment=comment_id,
+                    message=f"[id{from_id}|Адепт], {diagnosis}"
+                )
+            except Exception as e:
+                logger.error(f"Ошибка при ответе на комментарий: {e}")
+
+    return "ok"
 
 def load_content():
     with open(CONTENT_PATH, "r", encoding="utf-8") as f:
@@ -198,17 +256,25 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     jitter_style = random.choice(["используй списки через дефисы", "используй списки через магические символы (✦, ⚡)", "сплошной текст с резкими переходами"])
     jitter_caps = random.choice(["используй КАПС для акцентов на 3-5 словах", "не используй КАПС совсем", "используй КАПС только для финального вывода"])
 
+    # Виральные триггеры для определенных рубрик
+    viral_instruction = ""
+    if rubric in ["PROVOCATION", "MYTH_BUST"]:
+        viral_instruction = (
+            "\n\nИСПОЛЬЗУЙ РАДИКАЛЬНЫЕ ТЕЗИСЫ: «Таро — это костыль для тех, кто боится принимать решения» или «Денежные марафоны — это налог на глупость». "
+            "Заканчивай пост вопросом, который противопоставляет читателя остальным: «Ты готов признать, что ты прокрастинируешь, или продолжишь тешить себя медитациями?»."
+        )
+
     # Формирование специфических инструкций под рубрику
     rubric_instructions = {
         "PROVOCATION": (
             f"Это ультра-короткий пост-провокация. Объем: {jitter_length}. "
             "Задай один крайне неудобный и хлесткий вопрос в лоб, который заставит читателя чувствовать дискомфорт от своей пассивности. "
-            "Никаких советов и практикумов. Только удар по гордости и призыв в бота."
+            f"Никаких советов и практикумов. Только удар по гордости и призыв в бота.{viral_instruction}"
         ),
         "MYTH_BUST": (
             f"Разрушение мифов. Объем: {jitter_length}. Структура: {jitter_style}. "
             "Возьми популярное заблуждение в эзотерике (ретроградный меркурий, марафоны желаний, денежные аффирмации) "
-            "и жестко разнеси его с позиции приземленной психологии и твоего персонажа. Покажи, почему это ловушка для дураков."
+            f"и жестко разнеси его с позиции приземленной психологии и твоего персонажа. Покажи, почему это ловушка для дураков.{viral_instruction}"
         ),
         "BATTLE": (
             f"Битва Архетипов. Это диалог-стычка между тобой ({skin_name}) и персонажем {opponent_name}. "
@@ -263,53 +329,81 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         )
     }
 
-    # Общая часть требований по маскировке шифра
-    cipher_instruction = (
-        f"КРИТИЧЕСКОЕ ЗАДАНИЕ: Вшей в текст поста скрытый игровой шифр: {hidden_code}. "
-        f"Вплети его {chosen_mask}. "
-        "Он НЕ должен быть в конце или начале. Он должен быть органично вшит в середину одного из абзацев. "
-        "Код должен быть написан именно так: КАПСОМ, латиницей, через дефис. "
-        "НЕ делай на нем акцент, он должен выглядеть как естественная часть повествования."
+    # Логика разделения шифра по воскресеньям
+    is_sunday = now.weekday() == 6
+    if is_sunday:
+        cipher_parts = hidden_code.split('-')
+        part1, part2 = cipher_parts[0], cipher_parts[1]
+        cipher_instruction = (
+            f"КРИТИЧЕСКОЕ ЗАДАНИЕ: Сегодня воскресенье, поэтому мы делим шифр на две части. "
+            f"Вшей в середину текста ПЕРВУЮ ЧАСТЬ ШИФРА: {part1}. "
+            f"Вплети её {chosen_mask}. "
+            "Она должна выглядеть как естественная часть повествования."
+        )
+    else:
+        cipher_instruction = (
+            f"КРИТИЧЕСКОЕ ЗАДАНИЕ: Вшей в текст поста скрытый игровой шифр: {hidden_code}. "
+            f"Вплети его {chosen_mask}. "
+            "Он НЕ должен быть в конце или начале. Он должен быть органично вшит в середину одного из абзацев. "
+            "Код должен быть написан именно так: КАПСОМ, латиницей, через дефис. "
+            "НЕ делай на нем акцент, он должен выглядеть как естественная часть повествования."
+        )
+
+    # Инструкция по виральному вызову в конце
+    ego_call = "В конце поста добавь циничную приписку: «Перешли этот пост тому, кто до сих пор верит в удачу, а не в стратегию. Пусть его тоже проберет»."
+
+    prompt_base = (
+        f"Текущая дата: {current_date_str}, день недели: {current_day}. "
+        "Напиши виральный пост для паблика Анти-Тар.\n"
+        f"Твоя роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
+        f"Рубрика поста: {rubric}. Инструкция: {rubric_instructions.get(rubric)}\n\n"
+        f"{cipher_instruction}\n\n"
+        f"{ego_call}\n\n"
+        "ВАЖНОЕ ТЕХНИЧЕСКОЕ ТРЕБОВАНИЕ: Верни ответ СТРОГО в формате JSON:\n"
+        "{\n"
+        "  \"text\": \"полный текст поста со всеми призывами и хэштегами\",\n"
+        "  \"quote\": \"самая хлесткая и ядовитая фраза из текста для картинки (до 120 символов)\"\n"
+        "}"
     )
 
     if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
         prompt = (
-            f"Текущая дата: {current_date_str}, день недели: {current_day}. "
-            "Напиши виральный ХАЙПОВЫЙ пост для паблика Анти-Тар.\n"
-            f"Твоя роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
-            f"Рубрика поста: {rubric}. Инструкция: {rubric_instructions.get(rubric)}\n\n"
-            f"{cipher_instruction}\n\n"
-            "Технические требования:\n"
+            f"{prompt_base}\n\n"
+            "Дополнительные требования:\n"
             "- Используй ЭМОДЗИ для создания атмосферы (но не перебарщивай, 5-8 на пост).\n"
             "- Стиль: Эмоциональный, живой, хайповый, высокий уровень энергии. Обращайся к широкой аудитории (м/ж).\n"
             "- Текст должен быть нативным, без приветствий и лишней воды.\n"
-            "- В конце текста добавь нативный призыв нажать кнопку «Написать сообществу» под постом (каждый раз формулируй по-разному в своем стиле).\n"
-            "- СРАЗУ ПОСЛЕ ПРИЗЫВА, самой последней строкой, выведи 5 хэштегов: #АнтиТар #Новости #Хайп + 2 по теме.\n"
+            "- В конце текста добавь нативный призыв нажать кнопку «Написать сообществу» под постом.\n"
+            "- В самом конце добавь 5 хэштегов: #АнтиТар #Новости #Хайп + 2 по теме.\n"
             "- НИКАКИХ внешних ссылок!"
         )
     else:
         prompt = (
-            f"Текущая дата: {current_date_str}, день недели: {current_day}. "
-            "Напиши виральный пост для паблика Анти-Тар.\n"
-            f"Твоя роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
-            f"Рубрика поста: {rubric}. Инструкция: {rubric_instructions.get(rubric)}\n\n"
+            f"{prompt_base}\n\n"
             f"Базовая тема: «{topic}».\n\n"
-            f"{cipher_instruction}\n\n"
-            "Технические требования:\n"
+            "Дополнительные требования:\n"
             f"- Акценты: {jitter_caps}.\n"
-            "- Используй ЭМОДЗИ СТРОГО как маркеры персонажей в начале реплик (для Битвы) или как редкие акценты (не более 3-5 на весь пост).\n"
-            "- РАЗРЕШЕНО использовать КАПС для имен персонажей в Битве.\n"
+            "- Используй ЭМОДЗИ СТРОГО как маркеры персонажей в начале реплик (для Битвы) или как редкие акценты.\n"
             "- Текст должен быть нативным, без приветствий и лишней воды.\n"
-            "- В конце текста добавь нативный призыв нажать кнопку «Написать сообществу» под постом (каждый раз формулируй по-разному в своем стиле).\n"
-            "- СРАЗУ ПОСЛЕ ПРИЗЫВА, самой последней строкой, выведи 5 хэштегов: #АнтиТар #Психология + 3 по теме.\n"
+            "- В конце текста добавь нативный призыв нажать кнопку «Написать сообществу» под постом.\n"
+            "- В самом конце добавь 5 хэштегов: #АнтиТар #Психология + 3 по теме.\n"
             "- НИКАКИХ внешних ссылок!"
         )
 
     # Мы передаем skin_id, и generate_text сам возьмет нужный TOV из SKIN_MAP в prompts/personas.py
-    ai_text = await generate_text(prompt, skin=skin_id)
-    if not ai_text:
+    raw_response = await generate_text(prompt, skin=skin_id, json_mode=True)
+    if not raw_response:
         logger.error("Не удалось сгенерировать текст поста")
         return None
+
+    try:
+        data = json.loads(clean_ai_json(raw_response))
+        ai_text = data.get("text", "")
+        quote = data.get("quote", "")
+    except Exception as e:
+        logger.error(f"Ошибка парсинга JSON поста: {e}")
+        ai_text = raw_response
+        quote = ""
 
     # Агрессивный предохранитель хэштегов: обрабатываем именно ai_text
     ai_lines = [line.strip() for line in ai_text.strip().split('\n') if line.strip()]
@@ -357,7 +451,10 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         "opponent_id": opponent_id,
         "topic": topic,
         "category": category,
-        "rubric": rubric
+        "rubric": rubric,
+        "quote": quote,
+        "is_sunday": is_sunday,
+        "hidden_code": hidden_code
     }
 
 async def create_vk_poll(options: list):
@@ -436,6 +533,23 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             logger.error("Аборт публикации: нет вложений")
             return
 
+        # ГЕНЕРАЦИЯ И ЗАГРУЗКА КАРТОЧКИ-ДИАГНОЗА
+        quote = post_data.get("quote")
+        if quote:
+            try:
+                card_filename = f"diag_{random.randint(1000,9999)}.jpg"
+                card_path = os.path.join("cards", card_filename)
+                generate_diagnosis_card(quote, card_path)
+                # upload_wall_photo сам добавит 'cards/' к пути
+                att_card = await upload_wall_photo(bot.api, card_filename)
+                if att_card:
+                    attachments.append(att_card)
+                # Удаляем временный файл
+                if os.path.exists(card_path):
+                    os.remove(card_path)
+            except Exception as e:
+                logger.error(f"Ошибка при создании/загрузке карточки: {e}")
+
         # Публикация на Стену сообщества
         res_wall = await bot.api.wall.post(
             owner_id=-GROUP_ID,
@@ -443,7 +557,38 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             message=text,
             attachments=",".join(attachments)
         )
-        logger.info(f"Пост опубликован на стену: {res_wall.post_id}")
+        post_id = res_wall.post_id
+        logger.info(f"Пост опубликован на стену: {post_id}")
+
+        # АВТОМАТИЧЕСКИЙ КОММЕНТАРИЙ (Вскрытие + Вторая часть шифра)
+        comment_parts = []
+
+        # 1. Триггер "Вскрытие"
+        comment_parts.append("Напиши в комментариях свою дату рождения — и Проводник вскроет твой главный блок на сегодня.")
+
+        # 2. Вторая часть шифра по воскресеньям
+        if post_data.get("is_sunday"):
+            hidden_code = post_data.get("hidden_code", "")
+            if "-" in hidden_code:
+                cipher_parts = hidden_code.split("-")
+                if len(cipher_parts) > 1:
+                    part2 = cipher_parts[1]
+                    comment_parts.append(f"Вторая часть ключа найдена в обломках матрицы: {part2}")
+
+        comment_text = "\n\n".join(comment_parts)
+        try:
+            res_comm = await bot.api.wall.create_comment(
+                owner_id=-GROUP_ID,
+                post_id=post_id,
+                message=comment_text
+            )
+            # Закрепление комментария (требует прав или использования user_api)
+            # В vkbottle/VK API метод wall.pin работает только для постов.
+            # Для комментариев "закрепления" как такового нет,
+            # но первый комментарий от имени группы обычно виден лучше всего.
+            logger.info(f"Оставлен сервисный комментарий под постом {post_id}")
+        except Exception as e:
+            logger.error(f"Ошибка при создании комментария: {e}")
 
         # Записываем в историю публикаций (используем и тему и скин для лога 72ч)
         from database.autoposter import add_post_history
