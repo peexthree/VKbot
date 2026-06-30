@@ -14,10 +14,13 @@ sys.modules["database.autoposter"] = mock_db.autoposter
 
 # Mock generate_text to see the prompt
 import ai_service
-async def mock_gen(prompt, skin=None):
+async def mock_gen(prompt, skin=None, json_mode=False):
     print("\n--- DEBUG PROMPT ---")
     print(prompt)
     print("--- END DEBUG PROMPT ---\n")
+    if json_mode:
+        import json
+        return json.dumps({"text": "MOCK AI RESPONSE", "quote": "MOCK QUOTE"})
     return "MOCK AI RESPONSE"
 
 ai_service.generate_text = AsyncMock(side_effect=mock_gen)
