@@ -11,7 +11,7 @@ from vkbottle import GroupEventType
 
 from modules.bot_init import bot
 from ai_service import generate_text
-from database.autoposter import get_daily_used_content, get_active_poll, close_poll, save_hidden_promo
+from database.autoposter import get_daily_used_content, get_active_poll, close_poll, save_hidden_promo, get_least_recent_rubric
 from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES, SKIN_EMOJIS, HIDDEN_CIPHER_WORDS
 from modules.utils.photos import upload_wall_photo
 from modules.utils.news import fetch_trending_news
@@ -126,18 +126,14 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             tones = ["Жесткий цинизм", "Дерзкая провокация"]
     elif is_morning:
         all_morning_rubrics = ["PROVOCATION", "MYTH_BUST", "BATTLE", "PRACTICUM"]
-        available_rubrics = [r for r in all_morning_rubrics if r not in used_rubrics]
-        if not available_rubrics:
-            available_rubrics = all_morning_rubrics
-
-        rubric = random.choice(available_rubrics)
+        rubric = await get_least_recent_rubric(all_morning_rubrics)
         tones = ["Жесткий цинизм", "Дерзкая провокация"]
     else:
         # Вечерний пост: 100% новостной хайп (согласно ТЗ 50% от общего числа постов)
         news_list = await fetch_trending_news()
         if news_list:
             news_rubrics = ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]
-            rubric = random.choice(news_rubrics)
+            rubric = await get_least_recent_rubric(news_rubrics)
             selected_news = news_list[:4]
             topic = selected_news[0]["title"]
             news_context = "\n".join([f"НОВОСТЬ {i+1}: {n['title']}\nФАКТУРА: {n['description']}" for i, n in enumerate(selected_news)])
@@ -148,8 +144,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             # Fallback if news fetch fails
             logger.warning("Не удалось получить новости, откат к стандартным рубрикам")
             all_evening_rubrics = ["SUPPORT", "FACT", "POLL"]
-            available_rubrics = [r for r in all_evening_rubrics if r not in used_rubrics]
-            rubric = random.choice(available_rubrics if available_rubrics else all_evening_rubrics)
+            rubric = await get_least_recent_rubric(all_evening_rubrics)
 
             if all_available_topics:
                 category, topic = random.choice(all_available_topics)
@@ -217,7 +212,10 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         ),
         "BATTLE": (
             f"Битва Архетипов. Это диалог-стычка между тобой ({skin_name}) и персонажем {opponent_name}. "
-            f"Вы спорите на тему «{topic}». Ты гнешь свою линию, {opponent_name} — свою. "
+            f"Вы спорите на тему «{topic}». КРИТИЧЕСКОЕ ТРЕБОВАНИЕ: персонажи должны агрессивно спорить, "
+            "сталкиваться лбами и жестко критиковать подходы друг друга. Один давит холодным расчетом, "
+            "другой — ядовитой правдой или мистикой. Диалог должен быть похож на острую словесную дуэль с переходом на личности, "
+            "без скучного обмена любезностями. Ты гнешь свою линию, {opponent_name} — свою. "
             "Диалог должен быть динамичным, острым и коротким. Каждая реплика должна начинаться с новой строки в формате:\n"
             f"{SKIN_EMOJIS.get(skin_id, '👁')} {SKIN_SHORT_NAMES.get(skin_id, skin_id)}: Текст реплики...\n"
             f"{SKIN_EMOJIS.get(opponent_id, '👁')} {SKIN_SHORT_NAMES.get(opponent_id, opponent_id)}: Текст реплики...\n"
@@ -343,7 +341,15 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
     # Внедрение заголовка рубрики
     rubric_label = RUBRIC_NAMES.get(rubric, rubric)
-    final_text = f"РУБРИКА: {rubric_label}\n\n{final_text}"
+    header = f"РУБРИКА: {rubric_label}"
+
+    if rubric == "BATTLE" and opponent_id:
+        skin_emoji = SKIN_EMOJIS.get(skin_id, '👁')
+        opp_emoji = SKIN_EMOJIS.get(opponent_id, '😈')
+        battle_title = f"{skin_emoji} {skin_name.upper()} vs {opp_emoji} {opponent_name.upper()}"
+        header += f"\n{battle_title}"
+
+    final_text = f"{header}\n\n{final_text}"
 
     return {
         "text": final_text,
