@@ -1,4 +1,5 @@
 import datetime
+import random
 from typing import List
 from loguru import logger
 from database.config import URL, KEY, HEADERS
@@ -55,7 +56,8 @@ async def get_daily_used_content():
     try:
         # 72 часа назад (увеличили память для большего разнообразия)
         time_limit = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=72)).isoformat()
-        url = f"{URL}/rest/v1/post_daily_log?select=skin_id,topic_name,rubric&published_at=gt.{time_limit}"
+        # Добавляем сортировку, чтобы понимать порядок использования
+        url = f"{URL}/rest/v1/post_daily_log?select=skin_id,topic_name,rubric,published_at&published_at=gt.{time_limit}&order=published_at.desc"
         async with core.session.get(url, headers=HEADERS) as r:
             if r.status == 200:
                 data = await r.json()
@@ -67,6 +69,32 @@ async def get_daily_used_content():
         logger.error(f"Error in get_daily_used_content: {e}")
         return [], [], []
     return [], [], []
+
+async def get_least_recent_rubric(pool: List[str]) -> str:
+    """Находит рубрику из пула, которая использовалась дольше всего назад (LRU)"""
+    if not URL or not KEY or core.session is None or not pool:
+        return random.choice(pool) if pool else "unknown"
+    try:
+        # Берем историю за последние 7 дней для надежного LRU
+        time_limit = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)).isoformat()
+        url = f"{URL}/rest/v1/post_daily_log?select=rubric,published_at&published_at=gt.{time_limit}&order=published_at.desc"
+        async with core.session.get(url, headers=HEADERS) as r:
+            if r.status == 200:
+                data = await r.json()
+                last_used = {}
+                for item in data:
+                    rub = item.get("rubric")
+                    if rub in pool and rub not in last_used:
+                        last_used[rub] = item.get("published_at")
+
+                unused = [r for r in pool if r not in last_used]
+                if unused:
+                    return random.choice(unused)
+
+                return min(last_used, key=last_used.get)
+    except Exception as e:
+        logger.error(f"Error in get_least_recent_rubric: {e}")
+    return random.choice(pool)
 
 async def save_active_poll(poll_id: int, owner_id: int, topic_name: str, options: list):
     """Сохраняет активный опрос в базу"""
