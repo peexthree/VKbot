@@ -458,11 +458,11 @@ def setup_autoposter():
     scheduler = AsyncIOScheduler(timezone=bash_tz)
 
     # 🌅 Утренний выход: ровно 08:00
-    morning_hour = 8
+    morning_hour = 5
     morning_minute = 0
 
     # 🌌 Вечерний выход: ровно 19:00
-    evening_hour = 19
+    evening_hour = 12
     evening_minute = 0
 
     # Утреннее задание
