@@ -47,13 +47,20 @@
             height: 100vh;
             position: relative;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            padding-top: 40px;
+        }
+        .logo-top {
+            width: 28%;
+            margin-bottom: 10px;
+            z-index: 2;
         }
         .cover img.head {
             width: 100%;
             height: auto;
-            max-height: 100vh;
+            max-height: 80vh;
             object-fit: contain;
         }
 
@@ -184,6 +191,10 @@
             padding-top: 30px;
             border-top: 1px solid rgba(244, 212, 140, 0.3);
         }
+        .logo-footer {
+            width: 200px;
+            margin-bottom: 10px;
+        }
 
         .seal-container {
             text-align: center;
@@ -199,6 +210,7 @@
 <body>
     <!-- ПЕРВАЯ СТРАНИЦА -->
     <div class="container cover">
+        <img src="cards/uslugi/logo.png" class="logo-top" alt="Logo">
         <img src="cards/uslugi/head2.png" class="head" alt="Персональный разбор">
         <div class="user-info-wrapper">
             <div class="user-info">
@@ -324,7 +336,7 @@
 
             <!-- 9. Финальная печать ANTI-TAR -->
             <div class="final-seal">
-                <h2 style="font-family: 'AdventureIndiana', sans-serif; color:#f4d48c; letter-spacing: 6px; font-size: 28pt; margin: 0;">ANTI-TAR</h2>
+                <img src="cards/uslugi/logo.png" class="logo-footer" alt="Logo">
                 <p style="font-size: 11.5pt; margin-top: 8px;">Проводник: {{ character_name }} • {{ current_date }}</p>
             </div>
 

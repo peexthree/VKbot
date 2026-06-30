@@ -4,62 +4,70 @@ from PIL import Image, ImageDraw, ImageFont
 
 def generate_diagnosis_card(quote_text: str, output_path: str = "cards/temp_diagnosis.jpg"):
     """
-    Генерирует стильную карточку с цитатой: темный градиент, шрифт Lora-Bold,
-    текстовый вотермарк АНТИ-ТАР.
+    Генерирует стильную карточку с цитатой: глубокий фиолетовый градиент,
+    логотип Анти-Тар вместо текста, шрифт Lora-Bold.
     """
     width, height = 1080, 1080
 
-    # 1. Создание градиентного фона (от темно-серого к черному)
-    # Верх: (40, 40, 40), Низ: (0, 0, 0)
-    base = Image.new('RGB', (width, height), (0, 0, 0))
-    top_color = (40, 40, 40)
-    bottom_color = (0, 0, 0)
+    # 1. Создание радиального градиентного фона
+    # Центр: глубокий фиолетовый, Края: почти черный
+    inner_color = (25, 12, 45)  # Глубокий холодный фиолетовый
+    outer_color = (5, 2, 10)    # Почти черный
+
+    # Создаем маску для радиального градиента (быстрый способ через resize)
+    mask = Image.new('L', (256, 256))
+    for y in range(256):
+        for x in range(256):
+            # Расстояние от центра
+            dist = (((x - 128) ** 2 + (y - 128) ** 2) ** 0.5) / 128
+            mask.putpixel((x, y), int(min(dist * 255, 255)))
+
+    mask = mask.resize((width, height), Image.Resampling.LANCZOS)
+
+    # Композиция фона
+    base = Image.new('RGB', (width, height), inner_color)
+    outer_layer = Image.new('RGB', (width, height), outer_color)
+    base = Image.composite(outer_layer, base, mask)
 
     draw = ImageDraw.Draw(base)
-    for y in range(height):
-        r = int(top_color[0] + (bottom_color[0] - top_color[0]) * (y / height))
-        g = int(top_color[1] + (bottom_color[1] - top_color[1]) * (y / height))
-        b = int(top_color[2] + (bottom_color[2] - top_color[2]) * (y / height))
-        draw.line([(0, y), (width, y)], fill=(r, g, b))
 
     # 2. Подготовка шрифтов
     font_path = "Lora-Bold.ttf"
     if not os.path.exists(font_path):
-        # Фолбэк на системный, если файла нет (хотя он должен быть)
         font_path = "DejaVuSans-Bold.ttf"
 
     try:
         font_main = ImageFont.truetype(font_path, 60)
-        font_logo = ImageFont.truetype(font_path, 40)
     except Exception:
         font_main = ImageFont.load_default()
-        font_logo = ImageFont.load_default()
 
     # 3. Отрисовка цитаты (по центру с переносами)
-    # Ограничиваем длину строки примерно 25-30 символами
-    wrapped_text = textwrap.fill(quote_text, width=25)
+    wrapped_text = textwrap.fill(quote_text, width=28)
 
-    # Расчет координат для центрирования
-    # getbbox возвращает (left, top, right, bottom)
     bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font_main, align="center")
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
 
-    x = (width - text_width) // 2
-    y = (height - text_height) // 2 - 50 # Немного выше центра
+    tx = (width - text_width) // 2
+    ty = (height - text_height) // 2 - 80 # Смещаем вверх для логотипа внизу
 
-    draw.multiline_text((x, y), wrapped_text, font=font_main, fill=(255, 255, 255), align="center", spacing=20)
+    draw.multiline_text((tx, ty), wrapped_text, font=font_main, fill=(255, 255, 255), align="center", spacing=25)
 
-    # 4. Вотермарк (АНТИ-ТАР)
-    logo_text = "АНТИ-ТАР"
-    logo_bbox = draw.textbbox((0, 0), logo_text, font=font_logo)
-    logo_w = logo_bbox[2] - logo_bbox[0]
+    # 4. Логотип вместо текстового вотермарка
+    logo_path = "cards/uslugi/logo.png"
+    if os.path.exists(logo_path):
+        logo = Image.open(logo_path).convert("RGBA")
+        # Пропорциональное изменение размера логотипа (ширина ~300px)
+        logo_w = 320
+        w_percent = (logo_w / float(logo.size[0]))
+        logo_h = int((float(logo.size[1]) * float(w_percent)))
+        logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
 
-    lx = (width - logo_w) // 2
-    ly = height - 100
+        lx = (width - logo_w) // 2
+        ly = height - logo_h - 80 # Отступ снизу
 
-    # Рисуем лого с небольшой прозрачностью (имитация через серый цвет)
-    draw.text((lx, ly), logo_text, font=font_logo, fill=(150, 150, 150))
+        # Накладываем логотип (используя его альфа-канал)
+        base.paste(logo, (lx, ly), logo)
 
     # Сохранение
     base.save(output_path, "JPEG", quality=95)
