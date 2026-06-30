@@ -71,10 +71,11 @@ async def handle_diagnosis_comment(event: dict):
 
     if from_id <= 0: return # Игнорируем группы и пустые ID
 
-    # Ищем дату рождения (ДД.ММ.ГГГГ или ДД.ММ)
-    date_match = re.search(r"(\d{2}\.\d{2}(?:\.\d{2,4})?)", text)
-    if date_match:
-        birth_date = date_match.group(1)
+    from modules.utils.logic import extract_russian_date
+    birth_date = extract_russian_date(text)
+
+    # Проверка, что дата является основой сообщения (не слишком длинный текст и дата присутствует)
+    if birth_date and len(text.strip()) < 50:
         logger.info(f"Получен запрос на вскрытие от {from_id} под постом {post_id}: {birth_date}")
 
         from database import get_user
