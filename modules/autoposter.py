@@ -477,6 +477,11 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             return
 
         text = post_data["text"]
+
+        # Принудительная очистка текста перед публикацией
+        text = text.replace("\\n", "\n")  # Превращаем строковые \n в реальные
+        text = text.replace("—", "-")  # Убиваем длинные тире
+
         skin_id = post_data["skin_id"]
         opponent_id = post_data.get("opponent_id")
         rubric = post_data["rubric"]
