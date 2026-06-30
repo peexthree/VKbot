@@ -48,8 +48,11 @@ async def get_user_by_cipher(cipher: str):
     """Поиск пользователя по теневому шифру"""
     if not URL or not KEY or session is None: return None
     try:
-        # Шифр хранится в purchased_sections -> shadow_cipher
-        async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?purchased_sections->>shadow_cipher=eq.{cipher.upper()}", headers=HEADERS) as r:
+        # Используем параметры запроса для безопасной передачи данных (защита от инъекций в PostgREST)
+        params = {
+            "purchased_sections->>shadow_cipher": f"eq.{cipher.upper()}"
+        }
+        async with session.get(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS, params=params) as r:
             if r.status == 200:
                 data = await r.json()
                 if data: return data[0]
