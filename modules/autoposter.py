@@ -397,12 +397,19 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         return None
 
     try:
-        data = json.loads(clean_ai_json(raw_response))
+        cleaned_json = clean_ai_json(raw_response)
+        data = json.loads(cleaned_json)
         ai_text = data.get("text", "")
         quote = data.get("quote", "")
     except Exception as e:
         logger.error(f"Ошибка парсинга JSON поста: {e}")
-        ai_text = raw_response
+        # Безопасный фолбэк: если это JSON, пытаемся достать текст регуляркой,
+        # иначе просто чистим от артефактов разметки
+        text_match = re.search(r'\"text\":\s*\"(.*?)\"(?:,|\s*\})', raw_response, re.DOTALL)
+        if text_match:
+            ai_text = text_match.group(1).encode().decode('unicode_escape')
+        else:
+            ai_text = raw_response.replace('```json', '').replace('```', '').strip()
         quote = ""
 
     # Агрессивный предохранитель хэштегов: обрабатываем именно ai_text
@@ -537,6 +544,7 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         quote = post_data.get("quote")
         if quote:
             try:
+                os.makedirs("cards", exist_ok=True)
                 card_filename = f"diag_{random.randint(1000,9999)}.jpg"
                 card_path = os.path.join("cards", card_filename)
                 generate_diagnosis_card(quote, card_path)
