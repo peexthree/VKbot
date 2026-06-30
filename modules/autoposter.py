@@ -20,6 +20,19 @@ from modules.utils.news import fetch_trending_news
 CONTENT_PATH = "data/content_core.json"
 GROUP_ID = int(os.environ.get("GROUP_ID", "219181948"))
 
+RUBRIC_NAMES = {
+    "PROVOCATION": "ПРОВОКАЦИЯ",
+    "MYTH_BUST": "РАЗРУШЕНИЕ МИФОВ",
+    "BATTLE": "БИТВА АРХЕТИПОВ",
+    "PRACTICUM": "ПРАКТИКУМ",
+    "SUPPORT": "САКРАЛЬНАЯ ПОДДЕРЖКА",
+    "FACT": "МИСТИЧЕСКИЙ ФАКТ",
+    "POLL": "ИНТЕРАКТИВНЫЙ ОПРОС",
+    "NEWS_BREAKDOWN": "РАЗБОР ИНФОПОВОДА",
+    "STAR_SYNASTRY": "ЗВЕЗДНЫЙ РАЗБОР",
+    "TREND_WATCH": "ТРЕНД-АНАЛИЗ"
+}
+
 labeler = BotLabeler()
 
 @labeler.raw_event(GroupEventType.WALL_POST_NEW, dataclass=dict)
@@ -41,6 +54,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     content = load_content()
     skin_ids = list(content["TONES"].keys())
     topics_by_category = content["TOPICS"]
+    news_context = ""
 
     # 1. Получаем список недавно использованного контента за 72ч
     used_skins, used_topics, used_rubrics = await get_daily_used_content()
@@ -97,9 +111,11 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
             news_list = await fetch_trending_news()
             if news_list:
-                topic = random.choice(news_list)
+                selected_news = news_list[:4]
+                topic = selected_news[0]["title"]
+                news_context = "\n".join([f"НОВОСТЬ {i+1}: {n['title']}\nФАКТУРА: {n['description']}" for i, n in enumerate(selected_news)])
                 category = "Новости"
-                logger.info(f"Выбрана новость для принудительной рубрики {rubric}: {topic}")
+                logger.info(f"Выбрана сводка новостей для принудительной рубрики {rubric}")
                 tones = ["Эмоциональный разбор", "Высоковибрационный хайп", "Циничный инсайд"]
             else:
                 logger.warning(f"Не удалось получить новости для принудительной рубрики {rubric}, используем стандартную тему")
@@ -122,9 +138,11 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         if news_list:
             news_rubrics = ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]
             rubric = random.choice(news_rubrics)
-            topic = random.choice(news_list)
+            selected_news = news_list[:4]
+            topic = selected_news[0]["title"]
+            news_context = "\n".join([f"НОВОСТЬ {i+1}: {n['title']}\nФАКТУРА: {n['description']}" for i, n in enumerate(selected_news)])
             category = "Новости"
-            logger.info(f"Выбрана новость для рубрики {rubric}: {topic}")
+            logger.info(f"Выбрана сводка новостей для рубрики {rubric}")
             tones = ["Эмоциональный разбор", "Высоковибрационный хайп", "Циничный инсайд"]
         else:
             # Fallback if news fetch fails
@@ -224,26 +242,26 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             "Текст должен обрываться на вопросе, на который люди ответят в опросе ниже."
         ),
         "NEWS_BREAKDOWN": (
-            f"Разбор инфоповода. Свежая новость: «{topic}». "
-            "Структура поста: \n"
-            "1. Суть новости (3-4 предложения) — ОБЯЗАТЕЛЬНО назови ключевые факты, имена и цифры из новости, чтобы читатель четко понял, ЧТО произошло. Пиши максимально живо, хайпово, как горячую сплетню дня. \n"
-            f"2. Твой авторский комментарий как {skin_name}. Препарируй ситуацию через свою эзотерическую или психологическую призму. Почему это произошло с точки зрения кармы или подсознания? \n"
+            f"СВОДКА НОВОСТЕЙ ДЛЯ РАЗБОРА:\n{news_context}\n\n"
+            "ЗАДАНИЕ: \n"
+            "1. Напиши краткую и хлесткую сводку этих 3-4 новостей. Каждой новости — по 1-2 предложения, чтобы читатель понял суть и фактуру. Пиши максимально живо, хайпово, как горячие сплетни дня. \n"
+            f"2. Твой ЕДИНЫЙ авторский комментарий как {skin_name} по всей этой повестке дня. Препарируй ситуацию через свою эзотерическую или психологическую призму. Почему это произошло с точки зрения кармы или подсознания? \n"
             "3. Резкий вывод и призыв. \n"
             "Вайб: HIGH VIBE, сочные эмоции, используй уместные эмодзи (✨, 🔥, 🔮, 💸), обращайся ко всей аудитории (и к парням, и к девчонкам)."
         ),
         "STAR_SYNASTRY": (
-            f"Звездный разбор. Новость: «{topic}». "
-            "ОБЯЗАТЕЛЬНО назови ключевые факты и имена из новости в начале поста. \n"
-            "Если в новости есть пара или скандал — разбери их совместимость или причины краха. \n"
-            "Если пары нет — выбери главного героя новости и 'сочетай' его с каким-то архетипом или картой Таро. \n"
-            "Пиши сочно, с инсайдами, которые 'шепчут звезды'. Тон: как в закрытом элитном клубе."
+            f"СВОДКА НОВОСТЕЙ ДЛЯ РАЗБОРА:\n{news_context}\n\n"
+            "ЗАДАНИЕ: \n"
+            "1. Напиши краткую сводку новостей, называя ключевые имена и факты. \n"
+            "2. Твой авторский 'Звездный разбор': выбери самых ярких героев из этих новостей и разбери их совместимость, причины краха или их архетипы. \n"
+            "3. Пиши сочно, с инсайдами, которые 'шепчут звезды'. Тон: как в закрытом элитном клубе."
         ),
         "TREND_WATCH": (
-            f"Тренд-анализ. Тема: «{topic}». "
-            "ОБЯЗАТЕЛЬНО назови суть новости в начале поста, чтобы было понятно, о чем речь. \n"
-            "Разбери, куда катится мир согласно этой новости. Это 'знамение конца' или 'новая эра'? \n"
-            "Дай свой экспертный прогноз, как это повлияет на обычных людей. \n"
-            "Пиши энергично, дерзко, используй метафоры будущего и эзотерики."
+            f"СВОДКА НОВОСТЕЙ ДЛЯ РАЗБОРА:\n{news_context}\n\n"
+            "ЗАДАНИЕ: \n"
+            "1. Напиши краткую сводку новостей. \n"
+            "2. Твой 'Тренд-анализ': разбери, куда катится мир согласно этой сводке. Это 'знамение конца' или 'новая эра'? Дай экспертный прогноз, как это повлияет на обычных людей. \n"
+            "3. Пиши энергично, дерзко, используй метафоры будущего и эзотерики."
         )
     }
 
@@ -322,6 +340,10 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
     # Нативный текст без ссылок
     final_text = ai_text.strip()
+
+    # Внедрение заголовка рубрики
+    rubric_label = RUBRIC_NAMES.get(rubric, rubric)
+    final_text = f"РУБРИКА: {rubric_label}\n\n{final_text}"
 
     return {
         "text": final_text,
