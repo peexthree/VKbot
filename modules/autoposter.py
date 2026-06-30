@@ -12,7 +12,10 @@ from vkbottle import GroupEventType
 import re
 from modules.bot_init import bot
 from ai_service import generate_text, clean_ai_json
-from database.autoposter import get_daily_used_content, get_active_poll, close_poll, save_hidden_promo, get_least_recent_rubric
+from database.autoposter import (
+    get_daily_used_content, get_active_poll, close_poll,
+    save_hidden_promo, get_least_recent_rubric, save_active_poll
+)
 from modules.utils.visual import generate_diagnosis_card
 from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES, SKIN_EMOJIS, HIDDEN_CIPHER_WORDS
 from modules.utils.photos import upload_wall_photo
@@ -487,75 +490,63 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         rubric = post_data["rubric"]
         topic = post_data["topic"]
 
-        # Подготовка вложений (Фото персонажа или Карта Таро)
+        # --- СБОР ВЛОЖЕНИЙ (ЕДИНАЯ СЕТКА) ---
         attachments = []
 
+        # 1. Основные фото (Персонажи)
         if rubric == "BATTLE" and opponent_id:
-            # Для Битвы - всегда два персонажа
             photo1 = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
             photo2 = SKIN_VISUALS.get(opponent_id, "main_menu.jpeg")
-
             att1 = await upload_wall_photo(bot.api, photo1)
             att2 = await upload_wall_photo(bot.api, photo2)
-
             if att1: attachments.append(att1)
             if att2: attachments.append(att2)
         else:
-            # Основное фото персонажа
             photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
             att = await upload_wall_photo(bot.api, photo_filename)
-            if att:
-                attachments.append(att)
+            if att: attachments.append(att)
 
-            # Шанс 20% на карту Таро в дополнение (карусель)
-            if random.random() < 0.2 and rubric != "POLL":
-                card_id = random.randint(0, 77)
-                card_filename = f"cards/{card_id}.jpeg"
-                logger.info(f"Выбрана доп. карта Таро для поста: {card_filename}")
-                att_card = await upload_wall_photo(bot.api, card_filename)
-                if att_card:
-                    attachments.append(att_card)
+        # 2. Дополнительная карта (20% шанс, кроме опросов)
+        if random.random() < 0.2 and rubric != "POLL":
+            card_id = random.randint(0, 77)
+            att_card = await upload_wall_photo(bot.api, f"{card_id}.jpeg")
+            if att_card:
+                attachments.append(att_card)
 
-        # Если рубрика POLL - создаем и крепим опрос с вариантами тем на завтра
-        if rubric == "POLL":
-            # Выбираем 3 случайные темы для голосования
-            content = load_content()
-            all_topics = [t for ts in content["TOPICS"].values() for t in ts]
-            poll_options = random.sample(all_topics, min(4, len(all_topics)))
-
-            poll = await create_vk_poll(poll_options)
-            if poll:
-                attachments.append(f"poll{poll.owner_id}_{poll.id}")
-                # Сохраняем опрос в БД для завтрашнего анализа
-                from database.autoposter import save_active_poll
-                await save_active_poll(poll.id, poll.owner_id, "Голосование", poll_options)
-
-        if not text or text.strip() == "" or text == "Post text":
-            logger.error("Аборт публикации: пустой или некорректный текст поста")
-            return
-
-        if not attachments:
-            logger.error("Аборт публикации: нет вложений")
-            return
-
-        # ГЕНЕРАЦИЯ И ЗАГРУЗКА КАРТОЧКИ-ДИАГНОЗА
+        # 3. Карточка-диагноз (генерируется из цитаты ИИ)
         quote = post_data.get("quote")
         if quote:
             try:
                 card_filename = f"diag_{random.randint(1000,9999)}.jpg"
                 card_path = os.path.join("cards", card_filename)
                 generate_diagnosis_card(quote, card_path)
-                # upload_wall_photo сам добавит 'cards/' к пути
-                att_card = await upload_wall_photo(bot.api, card_filename)
-                if att_card:
-                    attachments.append(att_card)
-                # Удаляем временный файл
+                att_diag = await upload_wall_photo(bot.api, card_filename)
+                if att_diag:
+                    attachments.append(att_diag)
                 if os.path.exists(card_path):
                     os.remove(card_path)
             except Exception as e:
-                logger.error(f"Ошибка при создании/загрузке карточки: {e}")
+                logger.error(f"Ошибка при создании карточки: {e}")
 
-        # Публикация на Стену сообщества
+        # 4. Опрос (добавляется в конец списка вложений)
+        if rubric == "POLL":
+            content = load_content()
+            all_topics = [t for ts in content["TOPICS"].values() for t in ts]
+            poll_options = random.sample(all_topics, min(4, len(all_topics)))
+            poll = await create_vk_poll(poll_options)
+            if poll:
+                attachments.append(f"poll{poll.owner_id}_{poll.id}")
+                await save_active_poll(poll.id, poll.owner_id, "Голосование", poll_options)
+
+        # Валидация перед отправкой
+        if not text or text.strip() == "" or text == "Post text":
+            logger.error("Аборт публикации: пустой текст")
+            return
+        if not attachments:
+            logger.error("Аборт публикации: нет вложений")
+            return
+
+        # Публикация на Стену сообщества (единый запрос для сетки)
         res_wall = await bot.api.wall.post(
             owner_id=-GROUP_ID,
             from_group=1,

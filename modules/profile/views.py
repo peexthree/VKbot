@@ -424,6 +424,13 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         else:
             # Пытаемся найти как теневой шифр (6 символов)
             cipher = text.replace("REF=", "") # На случай если передали с префиксом ссылки
+
+            # Строгая валидация шифра: только латиница и цифры, длина 6-12 символов
+            if not re.match(r"^[A-Z0-9]{6,12}$", cipher):
+                if not override_ref:
+                    await message.answer("Матрица не узнает этот шифр. Проверь символы или попроси актуальный код у друга.")
+                return
+
             from database import get_user_by_cipher
             referrer = await get_user_by_cipher(cipher)
 
