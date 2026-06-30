@@ -1,8 +1,8 @@
 import asyncio
 import json
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 import pytest
-from modules.autoposter import generate_post, post_to_vk
+from modules.autoposter import generate_post
 
 @pytest.mark.asyncio
 async def test_viral_post_generation():

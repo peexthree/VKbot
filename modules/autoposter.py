@@ -10,7 +10,6 @@ from vkbottle.bot import BotLabeler
 from vkbottle import GroupEventType
 
 import re
-import os
 from modules.bot_init import bot
 from ai_service import generate_text, clean_ai_json
 from database.autoposter import get_daily_used_content, get_active_poll, close_poll, save_hidden_promo, get_least_recent_rubric
