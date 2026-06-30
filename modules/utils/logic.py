@@ -203,3 +203,54 @@ def clean_topic_ref(text: str) -> str:
     """Очищает тему для использования в параметре ref (лимит 40 символов)"""
     slug = slugify(text)
     return slug[:40].strip("_")
+
+def extract_russian_date(text: str) -> str | None:
+    """
+    Извлекает и нормализует дату из русского текста.
+    Поддерживает: 13.12.2006, 13.12, 13 декабря 2006, 13 дек, 13.12.06 и т.д.
+    """
+    month_map = {
+        'янв': '01', 'фев': '02', 'мар': '03', 'апр': '04', 'май': '05', 'июн': '06',
+        'июл': '07', 'авг': '08', 'сен': '09', 'окт': '10', 'ноя': '11', 'дек': '12',
+        'января': '01', 'февраля': '02', 'марта': '03', 'апреля': '04', 'мая': '05', 'июня': '06',
+        'июля': '07', 'августа': '08', 'сентября': '09', 'октября': '10', 'ноября': '11', 'декабря': '12',
+        'сент': '09', 'нояб': '11'
+    }
+
+    text = text.lower().strip()
+
+    # 1. Цифровой формат: ДД.ММ.ГГГГ или ДД.ММ ГГГГ или ДД.ММ.ГГ или ДД.ММ
+    numeric_match = re.search(r"(\d{1,2})[./-]\s*(\d{1,2})(?:[./\s-]\s*(\d{2,4}))?", text)
+    if numeric_match:
+        d, m = numeric_match.group(1), numeric_match.group(2)
+        y = numeric_match.group(3)
+
+        d = d.zfill(2)
+        m = m.zfill(2)
+        # Базовая валидация месяца и дня
+        if int(m) > 12 or int(d) > 31: return None
+
+        if y:
+            if len(y) == 2:
+                y = "20" + y if int(y) < 30 else "19" + y
+            return f"{d}.{m}.{y}"
+        return f"{d}.{m}"
+
+    # 2. Текстовый формат: 13 декабря 2006
+    month_names = "|".join(sorted(month_map.keys(), key=len, reverse=True))
+    text_match = re.search(fr"(\d{{1,2}})\s+({month_names})(?:\s+(\d{{2,4}}))?", text)
+    if text_match:
+        d = text_match.group(1).zfill(2)
+        m_name = text_match.group(2)
+        m = month_map.get(m_name)
+        y = text_match.group(3)
+
+        if int(d) > 31: return None
+
+        if y:
+            if len(y) == 2:
+                y = "20" + y if int(y) < 30 else "19" + y
+            return f"{d}.{m}.{y}"
+        return f"{d}.{m}"
+
+    return None
