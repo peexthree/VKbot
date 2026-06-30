@@ -24,11 +24,11 @@ async def test_handle_diagnosis_comment_with_date():
                 mock_request.return_value = {"response": {"comment_id": 999}}
                 res = await handle_diagnosis_comment(event)
 
-                assert res == "ok"
+                assert res is None
                 mock_gen.assert_called_once()
                 mock_request.assert_called_once()
                 args, kwargs = mock_request.call_args
-                assert args[0] == "wall.create_comment" or args[0] == "wall.createComment"
+                assert args[0].lower() in ["wall.create_comment", "wall.createcomment"]
                 assert "Твой диагноз" in args[1]["message"]
                 assert "[id12345|Адепт]" in args[1]["message"]
 
@@ -45,7 +45,7 @@ async def test_handle_diagnosis_comment_no_date():
 
     with patch("database.get_user") as mock_get_user:
         res = await handle_diagnosis_comment(event)
-        assert res == "ok"
+        assert res is None
         mock_get_user.assert_not_called()
 
 if __name__ == "__main__":

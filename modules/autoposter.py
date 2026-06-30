@@ -47,9 +47,13 @@ async def ignore_self_wall_posts(event: dict):
     если они созданы самим сообществом.
     """
     obj = event.get("object", {})
-    from_id = obj.get("from_id", 0)
+    try:
+        from_id = int(obj.get("from_id", 0))
+    except (ValueError, TypeError):
+        from_id = 0
+
     if from_id == -GROUP_ID:
-        return "ok"
+        return
 
 @labeler.raw_event(GroupEventType.WALL_REPLY_NEW, dataclass=dict)
 async def handle_diagnosis_comment(event: dict):
@@ -58,11 +62,14 @@ async def handle_diagnosis_comment(event: dict):
     """
     obj = event.get("object", {})
     text = obj.get("text", "")
-    from_id = obj.get("from_id", 0)
-    post_id = obj.get("post_id", 0)
-    comment_id = obj.get("id", 0)
+    try:
+        from_id = int(obj.get("from_id", 0))
+        post_id = int(obj.get("post_id", 0))
+        comment_id = int(obj.get("id", 0))
+    except (ValueError, TypeError):
+        return
 
-    if from_id <= 0: return "ok" # Игнорируем группы и пустые ID
+    if from_id <= 0: return # Игнорируем группы и пустые ID
 
     # Ищем дату рождения (ДД.ММ.ГГГГ или ДД.ММ)
     date_match = re.search(r"(\d{2}\.\d{2}(?:\.\d{2,4})?)", text)
@@ -75,11 +82,17 @@ async def handle_diagnosis_comment(event: dict):
 
         if user:
             # Данные пользователя
-            purchased = user.get("purchased_sections", {})
             energy = user.get("balance", 0)
             city = user.get("birth_city", "неизвестен")
+            visit_streak = user.get("visit_streak", 0)
+            active_skin = user.get("active_skin", "olesya")
+            unlocked_count = len(user.get("unlocked_cards", {}))
 
-            user_context = f"Данные адепта: Дата {birth_date}, Город {city}, Энергия {energy}✨."
+            user_context = (
+                f"Данные адепта: Дата {birth_date}, Город {city}, Энергия {energy}✨, "
+                f"Цикл (стрик) {visit_streak}дн, Активный персонаж {active_skin}, "
+                f"Открыто арканов {unlocked_count}."
+            )
             prompt = (
                 f"Проведи мгновенное «Вскрытие» адепта на основе его данных: {user_context}. "
                 "Твой ответ должен быть максимально ядовитым, жестким, но психологически точным «диагнозом» его текущего состояния. "
@@ -104,8 +117,6 @@ async def handle_diagnosis_comment(event: dict):
                 )
             except Exception as e:
                 logger.error(f"Ошибка при ответе на комментарий: {e}")
-
-    return "ok"
 
 def load_content():
     with open(CONTENT_PATH, "r", encoding="utf-8") as f:
