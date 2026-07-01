@@ -12,6 +12,7 @@ from vkbottle import GroupEventType
 import re
 from modules.bot_init import bot
 from ai_service import generate_text, clean_ai_json
+from cache import redis_client as redis
 from database.autoposter import (
     get_daily_used_content, get_active_poll, close_poll,
     save_hidden_promo, get_least_recent_rubric, save_active_poll
@@ -78,6 +79,20 @@ async def handle_diagnosis_comment(event: dict):
     if birth_date and len(text.strip()) < 50:
         logger.info(f"Получен запрос на вскрытие от {from_id} под постом {post_id}: {birth_date}")
 
+        # ПОЛУЧЕНИЕ ПРИВЯЗАННОГО ПЕРСОНАЖА ИЗ REDIS
+        try:
+            target_skin = await redis.get(f"post_skin:{post_id}")
+            if target_skin:
+                target_skin = target_skin.decode() if isinstance(target_skin, bytes) else target_skin
+                logger.info(f"Для поста {post_id} найден привязанный персонаж: {target_skin}")
+            else:
+                from modules.utils.consts import SKIN_DISPLAY_NAMES
+                target_skin = random.choice(list(SKIN_DISPLAY_NAMES.keys()))
+                logger.info(f"Персонаж для поста {post_id} не найден в кэше, выбран рандомный: {target_skin}")
+        except Exception as e:
+            logger.error(f"Ошибка получения скина из Redis: {e}")
+            target_skin = "olesya"
+
         from database import get_user
         user = await get_user(from_id)
 
@@ -97,6 +112,7 @@ async def handle_diagnosis_comment(event: dict):
             prompt = (
                 f"Проведи мгновенное «Вскрытие» адепта на основе его данных: {user_context}. "
                 "Твой ответ должен быть максимально ядовитым, жестким, но психологически точным «диагнозом» его текущего состояния. "
+                "Помни: инструменты (даты, арканы) безупречны и велики, проблема всегда в багах и лени самого пользователя. "
                 "Используй стиль Анти-Таро: цинизм, никакой пощады, метафоры матрицы и системных ошибок. "
                 "Объем: 2-3 хлестких предложения. Без приветствий."
             )
@@ -104,10 +120,11 @@ async def handle_diagnosis_comment(event: dict):
             prompt = (
                 f"Адепт прислал дату {birth_date}, но его нет в нашей базе. "
                 "Твой ответ: «Ты — чистый лист в этой матрице. Заходи в бота, чтобы система тебя просканировала». "
-                "Добавь к этому одну ядовитую фразу о том, что анонимы в системе не имеют веса."
+                "Добавь к этому одну ядовитую фразу о том, что анонимы в системе не имеют веса, "
+                "а мощные инструменты (даты) требуют авторизации в системе."
             )
 
-        diagnosis = await generate_text(prompt, skin="olesya")
+        diagnosis = await generate_text(prompt, skin=target_skin)
         if diagnosis:
             # Принудительная очистка
             diagnosis = diagnosis.replace("\\n", "\n").replace("—", "-")
@@ -277,22 +294,22 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     viral_instruction = ""
     if rubric in ["PROVOCATION", "MYTH_BUST"]:
         viral_instruction = (
-            "\n\nИСПОЛЬЗУЙ РАДИКАЛЬНЫЕ ТЕЗИСЫ: «Таро — это костыль для тех, кто боится принимать решения» или «Денежные марафоны — это налог на глупость». "
-            "Заканчивай пост вопросом, который противопоставляет читателя остальным: «Ты готов признать, что ты прокрастинируешь, или продолжишь тешить себя медитациями?»."
+            "\n\nИСПОЛЬЗУЙ РАДИКАЛЬНЫЕ ТЕЗИСЫ: «Таро - это мощный системный код и оружие для победителей, но в руках ленивого стада оно превращается в костыль». "
+            "Заканчивай пост вопросом, который противопоставляет читателя остальным: «Ты готов взять управление своей матрицей или продолжишь ждать знаков свыше?»."
         )
 
     # Формирование специфических инструкций под рубрику
     rubric_instructions = {
         "PROVOCATION": (
             f"Это ультра-короткий пост-провокация (3-4 предложения). Объем: {jitter_length}. "
-            "Запрещено давать советы. Нанеси жесткий удар по гордости читателя, высмей его пассивность. "
-            f"Текст должен быть едким и вызывать моментальное желание зайти в бота. {viral_instruction} "
+            "Запрещено давать советы. Нанеси жесткий удар по пассивности читателя. "
+            f"Покажи, что инструменты (Таро, звезды) в его руках - это ядерный реактор, на котором он просто жарит хлеб. {viral_instruction} "
             "ОБЯЗАТЕЛЬНО заполни поле quote короткой едкой фразой до 120 символов."
         ),
         "MYTH_BUST": (
             f"Разрушение мифов. Объем: {jitter_length}. Структура: {jitter_style}. "
-            "Запрещено писать банальщину. Возьми популярный эзотерический бред и жестко разнеси его с позиции приземленной психологии, цинизма и здравого смысла. "
-            f"Покажи, почему это ловушка для дураков. {viral_instruction} "
+            "Запрещено писать банальщину. Возьми популярный эзотерический стереотип и покажи, что это не «магия удачи», а «технология расчета». "
+            f"Разнеси людей за то, что они ждут чуда там, где нужно применять систему. {viral_instruction} "
             "ОБЯЗАТЕЛЬНО заполни поле quote короткой едкой фразой до 120 символов."
         ),
         "BATTLE": (
@@ -318,8 +335,9 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         ),
         "FACT": (
             f"Мистический факт. Объем: {jitter_length}. "
-            "Запрещено давать историческую справку ради справки. Любой факт должен служить едкой метафорой, "
-            "которая вскрывает и критикует текущие иллюзии и лень читателя. Покажи скрытую правду через историю."
+            "Подай мистический факт или аркан (например, 4 Жезлов как карту триумфа и раскрытия потенциала) "
+            "как чистую энергию успеха и взлома матрицы. Разнеси человека за то, что он сидит в болоте и "
+            "боится взять эту мощную энергию, которая уже доступна. Покажи скрытую правду через историю."
         ),
         "POLL": (
             f"Интерактивный опрос. Объем: {jitter_length}. "
@@ -372,9 +390,16 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     # Инструкция по виральному вызову в конце
     ego_call = "В конце поста добавь циничную приписку: «Перешли этот пост тому, кто до сих пор верит в удачу, а не в стратегию. Пусть его тоже проберет»."
 
+    # Призыв к действию (CTA)
+    cta_instruction = (
+        "Любой призыв к действию должен продавать бота и наши разборы как единственное премиальное оружие "
+        "для перепрошивки реальности и активации своей истинной силы, а не способ просто «погадать»."
+    )
+
     prompt_base = (
         f"Текущая дата: {current_date_str}, день недели: {current_day}. "
         "Напиши виральный пост для паблика Анти-Тар.\n"
+        f"{cta_instruction}\n"
         f"Твоя роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
         f"Рубрика поста: {rubric}. Инструкция: {rubric_instructions.get(rubric)}\n\n"
         f"{cipher_instruction}\n\n"
@@ -600,6 +625,13 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         )
         post_id = res_wall.post_id
         logger.info(f"Пост опубликован на стену: {post_id}")
+
+        # ПРИВЯЗКА ПЕРСОНАЖА К ПОСТУ (Redis)
+        try:
+            await redis.set(f"post_skin:{post_id}", skin_id, ex=2592000)
+            logger.info(f"Привязка скина {skin_id} к посту {post_id} сохранена в Redis")
+        except Exception as e:
+            logger.error(f"Ошибка сохранения привязки скина в Redis: {e}")
 
         # АВТОМАТИЧЕСКИЙ КОММЕНТАРИЙ (Вскрытие + Вторая часть шифра)
         # Публикуем сразу после поста, чтобы он был самым первым и вверху ветки
