@@ -317,7 +317,12 @@ ANCHOR_BATCH_SIZE = 10
 _anchor_batch: list[str] = []
 
 # Скрытые Сакральные Шифры (промокоды)
-HIDDEN_CIPHER_WORDS = ["ERROR", "SYSTEM", "MATRIX", "BUG", "CODE", "FAIL", "CYBER", "LOG", "VOID"]
+HIDDEN_CIPHER_WORDS = [
+    "MATRIX", "FAIL", "ERROR", "CODE", "VOID", "BYPASS", "CRASH", "ROOT",
+    "SYSTEM", "BUG", "CYBER", "LOG", "KERNEL", "OVERRIDE", "BREACH",
+    "DECODE", "UPLINK", "SHADOW", "ZERO", "NULL", "PHANTOM", "GHOST",
+    "SHELL", "PROXY", "CIPHER", "DATA", "FLOW", "GRID", "NODE", "PULSE"
+]
 
 # PDF related
 templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'templates')
