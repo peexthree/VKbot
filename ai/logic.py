@@ -112,7 +112,11 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                             logger.error(f"Failed to fetch image for AI: {e}")
 
                 payload = {
-                    "contents": [{"parts": parts}]
+                    "contents": [{"parts": parts}],
+                    "generationConfig": {
+                        "maxOutputTokens": 2048,
+                        "temperature": 0.8
+                    }
                 }
 
                 try:
@@ -127,11 +131,11 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                                     if not text and parts:
                                         text = parts[-1].get("text", "")
 
+                                    # Жесткая очистка на уровне кода
+                                    text = text.replace('*', '').replace('—', '-')
+
                                     if not json_mode:
                                         text = text.translate(SANITIZATION_TABLE)
-
-                                    # Добавляем маркер для TTS если нужно (будущая фича)
-                                    # text = "[VOICE_ENABLED] " + text
 
                                     return text
                                 except (KeyError, IndexError):
@@ -148,6 +152,8 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                                                 text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
                                                 if not text and parts:
                                                     text = parts[-1].get("text", "")
+
+                                                text = text.replace('*', '').replace('—', '-')
                                                 if not json_mode:
                                                     text = text.translate(SANITIZATION_TABLE)
                                                 return text
