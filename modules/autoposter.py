@@ -19,7 +19,7 @@ from database.autoposter import (
     save_hidden_promo, get_least_recent_rubric, save_active_poll
 )
 from modules.utils.visual import generate_diagnosis_card
-from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES, SKIN_EMOJIS, HIDDEN_CIPHER_WORDS
+from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_EMOJIS, HIDDEN_CIPHER_WORDS
 from modules.utils.photos import upload_wall_photo
 from modules.utils.news import fetch_trending_news
 
