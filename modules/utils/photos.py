@@ -224,8 +224,17 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
 
     try:
         filepath = os.path.join("cards", filename)
-        if not os.path.exists(filepath):
-            logger.error(f"Файл не найден для wall_photo: {filepath}")
+
+        # Ожидание готовности файла (для динамических карточек)
+        found = False
+        for _ in range(10):
+            if os.path.exists(filepath) and os.path.getsize(filepath) > 100:
+                found = True
+                break
+            await asyncio.sleep(0.2)
+
+        if not found:
+            logger.error(f"Файл не найден или пуст для wall_photo: {filepath}")
             return ""
 
         async with aiofiles.open(filepath, 'rb') as f:
@@ -243,7 +252,7 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                         server = await upload_client.photos.get_wall_upload_server(group_id=GROUP_ID)
 
                         form = aiohttp.FormData()
-                        form.add_field('photo', data, filename='photo.jpg', content_type='image/jpeg')
+                        form.add_field('file1', data, filename=os.path.basename(filepath), content_type='image/jpeg')
                         async with session.post(server.upload_url, data=form) as resp:
                             if resp.status == 504 or "text/html" in resp.headers.get("Content-Type", ""):
                                 raise Exception(f"VK Server returned error/HTML (Status: {resp.status})")
@@ -262,6 +271,9 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                                 "hash": upload_data['hash']
                             }
                         )
+
+                        if not saved_photos:
+                            logger.error(f"VK saveWallPhoto error or empty. Upload data: {upload_data}")
 
                         if saved_photos:
                             # Если пришел сырой ответ со словарем "response", забираем его содержимое
