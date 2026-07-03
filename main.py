@@ -293,13 +293,17 @@ async def handle_vk_webhook(request):
     return web.Response(text="ok")
 
 async def main():
-    from ai_service import close_session, generate_text, init_session
+    from ai_service import close_session, generate_text, init_session, check_proxy_status
     from database import get_all_users, init_db, update_user
     from modules.bot_init import bot
     from vkbottle import Keyboard, KeyboardButtonColor, Callback
 
     # Инициализация глобальной сессии aiohttp
     init_session()
+
+    # Проверка прокси при старте
+    await check_proxy_status()
+
     # Инициализация базы данных
     await init_db()
 

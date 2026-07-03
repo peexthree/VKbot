@@ -1,10 +1,10 @@
 from ai import (
-    init_session, close_session, generate_text, clean_ai_json,
+    init_session, close_session, generate_text, clean_ai_json, check_proxy_status,
     extract_tags, extract_birth_data, generate_section
 )
 
 __all__ = [
     "init_session", "close_session",
-    "generate_text", "clean_ai_json",
+    "generate_text", "clean_ai_json", "check_proxy_status",
     "extract_tags", "extract_birth_data", "generate_section"
 ]
