@@ -29,6 +29,24 @@ _ai_semaphore = None
 _last_api_call_time = 0.0
 _api_call_lock = None
 
+proxy_url = os.getenv("GEMINI_PROXY")
+
+async def check_proxy_status():
+    if not proxy_url:
+        logger.warning("GEMINI_PROXY is not set. Skipping proxy check.")
+        return
+
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+            async with session.get("http://ipv4.webshare.io/", proxy=proxy_url) as resp:
+                if resp.status == 200:
+                    ip = await resp.text()
+                    logger.info(f"SUCCESS: Proxy is working. Exit IP: {ip.strip()}")
+                else:
+                    logger.warning(f"WARNING: Proxy returned status {resp.status}")
+    except Exception as e:
+        logger.warning(f"WARNING: Proxy check failed: {e}")
+
 def _get_ai_primitives():
     global _ai_semaphore, _api_call_lock
     if _ai_semaphore is None:
@@ -119,60 +137,55 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                     }
                 }
 
-                try:
-                    async with ai_semaphore:
-                        async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)) as resp:
-                            if resp.status == 200:
-                                res_data = await resp.json()
-                                try:
-                                    parts = res_data['candidates'][0]['content']['parts']
-                                    text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
-
-                                    if not text and parts:
-                                        text = parts[-1].get("text", "")
-
-                                    # Жесткая очистка на уровне кода
-                                    text = text.replace('*', '').replace('—', '-')
-
-                                    if not json_mode:
-                                        text = text.translate(SANITIZATION_TABLE)
-
-                                    return text
-                                except (KeyError, IndexError):
-                                    continue
-                            elif resp.status == 429:
-                                logger.warning(f"Rate limit hit for text generation ({model}). Retrying with backoff...")
-                                for i in range(1, 4):
-                                    await asyncio.sleep(2 ** i)
+                # Ретраи для сетевых ошибок и тайм-аутов прокси (2 попытки + основной запрос)
+                for attempt in range(3):
+                    try:
+                        async with ai_semaphore:
+                            async with session.post(
+                                url,
+                                json=payload,
+                                proxy=proxy_url,
+                                timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)
+                            ) as resp:
+                                if resp.status == 200:
+                                    res_data = await resp.json()
                                     try:
-                                        async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=25)) as retry_resp:
-                                            if retry_resp.status == 200:
-                                                res_data = await retry_resp.json()
-                                                parts = res_data['candidates'][0]['content']['parts']
-                                                text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
-                                                if not text and parts:
-                                                    text = parts[-1].get("text", "")
+                                        parts = res_data['candidates'][0]['content']['parts']
+                                        text = "".join(part["text"] for part in parts if "text" in part and not part.get("thought"))
 
-                                                text = text.replace('*', '').replace('—', '-')
-                                                if not json_mode:
-                                                    text = text.translate(SANITIZATION_TABLE)
-                                                return text
-                                            elif retry_resp.status != 429:
-                                                break
-                                    except Exception:
-                                        break
-                                continue
-                            else:
-                                error_text = await resp.text()
-                                logger.error(f"Text API Error status {resp.status} on {model}. Error details: {error_text}")
-                                continue
-                except asyncio.TimeoutError:
-                    logger.warning(f"Timeout on {model}. Trying next.")
-                    continue
-                except Exception as e:
-                    last_exception = e
-                    logger.error(f"Ошибка: {str(e)}")
-                    continue
+                                        if not text and parts:
+                                            text = parts[-1].get("text", "")
+
+                                        # Жесткая очистка на уровне кода
+                                        text = text.replace('*', '').replace('—', '-')
+
+                                        if not json_mode:
+                                            text = text.translate(SANITIZATION_TABLE)
+
+                                        return text
+                                    except (KeyError, IndexError):
+                                        break # Ошибка формата, ретраи не помогут
+                                elif resp.status == 429:
+                                    logger.warning(f"Rate limit hit for {model}. attempt {attempt+1}/3")
+                                    if attempt < 2:
+                                        await asyncio.sleep(1)
+                                        continue
+                                    break
+                                else:
+                                    error_text = await resp.text()
+                                    logger.error(f"API Error {resp.status} on {model}. Details: {error_text}")
+                                    break
+                    except (asyncio.TimeoutError, aiohttp.ClientError) as e:
+                        logger.warning(f"Network error/timeout on {model} (attempt {attempt+1}/3): {e}")
+                        if attempt < 2:
+                            await asyncio.sleep(1)
+                            continue
+                        last_exception = e
+                        break
+                    except Exception as e:
+                        last_exception = e
+                        logger.error(f"Unexpected error: {str(e)}")
+                        break
 
     logger.error(f"All keys and models exhausted or failed for text generation. Last error: {last_exception}")
     return None
