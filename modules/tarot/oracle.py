@@ -2,7 +2,7 @@ import random
 from loguru import logger
 from vkbottle import Keyboard
 from database import get_user, update_user
-from ai_service import generate_text
+from ai_service import generate_text, sanitize_user_input
 from modules.bot_init import bot
 from modules.utils import (
     start_dynamic_typing, stop_dynamic_typing, upload_local_photo,
@@ -48,8 +48,9 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         from cache import get_core_profile
         core = await get_core_profile(vk_id)
         tags = user.get("tags", [])
+        s_text = sanitize_user_input(text)
         prompt = f"{gender_instruction} " + (f"Прошлый анализ: {core}. " if core else "") + (f"Фокус: [{', '.join(tags)}]. " if tags else "")
-        prompt += f"Пользователь задает вопрос: <user_input>{text}</user_input>. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
+        prompt += f"Пользователь задает вопрос: <user_input>{s_text}</user_input>. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
 
         res = await generate_text(prompt, skin=user.get("active_skin", "olesya"))
         if not res:

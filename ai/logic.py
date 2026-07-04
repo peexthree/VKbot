@@ -31,6 +31,24 @@ _api_call_lock = None
 
 proxy_url = os.getenv("GEMINI_PROXY")
 
+# Предварительно скомпилированный паттерн для очистки ввода (все запрещенные фразы)
+FORBIDDEN_PATTERNS = [
+    "<user_input>", "</user_input>",
+    "===START", "===END",
+    "System Prompt:", "Instruction:", "Забудь инструкции", "Забудь все"
+]
+_sanitization_regex = re.compile("|".join(re.escape(p) for p in FORBIDDEN_PATTERNS), re.IGNORECASE)
+
+def sanitize_user_input(text: str) -> str:
+    """
+    Очистка пользовательского ввода от управляющих тегов и попыток инъекций.
+    """
+    if not text:
+        return ""
+
+    sanitized = _sanitization_regex.sub("", text)
+    return sanitized.strip()
+
 async def check_proxy_status():
     if not proxy_url:
         logger.warning("GEMINI_PROXY is not set. Skipping proxy check.")
@@ -108,12 +126,13 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                     "Структурируй ответ так, чтобы он был удобен для чтения в мессенджере (короткие абзацы, тире)."
                 )
 
-                if json_mode:
-                    final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}\nВерни ТОЛЬКО валидный JSON. Все переносы строк внутри строковых полей должны быть экранированы как \\\\n. Не используй реальные переносы строк внутри JSON-строк."
-                else:
-                    final_prompt = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}\n{prompt.strip()}"
+                system_instruction_text = f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}"
 
-                parts = [{"text": final_prompt}]
+                content_text = prompt.strip()
+                if json_mode:
+                    content_text += "\nВерни ТОЛЬКО валидный JSON. Все переносы строк внутри строковых полей должны быть экранированы как \\\\n. Не используй реальные переносы строк внутри JSON-строк."
+
+                parts = [{"text": content_text}]
                 if image_urls:
                     for img_url in image_urls:
                         try:
@@ -131,6 +150,9 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
 
                 payload = {
                     "contents": [{"parts": parts}],
+                    "system_instruction": {
+                        "parts": [{"text": system_instruction_text}]
+                    },
                     "generationConfig": {
                         "maxOutputTokens": 2048,
                         "temperature": 0.8

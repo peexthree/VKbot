@@ -3,7 +3,7 @@ import random
 import re
 from loguru import logger
 from cards_data import get_card_data
-from ai.logic import generate_text, clean_ai_json
+from ai.logic import generate_text, clean_ai_json, sanitize_user_input
 
 AVAILABLE_TAGS = [
     'гармония-в-финансах', 'поиск-любви', 'внутренний-свет', 'новые-горизонты',
@@ -14,8 +14,9 @@ AVAILABLE_TAGS = [
 ]
 
 async def extract_tags(text: str) -> list[str]:
+    s_text = sanitize_user_input(text)
     prompt = (
-        f"Проанализируй следующий эзотерический разбор или ответ: '{text}'. "
+        f"Проанализируй следующий эзотерический разбор или ответ: '<user_input>{s_text}</user_input>'. "
         f"Выдели от 1 до 3 главных тегов (фокуса), которые описывают состояние и запросы пользователя. "
         f"Выбирай теги СТРОГО из предложенного списка: {AVAILABLE_TAGS}. "
         f"Создавать свои теги, менять их написание или использовать синонимы КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО. "
@@ -47,8 +48,9 @@ async def extract_tags(text: str) -> list[str]:
         return []
 
 async def extract_birth_data(text: str) -> dict | None:
+    s_text = sanitize_user_input(text)
     prompt = (
-        f"Пользователь написал: '{text}'. "
+        f"Пользователь написал: '<user_input>{s_text}</user_input>'. "
         f"Вытащи дату рождения (DD.MM.YYYY), время (HH:MM) и город. "
         "Инструкции:\n"
         "1. Если пользователь не указал время, ИИ жестко выставляет дефолт 12:00. Время всегда приводи к формату HH:MM.\n"
@@ -94,11 +96,13 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     else:
         gender_instruction = "ОБРАЩАЙСЯ К ПОЛЬЗОВАТЕЛЮ НЕЙТРАЛЬНО, БЕЗ УКАЗАНИЯ ПОЛА."
 
-    base_info = f"Данные: {date}, время {time}, город {city}. {gender_instruction}"
+    s_city = sanitize_user_input(city)
+    base_info = f"Данные: {date}, время {time}, город <user_input>{s_city}</user_input>. {gender_instruction}"
     if current_date:
         base_info += f" СЕГОДНЯШНЯЯ ДАТА: {current_date}."
     if first_name:
-        base_info += f" ИМЯ - {first_name}."
+        s_first_name = sanitize_user_input(first_name)
+        base_info += f" ИМЯ - <user_input>{s_first_name}</user_input>."
 
     if core_profile:
         base_info += f" Прошлый анализ (учитывай это, чтобы показать, что ты знаешь пользователя): {core_profile}."
@@ -148,7 +152,9 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         prompt = f"{base_info} Сделай ПУТЬ (Итоговое напутствие в жизни и светлый совет для души, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ПУТЬ на отдельной строке перед основным разбором. Выдели заголовок ПУТЬ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
     elif section == "synastry":
         cid = card_id if card_id else random.randint(0, 21)
-        prompt = f"{base_info} Сделай профессиональный разбор вашей связи (СОЮЗ). Имя партнера: <user_input>{partner_name}</user_input>, полные данные рождения партнера (дата, время, город): <user_input>{partner_date}</user_input>. В основном блоке СОЮЗ проведи глубокий синастрический анализ вашей совместимости, используя предоставленные данные обоих партнеров. Опиши магию вашего мэтча, кармические точки соприкосновения и уроки, которые вы несете друг другу. Обязательно удели внимание сексуальной совместимости и потенциалу развития отношений. Твой стиль должен быть точным, как в SaaS-продукте, но сохранять эзотерическую глубину. ОБЯЗАТЕЛЬНО используй слово СОЮЗ на отдельной строке перед основным разбором. Выдели заголовок СОЮЗ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
+        s_partner_name = sanitize_user_input(partner_name)
+        s_partner_date = sanitize_user_input(partner_date)
+        prompt = f"{base_info} Сделай профессиональный разбор вашей связи (СОЮЗ). Имя партнера: <user_input>{s_partner_name}</user_input>, полные данные рождения партнера (дата, время, город): <user_input>{s_partner_date}</user_input>. В основном блоке СОЮЗ проведи глубокий синастрический анализ вашей совместимости, используя предоставленные данные обоих партнеров. Опиши магию вашего мэтча, кармические точки соприкосновения и уроки, которые вы несете друг другу. Обязательно удели внимание сексуальной совместимости и потенциалу развития отношений. Твой стиль должен быть точным, как в SaaS-продукте, но сохранять эзотерическую глубину. ОБЯЗАТЕЛЬНО используй слово СОЮЗ на отдельной строке перед основным разбором. Выдели заголовок СОЮЗ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
     elif section == "antitaro":
         cid = card_id if card_id else random.randint(0, 77)
         prompt = f"{base_info} Сделай разбор ОТКРОВЕНИЕ (честный, глубокий взгляд на то, что мешает твоему счастью, освобождение от иллюзий, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ОТКРОВЕНИЕ на отдельной строке перед основным разбором. Выдели заголовок ОТКРОВЕНИЕ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
@@ -163,7 +169,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         prompt = f"{base_info} Выдай карту дня: {card_name} (как ежедневный гороскоп, но в стиле Таро). ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ."
     elif section == "dream":
         # Используем partner_date для передачи текста сна
-        dream_text = partner_date or "Пусто"
+        dream_text = sanitize_user_input(partner_date or "Пусто")
 
         prompt = (
             f"{base_info}\n"
