@@ -2,7 +2,7 @@ import asyncio
 import base64
 import os
 import re
-from typing import Optional, Tuple
+from typing import Optional
 from urllib.parse import unquote
 from loguru import logger
 import aiohttp
