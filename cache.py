@@ -133,11 +133,11 @@ async def record_ai_request():
     import time
     now = time.time()
     key = "stats:ai_requests_rpm"
-    async with redis_client.pipeline() as pipe:
-        await pipe.zadd(key, {str(now): now})
-        await pipe.zremrangebyscore(key, 0, now - 60)
-        await pipe.expire(key, 120)
-        await pipe.execute()
+    pipe = redis_client.pipeline()
+    pipe.zadd(key, {str(now): now})
+    pipe.zremrangebyscore(key, 0, now - 60)
+    pipe.expire(key, 120)
+    await pipe.exec()
 
 async def get_ai_rpm() -> int:
     """Возвращает количество запросов к ИИ за последнюю минуту"""
