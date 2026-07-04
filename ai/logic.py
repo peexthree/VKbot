@@ -92,6 +92,12 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
             await asyncio.sleep(4.0 - elapsed)
         _last_api_call_time = asyncio.get_event_loop().time()
 
+    from cache import redis_client, record_ai_request
+    proxy_enabled = await redis_client.get("system_config:proxy_enabled")
+    # По умолчанию прокси включен, если ключ не установлен
+    is_proxy_active = bool(int(proxy_enabled)) if proxy_enabled is not None else True
+    current_proxy = proxy_url if is_proxy_active else None
+
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(total=90),
         connector=aiohttp.TCPConnector(limit=10)
@@ -141,10 +147,11 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                 for attempt in range(3):
                     try:
                         async with ai_semaphore:
+                            await record_ai_request()
                             async with session.post(
                                 url,
                                 json=payload,
-                                proxy=proxy_url,
+                                proxy=current_proxy,
                                 timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)
                             ) as resp:
                                 if resp.status == 200:

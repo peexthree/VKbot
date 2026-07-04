@@ -128,6 +128,26 @@ async def get_latest_reading(vk_id: int | str) -> dict | None:
 
 TAROT_NAMES_CACHE = None
 
+async def record_ai_request():
+    """Записывает таймстамп запроса к ИИ для подсчета RPM"""
+    import time
+    now = time.time()
+    key = "stats:ai_requests_rpm"
+    async with redis_client.pipeline() as pipe:
+        await pipe.zadd(key, {str(now): now})
+        await pipe.zremrangebyscore(key, 0, now - 60)
+        await pipe.expire(key, 120)
+        await pipe.execute()
+
+async def get_ai_rpm() -> int:
+    """Возвращает количество запросов к ИИ за последнюю минуту"""
+    import time
+    now = time.time()
+    key = "stats:ai_requests_rpm"
+    await redis_client.zremrangebyscore(key, 0, now - 60)
+    count = await redis_client.zcard(key)
+    return int(count or 0)
+
 async def get_tarot_names() -> dict:
     global TAROT_NAMES_CACHE
     if TAROT_NAMES_CACHE is not None:

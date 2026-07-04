@@ -57,6 +57,9 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None):
     maintenance_mode = await redis_client.get("system_config:maintenance_mode")
     maintenance_mode = bool(int(maintenance_mode)) if maintenance_mode else False
 
+    proxy_enabled = await redis_client.get("system_config:proxy_enabled")
+    proxy_enabled = bool(int(proxy_enabled)) if proxy_enabled is not None else True
+
     tag_memory_active = await redis_client.get("system_config:tag_memory_active")
     tag_memory_active = bool(int(tag_memory_active)) if tag_memory_active is not None else True
 
@@ -74,6 +77,8 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None):
         "- ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА КАРТ В VK ДЛЯ СКОРОСТИ\n\n"
         f"РЕЖИМ ТЕХ. РАБОТ: {'🔴 АКТИВЕН' if maintenance_mode else '🟢 ВЫКЛ'}\n"
         "- БЛОКИРУЕТ ДОСТУП ВСЕМ, КРОМЕ АДМИНИСТРАТОРА\n\n"
+        f"ПРОКСИРОВАНИЕ ИИ: {'🟢 ВКЛ' if proxy_enabled else '🔴 ВЫКЛ'}\n"
+        "- ИСПОЛЬЗОВАНИЕ GEMINI_PROXY ДЛЯ ЗАПРОСОВ\n\n"
         f"ТЕГОВАЯ ПАМЯТЬ ИИ: {'🟢 ВКЛ' if tag_memory_active else '🔴 ВЫКЛ'}\n"
         "- СОХРАНЕНИЕ КОНТЕКСТА ПРОШЛЫХ ГАДАНИЙ\n"
     )
@@ -88,6 +93,11 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None):
     # Maintenance
     label = "🟢 ВЫКЛ ТЕХРАБОТЫ" if maintenance_mode else "🛠 ВКЛ ТЕХРАБОТЫ"
     kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_maintenance"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+
+    # Proxy
+    label = "🔴 ВЫКЛ ПРОКСИ" if proxy_enabled else "🟢 ВКЛ ПРОКСИ"
+    kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_proxy"}), color=KeyboardButtonColor.SECONDARY)
     kb.row()
 
     # Memory
@@ -107,6 +117,9 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None):
 
 async def show_admin_analytics(peer_id: int, conversation_message_id: int = None):
     """Раздел аналитики"""
+    from cache import get_ai_rpm
+    current_rpm = await get_ai_rpm()
+
     cached_stats = await redis_client.get("admin:analytics_cache")
     if cached_stats:
         stats = json.loads(cached_stats)
@@ -144,6 +157,7 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
     conversion_rate = (new_today / active_today * 100) if active_today > 0 else 0
     stats_text = (
         "📈 АНАЛИТИКА МАТРИЦЫ\n\n"
+        f"🤖 ТЕКУЩИЙ AI RPM: {current_rpm}\n"
         f"👥 ВСЕГО АДЕПТОВ: {total_users}\n"
         f"✨ НОВЫХ СЕГОДНЯ: {new_today}\n"
         f"🔥 АКТИВНЫХ СЕГОДНЯ: {active_today}\n"
@@ -330,6 +344,12 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         c = await redis_client.get("system_config:maintenance_mode")
         nv = 0 if c and int(c) == 1 else 1
         await redis_client.set("system_config:maintenance_mode", str(nv))
+        await show_admin_system(peer_id, conversation_message_id)
+    elif action == "toggle_proxy":
+        c = await redis_client.get("system_config:proxy_enabled")
+        # По умолчанию считаем что включен (None -> 1)
+        nv = 0 if c is None or int(c) == 1 else 1
+        await redis_client.set("system_config:proxy_enabled", str(nv))
         await show_admin_system(peer_id, conversation_message_id)
     elif action == "toggle_tag_memory":
         c = await redis_client.get("system_config:tag_memory_active")
