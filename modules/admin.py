@@ -49,8 +49,8 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
 
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
-async def show_admin_system(peer_id: int, conversation_message_id: int = None):
-    """Раздел системных настроек"""
+async def show_admin_system(peer_id: int, conversation_message_id: int = None, page: int = 0):
+    """Раздел системных настроек с пагинацией"""
     warmup_active = await redis_client.get("system_config:warmup_active")
     warmup_active = bool(int(warmup_active)) if warmup_active else False
 
@@ -70,48 +70,65 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None):
         cache_count = -1
 
     text = (
-        "💻 СИСТЕМНЫЕ НАСТРОЙКИ\n\n"
+        f"💻 СИСТЕМНЫЕ НАСТРОЙКИ (Стр. {page + 1}/2)\n\n"
         f"🖼 АССЕТОВ В КЭШЕ: {cache_count}\n"
         "--------------------------\n"
-        f"ФОНОВЫЙ ПРОГРЕВ: {'🟢 ВКЛ' if warmup_active else '🔴 ВЫКЛ'}\n"
-        "- ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА КАРТ В VK ДЛЯ СКОРОСТИ\n\n"
-        f"РЕЖИМ ТЕХ. РАБОТ: {'🔴 АКТИВЕН' if maintenance_mode else '🟢 ВЫКЛ'}\n"
-        "- БЛОКИРУЕТ ДОСТУП ВСЕМ, КРОМЕ АДМИНИСТРАТОРА\n\n"
-        f"ПРОКСИРОВАНИЕ ИИ: {'🟢 ВКЛ' if proxy_enabled else '🔴 ВЫКЛ'}\n"
-        "- ИСПОЛЬЗОВАНИЕ GEMINI_PROXY ДЛЯ ЗАПРОСОВ\n\n"
-        f"ТЕГОВАЯ ПАМЯТЬ ИИ: {'🟢 ВКЛ' if tag_memory_active else '🔴 ВЫКЛ'}\n"
-        "- СОХРАНЕНИЕ КОНТЕКСТА ПРОШЛЫХ ГАДАНИЙ\n"
     )
+
+    if page == 0:
+        text += (
+            f"ФОНОВЫЙ ПРОГРЕВ: {'🟢 ВКЛ' if warmup_active else '🔴 ВЫКЛ'}\n"
+            "- ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА КАРТ В VK ДЛЯ СКОРОСТИ\n\n"
+            f"РЕЖИМ ТЕХ. РАБОТ: {'🔴 АКТИВЕН' if maintenance_mode else '🟢 ВЫКЛ'}\n"
+            "- БЛОКИРУЕТ ДОСТУП ВСЕМ, КРОМЕ АДМИНИСТРАТОРА\n\n"
+            f"ПРОКСИРОВАНИЕ ИИ: {'🟢 ВКЛ' if proxy_enabled else '🔴 ВЫКЛ'}\n"
+            "- ИСПОЛЬЗОВАНИЕ GEMINI_PROXY ДЛЯ ЗАПРОСОВ\n\n"
+            f"ТЕГОВАЯ ПАМЯТЬ ИИ: {'🟢 ВКЛ' if tag_memory_active else '🔴 ВЫКЛ'}\n"
+            "- СОХРАНЕНИЕ КОНТЕКСТА ПРОШЛЫХ ГАДАНИЙ\n"
+        )
+    else:
+        text += (
+            "УПРАВЛЕНИЕ БАЗОЙ И КЭШЕМ:\n"
+            "- ВЫПОЛНЕНИЕ SQL ЗАПРОСОВ\n"
+            "- ОЧИСТКА ВРЕМЕННЫХ ДАННЫХ И КЭША ФОТО\n"
+        )
 
     kb = Keyboard(inline=True)
 
-    # Warmup
-    label = "🔴 СТОП ПРОГРЕВ" if warmup_active else "🟢 СТАРТ ПРОГРЕВ"
-    kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_warmup"}), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
+    if page == 0:
+        # Warmup
+        label = "🔴 СТОП ПРОГРЕВ" if warmup_active else "🟢 СТАРТ ПРОГРЕВ"
+        kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_warmup", "page": page}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
 
-    # Maintenance
-    label = "🟢 ВЫКЛ ТЕХРАБОТЫ" if maintenance_mode else "🛠 ВКЛ ТЕХРАБОТЫ"
-    kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_maintenance"}), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
+        # Maintenance
+        label = "🟢 ВЫКЛ ТЕХРАБОТЫ" if maintenance_mode else "🛠 ВКЛ ТЕХРАБОТЫ"
+        kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_maintenance", "page": page}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
 
-    # Proxy
-    label = "🔴 ВЫКЛ ПРОКСИ" if proxy_enabled else "🟢 ВКЛ ПРОКСИ"
-    kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_proxy"}), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
+        # Proxy
+        label = "🔴 ВЫКЛ ПРОКСИ" if proxy_enabled else "🟢 ВКЛ ПРОКСИ"
+        kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_proxy", "page": page}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
 
-    # Memory
-    label = "🧠 ВЫКЛ ПАМЯТЬ" if tag_memory_active else "🧠 ВКЛ ПАМЯТЬ"
-    kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_tag_memory"}), color=KeyboardButtonColor.SECONDARY)
-    kb.row()
+        # Memory
+        label = "🧠 ВЫКЛ ПАМЯТЬ" if tag_memory_active else "🧠 ВКЛ ПАМЯТЬ"
+        kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_tag_memory", "page": page}), color=KeyboardButtonColor.SECONDARY)
+        kb.row()
 
-    kb.add(Callback("⚡ ВЫПОЛНИТЬ SQL", payload={"cmd": "admin_cmd", "action": "sql_exec_start"}), color=KeyboardButtonColor.NEGATIVE)
-    kb.row()
+        kb.add(Callback("ДАЛЕЕ ➡️", payload={"cmd": "admin_nav", "menu": "system", "page": 1}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+    else:
+        kb.add(Callback("⚡ ВЫПОЛНИТЬ SQL", payload={"cmd": "admin_cmd", "action": "sql_exec_start"}), color=KeyboardButtonColor.NEGATIVE)
+        kb.row()
 
-    kb.add(Callback("🧹 ОЧИСТИТЬ REDIS", payload={"cmd": "admin_cmd", "action": "clear_redis"}), color=KeyboardButtonColor.NEGATIVE)
-    kb.row()
+        kb.add(Callback("🧹 ОЧИСТИТЬ REDIS", payload={"cmd": "admin_cmd", "action": "clear_redis", "page": page}), color=KeyboardButtonColor.NEGATIVE)
+        kb.row()
 
-    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "system", "page": 0}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
@@ -322,13 +339,14 @@ async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
 async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversation_message_id: int = None):
     if vk_id != ADMIN_ID: return
     action, nav_menu = payload.get("action"), payload.get("menu")
+    page = payload.get("page", 0)
     if payload.get("cmd") == "admin_nav":
         if nav_menu == "main": await show_admin_main(peer_id, conversation_message_id)
-        elif nav_menu == "system": await show_admin_system(peer_id, conversation_message_id)
+        elif nav_menu == "system": await show_admin_system(peer_id, conversation_message_id, page=page)
         elif nav_menu == "analytics": await show_admin_analytics(peer_id, conversation_message_id)
-        elif nav_menu == "users": await show_admin_users(peer_id, conversation_message_id, page=payload.get("page", 0))
+        elif nav_menu == "users": await show_admin_users(peer_id, conversation_message_id, page=page)
         elif nav_menu == "broadcast": await show_admin_broadcast(peer_id, conversation_message_id)
-        elif nav_menu == "autopost_rubrics": await show_admin_autopost_rubrics(peer_id, conversation_message_id, page=payload.get("page", 0))
+        elif nav_menu == "autopost_rubrics": await show_admin_autopost_rubrics(peer_id, conversation_message_id, page=page)
         elif nav_menu == "logs": await show_admin_logs(peer_id, conversation_message_id)
         elif nav_menu == "vip": await show_admin_vip(peer_id, conversation_message_id)
         return
@@ -339,23 +357,23 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         if nv == 1:
             from modules.utils import warmup_task
             asyncio.create_task(warmup_task())
-        await show_admin_system(peer_id, conversation_message_id)
+        await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "toggle_maintenance":
         c = await redis_client.get("system_config:maintenance_mode")
         nv = 0 if c and int(c) == 1 else 1
         await redis_client.set("system_config:maintenance_mode", str(nv))
-        await show_admin_system(peer_id, conversation_message_id)
+        await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "toggle_proxy":
         c = await redis_client.get("system_config:proxy_enabled")
         # По умолчанию считаем что включен (None -> 1)
         nv = 0 if c is None or int(c) == 1 else 1
         await redis_client.set("system_config:proxy_enabled", str(nv))
-        await show_admin_system(peer_id, conversation_message_id)
+        await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "toggle_tag_memory":
         c = await redis_client.get("system_config:tag_memory_active")
         nv = 0 if c and int(c) == 1 else 1
         await redis_client.set("system_config:tag_memory_active", str(nv))
-        await show_admin_system(peer_id, conversation_message_id)
+        await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "list_vips":
         users = await get_all_users()
         vips = [u for u in users if u.get("has_full_chart") or (u.get("balance", 0) or 0) > 5000]
@@ -367,7 +385,7 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
     elif action == "clear_redis":
         await clear_photo_cache()
         await bot.api.messages.send(peer_id=peer_id, message="Кэш фото в Redis очищен.", random_id=random.getrandbits(63))
-        await show_admin_system(peer_id, conversation_message_id)
+        await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "search_user_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_user_search", "conv_id": conversation_message_id}))
         await bot.api.messages.send(peer_id=peer_id, message="Введите VK ID адепта для поиска:", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=random.getrandbits(63))
