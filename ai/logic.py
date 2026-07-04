@@ -2,6 +2,8 @@ import asyncio
 import base64
 import os
 import re
+from typing import Optional
+from urllib.parse import unquote
 from loguru import logger
 import aiohttp
 from configs.models import MODELS
@@ -49,19 +51,35 @@ def sanitize_user_input(text: str) -> str:
     sanitized = _sanitization_regex.sub("", text)
     return sanitized.strip()
 
+def parse_proxy_auth(url: str) -> Optional[aiohttp.BasicAuth]:
+    """Извлекает учетные данные из URL прокси."""
+    if not url or "@" not in url:
+        return None
+
+    try:
+        # Регулярное выражение для извлечения user:pass из http://user:pass@host:port
+        match = re.match(r'https?://([^:]+):([^@]+)@', url)
+        if match:
+            return aiohttp.BasicAuth(unquote(match.group(1)), unquote(match.group(2)))
+    except Exception as e:
+        logger.warning(f"Failed to parse proxy auth: {e}")
+    return None
+
 async def check_proxy_status():
     if not proxy_url:
         logger.warning("GEMINI_PROXY is not set. Skipping proxy check.")
         return
 
     try:
+        auth = parse_proxy_auth(proxy_url)
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
-            async with session.get("http://ipv4.webshare.io/", proxy=proxy_url) as resp:
+            async with session.get("http://ipv4.webshare.io/", proxy=proxy_url, proxy_auth=auth) as resp:
                 if resp.status == 200:
                     ip = await resp.text()
                     logger.info(f"SUCCESS: Proxy is working. Exit IP: {ip.strip()}")
                 else:
-                    logger.warning(f"WARNING: Proxy returned status {resp.status}")
+                    error_text = await resp.text()
+                    logger.warning(f"WARNING: Proxy returned status {resp.status}. Details: {error_text}")
     except Exception as e:
         logger.warning(f"WARNING: Proxy check failed: {e}")
 
@@ -79,9 +97,18 @@ async def get_gemini_api_keys() -> list[str]:
         return _cached_api_keys
 
     api_keys_str = os.environ.get('GEMINI_API_KEYS', '')
-    if not api_keys_str:
+    if api_keys_str:
+        logger.info("Using GEMINI_API_KEYS from environment")
+    else:
         api_keys_str = os.environ.get('GEMINI_API_KEY', '')
+        if api_keys_str:
+            logger.info("Using GEMINI_API_KEY from environment")
+        else:
+            logger.error("Neither GEMINI_API_KEYS nor GEMINI_API_KEY found in environment")
+
     keys = [k.strip() for k in api_keys_str.split(',') if k.strip()]
+    if keys:
+        logger.info(f"Loaded {len(keys)} Gemini API keys")
     _cached_api_keys = keys
     return keys
 
@@ -115,6 +142,12 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
     # По умолчанию прокси включен, если ключ не установлен
     is_proxy_active = bool(int(proxy_enabled)) if proxy_enabled is not None else True
     current_proxy = proxy_url if is_proxy_active else None
+    proxy_auth = None
+    if current_proxy:
+        # Маскируем пароль в логах
+        masked_proxy = re.sub(r':([^@/]+)@', ':***@', current_proxy)
+        logger.info(f"Using proxy for AI generation: {masked_proxy}")
+        proxy_auth = parse_proxy_auth(current_proxy)
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(total=90),
@@ -174,6 +207,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                                 url,
                                 json=payload,
                                 proxy=current_proxy,
+                                proxy_auth=proxy_auth,
                                 timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)
                             ) as resp:
                                 if resp.status == 200:
@@ -202,7 +236,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                                     break
                                 else:
                                     error_text = await resp.text()
-                                    logger.error(f"API Error {resp.status} on {model}. Details: {error_text}")
+                                    logger.error(f"API Error {resp.status} on {model} (Key: {api_key[:8]}...). Details: {error_text}")
                                     break
                     except (asyncio.TimeoutError, aiohttp.ClientError) as e:
                         logger.warning(f"Network error/timeout on {model} (attempt {attempt+1}/3): {e}")
