@@ -11,7 +11,7 @@ from vkbottle import GroupEventType
 
 import re
 from modules.bot_init import bot
-from ai_service import generate_text, clean_ai_json
+from ai_service import generate_text, clean_ai_json, sanitize_user_input
 from prompts.rubrics import RUBRIC_PROMPTS, GLOBAL_CTA
 from cache import redis_client as redis
 from database.autoposter import (
@@ -78,6 +78,7 @@ async def handle_diagnosis_comment(event: dict):
 
     # Проверка, что дата является основой сообщения (не слишком длинный текст и дата присутствует)
     if birth_date and len(text.strip()) < 50:
+        s_text = sanitize_user_input(text)
         logger.info(f"Получен запрос на вскрытие от {from_id} под постом {post_id}: {birth_date}")
 
         # ПОЛУЧЕНИЕ ПРИВЯЗАННОГО ПЕРСОНАЖА ИЗ REDIS
@@ -100,7 +101,7 @@ async def handle_diagnosis_comment(event: dict):
         if user:
             # Данные пользователя
             energy = user.get("balance", 0)
-            city = user.get("birth_city", "неизвестен")
+            city = sanitize_user_input(user.get("birth_city", "неизвестен"))
             visit_streak = user.get("visit_streak", 0)
             active_skin = user.get("active_skin", "olesya")
             unlocked_count = len(user.get("unlocked_cards", {}))
@@ -112,6 +113,7 @@ async def handle_diagnosis_comment(event: dict):
             )
             prompt = (
                 f"Проведи мгновенное «Вскрытие» адепта на основе его данных: {user_context}. "
+                f"Пользователь также написал: <user_input>{s_text}</user_input>. "
                 "Твой ответ должен быть максимально ядовитым, жестким, но психологически точным «диагнозом» его текущего состояния. "
                 "Помни: инструменты (даты, арканы) безупречны и велики, проблема всегда в багах и лени самого пользователя. "
                 "Используй стиль Анти-Таро: цинизм, никакой пощады, метафоры матрицы и системных ошибок. "
