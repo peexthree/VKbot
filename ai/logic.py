@@ -2,8 +2,6 @@ import asyncio
 import base64
 import os
 import re
-from typing import Optional, Tuple, Dict
-from urllib.parse import unquote, urlparse
 from loguru import logger
 import aiohttp
 from configs.models import MODELS
@@ -51,60 +49,33 @@ def sanitize_user_input(text: str) -> str:
     sanitized = _sanitization_regex.sub("", text)
     return sanitized.strip()
 
-def get_proxy_settings(url: str) -> Tuple[Optional[str], Optional[aiohttp.BasicAuth], Dict[str, str]]:
-    """
-    Разбирает URL прокси и возвращает:
-    - Очищенный URL (без логина/пароля)
-    - Объект BasicAuth для aiohttp
-    - Заголовок Proxy-Authorization для ручной вставки
-    """
-    if not url:
-        return None, None, {}
-
-    try:
-        parsed = urlparse(url)
-        username = unquote(parsed.username) if parsed.username else None
-        password = unquote(parsed.password) if parsed.password else None
-
-        # Формируем чистый URL
-        clean_url = f"{parsed.scheme}://{parsed.hostname}"
-        if parsed.port:
-            clean_url += f":{parsed.port}"
-
-        auth = None
-        headers = {}
-        if username and password:
-            auth = aiohttp.BasicAuth(username, password)
-            auth_str = base64.b64encode(f"{username}:{password}".encode()).decode()
-            headers["Proxy-Authorization"] = f"Basic {auth_str}"
-
-        return clean_url, auth, headers
-    except Exception as e:
-        logger.warning(f"Failed to parse proxy settings: {e}")
-        return url, None, {}
-
 async def check_proxy_status():
     if not proxy_url:
         logger.warning("GEMINI_PROXY is not set. Skipping proxy check.")
         return
 
     try:
-        clean_url, auth, proxy_headers = get_proxy_settings(proxy_url)
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
-            async with session.get(
-                "http://ipv4.webshare.io/",
-                proxy=clean_url,
-                proxy_auth=auth,
-                proxy_headers=proxy_headers
-            ) as resp:
+        keys = await get_gemini_api_keys()
+        if not keys:
+            logger.warning("No Gemini API keys found for diagnostic check.")
+            return
+
+        # Используем первый ключ для проверки через воркер
+        test_url = f"{proxy_url.rstrip('/')}/v1beta/models?key={keys[0]}"
+
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
+            async with session.get(test_url) as resp:
                 if resp.status == 200:
-                    ip = await resp.text()
-                    logger.info(f"SUCCESS: Proxy is working. Exit IP: {ip.strip()}")
+                    data = await resp.json()
+                    if "models" in data:
+                        logger.info(f"SUCCESS: Cloudflare Proxy is working. Models available: {len(data['models'])}")
+                    else:
+                        logger.info("SUCCESS: Cloudflare Proxy is working, but response format is unexpected.")
                 else:
                     error_text = await resp.text()
-                    logger.warning(f"WARNING: Proxy returned status {resp.status}. Details: {error_text}")
+                    logger.warning(f"WARNING: Cloudflare Proxy returned status {resp.status}. Details: {error_text}")
     except Exception as e:
-        logger.warning(f"WARNING: Proxy check failed: {e}")
+        logger.warning(f"WARNING: Cloudflare Proxy diagnostic failed: {e}")
 
 def _get_ai_primitives():
     global _ai_semaphore, _api_call_lock
@@ -161,18 +132,14 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
         _last_api_call_time = asyncio.get_event_loop().time()
 
     from cache import redis_client, record_ai_request
-    proxy_enabled = await redis_client.get("system_config:proxy_enabled")
+    proxy_enabled_raw = await redis_client.get("system_config:proxy_enabled")
     # По умолчанию прокси включен, если ключ не установлен
-    is_proxy_active = bool(int(proxy_enabled)) if proxy_enabled is not None else True
-    current_proxy = None
-    proxy_auth = None
-    proxy_headers = {}
+    is_proxy_active = bool(int(proxy_enabled_raw)) if proxy_enabled_raw is not None else True
 
+    base_api_url = "https://generativelanguage.googleapis.com"
     if is_proxy_active and proxy_url:
-        # Маскируем пароль в логах
-        masked_proxy = re.sub(r':([^@/]+)@', ':***@', proxy_url)
-        logger.info(f"Using proxy for AI generation: {masked_proxy}")
-        current_proxy, proxy_auth, proxy_headers = get_proxy_settings(proxy_url)
+        base_api_url = proxy_url.rstrip('/')
+        logger.info(f"Using Cloudflare Proxy for AI generation: {base_api_url}")
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(total=90),
@@ -180,7 +147,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
     ) as session:
         for model, version in MODELS:
             for api_key in api_keys:
-                url = f"https://generativelanguage.googleapis.com/{version}/{model}:generateContent?key={api_key}"
+                url = f"{base_api_url}/{version}/{model}:generateContent?key={api_key}"
 
                 # Премиальная инструкция для более глубоких ответов
                 premium_context = (
@@ -223,7 +190,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                     }
                 }
 
-                # Ретраи для сетевых ошибок и тайм-аутов прокси (2 попытки + основной запрос)
+                # Ретраи для сетевых ошибок и тайм-аутов (2 попытки + основной запрос)
                 for attempt in range(3):
                     try:
                         async with ai_semaphore:
@@ -231,9 +198,6 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                             async with session.post(
                                 url,
                                 json=payload,
-                                proxy=current_proxy,
-                                proxy_auth=proxy_auth,
-                                proxy_headers=proxy_headers,
                                 timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)
                             ) as resp:
                                 if resp.status == 200:
