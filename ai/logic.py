@@ -2,8 +2,8 @@ import asyncio
 import base64
 import os
 import re
-from typing import Optional
-from urllib.parse import unquote
+from typing import Optional, Tuple, Dict
+from urllib.parse import unquote, urlparse
 from loguru import logger
 import aiohttp
 from configs.models import MODELS
@@ -51,19 +51,37 @@ def sanitize_user_input(text: str) -> str:
     sanitized = _sanitization_regex.sub("", text)
     return sanitized.strip()
 
-def parse_proxy_auth(url: str) -> Optional[aiohttp.BasicAuth]:
-    """Извлекает учетные данные из URL прокси."""
-    if not url or "@" not in url:
-        return None
+def get_proxy_settings(url: str) -> Tuple[Optional[str], Optional[aiohttp.BasicAuth], Dict[str, str]]:
+    """
+    Разбирает URL прокси и возвращает:
+    - Очищенный URL (без логина/пароля)
+    - Объект BasicAuth для aiohttp
+    - Заголовок Proxy-Authorization для ручной вставки
+    """
+    if not url:
+        return None, None, {}
 
     try:
-        # Регулярное выражение для извлечения user:pass из http://user:pass@host:port
-        match = re.match(r'https?://([^:]+):([^@]+)@', url)
-        if match:
-            return aiohttp.BasicAuth(unquote(match.group(1)), unquote(match.group(2)))
+        parsed = urlparse(url)
+        username = unquote(parsed.username) if parsed.username else None
+        password = unquote(parsed.password) if parsed.password else None
+
+        # Формируем чистый URL
+        clean_url = f"{parsed.scheme}://{parsed.hostname}"
+        if parsed.port:
+            clean_url += f":{parsed.port}"
+
+        auth = None
+        headers = {}
+        if username and password:
+            auth = aiohttp.BasicAuth(username, password)
+            auth_str = base64.b64encode(f"{username}:{password}".encode()).decode()
+            headers["Proxy-Authorization"] = f"Basic {auth_str}"
+
+        return clean_url, auth, headers
     except Exception as e:
-        logger.warning(f"Failed to parse proxy auth: {e}")
-    return None
+        logger.warning(f"Failed to parse proxy settings: {e}")
+        return url, None, {}
 
 async def check_proxy_status():
     if not proxy_url:
@@ -71,9 +89,14 @@ async def check_proxy_status():
         return
 
     try:
-        auth = parse_proxy_auth(proxy_url)
+        clean_url, auth, proxy_headers = get_proxy_settings(proxy_url)
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
-            async with session.get("http://ipv4.webshare.io/", proxy=proxy_url, proxy_auth=auth) as resp:
+            async with session.get(
+                "http://ipv4.webshare.io/",
+                proxy=clean_url,
+                proxy_auth=auth,
+                proxy_headers=proxy_headers
+            ) as resp:
                 if resp.status == 200:
                     ip = await resp.text()
                     logger.info(f"SUCCESS: Proxy is working. Exit IP: {ip.strip()}")
@@ -141,13 +164,15 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
     proxy_enabled = await redis_client.get("system_config:proxy_enabled")
     # По умолчанию прокси включен, если ключ не установлен
     is_proxy_active = bool(int(proxy_enabled)) if proxy_enabled is not None else True
-    current_proxy = proxy_url if is_proxy_active else None
+    current_proxy = None
     proxy_auth = None
-    if current_proxy:
+    proxy_headers = {}
+
+    if is_proxy_active and proxy_url:
         # Маскируем пароль в логах
-        masked_proxy = re.sub(r':([^@/]+)@', ':***@', current_proxy)
+        masked_proxy = re.sub(r':([^@/]+)@', ':***@', proxy_url)
         logger.info(f"Using proxy for AI generation: {masked_proxy}")
-        proxy_auth = parse_proxy_auth(current_proxy)
+        current_proxy, proxy_auth, proxy_headers = get_proxy_settings(proxy_url)
 
     async with aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(total=90),
@@ -208,6 +233,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                                 json=payload,
                                 proxy=current_proxy,
                                 proxy_auth=proxy_auth,
+                                proxy_headers=proxy_headers,
                                 timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)
                             ) as resp:
                                 if resp.status == 200:
