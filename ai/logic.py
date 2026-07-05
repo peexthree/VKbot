@@ -2,7 +2,6 @@ import asyncio
 import base64
 import os
 import re
-from typing import Optional
 from loguru import logger
 import aiohttp
 from configs.models import MODELS
