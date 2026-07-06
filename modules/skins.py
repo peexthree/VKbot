@@ -60,7 +60,8 @@ async def get_short_quest_text(vk_id: int, skin_id: str) -> str:
         found = core_sections.intersection(used_sections)
         return f"Уровень: {level}/5. Разделы: {len(found)}/9. Активируй всё!"
     elif skin_id == "honest_oracle":
-        tags = user.get("tags", [])
+        from modules.utils.logic import get_safe_tags
+        tags = get_safe_tags(user)
         c, f = ("[v]" if "выход-из-кризиса" in tags else "[ ]"), ("[v]" if "свобода" in tags else "[ ]")
         return f"Теги: Кризис {c}, Свобода {f}. Собери комбо!"
     elif skin_id == "jack_sparrow":
@@ -144,7 +145,8 @@ async def get_dynamic_quest_text(vk_id: int, skin_id: str) -> str:
         return f"{base_text}➔ Достичь 5 уровня: [ {level} / {total_lvl} ]\n{bar_lvl}\n➔ Активировать все разделы: [ {len(found_sections)} / {len(core_sections)} ]{footer}"
 
     elif skin_id == "honest_oracle":
-        tags = user.get("tags", [])
+        from modules.utils.logic import get_safe_tags
+        tags = get_safe_tags(user)
         has_crisis = "выход-из-кризиса" in tags
         has_freedom = "свобода" in tags
         status = f"[{'✅' if has_crisis else '░'}] Кризис | [{'✅' if has_freedom else '░'}] Свобода"

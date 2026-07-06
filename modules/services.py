@@ -142,7 +142,8 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     # Умные рекомендации на основе тегов
     user = await get_user(vk_id)
     if user and not filter_val:
-        tags = user.get("tags", [])
+        from modules.utils.logic import get_safe_tags
+        tags = get_safe_tags(user)
         if tags:
             tags_lower = [t.lower() for t in tags]
             # Если в тегах есть 'отношения' или 'любовь', поднимаем синастрию
