@@ -52,18 +52,22 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         prompt = f"{gender_instruction} " + (f"Прошлый анализ: {core}. " if core else "") + (f"Фокус: [{', '.join(tags)}]. " if tags else "")
         prompt += f"Пользователь задает вопрос: <user_input>{s_text}</user_input>. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
 
-        res = await generate_text(prompt, skin=user.get("active_skin", "olesya"))
-        if not res:
-            if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨")
-            else: await bot.api.messages.send(peer_id=vk_id, message="Оракул сейчас хранит молчание. Попробуй заглянуть чуть позже ✨", random_id=random.getrandbits(63))
+        res = await generate_text(prompt, skin=user.get("active_skin", "olesya"), is_background=False)
+        if not res or res == "ERROR_RPM_LIMIT":
+            msg = "Оракул перегружен космической энергией. Попробуй задать вопрос через 30 секунд ✨"
+            if conv_msg_id: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message=msg)
+            else: await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=random.getrandbits(63))
             return
 
         unlocked = user.get("unlocked_cards", {}) or {}
         for cid_int in card_ids:
             cid = str(cid_int)
             if cid not in unlocked:
-                sig = await generate_text(f"Краткая суть карты {tarot_names.get(cid)}. Мистично, для личного Гримуара.", skin=user.get("active_skin", "olesya"))
-                unlocked[cid] = sig if sig else "Первое касание"
+                sig = await generate_text(f"Краткая суть карты {tarot_names.get(cid)}. Мистично, для личного Гримуара.", skin=user.get("active_skin", "olesya"), is_background=True)
+                if sig and sig != "ERROR_RPM_LIMIT":
+                    unlocked[cid] = sig
+                else:
+                    unlocked[cid] = "Первое касание"
 
         await update_user(vk_id, {"unlocked_cards": unlocked, "total_cards_received": user.get("total_cards_received", 0) + 3})
 

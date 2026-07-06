@@ -23,7 +23,7 @@ async def extract_tags(text: str) -> list[str]:
         f"Если подходящих тегов нет, верни пустой список []. "
         f"Верни строго JSON-список строк, например: [\"гармония-в-финансах\", \"исцеление-сердца\"]."
     )
-    res = await generate_text(prompt, json_mode=True)
+    res = await generate_text(prompt, json_mode=True, is_background=True)
     if not res:
         return []
     try:
@@ -64,8 +64,8 @@ async def extract_birth_data(text: str) -> dict | None:
         "- 'is_complete': Boolean.\n\n"
         "Example: {\"date\": \"15.04.1990\", \"time\": \"14:30\", \"city\": \"Москва\", \"is_complete\": true}"
     )
-    res = await generate_text(prompt, json_mode=True)
-    if not res:
+    res = await generate_text(prompt, json_mode=True, is_background=True)
+    if not res or res == "ERROR_RPM_LIMIT":
         return {"date": None, "time": "12:00", "city": None, "is_complete": False}
     try:
         clean = clean_ai_json(res)
@@ -253,7 +253,9 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         prompt += f"\n{style_instruction}"
 
     if effective_json_mode:
-        res = await generate_text(prompt, json_mode=True, skin=skin, image_urls=image_urls)
+        res = await generate_text(prompt, json_mode=True, skin=skin, image_urls=image_urls, is_background=False)
+        if res == "ERROR_RPM_LIMIT":
+            return {"text": "ERROR_RPM_LIMIT"}
         if res:
             try:
                 clean = clean_ai_json(res)
@@ -281,7 +283,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
                 return {"text": fallback_text}
         return {"text": "Ошибка генерации."}
     else:
-        res = await generate_text(prompt, skin=skin, image_urls=image_urls)
+        res = await generate_text(prompt, skin=skin, image_urls=image_urls, is_background=False)
         if res:
             return res.replace('\\\\n', '\n').replace('\\n', '\n')
         return res
