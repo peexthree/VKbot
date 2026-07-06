@@ -73,13 +73,17 @@ async def handle_diagnosis_comment(event: dict):
 
     if from_id <= 0: return # Игнорируем группы и пустые ID
 
-    from modules.utils.logic import extract_russian_date
+    from modules.utils.logic import extract_russian_date, calculate_matrix_arcana
     birth_date = extract_russian_date(text)
 
     # Проверка, что дата является основой сообщения (не слишком длинный текст и дата присутствует)
     if birth_date and len(text.strip()) < 50:
+        matrix = calculate_matrix_arcana(birth_date)
+        arcana_day = matrix['day']
+        arcana_destiny = matrix['destiny']
+
         s_text = sanitize_user_input(text)
-        logger.info(f"Получен запрос на вскрытие от {from_id} под постом {post_id}: {birth_date}")
+        logger.info(f"Получен запрос на вскрытие от {from_id} под постом {post_id}: {birth_date} (Арканы: {arcana_day}, {arcana_destiny})")
 
         # ПОЛУЧЕНИЕ ПРИВЯЗАННОГО ПЕРСОНАЖА ИЗ REDIS
         try:
@@ -97,35 +101,32 @@ async def handle_diagnosis_comment(event: dict):
 
         from database import get_user
         user = await get_user(from_id)
+        funnel_cta = ""
 
         if user:
-            # Данные пользователя
-            energy = user.get("balance", 0)
-            city = sanitize_user_input(user.get("birth_city", "неизвестен"))
-            visit_streak = user.get("visit_streak", 0)
-            active_skin = user.get("active_skin", "olesya")
-            unlocked_count = len(user.get("unlocked_cards", {}))
-
+            from modules.utils.logic import calculate_user_rank
+            level, rank = calculate_user_rank(user)
             user_context = (
-                f"Данные адепта: Дата {birth_date}, Город {city}, Энергия {energy}✨, "
-                f"Цикл (стрик) {visit_streak}дн, Активный персонаж {active_skin}, "
-                f"Открыто арканов {unlocked_count}."
-            )
-            prompt = (
-                f"Проведи мгновенное «Вскрытие» адепта на основе его данных: {user_context}. "
-                f"Пользователь также написал: <user_input>{s_text}</user_input>. "
-                "Твой ответ должен быть максимально ядовитым, жестким, но психологически точным «диагнозом» его текущего состояния. "
-                "Помни: инструменты (даты, арканы) безупречны и велики, проблема всегда в багах и лени самого пользователя. "
-                "Используй стиль Анти-Таро: цинизм, никакой пощады, метафоры матрицы и системных ошибок. "
-                "Объем: 2-3 хлестких предложения. Без приветствий."
+                f"Адепт {rank} {level} уровня. Дата: {birth_date}. "
+                f"Аркан Личности: {arcana_day}, Аркан Предназначения: {arcana_destiny}."
             )
         else:
-            prompt = (
-                f"Адепт прислал дату {birth_date}, но его нет в нашей базе. "
-                "Твой ответ: «Ты — чистый лист в этой матрице. Заходи в бота, чтобы система тебя просканировала». "
-                "Добавь к этому одну ядовитую фразу о том, что анонимы в системе не имеют веса, "
-                "а мощные инструменты (даты) требуют авторизации в системе."
+            user_context = (
+                f"Неизвестный объект. Дата: {birth_date}. "
+                f"Аркан Личности: {arcana_day}, Аркан Предназначения: {arcana_destiny}."
             )
+            funnel_cta = "\n\nЭто лишь 1% твоей прошивки. Чтобы вскрыть полные протоколы и забрать навигатор судьбы, нажми кнопку «Написать сообществу» и отправь команду «Старт»."
+
+        prompt = (
+            f"Проведи мгновенное «Вскрытие» по дате рождения: {user_context}. "
+            f"Вскрой теневые стороны и системные баги, свойственные именно этим Арканам ({arcana_day} и {arcana_destiny}). "
+            f"Дополнительный ввод от пользователя: <user_input>{s_text}</user_input>. "
+            "Твой ответ должен быть максимально ядовитым, жестким, но психологически точным «диагнозом». "
+            "Бей по уязвимостям: для 15 - гордыня/зависимости, для 3 - контроль, для 16 - разрушение и т.д. "
+            "Используй стиль Анти-Таро: цинизм, никакой пощады, метафоры матрицы и системных багов. "
+            "Пользователь должен видеть, что ты считаешь именно ЕГО цифры. Напрямую ссылайся на Арканы в тексте. "
+            "Объем: 2-3 хлестких предложения. Без приветствий."
+        )
 
         diagnosis = await generate_text(prompt, skin=target_skin, is_background=True)
         if diagnosis and diagnosis != "ERROR_RPM_LIMIT":
@@ -136,7 +137,7 @@ async def handle_diagnosis_comment(event: dict):
                     owner_id=-GROUP_ID,
                     post_id=post_id,
                     reply_to_comment=comment_id,
-                    message=f"[id{from_id}|Адепт], {diagnosis}"
+                    message=f"[id{from_id}|Адепт], {diagnosis}{funnel_cta}"
                 )
             except Exception as e:
                 logger.error(f"Ошибка при ответе на комментарий: {e}")

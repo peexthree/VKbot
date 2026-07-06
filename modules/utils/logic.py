@@ -148,27 +148,49 @@ def get_syndicate_rank(count: int) -> str:
     if count >= 1: return "Вербовщик"
     return "Одиночка"
 
+def reduce_to_22(n: int) -> int:
+    """Приводит число к диапазону 1-22 по правилам Матрицы Судьбы"""
+    if n <= 0: return 22
+    while n > 22:
+        n = sum(int(d) for d in str(n))
+    return n
+
 def calculate_destiny_card(birth_date_str: str) -> int:
     """
     Рассчитывает Аркан судьбы по дате рождения (1-22).
     Пример: 15.06.1991 -> 1+5+0+6+1+9+9+1 = 32 -> 3+2 = 5 (Аркан V).
-    Если 22 - оставляем 22.
     """
     if not birth_date_str:
         return 1
 
-    # Очищаем дату от всего кроме цифр
     digits = [int(d) for d in birth_date_str if d.isdigit()]
     if not digits:
         return 1
 
-    s = sum(digits)
+    return reduce_to_22(sum(digits))
 
-    while s > 22:
-        # Суммируем цифры полученного числа
-        s = sum(int(d) for d in str(s))
+def calculate_matrix_arcana(birth_date_str: str) -> dict:
+    """
+    Вычисляет ключевые арканы Матрицы Судьбы:
+    - day: Аркан личности (день рождения, приведенный к 1-22)
+    - destiny: Аркан предназначения (общая сумма цифр даты)
+    """
+    parts = re.findall(r'\d+', birth_date_str)
+    if not parts:
+        return {"day": 1, "destiny": 1}
 
-    return s
+    d = int(parts[0])
+
+    # Аркан Личности (день рождения)
+    arcana_day = reduce_to_22(d)
+
+    # Аркан Предназначения (сумма всех цифр даты)
+    arcana_destiny = calculate_destiny_card(birth_date_str)
+
+    return {
+        "day": arcana_day,
+        "destiny": arcana_destiny
+    }
 
 def generate_shadow_cipher() -> str:
     """Генерирует уникальный 6-значный теневой шифр"""
