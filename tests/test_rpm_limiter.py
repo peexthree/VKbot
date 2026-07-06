@@ -1,7 +1,5 @@
-import asyncio
-import time
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 @pytest.mark.asyncio
 async def test_rpm_limiter_logic():
