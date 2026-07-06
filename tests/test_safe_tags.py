@@ -1,4 +1,3 @@
-import pytest
 from modules.utils.logic import get_safe_tags
 
 def test_get_safe_tags_from_list():
