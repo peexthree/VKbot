@@ -165,33 +165,44 @@ async def ghost_edit(
                     return message_id
                 raise e
     except Exception as e:
-        logger.warning(f"Ghost edit failed, attempting recovery: {e}")
+        # Если это ошибка 911 (Invalid keyboard) - мы не можем её восстановить редактированием,
+        # но мы можем попробовать отправить новое сообщение с исправленной клавиатурой (если она исправлена в коде)
+        # Или просто залоггировать, что клавиатура всё еще битая.
+        logger.warning(f"Ghost edit failed (peer_id={peer_id}): {e}")
+
         # Пробуем удалить старое сообщение обоими способами перед отправкой нового
-        if conversation_message_id:
-            await delete_bot_message(bot_api, peer_id, cmid=conversation_message_id)
-            await delete_bot_message(bot_api, peer_id, mid=conversation_message_id)
-        elif message_id:
-            await delete_bot_message(bot_api, peer_id, mid=message_id)
+        try:
+            if conversation_message_id:
+                await delete_bot_message(bot_api, peer_id, cmid=conversation_message_id)
+                await delete_bot_message(bot_api, peer_id, mid=conversation_message_id)
+            elif message_id:
+                await delete_bot_message(bot_api, peer_id, mid=message_id)
+        except Exception as del_err:
+            logger.debug(f"Recovery delete failed: {del_err}")
 
     # Если редактирование не удалось или не запрашивалось, отправляем новое сообщение
-    resp = await bot_api.messages.send(
-        peer_id=peer_id,
-        message=message,
-        keyboard=keyboard,
-        attachment=attachment,
-        random_id=random.getrandbits(63),
-        **kwargs
-    )
+    try:
+        resp = await bot_api.messages.send(
+            peer_id=peer_id,
+            message=message,
+            keyboard=keyboard,
+            attachment=attachment,
+            random_id=random.getrandbits(63),
+            **kwargs
+        )
 
-    clean_resp_id = extract_msg_id(resp)
-    if clean_resp_id:
-        await set_last_bot_msg(peer_id, clean_resp_id)
+        clean_resp_id = extract_msg_id(resp)
+        if clean_resp_id:
+            await set_last_bot_msg(peer_id, clean_resp_id)
 
-    # Обновляем глобальный кэш тайпинга, если это было сообщение тайпинга
-    if peer_id in _typing_msg_ids:
-        _typing_msg_ids[peer_id] = clean_resp_id or resp
+        # Обновляем глобальный кэш тайпинга, если это было сообщение тайпинга
+        if peer_id in _typing_msg_ids:
+            _typing_msg_ids[peer_id] = clean_resp_id or resp
 
-    return clean_resp_id or resp
+        return clean_resp_id or resp
+    except Exception as send_err:
+        logger.error(f"Ghost recovery send failed (peer_id={peer_id}): {send_err}")
+        raise send_err
 
 async def send_temp_message(bot_api, peer_id: int, message: str, delay: int = 5, **kwargs):
     """Отправляет временное сообщение, которое удаляется через delay секунд"""
