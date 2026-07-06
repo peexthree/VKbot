@@ -131,22 +131,80 @@ TAROT_NAMES_CACHE = None
 async def record_ai_request():
     """Записывает таймстамп запроса к ИИ для подсчета RPM"""
     import time
+    import random
     now = time.time()
     key = "stats:ai_requests_rpm"
+    member = f"{now}:{random.random()}"
     pipe = redis_client.pipeline()
-    pipe.zadd(key, {str(now): now})
+    pipe.zadd(key, {member: now})
     pipe.zremrangebyscore(key, 0, now - 60)
     pipe.expire(key, 120)
     await pipe.exec()
+
+async def acquire_ai_slot(limit: int = 15, wait: bool = True) -> bool:
+    """
+    Проверяет лимит RPM и резервирует слот для запроса.
+    Если wait=True, ждет освобождения слота.
+    """
+    import time
+    import random
+    import asyncio
+    from loguru import logger
+
+    key = "stats:ai_requests_rpm"
+
+    # Lua скрипт для атомарной проверки и записи
+    lua_script = """
+    local key = KEYS[1]
+    local now = tonumber(ARGV[1])
+    local limit = tonumber(ARGV[2])
+    local member = ARGV[3]
+
+    redis.call('ZREMRANGEBYSCORE', key, 0, now - 60)
+    local count = redis.call('ZCARD', key)
+
+    if count < limit then
+        redis.call('ZADD', key, now, member)
+        redis.call('EXPIRE', key, 120)
+        return 1
+    else
+        return 0
+    end
+    """
+
+    while True:
+        now = time.time()
+        member = f"{now}:{random.random()}"
+
+        try:
+            # В upstash_redis eval принимает (script, keys, args)
+            res = await redis_client.eval(lua_script, [key], [now, limit, member])
+            if res == 1:
+                return True
+        except Exception as e:
+            logger.error(f"Ошибка в acquire_ai_slot (Lua): {e}")
+            # Фолбэк на не-атомарную логику если Lua упал
+            count = await get_ai_rpm()
+            if count < limit:
+                await record_ai_request()
+                return True
+
+        if not wait:
+            return False
+
+        await asyncio.sleep(2) # Ждем и пробуем снова
 
 async def get_ai_rpm() -> int:
     """Возвращает количество запросов к ИИ за последнюю минуту"""
     import time
     now = time.time()
     key = "stats:ai_requests_rpm"
-    await redis_client.zremrangebyscore(key, 0, now - 60)
-    count = await redis_client.zcard(key)
-    return int(count or 0)
+    try:
+        await redis_client.zremrangebyscore(key, 0, now - 60)
+        count = await redis_client.zcard(key)
+        return int(count or 0)
+    except Exception:
+        return 0
 
 async def get_tarot_names() -> dict:
     global TAROT_NAMES_CACHE

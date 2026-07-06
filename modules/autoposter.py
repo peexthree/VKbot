@@ -127,8 +127,8 @@ async def handle_diagnosis_comment(event: dict):
                 "а мощные инструменты (даты) требуют авторизации в системе."
             )
 
-        diagnosis = await generate_text(prompt, skin=target_skin)
-        if diagnosis:
+        diagnosis = await generate_text(prompt, skin=target_skin, is_background=True)
+        if diagnosis and diagnosis != "ERROR_RPM_LIMIT":
             # Принудительная очистка
             diagnosis = diagnosis.replace("\\n", "\n").replace("—", "-")
             try:
@@ -368,8 +368,8 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         )
 
     # Мы передаем skin_id, и generate_text сам возьмет нужный TOV из SKIN_MAP в prompts/personas.py
-    raw_response = await generate_text(prompt, skin=skin_id, json_mode=True)
-    if not raw_response:
+    raw_response = await generate_text(prompt, skin=skin_id, json_mode=True, is_background=True)
+    if not raw_response or raw_response == "ERROR_RPM_LIMIT":
         logger.error("Не удалось сгенерировать текст поста")
         return None
 

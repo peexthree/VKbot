@@ -495,8 +495,8 @@ async def main():
                             f"Сделай к ним тонкую, поддерживающую отсылку. "
                             f"КРИТИЧЕСКОЕ ПРАВИЛО: Строгий запрет на выделение текста маркерами. Никаких звездочек. Никакого жирного шрифта. Используй только короткие тире (-) для создания списков и структуры."
                         )
-                        forecast = await generate_text(prompt, skin=active_skin)
-                        if forecast:
+                        forecast = await generate_text(prompt, skin=active_skin, is_background=True)
+                        if forecast and forecast != "ERROR_RPM_LIMIT":
                             from ai_service import extract_tags
                             async def extract_and_save_tags(v_id: int, text: str):
                                 new_tags = await extract_tags(text)

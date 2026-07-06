@@ -469,8 +469,11 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
         f"Стиль: {active_skin}. Коротко, без приветствий. Без жирного шрифта."
     )
 
-    teaser_text = await generate_text(teaser_prompt, skin=active_skin)
+    teaser_text = await generate_text(teaser_prompt, skin=active_skin, is_background=False)
     await stop_dynamic_typing(peer_id)
+
+    if not teaser_text or teaser_text == "ERROR_RPM_LIMIT":
+        teaser_text = "Твоя энергия уникальна. Я чувствую в тебе огромный потенциал к трансформации."
 
     final_text = (
         "✨ ТВОЙ ПУТЬ ОТКРЫТ ✨\n\n"

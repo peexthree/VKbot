@@ -92,8 +92,8 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 f"Дай ОДИН короткий, дерзкий и точный совет или предсказание на ближайший час. "
                 f"Стиль: {active_skin} (имя: {character_name}). Максимум 2 предложения. Без жирного шрифта."
             )
-            insight = await generate_text(prompt, skin=active_skin)
-            if not insight:
+            insight = await generate_text(prompt, skin=active_skin, is_background=False)
+            if not insight or insight == "ERROR_RPM_LIMIT":
                 # Универсальный возврат через handle_generation_failure
                 await handle_generation_failure(vk_id, vk_id, "micro_insight")
                 return
@@ -300,6 +300,12 @@ async def execute_generation(
             )
 
             res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
+
+            if res_text == "ERROR_RPM_LIMIT":
+                msg = "Оракул перегружен космической энергией. Попробуй запустить ритуал через 30 секунд ✨"
+                await stop_dynamic_typing(peer_id)
+                await ghost_edit(bot.api, peer_id, msg, conversation_message_id=conversation_message_id, keyboard=get_main_keyboard(vk_id))
+                return
 
             if res_text:
                 # 1. Очистка от ВСТУПЛЕНИЕ

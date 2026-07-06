@@ -24,11 +24,6 @@ STOP_WORDS_18PLUS = [
 
 _cached_api_keys = None
 
-# Глобальные ограничители для соблюдения 15 RPM (запросов в минуту)
-_ai_semaphore = None
-_last_api_call_time = 0.0
-_api_call_lock = None
-
 proxy_url = os.getenv("GEMINI_PROXY")
 
 # Предварительно скомпилированный паттерн для очистки ввода (все запрещенные фразы)
@@ -77,14 +72,6 @@ async def check_proxy_status():
     except Exception as e:
         logger.warning(f"WARNING: Cloudflare Proxy diagnostic failed: {e}")
 
-def _get_ai_primitives():
-    global _ai_semaphore, _api_call_lock
-    if _ai_semaphore is None:
-        _ai_semaphore = asyncio.Semaphore(3)
-    if _api_call_lock is None:
-        _api_call_lock = asyncio.Lock()
-    return _ai_semaphore, _api_call_lock
-
 async def get_gemini_api_keys() -> list[str]:
     global _cached_api_keys
     if _cached_api_keys is not None:
@@ -106,7 +93,7 @@ async def get_gemini_api_keys() -> list[str]:
     _cached_api_keys = keys
     return keys
 
-async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya", image_urls: list[str] = None) -> str | None:
+async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesya", image_urls: list[str] = None, is_background: bool = False) -> str | None:
     if not json_mode:
         prompt_lower = prompt.lower()
         if any(word in prompt_lower for word in STOP_WORDS_18PLUS):
@@ -120,18 +107,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
     last_exception = Exception("Unknown error")
     tov_instruction = SKIN_MAP.get(skin, SKIN_MAP["olesya"])
 
-    ai_semaphore, api_call_lock = _get_ai_primitives()
-
-    # Соблюдаем интервалы между глобальными попытками генерации (минимум 4 сек для 15 RPM)
-    async with api_call_lock:
-        global _last_api_call_time
-        now = asyncio.get_event_loop().time()
-        elapsed = now - _last_api_call_time
-        if elapsed < 4.0:
-            await asyncio.sleep(4.0 - elapsed)
-        _last_api_call_time = asyncio.get_event_loop().time()
-
-    from cache import redis_client, record_ai_request
+    from cache import redis_client, acquire_ai_slot
     proxy_enabled_raw = await redis_client.get("system_config:proxy_enabled")
     # По умолчанию прокси включен, если ключ не установлен
     is_proxy_active = bool(int(proxy_enabled_raw)) if proxy_enabled_raw is not None else True
@@ -192,14 +168,16 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
 
                 # Ретраи для сетевых ошибок и тайм-аутов (2 попытки + основной запрос)
                 for attempt in range(3):
+                    # Перед КАЖДОЙ попыткой (включая ретраи) запрашиваем слот в глобальном лимитере
+                    if not await acquire_ai_slot(limit=15, wait=is_background):
+                        return "ERROR_RPM_LIMIT"
+
                     try:
-                        async with ai_semaphore:
-                            await record_ai_request()
-                            async with session.post(
-                                url,
-                                json=payload,
-                                timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)
-                            ) as resp:
+                        async with session.post(
+                            url,
+                            json=payload,
+                            timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25)
+                        ) as resp:
                                 if resp.status == 200:
                                     res_data = await resp.json()
                                     try:
