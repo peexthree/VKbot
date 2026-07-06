@@ -19,6 +19,8 @@ from database import (
 from modules.bot_init import bot
 from modules.utils import (
     get_fsm_step,
+    get_last_bot_msg,
+    set_last_bot_msg,
     start_dynamic_typing,
     stop_dynamic_typing,
     ghost_edit,
@@ -26,8 +28,6 @@ from modules.utils import (
     SKIN_ASSETS,
     send_temp_message,
     delete_bot_message,
-    get_last_bot_msg,
-    set_last_bot_msg,
     extract_msg_id
 )
 from modules.utils.consts import MYSTIC_STATUS_PHRASES
@@ -83,6 +83,12 @@ async def start_handler(message: Message, skip_lock: bool = False):
     user = await get_user(vk_id)
     # Если пользователь уже зарегистрирован, отправляем в главное меню
     if user and user.get("is_registered"):
+        # Проверка на сброс контекста из середины сценария (UX аналитика)
+        state_dict = await get_fsm_step(vk_id)
+        if state_dict:
+            from database import add_event
+            asyncio.create_task(add_event(vk_id, "ux_context_reset", {"abandoned_state": state_dict}))
+
         # Удаляем сообщение пользователя
         asyncio.create_task(delete_bot_message(bot.api, message.peer_id, cmid=message.conversation_message_id))
         return await back_to_main_menu(message)

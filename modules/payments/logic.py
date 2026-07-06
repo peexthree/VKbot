@@ -11,7 +11,8 @@ from modules.bot_init import bot
 from ai_service import generate_section, extract_tags
 from modules.utils import (
     get_main_keyboard, ghost_edit,
-    start_dynamic_typing, stop_dynamic_typing
+    start_dynamic_typing, stop_dynamic_typing,
+    extract_msg_id
 )
 from cache import acquire_lock, release_lock
 
@@ -192,6 +193,14 @@ async def execute_generation(
         user = await get_user(vk_id)
         if not user: return
 
+        # Мгновенная реакция: заглушка перед стартом тяжелых процессов
+        wait_msg = "🔮 Оракул настраивает связь с инфополем, подожди немного..."
+        if conversation_message_id:
+            await ghost_edit(bot.api, peer_id, wait_msg, conversation_message_id=conversation_message_id)
+        else:
+            resp = await bot.api.messages.send(peer_id=peer_id, message=wait_msg, random_id=random.getrandbits(63))
+            conversation_message_id = extract_msg_id(resp)
+
         # Если мы не редактируем старое сообщение, то dynamic_typing создаст новое
         typing_task = await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
@@ -304,7 +313,9 @@ async def execute_generation(
             if res_text == "ERROR_RPM_LIMIT":
                 msg = "Оракул перегружен космической энергией. Попробуй запустить ритуал через 30 секунд ✨"
                 await stop_dynamic_typing(peer_id)
-                await ghost_edit(bot.api, peer_id, msg, conversation_message_id=conversation_message_id, keyboard=get_main_keyboard(vk_id))
+                from modules.keyboards import vertical_kb
+                kb = vertical_kb([], nav_buttons=[("🔄 Повторить", {"cmd": "retry_generation", "section": target_section, "p_name": partner_name, "p_date": partner_date, "c_id": card_id}, KeyboardButtonColor.PRIMARY), ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)])
+                await ghost_edit(bot.api, peer_id, msg, conversation_message_id=conversation_message_id, keyboard=kb)
                 return
 
             if res_text:
@@ -553,17 +564,17 @@ async def execute_generation(
                         keyboard=kb_str
                     )
             else:
-                await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id)
+                await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id, partner_name=partner_name, partner_date=partner_date, card_id=card_id)
         finally:
             await stop_dynamic_typing(peer_id)
     except Exception as e:
         await stop_dynamic_typing(peer_id)
         logger.error(f"Ошибка: {str(e)}")
-        await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id)
+        await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id, partner_name=partner_name, partner_date=partner_date, card_id=card_id)
     finally:
         await release_lock(lock_key)
 
-async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str, conversation_message_id: int = None):
+async def handle_generation_failure(vk_id: int, peer_id: int, target_section: str, conversation_message_id: int = None, partner_name: str = "", partner_date: str = "", card_id: str = ""):
     prices = {
         "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
         "synastry": 1500, "palmistry": 1200, "dream": 1000, "all": 3000, "oracle": 500, "antitaro": 500,
@@ -577,13 +588,29 @@ async def handle_generation_failure(vk_id: int, peer_id: int, target_section: st
         new_balance = int(user.get("balance", 0) or 0) + price_of_service
         await update_user(vk_id, {"balance": new_balance})
 
-    msg = "🛑 КАНАЛ СВЯЗИ НЕСТАБИЛЕН\n\nЗвезды скрылись за облаками матрицы. Энергия возвращена на твой баланс. Попробуй инициировать ритуал снова через минуту."
+    msg = "🛑 КАНАЛ СВЯЗИ НЕСТАБИЛЕН\n\nЗвезды скрылись за облаками матрицы. Энергия возвращена на твой баланс. Попробуй инициировать ритуал снова."
 
     await stop_dynamic_typing(peer_id)
+
+    from modules.keyboards import vertical_kb
+    # Кнопка повтора с сохранением контекста
+    retry_payload = {
+        "cmd": "retry_generation",
+        "section": target_section,
+        "p_name": partner_name,
+        "p_date": partner_date,
+        "c_id": card_id
+    }
+
+    kb = vertical_kb([], nav_buttons=[
+        ("🔄 Повторить попытку", retry_payload, KeyboardButtonColor.POSITIVE),
+        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+    ])
+
     await ghost_edit(
         bot.api,
         peer_id,
         msg,
         conversation_message_id=conversation_message_id,
-        keyboard=get_main_keyboard(vk_id)
+        keyboard=kb
     )
