@@ -4,22 +4,23 @@ from modules.utils.consts import ADMIN_ID
 def vertical_kb(buttons: list[tuple[str, str | dict, str]], nav_buttons: list[tuple[str, str | dict, str]] = None) -> str:
     """Хелпер для создания клавиатуры с вертикальными основными кнопками и горизонтальными навигационными внизу"""
     kb = Keyboard(inline=True)
-    for _i, btn in enumerate(buttons):
+    for i, btn in enumerate(buttons):
         label, payload, color = btn
         if isinstance(payload, str):
             payload = {"cmd": payload}
         kb.add(Callback(label, payload=payload), color=color)
-        kb.row()
+        # Добавляем ряд только если это не последняя основная кнопка ИЛИ если дальше будут nav_buttons
+        if i < len(buttons) - 1 or nav_buttons:
+            kb.row()
 
     if nav_buttons:
-        for _i, btn in enumerate(nav_buttons):
+        for i, btn in enumerate(nav_buttons):
             label, payload, color = btn
             if isinstance(payload, str):
                 payload = {"cmd": payload}
             kb.add(Callback(label, payload=payload), color=color)
+            # Навигационные кнопки идут в один (последний) горизонтальный ряд
 
-    # Если последняя строка была kb.row(), vkbottle может ругаться или сделать пустой ряд.
-    # Но vkbottle.Keyboard.add после row() работает корректно.
     return kb.get_json()
 
 def get_main_reply_keyboard(vk_id: int) -> str:
@@ -76,7 +77,7 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     kb.add(Callback("🧭 Путеводитель", payload={"cmd": "guide"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
 
-    # Ряд 6
+    # Ряд 6 (Последний)
     kb.add(Callback("👤 Профиль", payload={"cmd": "profile_menu"}), color=KeyboardButtonColor.SECONDARY)
 
     return kb.get_json()

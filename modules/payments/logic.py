@@ -197,7 +197,7 @@ async def execute_generation(
         # Мгновенная реакция: заглушка перед стартом тяжелых процессов
         wait_msg = "🔮 Оракул настраивает связь с инфополем, подожди немного..."
         if conversation_message_id:
-            await ghost_edit(bot.api, peer_id, wait_msg, conversation_message_id=conversation_message_id)
+            conversation_message_id = await ghost_edit(bot.api, peer_id, wait_msg, conversation_message_id=conversation_message_id)
         else:
             resp = await bot.api.messages.send(peer_id=peer_id, message=wait_msg, random_id=random.getrandbits(63))
             conversation_message_id = extract_msg_id(resp)
@@ -550,7 +550,7 @@ async def execute_generation(
                 # Если conversation_message_id был передан (регистрация), используем его как CMID.
                 # Если нет (расклад), используем ID сообщения динамического тайпинга как MID.
                 if conversation_message_id:
-                    await ghost_edit(
+                    conversation_message_id = await ghost_edit(
                         bot.api,
                         peer_id,
                         header + display_text,
