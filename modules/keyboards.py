@@ -14,7 +14,7 @@ def vertical_kb(buttons: list[tuple[str, str | dict, str]], nav_buttons: list[tu
             kb.row()
 
     if nav_buttons:
-        for i, btn in enumerate(nav_buttons):
+        for btn in nav_buttons:
             label, payload, color = btn
             if isinstance(payload, str):
                 payload = {"cmd": payload}
