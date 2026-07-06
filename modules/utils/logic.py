@@ -148,27 +148,52 @@ def get_syndicate_rank(count: int) -> str:
     if count >= 1: return "Вербовщик"
     return "Одиночка"
 
+def reduce_to_22(n: int) -> int:
+    """
+    Приводит число к системе 22 (Матрица Ладини).
+    Если больше 22, вычитает 22 до тех пор, пока не станет <= 22.
+    """
+    if n <= 0: return 22
+    while n > 22:
+        n -= 22
+    return n
+
 def calculate_destiny_card(birth_date_str: str) -> int:
     """
-    Рассчитывает Аркан судьбы по дате рождения (1-22).
-    Пример: 15.06.1991 -> 1+5+0+6+1+9+9+1 = 32 -> 3+2 = 5 (Аркан V).
-    Если 22 - оставляем 22.
+    Рассчитывает Главный Аркан Судьбы (Личность) по дню рождения.
+    Использует правило вычитания 22.
     """
     if not birth_date_str:
         return 1
 
-    # Очищаем дату от всего кроме цифр
-    digits = [int(d) for d in birth_date_str if d.isdigit()]
-    if not digits:
+    # Ищем первое число (день)
+    match = re.search(r"(\d{1,2})", birth_date_str)
+    if not match: return 1
+
+    day = int(match.group(1))
+    return reduce_to_22(day)
+
+def calculate_purpose_arcana(birth_date_str: str) -> int:
+    """
+    Рассчитывает Аркан Предназначения (День + Месяц + Год).
+    Каждый элемент приводится к 22 отдельно, затем сумма приводится к 22.
+    """
+    date_str = extract_russian_date(birth_date_str)
+
+    if not date_str:
         return 1
 
-    s = sum(digits)
+    parts = date_str.split('.')
+    d = int(parts[0])
+    m = int(parts[1])
+    y = int(parts[2]) if len(parts) > 2 else 2000
 
-    while s > 22:
-        # Суммируем цифры полученного числа
-        s = sum(int(d) for d in str(s))
+    d_red = reduce_to_22(d)
+    m_red = reduce_to_22(m) # Месяц всегда <= 12
+    y_sum = sum(int(digit) for digit in str(y))
+    y_red = reduce_to_22(y_sum)
 
-    return s
+    return reduce_to_22(d_red + m_red + y_red)
 
 def generate_shadow_cipher() -> str:
     """Генерирует уникальный 6-значный теневой шифр"""

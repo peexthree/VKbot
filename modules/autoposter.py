@@ -81,6 +81,13 @@ async def handle_diagnosis_comment(event: dict):
         s_text = sanitize_user_input(text)
         logger.info(f"Получен запрос на вскрытие от {from_id} под постом {post_id}: {birth_date}")
 
+        # Получаем имя пользователя из ВК
+        try:
+            vk_users = await bot.api.users.get(user_ids=[from_id])
+            user_name = vk_users[0].first_name if vk_users else "Адепт"
+        except Exception:
+            user_name = "Адепт"
+
         # ПОЛУЧЕНИЕ ПРИВЯЗАННОГО ПЕРСОНАЖА ИЗ REDIS
         try:
             target_skin = await redis.get(f"post_skin:{post_id}")
@@ -88,55 +95,63 @@ async def handle_diagnosis_comment(event: dict):
                 target_skin = target_skin.decode() if isinstance(target_skin, bytes) else target_skin
                 logger.info(f"Для поста {post_id} найден привязанный персонаж: {target_skin}")
             else:
-                from modules.utils.consts import SKIN_DISPLAY_NAMES
                 target_skin = random.choice(list(SKIN_DISPLAY_NAMES.keys()))
                 logger.info(f"Персонаж для поста {post_id} не найден в кэше, выбран рандомный: {target_skin}")
         except Exception as e:
             logger.error(f"Ошибка получения скина из Redis: {e}")
             target_skin = "olesya"
 
+        from modules.utils.logic import calculate_destiny_card, calculate_purpose_arcana
+        main_arcana = calculate_destiny_card(birth_date)
+        purpose_arcana = calculate_purpose_arcana(birth_date)
+
         from database import get_user
         user = await get_user(from_id)
 
         if user:
-            # Данные пользователя
-            energy = user.get("balance", 0)
-            city = sanitize_user_input(user.get("birth_city", "неизвестен"))
-            visit_streak = user.get("visit_streak", 0)
-            active_skin = user.get("active_skin", "olesya")
-            unlocked_count = len(user.get("unlocked_cards", {}))
+            from modules.utils.logic import calculate_user_rank
+            level, _ = calculate_user_rank(user)
+            active_skin_id = user.get("active_skin", "olesya")
+            active_skin_name = SKIN_DISPLAY_NAMES.get(active_skin_id, active_skin_id)
 
             user_context = (
-                f"Данные адепта: Дата {birth_date}, Город {city}, Энергия {energy}✨, "
-                f"Цикл (стрик) {visit_streak}дн, Активный персонаж {active_skin}, "
-                f"Открыто арканов {unlocked_count}."
-            )
-            prompt = (
-                f"Проведи мгновенное «Вскрытие» адепта на основе его данных: {user_context}. "
-                f"Пользователь также написал: <user_input>{s_text}</user_input>. "
-                "Твой ответ должен быть максимально ядовитым, жестким, но психологически точным «диагнозом» его текущего состояния. "
-                "Помни: инструменты (даты, арканы) безупречны и велики, проблема всегда в багах и лени самого пользователя. "
-                "Используй стиль Анти-Таро: цинизм, никакой пощады, метафоры матрицы и системных ошибок. "
-                "Объем: 2-3 хлестких предложения. Без приветствий."
+                f"Адепт: {user_name}, Уровень: {level}, Активный персонаж: {active_skin_name}. "
+                f"Главный Аркан Судьбы: {main_arcana}, Аркан Предназначения: {purpose_arcana}."
             )
         else:
-            prompt = (
-                f"Адепт прислал дату {birth_date}, но его нет в нашей базе. "
-                "Твой ответ: «Ты — чистый лист в этой матрице. Заходи в бота, чтобы система тебя просканировала». "
-                "Добавь к этому одну ядовитую фразу о том, что анонимы в системе не имеют веса, "
-                "а мощные инструменты (даты) требуют авторизации в системе."
+            user_context = (
+                f"Адепт: {user_name} (не зарегистрирован). "
+                f"Главный Аркан Судьбы: {main_arcana}, Аркан Предназначения: {purpose_arcana}."
             )
+
+        prompt = (
+            f"Проведи мгновенное нумерологический разбор («Вскрытие») адепта на основе его Арканов: {user_context}. "
+            f"Пользователь также написал: <user_input>{s_text}</user_input>. "
+            f"Твой ответ должен быть максимально ядовитым, жестким и психологически точным «диагнозом» его текущего состояния. "
+            f"Бей по теневым сторонам именно этих Арканов ({main_arcana} и {purpose_arcana}). "
+            "Помни: инструменты (цифры, арканы) безупречны, проблема всегда в багах и лени самого пользователя. "
+            "Используй стиль Анти-Таро: цинизм, никакой пощады, метафоры матрицы и системных ошибок. "
+            f"ОБЯЗАТЕЛЬНО упомяни цифры Арканов ({main_arcana} и {purpose_arcana}) в тексте разбора. "
+            "Объем: 2-3 хлестких предложения. Без приветствий."
+        )
 
         diagnosis = await generate_text(prompt, skin=target_skin, is_background=True)
         if diagnosis and diagnosis != "ERROR_RPM_LIMIT":
             # Принудительная очистка
-            diagnosis = diagnosis.replace("\\n", "\n").replace("—", "-")
+            diagnosis = diagnosis.replace("\\n", "\n").replace("—", "-").replace("*", "")
+
+            final_message = f"[id{from_id}|{user_name}], {diagnosis}"
+
+            if not user:
+                cta = "\n\nЭто лишь 1% твоей прошивки. Чтобы вскрыть полные протоколы и забрать навигатор судьбы, нажми кнопку \"Написать сообществу\" и отправь команду \"Старт\"."
+                final_message += cta
+
             try:
                 await bot.api.wall.create_comment(
                     owner_id=-GROUP_ID,
                     post_id=post_id,
                     reply_to_comment=comment_id,
-                    message=f"[id{from_id}|Адепт], {diagnosis}"
+                    message=final_message
                 )
             except Exception as e:
                 logger.error(f"Ошибка при ответе на комментарий: {e}")

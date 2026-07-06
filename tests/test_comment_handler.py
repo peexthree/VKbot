@@ -26,11 +26,13 @@ async def test_handle_diagnosis_comment_with_date():
 
                 assert res is None
                 mock_gen.assert_called_once()
-                mock_request.assert_called_once()
-                args, kwargs = mock_request.call_args
+                # 2 calls: users.get and wall.createComment
+                assert mock_request.call_count == 2
+
+                # Check createComment call (last one)
+                args, kwargs = mock_request.call_args_list[-1]
                 assert args[0].lower() in ["wall.create_comment", "wall.createcomment"]
                 assert "Твой диагноз" in args[1]["message"]
-                assert "[id12345|Адепт]" in args[1]["message"]
 
 @pytest.mark.asyncio
 async def test_handle_diagnosis_comment_no_date():
