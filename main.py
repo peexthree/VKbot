@@ -11,6 +11,7 @@ import hmac
 import base64
 from urllib.parse import parse_qsl
 import sentry_sdk
+from modules.utils.logic import get_safe_tags
 from aiohttp import web
 from loguru import logger
 
@@ -350,8 +351,11 @@ async def main():
                     days_since = (now.date() - last_date).days
 
                     if days_since == 3:
-                        tags = user.get("tags", [])
-                        tag_context = f" Твои запросы по теме «{tags[0]}» все еще ждут ответа." if tags else ""
+                        tags = get_safe_tags(user)
+                        tag_context = ""
+                        if tags:
+                            lucky_tag = random.choice(tags)
+                            tag_context = f" Твои запросы по теме «{lucky_tag}» все еще ждут ответа."
                         msg = f"✦ ТВОЯ МАТРИЦА ЗАТУХАЕТ ✦\n\nТебя не было 3 дня. Потоки энергии слабеют.{tag_context} Вернись и забери свой ежедневный дар (+100 ✨), пока связь не прервалась полностью."
                         try:
                             kb = Keyboard(inline=True).add(Callback("✨ ЗАБРАТЬ ДАР", payload={"cmd": "card_of_day_menu"}), color=KeyboardButtonColor.POSITIVE)
@@ -469,7 +473,7 @@ async def main():
                         from cache import get_core_profile
                         core_profile = await get_core_profile(vk_id)
                         active_skin = user.get("active_skin", "olesya")
-                        tags = user.get("tags", [])
+                        tags = get_safe_tags(user)
                         tags_str = ", ".join(tags) if tags else "отсутствует"
 
                         purchased = user.get("purchased_sections", {})

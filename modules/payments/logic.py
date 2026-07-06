@@ -86,10 +86,11 @@ async def process_payment_and_generate(vk_id: int, section: str):
             from modules.utils.consts import SKIN_DISPLAY_NAMES
             character_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
             from ai_service import generate_text
+            from modules.utils.logic import get_safe_tags
             b_info = f"{birth_data.get('date')} {birth_data.get('city')}"
             prompt = (
                 f"Пользователь купил микро-инсайт. Его данные: {b_info}. "
-                f"Теги: {user.get('tags', [])}. "
+                f"Теги: {get_safe_tags(user)}. "
                 f"Дай ОДИН короткий, дерзкий и точный совет или предсказание на ближайший час. "
                 f"Стиль: {active_skin} (имя: {character_name}). Максимум 2 предложения. Без жирного шрифта."
             )
@@ -207,7 +208,8 @@ async def execute_generation(
         try:
             p = user.get("purchased_sections", {})
             active_skin = user.get("active_skin", "olesya")
-            tags = user.get("tags", [])
+            from modules.utils.logic import get_safe_tags
+            tags = get_safe_tags(user)
 
             # Улучшенное получение имени и пола
             u_name = user.get("first_name") or p.get("first_name", "Адепт")

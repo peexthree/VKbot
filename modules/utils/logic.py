@@ -187,6 +187,43 @@ def transliterate(text: str) -> str:
     }
     return "".join(mapping.get(c, c) for c in text.lower())
 
+def get_safe_tags(user: dict) -> list[str]:
+    """Безопасное извлечение тегов пользователя с фильтрацией мусора"""
+    tags = user.get("tags")
+    if not tags:
+        return []
+
+    if isinstance(tags, str):
+        try:
+            # Пытаемся распарсить как JSON
+            tags = json.loads(tags)
+        except Exception:
+            # Если это строка вида "['tag']", используем literal_eval
+            if tags.startswith('[') and tags.endswith(']'):
+                try:
+                    import ast
+                    tags = ast.literal_eval(tags)
+                except Exception:
+                    return []
+            else:
+                # Если просто строка, оборачиваем в список
+                tags = [tags]
+
+    if not isinstance(tags, list):
+        return []
+
+    # Фильтруем пустые строки, слишком короткие теги и технические символы
+    clean_tags = []
+    for t in tags:
+        if not isinstance(t, str):
+            continue
+        t = t.strip()
+        # Тег должен быть осмысленным и не быть техническим символом
+        if len(t) > 2 and t not in ["[", "]", "{", "}", "None", "null"]:
+            clean_tags.append(t)
+
+    return clean_tags
+
 def slugify(text: str) -> str:
     """Создает безопасный латинский слаг из кириллической строки"""
     # 1. Транслитерация

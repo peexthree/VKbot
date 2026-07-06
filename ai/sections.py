@@ -10,7 +10,8 @@ AVAILABLE_TAGS = [
     'исцеление-сердца', 'путь-к-себе', 'карьерный-рост', 'духовное-пробуждение',
     'семейное-благополучие', 'выход-из-кризиса', 'творческий-прорыв', 'жизненная-энергия',
     'освобождение-от-прошлого', 'поиск-предназначения', 'уверенность-в-себе',
-    'трансформация-личности', 'защита-и-очищение', 'мудрость-предков', 'баланс-стихий', 'зов-сердца'
+    'трансформация-личности', 'защита-и-очищение', 'мудрость-предков', 'баланс-стихий', 'зов-сердца',
+    'свобода'
 ]
 
 async def extract_tags(text: str) -> list[str]:
@@ -35,14 +36,19 @@ async def extract_tags(text: str) -> list[str]:
             clean = match.group(0)
 
         data = json.loads(clean, strict=False)
+        tags = []
         if isinstance(data, list):
-            return data
+            tags = data
         elif isinstance(data, dict):
             # Если ИИ вернул объект вместо списка, ищем список внутри
             for val in data.values():
                 if isinstance(val, list):
-                    return val
-        return []
+                    tags = val
+                    break
+
+        # Фильтрация: оставляем только теги из белого списка
+        filtered_tags = [t for t in tags if t in AVAILABLE_TAGS]
+        return filtered_tags
     except Exception as e:
         logger.error(f"Ошибка парсинга тегов: {e}. Raw: {res}")
         return []
@@ -117,11 +123,23 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         pass
 
     if tags and tag_memory_active:
-        tags_str = ", ".join(tags)
-        base_info += f" ВАЖНО: Я помню наши прошлые темы: [{tags_str}]. " \
-                     f"Используй это, чтобы наш диалог был глубоким и личным. Не просто упомяни их, а мягко свяжи " \
-                     f"текущий разбор с тем, как меняется состояние пользователя. " \
-                     f"Покажи, что ты — внимательный проводник, который чувствует каждое движение его души."
+        # Дополнительная защита: если передана строка вместо списка
+        if isinstance(tags, str):
+            try:
+                import ast
+                tags = ast.literal_eval(tags)
+            except Exception:
+                tags = [tags]
+
+        if isinstance(tags, list):
+            # Фильтруем мусор перед склейкой
+            clean_tags = [str(t) for t in tags if len(str(t)) > 2 and str(t) not in ["[", "]", "{", "}"]]
+            if clean_tags:
+                tags_str = ", ".join(clean_tags)
+                base_info += f" ВАЖНО: Я помню наши прошлые темы: [{tags_str}]. " \
+                             f"Используй это, чтобы наш диалог был глубоким и личным. Не просто упомяни их, а мягко свяжи " \
+                             f"текущий разбор с тем, как меняется состояние пользователя. " \
+                             f"Покажи, что ты — внимательный проводник, который чувствует каждое движение его души."
 
     if card_id and not card_data:
         card_data = get_card_data(card_id)
