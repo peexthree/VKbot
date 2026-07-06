@@ -4,7 +4,7 @@ from modules.utils.consts import ADMIN_ID
 def vertical_kb(buttons: list[tuple[str, str | dict, str]], nav_buttons: list[tuple[str, str | dict, str]] = None) -> str:
     """Хелпер для создания клавиатуры с вертикальными основными кнопками и горизонтальными навигационными внизу"""
     kb = Keyboard(inline=True)
-    for i, btn in enumerate(buttons):
+    for _i, btn in enumerate(buttons):
         label, payload, color = btn
         if isinstance(payload, str):
             payload = {"cmd": payload}
@@ -12,7 +12,7 @@ def vertical_kb(buttons: list[tuple[str, str | dict, str]], nav_buttons: list[tu
         kb.row()
 
     if nav_buttons:
-        for i, btn in enumerate(nav_buttons):
+        for _i, btn in enumerate(nav_buttons):
             label, payload, color = btn
             if isinstance(payload, str):
                 payload = {"cmd": payload}

@@ -1,0 +1,13 @@
+2026-07-06 08:15:57.552 | WARNING  | modules.autoposter:generate_post:240 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-06 08:15:57.553 | INFO     | modules.autoposter:generate_post:261 - Сгенерирован скрытый шифр для поста: BYPASS-564 на 141 ✨
+2026-07-06 08:15:57.554 | INFO     | modules.autoposter:generate_post:282 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140696677370048'>, персонаж ai_mom, тема 'Как распознать «деловую совместимость» до подписания контракта.'
+2026-07-06 08:15:57.560 | INFO     | modules.autoposter:handle_diagnosis_comment:82 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-06 08:16:00.565 | ERROR    | modules.autoposter:handle_diagnosis_comment:95 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-06 08:16:03.684 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-06 08:16:03.694 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-06 08:16:03.703 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-06 08:16:03.714 | WARNING  | main:verify_vk_signature:81 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-06 08:16:03.754 | INFO     | modules.autoposter:generate_post:261 - Сгенерирован скрытый шифр для поста: ERROR-145 на 177 ✨
+2026-07-06 08:16:03.755 | INFO     | modules.autoposter:generate_post:282 - Генерация поста: PROVOCATION, персонаж olesya, тема 'Где на твоей руке спрятаны признаки эмоционального выгорания?'
+2026-07-06 08:16:03.760 | INFO     | modules.autoposter:generate_post:261 - Сгенерирован скрытый шифр для поста: PULSE-937 на 108 ✨
+2026-07-06 08:16:03.760 | INFO     | modules.autoposter:generate_post:282 - Генерация поста: PROVOCATION, персонаж saint_germain, тема 'Куда уходит твоя энергия в течение дня: аудит потерь.'
