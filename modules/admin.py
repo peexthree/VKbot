@@ -36,6 +36,7 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     kb = Keyboard(inline=True)
     kb.add(Callback("💻 СИСТЕМА", payload={"cmd": "admin_nav", "menu": "system"}), color=KeyboardButtonColor.PRIMARY)
     kb.add(Callback("📈 АНАЛИТИКА", payload={"cmd": "admin_nav", "menu": "analytics"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🧩 UX АНАЛИЗ", payload={"cmd": "admin_nav", "menu": "ux_analytics"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Callback("👥 АДЕПТЫ", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.PRIMARY)
     kb.add(Callback("📢 ВЕЩАНИЕ", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.PRIMARY)
@@ -289,6 +290,94 @@ async def show_admin_autopost_rubrics(peer_id: int, conversation_message_id: int
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.PRIMARY)
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
+async def show_admin_ux_analytics(peer_id: int, conversation_message_id: int = None):
+    """Раздел UX-аналитики (Затыки и сбросы)"""
+    from database.core import session, URL, HEADERS
+    import datetime
+
+    # 1. Поиск "затыков" - пользователи в состоянии дольше 12 часов
+    # Мы смотрим на последние ивенты state_transition и ищем тех, у кого нет активности после этого.
+    # Но проще посчитать из ивентов ux_interaction и ux_context_reset.
+
+    text = "🧩 UX АНАЛИТИКА: УЗКИЕ МЕСТА\n\n"
+
+    try:
+        # Запрос на топ-3 брошенных состояний (где чаще всего делают /start)
+        async with session.get(
+            f"{URL}/rest/v1/events?action=eq.ux_context_reset&select=metadata",
+            headers=HEADERS
+        ) as r:
+            if r.status == 200:
+                data = await r.json()
+                abandoned_states = {}
+                for item in data:
+                    metadata = item.get("metadata", {})
+                    abandoned_state_data = metadata.get("abandoned_state", {})
+                    if isinstance(abandoned_state_data, dict):
+                        state = abandoned_state_data.get("step", "unknown")
+                    else:
+                        state = str(abandoned_state_data)
+                    abandoned_states[state] = abandoned_states.get(state, 0) + 1
+
+                sorted_abandoned = sorted(abandoned_states.items(), key=lambda x: x[1], reverse=True)[:3]
+
+                text += "📉 ТОП-3 ТОЧКИ СБРОСА (Context Reset):\n"
+                if sorted_abandoned:
+                    for state, count in sorted_abandoned:
+                        text += f"- {state}: {count} раз\n"
+                else:
+                    text += "- Данных пока нет\n"
+            else:
+                text += "❌ Ошибка получения данных о сбросах\n"
+    except Exception as e:
+        text += f"❌ Ошибка UX: {e}\n"
+
+    text += "\n⏳ ТОП-3 ЗАТЫКА (>12ч в одном state):\n"
+    try:
+        # Получаем последние переходы
+        async with session.get(
+            f"{URL}/rest/v1/events?action=eq.state_transition&order=created_at.desc&limit=100",
+            headers=HEADERS
+        ) as r:
+            if r.status == 200:
+                transitions = await r.json()
+                now = datetime.datetime.now(datetime.timezone.utc)
+                stuck_states = {}
+                processed_users = set()
+
+                for t in transitions:
+                    uid = t.get("user_id")
+                    if uid in processed_users: continue
+                    processed_users.add(uid)
+
+                    created_at = datetime.datetime.fromisoformat(t.get("created_at").replace('Z', '+00:00'))
+                    if (now - created_at).total_seconds() > 12 * 3600:
+                        state_data = t.get("metadata", {}).get("new_state", "unknown")
+                        if isinstance(state_data, str) and state_data.startswith("{"):
+                            try: state = json.loads(state_data).get("step", "unknown")
+                            except: state = "unknown"
+                        else: state = str(state_data)
+
+                        stuck_states[state] = stuck_states.get(state, 0) + 1
+
+                sorted_stuck = sorted(stuck_states.items(), key=lambda x: x[1], reverse=True)[:3]
+                if sorted_stuck:
+                    for state, count in sorted_stuck:
+                        text += f"- {state}: {count} чел.\n"
+                else:
+                    text += "- Застрявших адептов не обнаружено\n"
+            else:
+                text += "❌ Ошибка получения данных о затыках\n"
+    except Exception as e:
+        text += f"❌ Ошибка анализа: {e}\n"
+
+    kb = Keyboard(inline=True)
+    kb.add(Callback("🔄 ОБНОВИТЬ", payload={"cmd": "admin_nav", "menu": "ux_analytics"}), color=KeyboardButtonColor.SECONDARY)
+    kb.row()
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+
+    await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
 async def show_admin_vip(peer_id: int, conversation_message_id: int = None):
     """Раздел управления VIP-клиентами"""
     users = await get_all_users()
@@ -349,6 +438,7 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         elif nav_menu == "autopost_rubrics": await show_admin_autopost_rubrics(peer_id, conversation_message_id, page=page)
         elif nav_menu == "logs": await show_admin_logs(peer_id, conversation_message_id)
         elif nav_menu == "vip": await show_admin_vip(peer_id, conversation_message_id)
+        elif nav_menu == "ux_analytics": await show_admin_ux_analytics(peer_id, conversation_message_id)
         return
     if action == "toggle_warmup":
         c = await redis_client.get("system_config:warmup_active")

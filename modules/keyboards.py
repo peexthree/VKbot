@@ -1,17 +1,25 @@
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text, OpenLink
 from modules.utils.consts import ADMIN_ID
 
-def vertical_kb(buttons: list[tuple[str, str | dict, str]]) -> str:
-    """Хелпер для создания строго вертикальной клавиатуры (1 кнопка в ряду)"""
+def vertical_kb(buttons: list[tuple[str, str | dict, str]], nav_buttons: list[tuple[str, str | dict, str]] = None) -> str:
+    """Хелпер для создания клавиатуры с вертикальными основными кнопками и горизонтальными навигационными внизу"""
     kb = Keyboard(inline=True)
     for i, btn in enumerate(buttons):
         label, payload, color = btn
-        # Превращаем строку payload в словарь если нужно
         if isinstance(payload, str):
             payload = {"cmd": payload}
         kb.add(Callback(label, payload=payload), color=color)
-        if i < len(buttons) - 1:
-            kb.row()
+        kb.row()
+
+    if nav_buttons:
+        for i, btn in enumerate(nav_buttons):
+            label, payload, color = btn
+            if isinstance(payload, str):
+                payload = {"cmd": payload}
+            kb.add(Callback(label, payload=payload), color=color)
+
+    # Если последняя строка была kb.row(), vkbottle может ругаться или сделать пустой ряд.
+    # Но vkbottle.Keyboard.add после row() работает корректно.
     return kb.get_json()
 
 def get_main_reply_keyboard(vk_id: int) -> str:
@@ -81,6 +89,7 @@ def services_menu_kb() -> str:
         ("✨ Хиромантия", {"cmd": "use_section", "key": "palmistry"}, KeyboardButtonColor.POSITIVE),
         ("🌙 Сонник", {"cmd": "dream_interpret_start"}, KeyboardButtonColor.POSITIVE),
         ("⭐ Подписка / Тарифы", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
+    ], nav_buttons=[
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
@@ -92,6 +101,7 @@ def profile_menu_kb() -> str:
         ("🃏 Гримуар", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
         ("🎭 Зал пророков", {"cmd": "profile_action", "action": "change_skin"}, KeyboardButtonColor.PRIMARY),
         ("⚙️ Настройки", {"cmd": "profile_action", "action": "settings"}, KeyboardButtonColor.SECONDARY),
+    ], nav_buttons=[
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
@@ -106,11 +116,13 @@ def settings_menu_kb(vk_id: int, is_muted: bool = False) -> str:
         (sub_label, {"cmd": "profile_action", "action": sub_action}, KeyboardButtonColor.SECONDARY),
         ("📞 Поддержка", "support", KeyboardButtonColor.PRIMARY),
     ]
-    if vk_id == ADMIN_ID:
-        buttons.append(("🛠️ Админ-консоль", "admin_console", KeyboardButtonColor.SECONDARY))
 
-    buttons.append(("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY))
-    return vertical_kb(buttons)
+    nav_buttons = []
+    if vk_id == ADMIN_ID:
+        nav_buttons.append(("🛠️ КОНСОЛЬ", "admin_console", KeyboardButtonColor.SECONDARY))
+
+    nav_buttons.append(("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY))
+    return vertical_kb(buttons, nav_buttons=nav_buttons)
 
 def after_pdf_kb(section: str, card: str = None) -> str:
     """Клавиатура после генерации PDF"""
@@ -248,7 +260,8 @@ def get_syndicate_inline_keyboard(is_promo_used: bool) -> str:
     return vertical_kb([
         ("📜 МОЙ ШИФР", {"cmd": "profile_action", "action": "get_seal"}, KeyboardButtonColor.PRIMARY),
         *([("✒️ ВВЕСТИ ШИФР", {"cmd": "profile_action", "action": "enter_seal"}, KeyboardButtonColor.SECONDARY)] if not is_promo_used else []),
-        ("👤 В ПРОФИЛЬ", {"cmd": "profile_menu"}, KeyboardButtonColor.PRIMARY),
+    ], nav_buttons=[
+        ("👤 В ПРОФИЛЬ", "profile_menu", KeyboardButtonColor.PRIMARY),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
@@ -270,13 +283,15 @@ def get_guide_main_keyboard() -> str:
         ("🔮 ГЛУБОКИЕ РАЗБОРЫ", "guide_services", KeyboardButtonColor.PRIMARY),
         ("🤝 МОЙ КРУГ", "guide_syndicate", KeyboardButtonColor.PRIMARY),
         ("🃏 ГРИМУАР И РАНГИ", "guide_grimoire", KeyboardButtonColor.PRIMARY),
+    ], nav_buttons=[
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
 def get_guide_sub_keyboard(action_label: str, action_payload: dict) -> str:
     return vertical_kb([
-        ("⬅️ НАЗАД", "guide", KeyboardButtonColor.PRIMARY),
         (action_label, action_payload, KeyboardButtonColor.POSITIVE),
+    ], nav_buttons=[
+        ("⬅️ НАЗАД", "guide", KeyboardButtonColor.PRIMARY),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
@@ -288,10 +303,11 @@ def get_advanced_settings_inline_keyboard(vk_id: int, is_muted: bool = False) ->
     buttons = [
         ("🔄 Сбросить аккаунт", {"cmd": "profile_action", "action": "reset_account"}, KeyboardButtonColor.SECONDARY),
         (sub_label, {"cmd": "profile_action", "action": sub_action}, KeyboardButtonColor.SECONDARY),
+    ]
+    return vertical_kb(buttons, nav_buttons=[
         ("👤 В ПРОФИЛЬ", "profile_menu", KeyboardButtonColor.PRIMARY),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-    ]
-    return vertical_kb(buttons)
+    ])
 
 def get_sections_keyboard(vk_id: int, user: dict) -> str:
     """Старый хелпер, возвращает главное меню"""

@@ -1,0 +1,13 @@
+2026-07-06 08:07:03.924 | WARNING  | modules.autoposter:generate_post:240 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-06 08:07:03.925 | INFO     | modules.autoposter:generate_post:261 - Сгенерирован скрытый шифр для поста: SYSTEM-304 на 103 ✨
+2026-07-06 08:07:03.926 | INFO     | modules.autoposter:generate_post:282 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='139969910189632'>, персонаж freud, тема 'Как перестать ждать знаков судьбы и начать создавать их самому?'
+2026-07-06 08:07:03.931 | INFO     | modules.autoposter:handle_diagnosis_comment:82 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-06 08:07:06.936 | ERROR    | modules.autoposter:handle_diagnosis_comment:95 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-06 08:07:09.641 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-06 08:07:09.650 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-06 08:07:09.660 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-06 08:07:09.671 | WARNING  | main:verify_vk_signature:81 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-06 08:07:09.714 | INFO     | modules.autoposter:generate_post:261 - Сгенерирован скрытый шифр для поста: SYSTEM-616 на 59 ✨
+2026-07-06 08:07:09.714 | INFO     | modules.autoposter:generate_post:282 - Генерация поста: PROVOCATION, персонаж anubis, тема 'Как настроить себя на высокий уровень продуктивности.'
+2026-07-06 08:07:09.720 | INFO     | modules.autoposter:generate_post:261 - Сгенерирован скрытый шифр для поста: SHELL-187 на 103 ✨
+2026-07-06 08:07:09.720 | INFO     | modules.autoposter:generate_post:282 - Генерация поста: PROVOCATION, персонаж honest_oracle, тема 'Почему ты просыпаешься уставшим: ошибки твоего энергетического обмена.'

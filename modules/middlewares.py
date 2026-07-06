@@ -7,7 +7,7 @@ from vkbottle import BaseMiddleware
 from vkbottle.bot import Message
 
 from cache import check_and_set_throttle_warning, check_throttle
-from database import update_user, get_user
+from database import update_user, get_user, get_user_state
 
 
 class ThrottleMiddleware(BaseMiddleware[Message]):
@@ -55,6 +55,13 @@ class ThrottleMiddleware(BaseMiddleware[Message]):
         if self.event.payload:
             try:
                 payload = json.loads(self.event.payload)
+                # Логируем нажатие кнопки для UX аналитики
+                state_dict = await get_user_state(vk_id)
+                asyncio.create_task(add_event(vk_id, "ux_interaction", {
+                    "payload": payload,
+                    "current_state": state_dict,
+                    "text": self.event.text
+                }))
                 if "cmd" in payload or "target" in payload:
                     is_heavy = True
             except json.JSONDecodeError:

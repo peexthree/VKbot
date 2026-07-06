@@ -477,6 +477,17 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         elif cmd == "skin_page": await settings_choose_character(vk_id=vk_id, peer_id=peer_id, skip_lock=True, idx=payload.get("idx", 0), edit_msg_id=obj.get("conversation_message_id"))
         elif cmd in ["set_skin", "buy_skin"]: await process_skin_action_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, payload=payload, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "card_of_day": await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "retry_generation":
+            # Не сбрасываем стейт при повторе, а даем execute_generation отработать.
+            # execute_generation сам почистит стейт если нужно, или переведет в новый.
+            asyncio.create_task(execute_generation(
+                vk_id, peer_id,
+                payload.get("section"),
+                payload.get("p_name", ""),
+                payload.get("p_date", ""),
+                card_id=payload.get("c_id"),
+                conversation_message_id=obj.get("conversation_message_id")
+            ))
         elif cmd == "choose_onboarding_skin":
             from modules import registration as reg_mod
             await reg_mod.process_onboarding_skin_logic(vk_id, peer_id, payload.get("skin"), conversation_message_id=obj.get("conversation_message_id"))

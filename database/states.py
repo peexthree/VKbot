@@ -72,6 +72,11 @@ async def set_user_state(vk_id: int, state: str):
     # Always persist to Redis for reliability across restarts
     await set_fsm_state(vk_id, state)
 
+    # Логируем переход в новое состояние для UX аналитики
+    from .events import add_event
+    import asyncio
+    asyncio.create_task(add_event(vk_id, "state_transition", {"new_state": state}))
+
     target = state_map.get(step)
     if target:
         await bot.state_dispenser.set(vk_id, target, raw_json=state)
