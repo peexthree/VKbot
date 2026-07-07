@@ -49,8 +49,8 @@ async def is_waiting_feedback_comment(message: Message) -> bool:
 async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_text: str):
     """Вспомогательная функция для отправки отзыва в чат"""
     import os
-    chat_id = os.environ.get("VK_FEEDBACK_CHAT_ID")
-    if not chat_id:
+    peer_id = os.environ.get("VK_FEEDBACK_PEER_ID")
+    if not peer_id:
         return
 
     try:
@@ -63,9 +63,9 @@ async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_t
             f"• Оценка: {rating} / 5\n"
             f"• Комментарий: {comment_text}"
         )
-        # Для токена группы в беседы нужно слать через chat_id (peer_id - 2000000000)
-        final_chat_id = int(chat_id) - 2000000000
-        await bot.api.messages.send(chat_id=final_chat_id, message=msg, random_id=random.getrandbits(63))
+        # Возвращаем прямую отправку на peer_id (например, 2000000130)
+        final_peer_id = int(peer_id)
+        await bot.api.messages.send(peer_id=final_peer_id, message=msg, random_id=random.getrandbits(63))
     except Exception as e:
         logger.error(f"Error sending feedback to chat: {e}")
 
