@@ -83,7 +83,6 @@ async def process_feedback_comment(message: Message):
     await send_feedback_to_chat(vk_id, section, rating, comment_text)
 
     await set_user_state(vk_id, "")
-    from modules.utils import get_main_keyboard
     await message.answer("Спасибо за обратную связь! Твой вклад помогает системе эволюционировать.", keyboard=get_main_keyboard(vk_id))
 
 @labeler.message(func=is_waiting_support_question)

@@ -453,7 +453,7 @@ async def execute_generation(
                                 await unlock_skin(bot.api, referrer_id, "fluffy")
                 # --------------
 
-                from modules.keyboards import after_pdf_kb, vertical_kb
+                from modules.keyboards import after_pdf_kb
                 if target_section == "card_of_day":
                     kb = Keyboard(inline=True)
                     kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)

@@ -72,7 +72,7 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
 
         await update_user(vk_id, {"unlocked_cards": unlocked, "total_cards_received": user.get("total_cards_received", 0) + 3})
 
-        from modules.keyboards import vertical_kb, KeyboardButtonColor, Callback
+        from modules.keyboards import KeyboardButtonColor, Callback
         kb = Keyboard(inline=True)
         kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": "oracle", "card": str(card_ids[0]) if card_ids else ""}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
