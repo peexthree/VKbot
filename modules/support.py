@@ -5,7 +5,7 @@ import random
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import BotLabeler, Message
-from database import get_user, set_user_state, save_feedback, update_user
+from database import get_user, set_user_state, save_feedback, update_user, get_last_feedbacks
 from cache import get_temp_birth_data
 from modules.bot_init import bot
 from modules.utils import (
@@ -51,34 +51,47 @@ async def is_waiting_feedback_comment(message: Message) -> bool:
     return state_dict is not None and state_dict.get("step") == "waiting_feedback_comment"
 
 async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_text: str):
-    """Публикация отзыва в обсуждения группы"""
+    """Обновление динамического виджета отзывов в группе"""
     group_id = os.environ.get("VK_GROUP_ID")
-    topic_id = os.environ.get("VK_FEEDBACK_TOPIC_ID")
-
-    if not group_id or not topic_id:
-        logger.error("Feedback configuration missing in environment variables")
+    if not group_id:
+        logger.error("VK_GROUP_ID missing in environment variables")
         return
 
     try:
-        user = await get_user(vk_id)
-        name = user.get("first_name", "Адепт") if user else "Адепт"
+        last_feedbacks = await get_last_feedbacks(limit=5)
+        if not last_feedbacks:
+            logger.warning("No feedbacks found to update widget")
+            return
 
-        msg = (
-            "⭐️ НОВЫЙ ОТЗЫВ О СИСТЕМЕ ⭐️\n"
-            f"• Адепт: [id{vk_id}|{name}]\n"
-            f"• Направление: {section}\n"
-            f"• Оценка точности: {rating} из 5\n"
-            f"• Честный комментарий: {comment_text}"
-        )
+        rows = []
+        for f in last_feedbacks:
+            user_data = await get_user(f['user_id'])
+            name = user_data.get("first_name", "Адепт") if user_data else "Адепт"
 
-        await bot.api.board.create_comment(
-            group_id=int(group_id),
-            topic_id=int(topic_id),
-            message=msg,
-            from_group=1
-        )
+            stars = "⭐" * f['rating']
+            comment = f.get('comment', '') or ''
+            comment_preview = comment[:50] + "..." if len(comment) > 50 else comment
+
+            rows.append({
+                "title": name,
+                "title_url": f"https://vk.com/id{f['user_id']}",
+                "descr": f"Направление: {f['service_name']} | {stars}",
+                "address": comment_preview
+            })
+
+        widget_data = {
+            "title": "ЧЕСТНЫЕ ОТЗЫВЫ АДЕПТОВ",
+            "title_url": f"https://vk.com/appWidgets?act=show&group_id={group_id}",
+            "rows": rows
+        }
+
+        # Обновляем виджет сообщества (тип list)
+        code = f"return {json.dumps(widget_data, ensure_ascii=False)};"
+        await bot.api.app_widgets.update(type="list", code=code)
+        logger.success("Feedback widget updated successfully")
+
     except Exception as e:
-        logger.error(f"Error posting feedback to board: {e}")
+        logger.error(f"Error updating feedback widget: {e}")
 
 @labeler.message(func=is_waiting_feedback_comment)
 async def process_feedback_comment(message: Message):
