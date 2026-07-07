@@ -125,7 +125,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         {"key": "final", "title": "🧭 Ваш путь в жизни", "desc": "1200 Энергии. Главный вектор твоей жизни.", "image_name": "uslugi/WAYLIFE.jpeg", "category": "deep"},
         {"key": "oracle", "title": "🔮 Спроси у звёзд", "desc": "500 Энергии. Ответ на твой самый важный вопрос.", "image_name": "uslugi/QUEST.jpeg", "category": "tarot"},
         {"key": "antitaro", "title": "🃏 Анти-Таро", "desc": "500 Энергии. Взгляд на ситуацию без розовых очков.", "image_name": "uslugi/ANTITARO.jpeg", "category": "tarot"},
-        {"key": "all", "title": "👑 VIP", "desc": "3000 Энергии. Полный доступ ко всем твоим тайнам.", "image_name": "uslugi/VIP.jpeg", "category": "deep"},
+        {"key": "all", "title": "👑 VIP", "desc": "3000 Энергии. Полный разбор Матрицы Судьбы: Совместимость, Карта Судьбы и все 4 тайных раздела натальной карты.", "image_name": "uslugi/VIP.jpeg", "category": "deep"},
         {"key": "micro_insight", "title": "🔮 Спроси у звёзд (Микро)", "desc": "100 Энергии. Быстрый совет от твоего персонального Проводника.", "image_name": "uslugi/QUEST.jpeg", "category": "tarot"},
         {"key": "card_of_day", "title": "🎴 Карта дня", "desc": "Бесплатно. Твое личное напутствие на сегодня.", "image_name": "uslugi/cardofday.jpeg", "category": "tarot"},
     ]
@@ -459,7 +459,7 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     tariffs = [
         {"key": "tariff_1", "title": "🛰 Спутник 7 дней", "desc": "990 Энергии. Твое ежедневное напутствие на неделю.", "image_name": "uslugi/7day.jpeg"},
         {"key": "tariff_2", "title": "🔮 Оракул 30 дней", "desc": "2900 Энергии. Выгода 400% — Хит! Целый месяц под защитой звезд.", "image_name": "uslugi/30day.jpeg"},
-        {"key": "tariff_vip", "title": "🗝 VIP Архив", "desc": "5900 Энергии. Вечный доступ к мудрости + месяц прогнозов.", "image_name": "uslugi/VIPTOP.jpeg"},
+        {"key": "tariff_vip", "title": "👑 VIP-Адепт", "desc": "5900 Энергии. Полный безлимит на 30 дней на ВСЁ, включая Хиромантию и Сонник + вечный доступ к натальной карте.", "image_name": "uslugi/VIPTOP.jpeg"},
         {"key": "topup_5000", "title": "✨ Пакет 5000 Энергии", "desc": "400 руб. Выгодный старт для глубокого погружения.", "image_name": "uslugi/tariffs.jpeg"},
         {"key": "topup_10000", "title": "✨ Пакет 10000 Энергии", "desc": "750 руб. Оптимальный выбор для истинных искателей.", "image_name": "uslugi/tariffs.jpeg"},
         {"key": "topup_50000", "title": "👑 VIP Пакет 50000 Энергии", "desc": "3500 руб. Максимальная выгода и безграничные возможности.", "image_name": "uslugi/VIP.jpeg"},

@@ -266,6 +266,18 @@ def clean_topic_ref(text: str) -> str:
     slug = slugify(text)
     return slug[:40].strip("_")
 
+def is_vip_unlimited(user: dict) -> bool:
+    """Проверяет, активен ли у пользователя VIP-безлимит"""
+    vip_exp_str = user.get("vip_unlimited_expires_at")
+    if not vip_exp_str:
+        return False
+    try:
+        from datetime import datetime, timezone
+        vip_exp = datetime.fromisoformat(vip_exp_str.replace('Z', '+00:00'))
+        return vip_exp > datetime.now(timezone.utc)
+    except Exception:
+        return False
+
 def extract_russian_date(text: str) -> str | None:
     """
     Извлекает и нормализует дату из русского текста.

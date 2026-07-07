@@ -114,9 +114,13 @@ async def process_payment_and_generate(vk_id: int, section: str):
 
         purchased = user.get("purchased_sections", {})
         if section == "all":
-            purchased.update({"sex": True, "money": True, "shadow": True, "final": True, "all": True})
+            logger.warning(f"USER {vk_id} PURCHASED ALL_SECTIONS PACKAGE (3000 energy)")
+            purchased.update({
+                "sex": True, "money": True, "shadow": True, "final": True,
+                "all": True, "destiny_card_purchased": True, "synastry": True
+            })
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата открыты.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
+            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата натальной карты открыты, включая Совместимость и Карту Судьбы.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
@@ -367,10 +371,22 @@ async def execute_generation(
 
                 save_data = {}
 
-                # Сбрасываем флаг покупки, так как услуга использована
+                # Сбрасываем флаг покупки, если нет вечного или VIP доступа
                 purchased = user.get("purchased_sections", {})
+
+                # Пакет "Все Расклады" (all) покрывает только натальные разделы и совместимость
+                is_natal_section = target_section in ["sex", "money", "shadow", "final", "synastry"]
+                has_permanent_access = (purchased.get("all") or user.get("has_full_chart")) and is_natal_section
+
+                # VIP-безлимит покрывает Хиромантию и Сонник на 30 дней
+                from modules.utils.logic import is_vip_unlimited
+                vip_unlimited = target_section in ["palmistry", "dream"] and is_vip_unlimited(user)
+
                 if target_section in purchased:
-                    purchased[target_section] = False
+                    # Сбрасываем флаг, если это не натальный раздел при купленном "all"
+                    # и не безлимитный раздел при активном VIP
+                    if not has_permanent_access and not vip_unlimited:
+                        purchased[target_section] = False
                     save_data["purchased_sections"] = purchased
 
                 # Награда за Карту Дня

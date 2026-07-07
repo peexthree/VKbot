@@ -207,20 +207,30 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
     elif item_key == "card_of_day" or button_cmd == "card_of_day" or item_key.startswith("topup_"):
         actual_label = button_label
         actual_color = KeyboardButtonColor.POSITIVE
-        if item_key == "card_of_day" and user:
-            from datetime import datetime as dt, timezone
-            purchased = user.get("purchased_sections", {})
-            last_used_str = purchased.get("card_of_day_last_used")
-            if last_used_str:
-                last_time = dt.fromisoformat(last_used_str.replace('Z', '+00:00'))
-                now = dt.now(timezone.utc)
-                diff = now - last_time
-                if diff.total_seconds() < 24 * 3600:
-                    actual_color = KeyboardButtonColor.SECONDARY
-                    remaining = 24 * 3600 - int(diff.total_seconds())
-                    hours = remaining // 3600
-                    minutes = (remaining % 3600) // 60
-                    actual_label = f"⌛ {hours:02d}:{minutes:02d}"
+
+    elif user and item_key in ["palmistry", "dream"]:
+        from modules.utils.logic import is_vip_unlimited
+        actual_label = button_label
+        actual_color = KeyboardButtonColor.POSITIVE
+
+        if is_vip_unlimited(user):
+            actual_label = "✨ ПОЛУЧИТЬ БЕСПЛАТНО"
+
+        kb.add(Callback(actual_label, payload={"cmd": button_cmd, "type": item_type, "key": item_key}), color=actual_color)
+    elif item_key == "card_of_day" and user:
+        from datetime import datetime as dt, timezone
+        purchased = user.get("purchased_sections", {})
+        last_used_str = purchased.get("card_of_day_last_used")
+        if last_used_str:
+            last_time = dt.fromisoformat(last_used_str.replace('Z', '+00:00'))
+            now = dt.now(timezone.utc)
+            diff = now - last_time
+            if diff.total_seconds() < 24 * 3600:
+                actual_color = KeyboardButtonColor.SECONDARY
+                remaining = 24 * 3600 - int(diff.total_seconds())
+                hours = remaining // 3600
+                minutes = (remaining % 3600) // 60
+                actual_label = f"⌛ {hours:02d}:{minutes:02d}"
 
         kb.add(Callback(actual_label, payload={"cmd": button_cmd, "type": item_type, "key": item_key}), color=actual_color)
     else:
