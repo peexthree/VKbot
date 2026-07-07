@@ -63,7 +63,9 @@ async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_t
             f"• Оценка: {rating} / 5\n"
             f"• Комментарий: {comment_text}"
         )
-        await bot.api.messages.send(peer_id=int(chat_id), message=msg, random_id=random.getrandbits(63))
+        # Для токена группы в беседы нужно слать через chat_id (peer_id - 2000000000)
+        final_chat_id = int(chat_id) - 2000000000
+        await bot.api.messages.send(chat_id=final_chat_id, message=msg, random_id=random.getrandbits(63))
     except Exception as e:
         logger.error(f"Error sending feedback to chat: {e}")
 
