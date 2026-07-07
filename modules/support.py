@@ -2,18 +2,200 @@ import os
 import json
 import datetime
 import random
+import textwrap
+import asyncio
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import BotLabeler, Message
-from database import get_user, set_user_state, save_feedback, update_user, get_last_feedbacks
+from database import (
+    get_user, set_user_state, save_feedback, update_user,
+    get_unposted_feedbacks, mark_feedbacks_as_posted
+)
 from cache import get_temp_birth_data
 from modules.bot_init import bot
 from modules.utils import (
     ADMIN_ID, get_fsm_step, acquire_lock, release_lock,
     get_main_keyboard, ghost_edit
 )
+from modules.utils.consts import GROUP_ID
+from modules.utils.photos import upload_wall_photo
 
 labeler = BotLabeler()
+
+# Маппинг секций для красивого вывода
+SECTION_NAMES = {
+    "money": "Денежный канал",
+    "sex": "Сексуальность",
+    "shadow": "Теневая матрица",
+    "synastry": "Совместимость",
+    "card_of_day": "Карта дня"
+}
+
+def create_neon_feedback_card(user_name: str, section_name: str, rating: int, comment: str, output_path: str):
+    """Генерация стильной карточки отзыва через Pillow (Glassmorphism / Gothic Tech)"""
+    width, height = 1200, 800
+
+    # 1. Создание фона (Глубокий темный градиент)
+    base = Image.new('RGB', (width, height), (5, 2, 10))
+    draw = ImageDraw.Draw(base)
+
+    # 2. Добавление неонового свечения (фоновые сферы)
+    glow_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow_layer)
+
+    # Рисуем размытые фиолетовые круги
+    def draw_glow(d, x, y, r, color):
+        d.ellipse([x-r, y-r, x+r, y+r], fill=color)
+
+    draw_glow(glow_draw, 100, 100, 300, (80, 0, 150, 60))
+    draw_glow(glow_draw, 1100, 700, 350, (40, 0, 100, 50))
+    draw_glow(glow_draw, 600, 400, 200, (100, 50, 200, 30))
+
+    glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(80))
+    base.paste(glow_layer, (0, 0), glow_layer)
+
+    # 3. Стеклянная плашка (Glassmorphism effect)
+    glass_margin = 80
+    glass_rect = [glass_margin, glass_margin, width - glass_margin, height - glass_margin]
+
+    # Рисуем полупрозрачную плашку
+    overlay = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+    overlay_draw.rounded_rectangle(glass_rect, radius=40, fill=(20, 20, 30, 160), outline=(179, 136, 255, 40), width=2)
+    base.paste(overlay, (0, 0), overlay)
+
+    # 4. Рендеринг текста
+    font_bold = "Lora-Bold.ttf"
+    if not os.path.exists(font_bold): font_bold = "DejaVuSans-Bold.ttf"
+
+    try:
+        f_header = ImageFont.truetype(font_bold, 30)
+        f_name = ImageFont.truetype(font_bold, 60)
+        f_section = ImageFont.truetype(font_bold, 26)
+        f_stars = ImageFont.truetype(font_bold, 50)
+        f_comment = ImageFont.truetype(font_bold, 38)
+    except Exception:
+        f_header = f_name = f_section = f_stars = f_comment = ImageFont.load_default()
+
+    # Заголовок
+    draw.text((150, 130), "ФРАГМЕНТ МАТРИЦЫ: ОТЗЫВ", font=f_header, fill=(179, 136, 255, 200))
+
+    # Имя
+    draw.text((150, 180), user_name, font=f_name, fill=(255, 255, 255))
+
+    # Направление
+    draw.text((150, 260), f"КАНАЛ: {section_name.upper()}", font=f_section, fill=(170, 170, 170))
+
+    # Звезды
+    stars_text = "⭐" * rating
+    draw.text((150, 310), stars_text, font=f_stars, fill=(255, 215, 0))
+
+    # Комментарий с автопереносом
+    wrapped_text = textwrap.fill(comment, width=45)
+    # Отрисовка с кавычками
+    final_comment_text = f"«{wrapped_text}»"
+    draw.multiline_text((150, 420), final_comment_text, font=f_comment, fill=(230, 230, 230), spacing=15)
+
+    # 5. Логотип
+    logo_path = "cards/uslugi/logo.png"
+    if os.path.exists(logo_path):
+        logo = Image.open(logo_path).convert("RGBA")
+        logo_w = 240
+        w_percent = (logo_w / float(logo.size[0]))
+        logo_h = int((float(logo.size[1]) * float(w_percent)))
+        logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+
+        # Размещаем в правом нижнем углу плашки
+        lx = width - glass_margin - logo_w - 50
+        ly = height - glass_margin - logo_h - 40
+        base.paste(logo, (lx, ly), logo)
+
+    base.save(output_path, "PNG")
+
+async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_text: str):
+    """Сбор отзывов пачками по 4 штуки и публикация каруселью"""
+    # Используем глобальную блокировку для предотвращения гонки при пакетной публикации
+    if not await acquire_lock("batch_feedback_publish", ttl=60):
+        return
+
+    try:
+        # Получаем список неопубликованных отзывов
+        unposted = await get_unposted_feedbacks(limit=4)
+
+        if len(unposted) < 4:
+            logger.info(f"Feedback queue: {len(unposted)}/4. Waiting for more.")
+            return
+
+        logger.info("Feedback queue full (4/4). Starting batch publication...")
+
+        attachments = []
+        temp_files = []
+        feedback_ids = []
+
+        # 1. Генерация и загрузка карточек
+        for f in unposted:
+            f_id = f.get("id")
+            u_id = f.get("user_id")
+            sec = f.get("service_name")
+            rat = f.get("rating")
+            comm = f.get("comment") or "Без комментария"
+
+            # Получаем имя пользователя
+            user_data = await get_user(u_id)
+            if user_data:
+                full_name = f"{user_data.get('first_name', 'Адепт')} {user_data.get('last_name', '')}".strip() or "Адепт"
+            else:
+                full_name = "Адепт"
+
+            sec_ru = SECTION_NAMES.get(sec, sec.capitalize())
+
+            temp_filename = f"feedback_batch_{f_id}_{random.randint(1000, 9999)}.png"
+            temp_path = os.path.join("cards", temp_filename)
+
+            # Рендерим карточку
+            create_neon_feedback_card(full_name, sec_ru, rat, comm, temp_path)
+            temp_files.append(temp_path)
+            feedback_ids.append(f_id)
+
+            # Загружаем в ВК (upload_wall_photo ожидает относительный путь к файлу внутри 'cards/', либо просто имя файла)
+            att = await upload_wall_photo(bot.api, temp_filename)
+            if att:
+                attachments.append(att)
+
+            await asyncio.sleep(0.5) # Небольшая пауза между загрузками
+
+        if not attachments:
+            logger.error("Failed to upload feedback batch cards to VK")
+            return
+
+        # 2. Публикация поста
+        post_text = (
+            "💥 СИСТЕМА ФИКСИРУЕТ ТРАНСФОРМАЦИЮ: ПАКЕТ ОТЗЫВОВ 💥\n\n"
+            "Матрица «Анти-Тар» меняет жизни в реальном времени. Свежая порция честной обратной связи от наших адептов, которые не побоялись заглянуть в свои коды судьбы. Листай карусель.\n\n"
+            "Хочешь получить свой персональный разбор и взломать реальность? Нажми кнопку Написать сообществу под этим постом."
+        )
+
+        await bot.api.wall.post(
+            owner_id=-GROUP_ID,
+            from_group=1,
+            message=post_text,
+            attachments=",".join(attachments)
+        )
+        logger.success(f"Batch feedback post published successfully with {len(attachments)} cards")
+
+        # 3. Обновление статуса в БД
+        await mark_feedbacks_as_posted(feedback_ids)
+
+        # 4. Очистка временных файлов
+        for path in temp_files:
+            if os.path.exists(path):
+                os.remove(path)
+
+    except Exception as e:
+        logger.exception(f"Error in batch send_feedback_to_chat: {e}")
+    finally:
+        await release_lock("batch_feedback_publish")
 
 async def support_handler_logic(vk_id: int, peer_id: int, conversation_message_id: int = None):
     """Инициализация обращения в поддержку"""
@@ -50,49 +232,6 @@ async def is_waiting_feedback_comment(message: Message) -> bool:
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "waiting_feedback_comment"
 
-async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_text: str):
-    """Обновление динамического виджета отзывов в группе"""
-    group_id = os.environ.get("VK_GROUP_ID")
-    if not group_id:
-        logger.error("VK_GROUP_ID missing in environment variables")
-        return
-
-    try:
-        last_feedbacks = await get_last_feedbacks(limit=5)
-        if not last_feedbacks:
-            logger.warning("No feedbacks found to update widget")
-            return
-
-        rows = []
-        for f in last_feedbacks:
-            user_data = await get_user(f['user_id'])
-            name = user_data.get("first_name", "Адепт") if user_data else "Адепт"
-
-            stars = "⭐" * f['rating']
-            comment = f.get('comment', '') or ''
-            comment_preview = comment[:50] + "..." if len(comment) > 50 else comment
-
-            rows.append({
-                "title": name,
-                "title_url": f"https://vk.com/id{f['user_id']}",
-                "descr": f"Направление: {f['service_name']} | {stars}",
-                "address": comment_preview
-            })
-
-        widget_data = {
-            "title": "ЧЕСТНЫЕ ОТЗЫВЫ АДЕПТОВ",
-            "title_url": f"https://vk.com/appWidgets?act=show&group_id={group_id}",
-            "rows": rows
-        }
-
-        # Обновляем виджет сообщества (тип list)
-        code = f"return {json.dumps(widget_data, ensure_ascii=False)};"
-        await bot.api.app_widgets.update(type="list", code=code)
-        logger.success("Feedback widget updated successfully")
-
-    except Exception as e:
-        logger.error(f"Error updating feedback widget: {e}")
-
 @labeler.message(func=is_waiting_feedback_comment)
 async def process_feedback_comment(message: Message):
     vk_id = message.from_id
@@ -104,7 +243,7 @@ async def process_feedback_comment(message: Message):
 
     await save_feedback(vk_id, section, rating, comment=comment_text)
 
-    # Публикация отзыва в группу
+    # Публикация отзыва в группу (сработает при накоплении 4 штук)
     await send_feedback_to_chat(vk_id, section, rating, comment_text)
 
     await set_user_state(vk_id, "")
