@@ -28,3 +28,24 @@ async def save_feedback(user_id: int, service_name: str, rating: int, comment: O
     except Exception as e:
         logger.error(f"Ошибка в save_feedback: {e}")
     return None
+
+async def get_last_feedbacks(limit: int = 5):
+    """Получает последние N отзывов из таблицы feedbacks"""
+    if not URL or not KEY or core.session is None:
+        return []
+
+    params = {
+        "order": "created_at.desc",
+        "limit": str(limit)
+    }
+
+    try:
+        async with core.session.get(f"{URL}/rest/v1/feedbacks", headers=HEADERS, params=params) as r:
+            if r.status == 200:
+                return await r.json()
+            else:
+                text = await r.text()
+                logger.error(f"Supabase feedbacks error: {r.status} - {text}")
+    except Exception as e:
+        logger.error(f"Ошибка в get_last_feedbacks: {e}")
+    return []
