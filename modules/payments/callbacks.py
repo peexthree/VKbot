@@ -349,6 +349,12 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 has_access = purchased.get(target_section)
                 if target_section in ["sex", "money", "shadow", "final"]:
                     if purchased.get("all") or user.get("has_full_chart"): has_access = True
+
+                # Проверка VIP-безлимита
+                from modules.utils.logic import is_vip_unlimited
+                if is_vip_unlimited(user):
+                    has_access = True
+
                 if has_access:
                     if target_section == "synastry":
                         await set_user_state(vk_id, json.dumps({"step": "waiting_synastry_name"}))
@@ -678,6 +684,14 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             amount_needed = prices.get(key)
             if not amount_needed: return
 
+            # ПРОВЕРКА VIP-БЕЗЛИМИТА
+            user = await get_user(vk_id)
+            if user and key in ["palmistry", "dream"]:
+                from modules.utils.logic import is_vip_unlimited
+                if is_vip_unlimited(user):
+                    amount_needed = 0
+                    logger.info(f"VIP UNLIMITED: User {vk_id} gets {key} for free")
+
             # ПРОВЕРКА ДАТЫ РОЖДЕНИЯ ПЕРЕД ПОКУПКОЙ УСЛУГ (кроме пополнений и тарифов)
             if buy_type == "service" or key in ["destiny_card", "destiny_card_update"]:
                 from cache import get_temp_birth_data
@@ -834,9 +848,14 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     new_expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)
                     updates = {"transit_sub_expires_at": new_expires.isoformat()}
                     if key == "tariff_vip":
+                        logger.warning(f"USER {vk_id} PURCHASED VIP_ADEPT TARIFF (5900 energy) - UNLIMITED ACTIVATED")
                         p = user.get("purchased_sections", {})
-                        for s in ["sex", "money", "shadow", "final"]: p[s] = True
+                        for s in ["sex", "money", "shadow", "final", "all", "destiny_card_purchased", "synastry"]:
+                            p[s] = True
                         updates["purchased_sections"], updates["has_full_chart"] = p, True
+                        # Безлимит на 30 дней
+                        vip_expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30)
+                        updates["vip_unlimited_expires_at"] = vip_expires.isoformat()
                     await update_user(vk_id, updates)
 
                     from modules.skins import unlock_skin
@@ -918,11 +937,23 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
             }
             cost = prices.get(key, 0)
+
+            # Проверка VIP-безлимита для отображения стоимости
+            user = await get_user(vk_id)
+            if user and key in ["palmistry", "dream"]:
+                from modules.utils.logic import is_vip_unlimited
+                if is_vip_unlimited(user):
+                    cost = 0
+
             from modules.keyboards import confirmation_kb
             kb = confirmation_kb({"cmd": "buy", "type": buy_type, "key": key}, cost)
+            confirm_msg = f"❓ ПОДТВЕРЖДЕНИЕ ПОКУПКИ\n\nВы уверены, что хотите приобрести эту услугу?\nБудет списано: {cost} ✨"
+            if cost == 0:
+                confirm_msg = "❓ ПОДТВЕРЖДЕНИЕ\n\nУ вас активен VIP-безлимит. Использовать услугу бесплатно?"
+
             await safe_edit(peer_id=peer_id,
                 conversation_message_id=obj.get("conversation_message_id"),
-                message=f"❓ ПОДТВЕРЖДЕНИЕ ПОКУПКИ\n\nВы уверены, что хотите приобрести эту услугу?\nБудет списано: {cost} ✨",
+                message=confirm_msg,
                 keyboard=kb
             )
         elif cmd == "show_offer":
