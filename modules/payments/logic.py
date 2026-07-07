@@ -455,31 +455,47 @@ async def execute_generation(
 
                 from modules.keyboards import after_pdf_kb, vertical_kb
                 if target_section == "card_of_day":
-                    light_kb = vertical_kb([
-                        ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": target_section, "card": card_id}, KeyboardButtonColor.POSITIVE),
-                        ("🔮 ГЛУБОКИЙ РАЗБОР (-50%)", {"cmd": "confirm_buy", "type": "service", "key": "oracle_upsell"}, KeyboardButtonColor.PRIMARY),
-                        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-                    ])
-                    kb_str = light_kb
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)
+                    kb.row()
+                    kb.add(Callback("⭐️ Оценить прогноз", payload={"cmd": "show_rating", "section": target_section, "card": card_id}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("🔮 ГЛУБОКИЙ РАЗБОР (-50%)", {"cmd": "confirm_buy", "type": "service", "key": "oracle_upsell"}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                    kb_str = kb.get_json()
                 elif target_section == "synastry":
-                    kb_str = vertical_kb([
-                        ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": target_section, "card": card_id}, KeyboardButtonColor.POSITIVE),
-                        ("❤️ ЕЩЕ ОДИН РАСЧЕТ", {"cmd": "use_section", "key": "synastry"}, KeyboardButtonColor.PRIMARY),
-                        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-                    ])
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)
+                    kb.row()
+                    kb.add(Callback("⭐️ Оценить прогноз", payload={"cmd": "show_rating", "section": target_section, "card": card_id}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("❤️ ЕЩЕ ОДИН РАСЧЕТ", payload={"cmd": "use_section", "key": "synastry"}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                    kb_str = kb.get_json()
                 elif target_section == "palmistry":
-                    kb_str = vertical_kb([
-                        ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": target_section, "card": card_id}, KeyboardButtonColor.POSITIVE),
-                        ("✨ НОВЫЙ АНАЛИЗ", {"cmd": "use_section", "key": "palmistry"}, KeyboardButtonColor.PRIMARY),
-                        ("📖 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
-                        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-                    ])
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)
+                    kb.row()
+                    kb.add(Callback("⭐️ Оценить прогноз", payload={"cmd": "show_rating", "section": target_section, "card": card_id}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("✨ НОВЫЙ АНАЛИЗ", payload={"cmd": "use_section", "key": "palmistry"}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("📖 ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                    kb_str = kb.get_json()
                 elif target_section == "dream":
-                    kb_str = vertical_kb([
-                        ("🌙 НОВЫЙ СОН", {"cmd": "use_section", "key": "dream"}, KeyboardButtonColor.PRIMARY),
-                        ("📖 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
-                        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-                    ])
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("⭐️ Оценить прогноз", payload={"cmd": "show_rating", "section": target_section, "card": card_id}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("🌙 НОВЫЙ СОН", payload={"cmd": "use_section", "key": "dream"}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("📖 ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                    kb_str = kb.get_json()
                 else:
                     kb_str = after_pdf_kb(target_section, card_id)
 

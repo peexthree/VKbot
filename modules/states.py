@@ -18,3 +18,4 @@ class MyStates(BaseStateGroup):
     WAITING_RESET_CONFIRM = "waiting_reset_confirm"
     WAITING_PALMISTRY_PHOTOS = "waiting_palmistry_photos"
     WAITING_SYNASTRY_NAME = "waiting_synastry_name"
+    WAITING_FEEDBACK_COMMENT = "waiting_feedback_comment"
