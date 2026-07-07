@@ -4,6 +4,7 @@ import datetime
 import random
 import textwrap
 import asyncio
+import math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
@@ -36,8 +37,8 @@ def create_neon_feedback_card(user_name: str, section_name: str, rating: int, co
     """Генерация стильной карточки отзыва через Pillow (Glassmorphism / Gothic Tech)"""
     width, height = 1200, 800
 
-    # 1. Создание фона (Глубокий темный градиент)
-    base = Image.new('RGB', (width, height), (5, 2, 10))
+    # 1. Создание фона (Глубокий темный градиент с поддержкой альфа-канала для рисования)
+    base = Image.new('RGBA', (width, height), (5, 2, 10, 255))
     draw = ImageDraw.Draw(base)
 
     # 2. Добавление неонового свечения (фоновые сферы)
@@ -73,10 +74,9 @@ def create_neon_feedback_card(user_name: str, section_name: str, rating: int, co
         f_header = ImageFont.truetype(font_bold, 30)
         f_name = ImageFont.truetype(font_bold, 60)
         f_section = ImageFont.truetype(font_bold, 26)
-        f_stars = ImageFont.truetype(font_bold, 50)
         f_comment = ImageFont.truetype(font_bold, 38)
     except Exception:
-        f_header = f_name = f_section = f_stars = f_comment = ImageFont.load_default()
+        f_header = f_name = f_section = f_comment = ImageFont.load_default()
 
     # Заголовок
     draw.text((150, 130), "ФРАГМЕНТ МАТРИЦЫ: ОТЗЫВ", font=f_header, fill=(179, 136, 255, 200))
@@ -87,9 +87,55 @@ def create_neon_feedback_card(user_name: str, section_name: str, rating: int, co
     # Направление
     draw.text((150, 260), f"КАНАЛ: {section_name.upper()}", font=f_section, fill=(170, 170, 170))
 
-    # Звезды
-    stars_text = "⭐" * rating
-    draw.text((150, 310), stars_text, font=f_stars, fill=(255, 215, 0))
+    # Рисуем звезды вектором с неоновым свечением
+    start_x = 150
+    start_y = 310
+    star_size = 40
+    gap = 15
+
+    # 1. Создаем отдельный слой для размытого свечения звезд
+    stars_glow_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    stars_glow_draw = ImageDraw.Draw(stars_glow_layer)
+    stars_points = []
+
+    for i in range(rating):
+        cx = start_x + i * (star_size + gap) + star_size / 2
+        cy = start_y + star_size / 2
+
+        # Считаем точки для звезды
+        points = []
+        r_out = star_size / 2
+        r_in = r_out * 0.4
+        for j in range(10):
+            r = r_out if j % 2 == 0 else r_in
+            angle = j * 36 - 90
+            rad = math.radians(angle)
+            px = cx + r * math.cos(rad)
+            py = cy + r * math.sin(rad)
+            points.append((px, py))
+        stars_points.append(points)
+
+        # Рисуем основу для свечения на отдельном слое (чуть ярче и больше)
+        points_glow = []
+        r_out_g = r_out + 2
+        r_in_g = r_out_g * 0.4
+        for j in range(10):
+            r = r_out_g if j % 2 == 0 else r_in_g
+            angle = j * 36 - 90
+            rad = math.radians(angle)
+            px = cx + r * math.cos(rad)
+            py = cy + r * math.sin(rad)
+            points_glow.append((px, py))
+
+        stars_glow_draw.polygon(points_glow, fill=(255, 170, 0, 180))
+
+    # Размываем слой со свечением и накладываем на базу
+    stars_glow_layer = stars_glow_layer.filter(ImageFilter.GaussianBlur(5))
+    base.paste(stars_glow_layer, (0, 0), stars_glow_layer)
+
+    # 2. Рисуем основные тела звезд поверх свечения
+    for points in stars_points:
+        draw.polygon(points, fill=(255, 215, 0, 255))
 
     # Комментарий с автопереносом
     wrapped_text = textwrap.fill(comment, width=45)
@@ -111,6 +157,8 @@ def create_neon_feedback_card(user_name: str, section_name: str, rating: int, co
         ly = height - glass_margin - logo_h - 40
         base.paste(logo, (lx, ly), logo)
 
+    # Конвертируем обратно в RGB перед сохранением для оптимального размера и совместимости
+    base = base.convert("RGB")
     base.save(output_path, "PNG")
 
 async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_text: str):
