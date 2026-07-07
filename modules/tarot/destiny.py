@@ -31,6 +31,8 @@ async def destiny_card_info_logic(vk_id: int, peer_id: int, conversation_message
         kb = Keyboard(inline=True)
         kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": "destiny_card", "card": card_id}), color=KeyboardButtonColor.POSITIVE)
         kb.row()
+        kb.add(Callback("⭐️ Оценить прогноз", payload={"cmd": "show_rating", "section": "destiny_card", "card": card_id}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
         kb.add(Callback("🔄 ОБНОВИТЬ (1000 ✨)", payload={"cmd": "confirm_buy", "type": "service", "key": "destiny_card_update"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
         kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
@@ -233,6 +235,8 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         # Кастомная клавиатура с кнопкой ОБНОВИТЬ
         kb_final = Keyboard(inline=True)
         kb_final.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": "destiny_card", "card": str(db_idx)}), color=KeyboardButtonColor.POSITIVE)
+        kb_final.row()
+        kb_final.add(Callback("⭐️ Оценить прогноз", payload={"cmd": "show_rating", "section": "destiny_card", "card": str(db_idx)}), color=KeyboardButtonColor.PRIMARY)
         kb_final.row()
         kb_final.add(Callback("🔄 ОБНОВИТЬ (1000 ✨)", payload={"cmd": "confirm_buy", "type": "service", "key": "destiny_card_update"}), color=KeyboardButtonColor.PRIMARY)
         kb_final.row()

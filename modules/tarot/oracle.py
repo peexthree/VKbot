@@ -72,11 +72,14 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
 
         await update_user(vk_id, {"unlocked_cards": unlocked, "total_cards_received": user.get("total_cards_received", 0) + 3})
 
-        from modules.keyboards import vertical_kb, KeyboardButtonColor
-        kb_json = vertical_kb([
-            ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": "oracle", "card": str(card_ids[0]) if card_ids else ""}, KeyboardButtonColor.POSITIVE),
-            ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-        ])
+        from modules.keyboards import KeyboardButtonColor, Callback
+        kb = Keyboard(inline=True)
+        kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": "oracle", "card": str(card_ids[0]) if card_ids else ""}), color=KeyboardButtonColor.POSITIVE)
+        kb.row()
+        kb.add(Callback("⭐️ Оценить прогноз", payload={"cmd": "show_rating", "section": "oracle", "card": str(card_ids[0]) if card_ids else ""}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+        kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+        kb_json = kb.get_json()
 
         att = ",".join(attachments) if attachments else None
         # Для Оракула тоже шлем НОВЫМ сообщением, чтобы не затирать выбор карт

@@ -133,7 +133,24 @@ def after_pdf_kb(section: str, card: str = None) -> str:
     # Ачивка Джека Воробья: засчитываем по факту клика на коллбэк и показываем ссылку
     kb.add(Callback("📤 Поделиться в VK", payload={"cmd": "share_click", "section": section, "card": card}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
+    kb.add(Callback("⭐️ Оценить прогноз", payload={"cmd": "show_rating", "section": section, "card": card}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    return kb.get_json()
+
+def rating_keyboard(section: str, card: str = None) -> str:
+    """Клавиатура выбора оценки (1-5)"""
+    kb = Keyboard(inline=True)
+    for i in range(1, 6):
+        kb.add(Callback(str(i), payload={"cmd": "set_rating", "val": i, "section": section, "card": card}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    kb.add(Callback("⬅️ Назад", payload={"cmd": "back_to_forecast", "section": section, "card": card}), color=KeyboardButtonColor.SECONDARY)
+    return kb.get_json()
+
+def feedback_skip_keyboard() -> str:
+    """Клавиатура с кнопкой Пропустить для комментария"""
+    kb = Keyboard(inline=True)
+    kb.add(Callback("Пропустить", payload={"cmd": "skip_feedback"}), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
 
 def post_pdf_kb(section: str, card: str = None) -> str:

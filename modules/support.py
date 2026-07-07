@@ -40,6 +40,51 @@ async def is_waiting_support_question(message: Message) -> bool:
     state_dict = await get_fsm_step(message.from_id)
     return state_dict is not None and state_dict.get("step") == "waiting_support_question"
 
+async def is_waiting_feedback_comment(message: Message) -> bool:
+    if not message.text: return False
+    if message.text.lower() in ["начать", "start", "/start", "главное меню"]: return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_feedback_comment"
+
+async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_text: str):
+    """Вспомогательная функция для отправки отзыва в чат"""
+    import os
+    chat_id = os.environ.get("VK_FEEDBACK_CHAT_ID")
+    if not chat_id:
+        return
+
+    try:
+        user = await get_user(vk_id)
+        name = user.get("first_name", "Адепт") if user else "Адепт"
+        msg = (
+            "АНТИ-ТАР: НОВЫЙ ОТЗЫВ\n"
+            f"• Адепт: [id{vk_id}|{name}]\n"
+            f"• Прогноз: {section}\n"
+            f"• Оценка: {rating} / 5\n"
+            f"• Комментарий: {comment_text}"
+        )
+        await bot.api.messages.send(peer_id=int(chat_id), message=msg, random_id=random.getrandbits(63))
+    except Exception as e:
+        logger.error(f"Error sending feedback to chat: {e}")
+
+@labeler.message(func=is_waiting_feedback_comment)
+async def process_feedback_comment(message: Message):
+    vk_id = message.from_id
+    state = await get_fsm_step(vk_id)
+    if not state: return
+
+    rating, section = state.get("rating"), state.get("section")
+    comment_text = message.text
+
+    from database import save_feedback
+    await save_feedback(vk_id, section, rating, comment=comment_text)
+
+    # Отправка в чат ВК
+    await send_feedback_to_chat(vk_id, section, rating, comment_text)
+
+    await set_user_state(vk_id, "")
+    await message.answer("Спасибо за обратную связь! Твой вклад помогает системе эволюционировать.", keyboard=get_main_keyboard(vk_id))
+
 @labeler.message(func=is_waiting_support_question)
 async def process_support_question(message: Message):
     vk_id = message.from_id

@@ -27,9 +27,12 @@ async def safe_edit(peer_id, message, conversation_message_id=None, keyboard=Non
 from cache import acquire_lock, check_throttle, release_lock, set_fsm_state, redis_client
 from cards_data import get_card_data
 from database import (
-    get_user, set_user_state, update_user
+    get_user, set_user_state, update_user, save_feedback
 )
 from modules.bot_init import bot
+from modules.keyboards import (
+    rating_keyboard, after_pdf_kb, vertical_kb, feedback_skip_keyboard
+)
 from modules.utils import (
     SKIN_ASSETS, generate_premium_pdf, get_fsm_step, get_main_keyboard,
     ghost_edit, pdf_semaphore, upload_local_photo, upload_pdf_to_vk
@@ -920,6 +923,62 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             await admin_reply_start_logic(vk_id, payload.get("user_id"))
         elif cmd == "balance":
             await show_tariffs(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
+        elif cmd == "show_rating":
+            section, card = payload.get("section"), payload.get("card")
+            await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Оцени, насколько точно Оракул считал твое поле:", keyboard=rating_keyboard(section, card))
+        elif cmd == "back_to_forecast":
+            section, card = payload.get("section"), payload.get("card")
+            # Восстанавливаем оригинальную клавиатуру в зависимости от секции
+            if section == "card_of_day":
+                kb = vertical_kb([
+                    ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": section, "card": card}, KeyboardButtonColor.POSITIVE),
+                    ("🔮 ГЛУБОКИЙ РАЗБОР (-50%)", {"cmd": "confirm_buy", "type": "service", "key": "oracle_upsell"}, KeyboardButtonColor.PRIMARY),
+                    ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+                ])
+            elif section == "synastry":
+                kb = vertical_kb([
+                    ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": section, "card": card}, KeyboardButtonColor.POSITIVE),
+                    ("❤️ ЕЩЕ ОДИН РАСЧЕТ", {"cmd": "use_section", "key": "synastry"}, KeyboardButtonColor.PRIMARY),
+                    ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+                ])
+            elif section == "palmistry":
+                kb = vertical_kb([
+                    ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": section, "card": card}, KeyboardButtonColor.POSITIVE),
+                    ("✨ НОВЫЙ АНАЛИЗ", {"cmd": "use_section", "key": "palmistry"}, KeyboardButtonColor.PRIMARY),
+                    ("📖 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
+                    ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+                ])
+            elif section == "dream":
+                kb = vertical_kb([
+                    ("🌙 НОВЫЙ СОН", {"cmd": "use_section", "key": "dream"}, KeyboardButtonColor.PRIMARY),
+                    ("📖 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
+                    ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+                ])
+            else:
+                kb = after_pdf_kb(section, card)
+
+            await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), keyboard=kb)
+        elif cmd == "set_rating":
+            val, section = payload.get("val"), payload.get("section")
+            await set_user_state(vk_id, json.dumps({"step": "waiting_feedback_comment", "rating": val, "section": section}))
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message="Матрица зафиксировала твою оценку. Оставь свой честный комментарий к прогнозу или можешь пропустить этот шаг, нажав кнопку ниже.",
+                keyboard=feedback_skip_keyboard(),
+                random_id=random.getrandbits(63)
+            )
+        elif cmd == "skip_feedback":
+            state = await get_fsm_step(vk_id)
+            if state and state.get("step") == "waiting_feedback_comment":
+                rating, section = state.get("rating"), state.get("section")
+                await save_feedback(vk_id, section, rating, comment="Пропущено")
+
+                # Отправка в чат ВК
+                from modules.support import send_feedback_to_chat
+                await send_feedback_to_chat(vk_id, section, rating, "Пропущено")
+
+                await set_user_state(vk_id, "")
+                await bot.api.messages.send(peer_id=peer_id, message="Спасибо за обратную связь! Твой вклад помогает системе эволюционировать.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
         elif cmd == "destiny_card_info":
             from modules.tarot.destiny import destiny_card_info_logic
             await destiny_card_info_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"))
