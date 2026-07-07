@@ -1,12 +1,17 @@
+import os
 import json
 import datetime
 import random
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import BotLabeler, Message
-from database import get_user, set_user_state
+from database import get_user, set_user_state, save_feedback, update_user
+from cache import get_temp_birth_data
 from modules.bot_init import bot
-from modules.utils import ADMIN_ID, get_fsm_step, acquire_lock, release_lock, get_main_keyboard
+from modules.utils import (
+    ADMIN_ID, get_fsm_step, acquire_lock, release_lock,
+    get_main_keyboard, ghost_edit
+)
 
 labeler = BotLabeler()
 
@@ -24,7 +29,6 @@ async def support_handler_logic(vk_id: int, peer_id: int, conversation_message_i
     kb = Keyboard(inline=True)
     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
-    from modules.utils import ghost_edit
     await ghost_edit(
         bot.api,
         peer_id,
@@ -47,27 +51,34 @@ async def is_waiting_feedback_comment(message: Message) -> bool:
     return state_dict is not None and state_dict.get("step") == "waiting_feedback_comment"
 
 async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_text: str):
-    """Вспомогательная функция для отправки отзыва в чат"""
-    import os
-    peer_id = os.environ.get("VK_FEEDBACK_PEER_ID")
-    if not peer_id:
+    """Публикация отзыва в обсуждения группы"""
+    group_id = os.environ.get("VK_GROUP_ID")
+    topic_id = os.environ.get("VK_FEEDBACK_TOPIC_ID")
+
+    if not group_id or not topic_id:
+        logger.error("Feedback configuration missing in environment variables")
         return
 
     try:
         user = await get_user(vk_id)
         name = user.get("first_name", "Адепт") if user else "Адепт"
+
         msg = (
-            "АНТИ-ТАР: НОВЫЙ ОТЗЫВ\n"
+            "⭐️ НОВЫЙ ОТЗЫВ О СИСТЕМЕ ⭐️\n"
             f"• Адепт: [id{vk_id}|{name}]\n"
-            f"• Прогноз: {section}\n"
-            f"• Оценка: {rating} / 5\n"
-            f"• Комментарий: {comment_text}"
+            f"• Направление: {section}\n"
+            f"• Оценка точности: {rating} из 5\n"
+            f"• Честный комментарий: {comment_text}"
         )
-        # Возвращаем прямую отправку на peer_id (например, 2000000130)
-        final_peer_id = int(peer_id)
-        await bot.api.messages.send(peer_id=final_peer_id, message=msg, random_id=random.getrandbits(63))
+
+        await bot.api.board.create_comment(
+            group_id=int(group_id),
+            topic_id=int(topic_id),
+            message=msg,
+            from_group=1
+        )
     except Exception as e:
-        logger.error(f"Error sending feedback to chat: {e}")
+        logger.error(f"Error posting feedback to board: {e}")
 
 @labeler.message(func=is_waiting_feedback_comment)
 async def process_feedback_comment(message: Message):
@@ -78,10 +89,9 @@ async def process_feedback_comment(message: Message):
     rating, section = state.get("rating"), state.get("section")
     comment_text = message.text
 
-    from database import save_feedback
     await save_feedback(vk_id, section, rating, comment=comment_text)
 
-    # Отправка в чат ВК
+    # Публикация отзыва в группу
     await send_feedback_to_chat(vk_id, section, rating, comment_text)
 
     await set_user_state(vk_id, "")
@@ -110,7 +120,6 @@ async def process_support_question(message: Message):
         if user:
             u_name = f"{user.get('first_name', 'Адепт')} {user.get('last_name', '')}".strip()
             # Пробуем достать город из Redis
-            from cache import get_temp_birth_data
             temp_birth = await get_temp_birth_data(vk_id)
             if temp_birth and temp_birth.get("city"):
                 u_city = temp_birth.get("city")
@@ -124,7 +133,6 @@ async def process_support_question(message: Message):
             "text": question_text,
             "date": datetime.datetime.now().isoformat()
         })
-        from database import update_user
         await update_user(vk_id, {"support_history": support_history})
 
         # Уведомляем админа
@@ -196,7 +204,6 @@ async def process_admin_reply(message: Message):
             "text": reply_text,
             "date": datetime.datetime.now().isoformat()
         })
-        from database import update_user
         await update_user(target_user_id, {"support_history": support_history})
 
     user_msg = (
