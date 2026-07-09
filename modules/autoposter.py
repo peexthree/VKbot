@@ -436,14 +436,16 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         # Посмотрим на последнюю строку, не хэштеги ли это
         last_line = ai_lines[-1]
         words = last_line.split()
-        if any(w.startswith('#') for w in words) or (len(words) >= 3 and len(words) <= 10 and all(len(w) > 3 for w in words)):
+        if words and all(w.startswith('#') for w in words):
             # Это строка хэштегов
-            fixed_tags = [f"#{word.lstrip('#').rstrip('.,!?;')}" for word in words]
-            hashtags = " ".join(fixed_tags)
+            hashtags = last_line
             ai_lines.pop() # Удаляем строку хэштегов из основного текста
         else:
             # Иначе дефолтные хэштеги
-            hashtags = "#АнтиТар #Психология #Матрица #Судьба"
+            hashtags = "#АнтиТар #МатрицаСудьбы #Психология #Судьба"
+    else:
+        # Иначе дефолтные хэштеги
+        hashtags = "#АнтиТар #МатрицаСудьбы #Психология #Судьба"
 
     # Склеиваем обратно текст
     main_body = "\n\n".join(ai_lines).strip()

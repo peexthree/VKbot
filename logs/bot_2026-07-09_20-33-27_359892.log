@@ -1,0 +1,13 @@
+2026-07-09 20:33:30.861 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-09 20:33:30.862 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CODE-601 на 69 ✨
+2026-07-09 20:33:30.863 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140532719554576'>, персонаж ai_mom, тема 'Как распознать «деловую совместимость» до подписания контракта.'
+2026-07-09 20:33:30.868 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-09 20:33:34.075 | INFO     | modules.autoposter:handle_diagnosis_comment:102 - Персонаж для поста 67890 не найден в кэше, выбран рандомный: anubis
+2026-07-09 20:33:36.537 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-09 20:33:36.547 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-09 20:33:36.555 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-09 20:33:36.565 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-09 20:33:36.606 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NODE-695 на 68 ✨
+2026-07-09 20:33:36.606 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж saint_germain, тема 'Инструкция по выходу из «матрицы» твоих бытовых проблем.'
+2026-07-09 20:33:36.612 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: SYSTEM-896 на 135 ✨
+2026-07-09 20:33:36.613 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж vanga, тема 'Почему «сны» - это не просто картинки, а твои системные логи.'
