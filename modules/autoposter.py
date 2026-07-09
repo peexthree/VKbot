@@ -12,7 +12,7 @@ from vkbottle import GroupEventType
 import re
 from modules.bot_init import bot
 from ai_service import generate_text, clean_ai_json, sanitize_user_input
-from prompts.rubrics import RUBRIC_PROMPTS, GLOBAL_CTA
+from prompts.rubrics import RUBRIC_PROMPTS
 from cache import redis_client as redis
 from database.autoposter import (
     get_daily_used_content, get_active_poll, close_poll,
@@ -338,8 +338,15 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             "НЕ делай на нем акцент, он должен выглядеть как естественная часть повествования."
         )
 
-    # Инструкция по виральному вызову в конце
-    ego_call = "В конце поста добавь циничную приписку: «Перешли этот пост тому, кто до сих пор верит в удачу, а не в стратегию. Пусть его тоже проберет»."
+    # Инструкция по динамической концовке (CTA)
+    dynamic_cta_instruction = (
+        "КРИТИЧЕСКОЕ ТРЕБОВАНИЕ ДЛЯ КОНЦОВКИ (СТРОГО СОБЛЮДАТЬ): "
+        "В самый конец поста (но перед хэштегами) сгенерируй динамический, уникальный, хлесткий и циничный призыв к действию (CTA). "
+        "Он должен идеально подстраиваться под текущую тему разбора и твоего персонажа. "
+        "Объем этого CTA: строго 2-3 предложения. Текст должен быть максимально спрессованным, "
+        "плотным, циничным и технологичным в ToV «Анти-Тар». Никакой банальщины и унылого копипаста. "
+        "Запрещено предлагать переслать пост кому-либо. Призыв должен мотивировать читателя зайти в бота."
+    )
 
     prompt_base = (
         f"Текущая дата: {current_date_str}, день недели: {current_day}. "
@@ -347,12 +354,11 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         "Твой текст должен стать объемным, плотным и развернутым лонгридом (ОТ 1500 ДО 2500 СИМВОЛОВ). "
         "Никаких коротких отписок и лозунгов. Пиши емко, с конкретными жизненными примерами, "
         "метафорами и глубоким пониманием психологии.\n\n"
-        f"ПРИЗЫВ К ДЕЙСТВИЮ (СТРОГО СОБЛЮДАТЬ): {GLOBAL_CTA}\n\n"
         f"Твоя роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
         f"Рубрика поста: {rubric}. ИНСТРУКЦИЯ К РУБРИКЕ: {rubric_instruction}\n\n"
         f"{cipher_instruction}\n\n"
-        f"{ego_call}\n\n"
-        "ГЛОБАЛЬНАЯ КОМПОЗИЦИЯ: Органично склей три элемента: Личность персонажа + Тематику рубрики + Боль/Эго читателя. "
+        f"{dynamic_cta_instruction}\n\n"
+        "ГЛОБАЛЬНАЯ КОМПОЗИЦИЯ: Органично склей четыре элемента: Личность персонажа + Тематику рубрики + Боль/Эго читателя + Уникальный динамический CTA. "
         "Текст должен быть живым, сплошным, с резкими переходами, БЕЗ ПРИВЕТСТВИЙ и лишней воды. "
         "ВАЖНОЕ ТЕХНИЧЕСКОЕ ТРЕБОВАНИЕ: Верни ответ СТРОГО в формате JSON:\n"
         "{\n"
@@ -423,35 +429,42 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
     # Агрессивный предохранитель хэштегов: обрабатываем именно ai_text
     ai_lines = [line.strip() for line in ai_text.strip().split('\n') if line.strip()]
+
+    # Сначала отделим хэштеги от основного текста
+    hashtags = ""
     if ai_lines:
-        # Ищем строку с хэштегами (обычно последняя или предпоследняя)
-        tag_line_index = -1
-        for i in range(len(ai_lines) - 1, max(-1, len(ai_lines) - 3), -1):
-            words = ai_lines[i].split()
-            # Если в строке 3-10 слов и она последняя ИЛИ содержит # ИЛИ длинные слова (теги)
-            if 3 <= len(words) <= 10:
-                if i == len(ai_lines) - 1 or any(w.startswith('#') or len(w) > 10 for w in words):
-                    tag_line_index = i
-                    break
-
-        if tag_line_index != -1:
-            words = ai_lines[tag_line_index].split()
+        # Посмотрим на последнюю строку, не хэштеги ли это
+        last_line = ai_lines[-1]
+        words = last_line.split()
+        if any(w.startswith('#') for w in words) or (len(words) >= 3 and len(words) <= 10 and all(len(w) > 3 for w in words)):
+            # Это строка хэштегов
             fixed_tags = [f"#{word.lstrip('#').rstrip('.,!?;')}" for word in words]
-            ai_lines[tag_line_index] = " ".join(fixed_tags)
+            hashtags = " ".join(fixed_tags)
+            ai_lines.pop() # Удаляем строку хэштегов из основного текста
+        else:
+            # Иначе дефолтные хэштеги
+            hashtags = "#АнтиТар #Психология #Матрица #Судьба"
 
-            # Если теги не в самом конце - переносим их в конец
-            if tag_line_index != len(ai_lines) - 1:
-                tags = ai_lines.pop(tag_line_index)
-                ai_lines.append(tags)
+    # Склеиваем обратно текст
+    main_body = "\n\n".join(ai_lines).strip()
 
-        ai_text = "\n\n".join(ai_lines)
+    # Добавляем жесткую фиксированную строчку-навигатор
+    fixed_navigator = "Чтобы взломать свою судьбу и получить доступ к скрытым настройкам души, нажми кнопку Написать сообществу и бот тебя проведет по лучшему пути"
 
-    # Нативный текст без ссылок
-    final_text = ai_text.strip()
+    # Формируем итоговый текст
+    final_text_parts = []
+    if main_body:
+        final_text_parts.append(main_body)
+    final_text_parts.append(fixed_navigator)
+    if hashtags:
+        final_text_parts.append(hashtags)
 
-    # Принудительная очистка текста перед возвратом
+    final_text = "\n\n".join(final_text_parts)
+
+    # Принудительная очистка текста перед возвратом (убираем звездочки, превращаем длинные тире в короткие дефисы)
     final_text = final_text.replace("\\n", "\n")
     final_text = final_text.replace("—", "-")
+    final_text = final_text.replace("*", "")
 
     # Внедрение заголовка рубрики
     rubric_label = RUBRIC_NAMES.get(rubric, rubric)
