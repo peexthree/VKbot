@@ -34,7 +34,7 @@ from modules.keyboards import (
     rating_keyboard, feedback_skip_keyboard
 )
 from modules.utils import (
-    SKIN_ASSETS, generate_premium_pdf, get_fsm_step, get_main_keyboard,
+    SKIN_ASSETS, generate_premium_pdf, get_fsm_step,
     ghost_edit, pdf_semaphore, upload_local_photo, upload_pdf_to_vk,
     delete_bot_message
 )

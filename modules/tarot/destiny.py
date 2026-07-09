@@ -204,7 +204,7 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
             return
 
         # Сохраняем последний разбор в Redis на 24 часа
-        from cache import set_latest_reading, add_reading_to_history, set_destiny_card_data
+        from cache import set_latest_reading, add_reading_to_history, set_destiny_card_data, get_readings_history
         await set_latest_reading(vk_id, res_text, data=res_data if isinstance(res_data, dict) else None)
 
         # Сохраняем в историю в Redis

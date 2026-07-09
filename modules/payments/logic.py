@@ -10,7 +10,7 @@ from database import get_user, update_user, set_user_state
 from modules.bot_init import bot
 from ai_service import generate_section, extract_tags
 from modules.utils import (
-    get_main_keyboard, ghost_edit,
+    ghost_edit,
     start_dynamic_typing, stop_dynamic_typing,
     extract_msg_id
 )
