@@ -16,12 +16,15 @@ from modules.utils import (
 )
 from cache import acquire_lock, release_lock
 
-async def process_payment_and_generate(vk_id: int, section: str):
+async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = None, conversation_message_id: int = None):
     lock_key = f"process_payment_and_generate:{vk_id}"
     if not await acquire_lock(lock_key, ttl=300): return
     try:
         user = await get_user(vk_id)
         if not user: return
+
+        # Определяем целевой ID для ЛС
+        target_peer = peer_id or vk_id
 
         # Проверка данных в Redis перед генерацией
         from cache import get_temp_birth_data
@@ -63,7 +66,10 @@ async def process_payment_and_generate(vk_id: int, section: str):
                         "☾ Время: 12:00 (по умолчанию)\n\n"
                         "Всё верно?"
                     )
-                    await bot.api.messages.send(peer_id=vk_id, message=text, keyboard=kb.get_json(), random_id=random.getrandbits(63))
+                    if conversation_message_id:
+                        await ghost_edit(bot.api, target_peer, text, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+                    else:
+                        await bot.api.messages.send(peer_id=target_peer, message=text, keyboard=kb.get_json(), random_id=random.getrandbits(63))
                     return
             except Exception as e:
                 logger.error(f"Error parsing VK data during process_payment: {e}")
@@ -74,11 +80,16 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 "is_upsell": (section == "oracle_upsell"),
                 "original_intent": {"cmd": "process_payment_and_generate", "section": section}
             }))
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nЧтобы я могла продолжить чтение твоей судьбы, мне нужно заново настроиться на твою энергию. Шепни мне свою ДАТУ рождения (например, 15.04.1990):",
-                random_id=random.getrandbits(63)
-            )
+
+            msg = "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nЧтобы я могла продолжить чтение твоей судьбы, мне нужно заново настроиться на твою энергию. Шепни мне свою ДАТУ рождения (например, 15.04.1990):"
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id)
+            else:
+                await bot.api.messages.send(
+                    peer_id=target_peer,
+                    message=msg,
+                    random_id=random.getrandbits(63)
+                )
             return
 
         if section == "micro_insight":
@@ -94,22 +105,30 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 f"Дай ОДИН короткий, дерзкий и точный совет или предсказание на ближайший час. "
                 f"Стиль: {active_skin} (имя: {character_name}). Максимум 2 предложения. Без жирного шрифта."
             )
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, "✦ ПОЛУЧАЮ МИКРО-ИНСАЙТ...", conversation_message_id=conversation_message_id)
+
             insight = await generate_text(prompt, skin=active_skin, is_background=False)
             if not insight or insight == "ERROR_RPM_LIMIT":
-                # Универсальный возврат через handle_generation_failure
-                await handle_generation_failure(vk_id, vk_id, "micro_insight")
+                await handle_generation_failure(vk_id, target_peer, "micro_insight", conversation_message_id=conversation_message_id)
                 return
 
-            from modules.keyboards import get_main_reply_keyboard
-            await bot.api.messages.send(
-                peer_id=vk_id,
-                message=f"✦ ШЕПОТ МАТРИЦЫ ✦\n\n{insight}",
-                random_id=random.getrandbits(63),
-                keyboard=get_main_reply_keyboard(vk_id)
-            )
-            # Призрачный интерфейс: возвращаем пользователя в меню услуг
-            from modules.services import show_services
-            await show_services(vk_id, vk_id, 0, is_catalog=True)
+            msg = f"✦ ШЕПОТ МАТРИЦЫ ✦\n\n{insight}"
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+            kb.row()
+            kb.add(Callback("🔮 ВСЕ УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.PRIMARY)
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(
+                    peer_id=target_peer,
+                    message=msg,
+                    random_id=random.getrandbits(63),
+                    keyboard=kb.get_json()
+                )
             return
 
         purchased = user.get("purchased_sections", {})
@@ -120,65 +139,108 @@ async def process_payment_and_generate(vk_id: int, section: str):
                 "all": True, "destiny_card_purchased": True, "synastry": True
             })
             await update_user(vk_id, {"purchased_sections": purchased, "has_full_chart": True})
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. Все Врата натальной карты открыты, включая Совместимость и Карту Судьбы.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
+
+            msg = "👑 ПАКЕТ УСПЕШНО АКТИВИРОВАН\n\nВсе Врата твоей натальной карты полностью открыты: Сексуальность, Богатство, Теневая матрица, Путь, а также Совместимость и Карта Судьбы.\n\nКаждое откровение теперь доступно тебе подробно в любое время!"
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+            kb.row()
+            kb.add(Callback("🔮 ВСЕ УСЛУГИ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
+
         elif section == "oracle":
             purchased["oracle_access"] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_oracle_question"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ СВОЙ ВОПРОС СУДЬБЕ.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
+
+            msg = "🔮 ОРАКУЛ АКТИВИРОВАН\n\nКанал связи со звездами настроен и готов воспринять твой запрос.\n\nНАПИШИ СВОЙ ВОПРОС СУДЬБЕ 👇"
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
             return
+
         elif section == "synastry":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_synastry_name"}')
-            await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА. НАПИШИ ИМЯ ПАРТНЕРА.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
+
+            msg = "❤️ АНАЛИЗ СОВМЕСТИМОСТИ АКТИВИРОВАН\n\nМатрица готова просчитать мантическое слияние ваших судеб.\n\nНАПИШИ ИМЯ ТВОЕГО ПАРТНЕРА 👇"
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
             return
+
         elif section == "palmistry":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_palmistry_photos"}')
+
             msg = (
-                "✅ Оплата прошла. Теперь для точного анализа пришлите в одном сообщении две фотографии:\n\n"
+                "✅ ОПЛАТА ПРОШЛА.\n\n"
+                "Теперь для точного анализа пришли в одном сообщении две фотографии ладоней:\n\n"
                 "• Левая ладонь (врожденный потенциал)\n"
                 "• Правая ладонь (текущая реализация)\n\n"
                 "Требования:\n"
-                "- Хорошее освещение\n"
-                "- Ладонь полностью в кадре\n"
-                "- Пальцы выпрямлены\n"
-                "- Крупный план"
+                "- Хорошее освещение, ладонь полностью в кадре\n"
+                "- Пальцы выпрямлены, крупный план"
             )
-            await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
             return
+
         elif section == "dream":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_dream_text"}')
+
             msg = (
-                "✅ Оплата прошла. Расскажи мне свой сон подробным текстом.\n\n"
+                "✅ ОПЛАТА ПРОШЛА.\n\n"
+                "Расскажи мне свой сон подробным текстом.\n\n"
                 "Можно добавить:\n"
                 "- Когда приснился (дата/время)\n"
                 "- Настроение после пробуждения\n"
                 "- Любые важные детали\n\n"
-                "Чем подробнее опишешь - тем точнее будет разбор."
+                "Чем подробнее опишешь — тем точнее будет разбор."
             )
-            await bot.api.messages.send(peer_id=vk_id, message=msg, random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
             return
+
         else:
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
-            # Призрачный интерфейс: удаляем старое и шлем подтверждение
-            from modules.utils import delete_bot_message, get_last_bot_msg, set_last_bot_msg
-            last_mid = await get_last_bot_msg(vk_id)
-            if last_mid:
-                await delete_bot_message(bot.api, vk_id, mid=last_mid)
 
-            msg_id = await bot.api.messages.send(peer_id=vk_id, message="УСЛУГА АКТИВИРОВАНА.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
-            await set_last_bot_msg(vk_id, msg_id)
+            await set_user_state(vk_id, f'{{"step": "global_cut", "target_section": "{section}"}}')
+            kb = Keyboard(inline=True)
+            kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
 
-        await set_user_state(vk_id, f'{{"step": "global_cut", "target_section": "{section}"}}')
-        kb = Keyboard(inline=True)
-        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
-        await bot.api.messages.send(peer_id=vk_id, message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.", keyboard=kb.get_json(), random_id=random.getrandbits(63))
+            msg = "✨ РИТУАЛ НАЧАТ (ШАГ 2 ИЗ 3)\n\nДля настройки связи с матрицей требуется синхронизировать твои потоки энергии. Прикоснись к колоде, чтобы сдвинуть её."
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
     finally:
         await release_lock(lock_key)
 
@@ -366,10 +428,11 @@ async def execute_generation(
                 await add_reading_to_history(vk_id, history_item)
                 await set_latest_reading(vk_id, display_text, data=res_data if isinstance(res_data, dict) else None)
 
-                # Получаем обновленную историю из Redis для проверки достижений
+                # Получаем обновленную историю из Redis для проверки достижений и сохранения в БД
                 history = await get_readings_history(vk_id)
 
                 save_data = {}
+                save_data["readings_history"] = history
 
                 # Сбрасываем флаг покупки, если нет вечного или VIP доступа
                 purchased = user.get("purchased_sections", {})

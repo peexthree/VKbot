@@ -231,6 +231,19 @@ async def stop_dynamic_typing(peer_id: int) -> int | None:
                 await task
             except asyncio.CancelledError:
                 pass
+            except Exception:
+                pass
+
+    # Если мы остановили тайпинг, но ID сообщения все еще оставался в кэше (т.е. его никто не перезаписал),
+    # значит произошла ошибка или ранний выход. Чтобы "призрачная фразочка" не висела на экране,
+    # мы безопасно удаляем это временное сообщение.
+    if msg_id:
+        try:
+            from modules.bot_init import bot
+            await delete_bot_message(bot.api, peer_id, mid=msg_id, cmid=msg_id)
+        except Exception:
+            pass
+
     return msg_id
 
 async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: int = None) -> asyncio.Task:

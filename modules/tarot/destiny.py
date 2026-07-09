@@ -224,7 +224,9 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
             "interesting_facts": res_data.get("interesting_facts", "") if isinstance(res_data, dict) else ""
         })
 
-        update_data = {}
+        # Получаем обновленную историю из Redis и сохраняем её в БД
+        history = await get_readings_history(vk_id)
+        update_data = {"readings_history": history}
         await update_user(vk_id, update_data)
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
