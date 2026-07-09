@@ -205,7 +205,7 @@ def get_history_inline_keyboard(history: list, destiny_data: dict = None, page: 
         kb.add(Callback("▶️", payload={"cmd": "history_menu", "page": page + 1}), color=KeyboardButtonColor.SECONDARY)
         kb.row()
 
-    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("⬅️ Назад в архив", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
     return kb.get_json()
 
 def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, button_label: str, button_cmd: str, item_key: str, filter_val: str = None, user: dict = None) -> str:

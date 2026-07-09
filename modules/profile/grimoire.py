@@ -15,6 +15,54 @@ def _normalize_unlocked_cards(unlocked_cards) -> dict:
     return unlocked_cards or {}
 
 
+async def show_grimoire_main(
+    vk_id: int,
+    peer_id: int,
+    skip_lock: bool = False,
+    conversation_message_id: int = None
+):
+    """Показывает главное меню Гримуара (Единый Архив)"""
+    if not skip_lock and not await acquire_lock(vk_id):
+        return
+
+    try:
+        await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
+
+        text = (
+            "📖 ДОБРО ПОЖАЛОВАТЬ В ТВОЙ ЛИЧНЫЙ АРХИВ ЗНАНИЙ\n\n"
+            "Здесь хранятся все ключи дешифрации твоей личности, которые ты открыл в ходе взаимодействия с системой. "
+            "Возвращайся сюда, чтобы перечитать свои прошлые разборы или взглянуть на коллекцию собранных карт."
+        )
+
+        kb = Keyboard(inline=True)
+        kb.add(Callback("🃏 Моя коллекция карт", payload={"cmd": "grimoire_cards_list", "page": 0}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+        kb.add(Callback("📜 Мои прошлые разборы", payload={"cmd": "history_menu", "page": 0}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+        kb.add(Callback("⬅️ Назад в профиль", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("🏠 В меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+        typing_msg_id = await stop_dynamic_typing(peer_id)
+        att = await upload_local_photo(bot.api, "uslugi/grimoire.jpeg", peer_id=vk_id)
+
+        await ghost_edit(
+            bot.api,
+            peer_id,
+            message=text,
+            conversation_message_id=conversation_message_id,
+            message_id=typing_msg_id,
+            keyboard=kb.get_json(),
+            attachment=att
+        )
+
+    except Exception as e:
+        logger.error(f"Ошибка в show_grimoire_main: {e}")
+    finally:
+        await stop_dynamic_typing(peer_id)
+        if not skip_lock:
+            await release_lock(vk_id)
+
+
 async def show_grimoire_page(
     vk_id: int,
     peer_id: int,
@@ -48,12 +96,16 @@ async def show_grimoire_page(
         major_count = len(major_arcana_unlocked)
 
         if not unlocked_items:
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+            kb.row()
+            kb.add(Callback("⬅️ Назад в архив", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.SECONDARY)
             await ghost_edit(
                 bot.api,
                 peer_id,
                 message="✦ МОЙ ГРИМУАР ✦\n\nТвой гримуар пока пуст. Открой первую карту в Услугах.",
                 conversation_message_id=conversation_message_id,
-                keyboard=Keyboard(inline=True).add(Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE).get_json()
+                keyboard=kb.get_json()
             )
             return
 
@@ -106,10 +158,10 @@ async def show_grimoire_page(
             )
             kb.row()
 
-        # Кнопка в Услуги
+        # Кнопка Назад в архив
         kb.add(
-            Callback("🔮 ГЛУБОКИЕ РАЗБОРЫ", payload={"cmd": "services_menu"}),
-            color=KeyboardButtonColor.POSITIVE,
+            Callback("⬅️ Назад в архив", payload={"cmd": "profile_action", "action": "grimoire"}),
+            color=KeyboardButtonColor.PRIMARY,
         )
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
@@ -186,6 +238,12 @@ async def view_card_direct(
         if photo_att: attachments.append(photo_att)
 
         typing_msg_id = await stop_dynamic_typing(peer_id)
+
+        kb = Keyboard(inline=True)
+        kb.add(Callback("⬅️ Назад к картам", payload={"cmd": "grimoire_page", "page": 0}), color=KeyboardButtonColor.PRIMARY)
+        kb.row()
+        kb.add(Callback("⬅️ Назад в архив", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.SECONDARY)
+
         await ghost_edit(
             bot.api,
             peer_id,
@@ -193,7 +251,7 @@ async def view_card_direct(
             conversation_message_id=conversation_message_id,
             message_id=typing_msg_id,
             attachment=",".join(attachments) if attachments else None,
-            keyboard=Keyboard(inline=True).add(Callback("Назад в Гримуар", payload={"cmd": "grimoire_page", "page": 0}), color=KeyboardButtonColor.PRIMARY).get_json()
+            keyboard=kb.get_json()
         )
 
     except Exception as e:

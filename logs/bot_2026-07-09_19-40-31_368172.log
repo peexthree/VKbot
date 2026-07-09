@@ -1,0 +1,13 @@
+2026-07-09 19:40:37.421 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-09 19:40:37.422 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PHANTOM-287 на 196 ✨
+2026-07-09 19:40:37.423 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140096074267488'>, персонаж pythia, тема 'Синастрия: как использовать слабости партнера как твое преимущество.'
+2026-07-09 19:40:37.428 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-09 19:40:40.432 | ERROR    | modules.autoposter:handle_diagnosis_comment:104 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-09 19:40:43.190 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-09 19:40:43.200 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-09 19:40:43.208 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-09 19:40:43.219 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-09 19:40:43.263 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: ZERO-130 на 134 ✨
+2026-07-09 19:40:43.263 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж guzeeva, тема 'Почему «позитивное мышление» - это ловушка?'
+2026-07-09 19:40:43.268 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: GRID-796 на 187 ✨
+2026-07-09 19:40:43.268 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж pythia, тема 'Философия Анти-Таро: почему реальность всегда лучше иллюзий.'

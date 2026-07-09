@@ -643,7 +643,7 @@ async def show_history_item_logic(
         kb = Keyboard(inline=True)
         kb.add(Callback("⬅️ НАЗАД В СПИСОК", payload={"cmd": "history_menu"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
-        kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("🏠 Главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
         await ghost_edit(
             bot.api,

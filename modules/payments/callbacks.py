@@ -35,12 +35,14 @@ from modules.keyboards import (
 )
 from modules.utils import (
     SKIN_ASSETS, generate_premium_pdf, get_fsm_step, get_main_keyboard,
-    ghost_edit, pdf_semaphore, upload_local_photo, upload_pdf_to_vk
+    ghost_edit, pdf_semaphore, upload_local_photo, upload_pdf_to_vk,
+    delete_bot_message
 )
 from modules.utils.consts import MYSTIC_STATUS_PHRASES
 from modules.admin import process_admin_cmd, show_admin_console
 from modules.profile import (
-    settings_handler, settings_choose_character, show_grimoire_page, view_card_direct
+    settings_handler, settings_choose_character, show_grimoire_page, view_card_direct,
+    show_grimoire_main
 )
 from modules.profile.settings import process_skin_action_logic
 from modules.profile.views import (
@@ -650,7 +652,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             elif action == "guide": await show_guide_logic(vk_id, peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "admin_console": await show_admin_console(peer_id, conversation_message_id=conv_id)
             elif action == "syndicate": await syndicate_dashboard_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
-            elif action == "grimoire": await show_grimoire_page(vk_id, peer_id, 0, skip_lock=True, conversation_message_id=conv_id)
+            elif action == "grimoire": await show_grimoire_main(vk_id, peer_id, skip_lock=True, conversation_message_id=conv_id)
             elif action == "tariffs": await show_tariffs(vk_id, peer_id, 0)
             elif action == "get_seal":
                 from modules.profile.views import get_seal_logic
@@ -895,7 +897,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         elif cmd == "get_referral":
             from modules.profile.views import get_seal_logic
             await get_seal_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
-        elif cmd == "grimoire_page": await show_grimoire_page(vk_id, peer_id, payload.get("page", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd in ["grimoire_page", "grimoire_cards_list"]: await show_grimoire_page(vk_id, peer_id, payload.get("page", 0), skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "dream_interpret_start":
             user = await get_user(vk_id)
             if user:
@@ -925,47 +927,22 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             await show_tariffs(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"))
         elif cmd == "show_rating":
             section, card = payload.get("section"), payload.get("card")
-            await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), message="Оцени, насколько точно Оракул считал твое поле:", keyboard=rating_keyboard(section, card))
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message="Оцени, насколько точно Оракул считал твое поле:",
+                keyboard=rating_keyboard(section, card),
+                random_id=random.getrandbits(63)
+            )
         elif cmd == "back_to_forecast":
-            section, card = payload.get("section"), payload.get("card")
-            # Восстанавливаем оригинальную клавиатуру в зависимости от секции
-            if section == "card_of_day":
-                kb = vertical_kb([
-                    ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": section, "card": card}, KeyboardButtonColor.POSITIVE),
-                    ("🔮 ГЛУБОКИЙ РАЗБОР (-50%)", {"cmd": "confirm_buy", "type": "service", "key": "oracle_upsell"}, KeyboardButtonColor.PRIMARY),
-                    ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-                ])
-            elif section == "synastry":
-                kb = vertical_kb([
-                    ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": section, "card": card}, KeyboardButtonColor.POSITIVE),
-                    ("❤️ ЕЩЕ ОДИН РАСЧЕТ", {"cmd": "use_section", "key": "synastry"}, KeyboardButtonColor.PRIMARY),
-                    ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-                ])
-            elif section == "palmistry":
-                kb = vertical_kb([
-                    ("📜 ПОЛНЫЙ PDF-ОТЧЕТ", {"cmd": "gen_pdf", "section": section, "card": card}, KeyboardButtonColor.POSITIVE),
-                    ("✨ НОВЫЙ АНАЛИЗ", {"cmd": "use_section", "key": "palmistry"}, KeyboardButtonColor.PRIMARY),
-                    ("📖 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
-                    ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-                ])
-            elif section == "dream":
-                kb = vertical_kb([
-                    ("🌙 НОВЫЙ СОН", {"cmd": "use_section", "key": "dream"}, KeyboardButtonColor.PRIMARY),
-                    ("📖 ГРИМУАР", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
-                    ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-                ])
-            else:
-                kb = after_pdf_kb(section, card)
-
-            await safe_edit(peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"), keyboard=kb)
+            await delete_bot_message(bot.api, peer_id, cmid=obj.get("conversation_message_id"))
         elif cmd == "set_rating":
             val, section = payload.get("val"), payload.get("section")
             await set_user_state(vk_id, json.dumps({"step": "waiting_feedback_comment", "rating": val, "section": section}))
-            await bot.api.messages.send(
+            await safe_edit(
                 peer_id=peer_id,
+                conversation_message_id=obj.get("conversation_message_id"),
                 message="Матрица зафиксировала твою оценку. Оставь свой честный комментарий к прогнозу или можешь пропустить этот шаг, нажав кнопку ниже.",
-                keyboard=feedback_skip_keyboard(),
-                random_id=random.getrandbits(63)
+                keyboard=feedback_skip_keyboard()
             )
         elif cmd == "skip_feedback":
             state = await get_fsm_step(vk_id)
@@ -978,7 +955,18 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 await send_feedback_to_chat(vk_id, section, rating, "Пропущено")
 
                 await set_user_state(vk_id, "")
-                await bot.api.messages.send(peer_id=peer_id, message="Спасибо за обратную связь! Твой вклад помогает системе эволюционировать.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
+
+                kb = Keyboard(inline=True)
+                kb.add(Callback("🔮 Новый расклад", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+                kb.row()
+                kb.add(Callback("🏠 Главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+                await safe_edit(
+                    peer_id=peer_id,
+                    conversation_message_id=obj.get("conversation_message_id"),
+                    message="Спасибо за обратную связь! Твой вклад помогает системе эволюционировать.",
+                    keyboard=kb.get_json()
+                )
         elif cmd == "destiny_card_info":
             from modules.tarot.destiny import destiny_card_info_logic
             await destiny_card_info_logic(vk_id, peer_id, conversation_message_id=obj.get("conversation_message_id"))
