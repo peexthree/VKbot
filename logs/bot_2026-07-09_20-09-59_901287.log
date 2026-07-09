@@ -1,0 +1,13 @@
+2026-07-09 20:10:06.004 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-09 20:10:06.005 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CIPHER-806 на 92 ✨
+2026-07-09 20:10:06.006 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140087293392992'>, персонаж jack_sparrow, тема 'Где на твоей руке спрятаны признаки эмоционального выгорания?'
+2026-07-09 20:10:06.011 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-09 20:10:09.016 | ERROR    | modules.autoposter:handle_diagnosis_comment:104 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-09 20:10:13.915 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-09 20:10:13.924 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-09 20:10:13.933 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-09 20:10:13.944 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-09 20:10:13.989 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PULSE-186 на 195 ✨
+2026-07-09 20:10:13.989 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж jack_sparrow, тема 'Как по руке определить предрасположенность к большим деньгам.'
+2026-07-09 20:10:13.996 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PULSE-388 на 160 ✨
+2026-07-09 20:10:13.996 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж ai_mom, тема 'Почему важно иметь «темную» сторону личности для успеха.'
