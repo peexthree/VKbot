@@ -19,7 +19,10 @@ from database.autoposter import (
     save_hidden_promo, get_least_recent_rubric, save_active_poll
 )
 from modules.utils.visual import generate_diagnosis_card
-from modules.utils.consts import SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_EMOJIS, HIDDEN_CIPHER_WORDS
+from modules.utils.consts import (
+    SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES,
+    SKIN_EMOJIS, HIDDEN_CIPHER_WORDS
+)
 from modules.utils.photos import upload_wall_photo
 from modules.utils.news import fetch_trending_news
 
@@ -459,6 +462,11 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         opp_emoji = SKIN_EMOJIS.get(opponent_id, '😈')
         battle_title = f"{skin_emoji} {skin_name.upper()} vs {opp_emoji} {opponent_name.upper()}"
         header += f"\n{battle_title}"
+    else:
+        # Для всех остальных рубрик добавляем имя персонажа на второй строке
+        skin_emoji = SKIN_EMOJIS.get(skin_id, '👁')
+        skin_short_name = SKIN_SHORT_NAMES.get(skin_id, skin_name).upper()
+        header += f"\n{skin_emoji} {skin_short_name}"
 
     final_text = f"{header}\n\n{final_text}"
 
