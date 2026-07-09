@@ -18,6 +18,7 @@ from modules.profile.handlers import (
 from modules.profile.grimoire import (
     show_grimoire_page,
     view_card_direct,
+    show_grimoire_main,
 )
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "settings_choose_character",
     "show_grimoire_page",
     "view_card_direct",
+    "show_grimoire_main",
 ]

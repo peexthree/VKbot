@@ -17,7 +17,7 @@ from cache import get_temp_birth_data
 from modules.bot_init import bot
 from modules.utils import (
     ADMIN_ID, get_fsm_step, acquire_lock, release_lock,
-    get_main_keyboard, ghost_edit
+    get_main_keyboard, ghost_edit, delete_bot_message, get_last_bot_msg
 )
 from modules.utils.consts import GROUP_ID
 from modules.utils.photos import upload_wall_photo
@@ -295,7 +295,24 @@ async def process_feedback_comment(message: Message):
     await send_feedback_to_chat(vk_id, section, rating, comment_text)
 
     await set_user_state(vk_id, "")
-    await message.answer("Спасибо за обратную связь! Твой вклад помогает системе эволюционировать.", keyboard=get_main_keyboard(vk_id))
+
+    # Удаляем сообщение с предложением оставить комментарий
+    try:
+        last_msg_id = await get_last_bot_msg(message.peer_id)
+        if last_msg_id:
+            await delete_bot_message(bot.api, message.peer_id, mid=last_msg_id)
+    except Exception as e:
+        logger.debug(f"Failed to delete rating comment prompt: {e}")
+
+    kb = Keyboard(inline=True)
+    kb.add(Callback("🔮 Новый расклад", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
+    kb.row()
+    kb.add(Callback("🏠 Главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+    await message.answer(
+        "Спасибо за обратную связь! Твой вклад помогает системе эволюционировать.",
+        keyboard=kb.get_json()
+    )
 
 @labeler.message(func=is_waiting_support_question)
 async def process_support_question(message: Message):
