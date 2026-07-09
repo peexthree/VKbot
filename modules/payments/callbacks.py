@@ -31,7 +31,7 @@ from database import (
 )
 from modules.bot_init import bot
 from modules.keyboards import (
-    rating_keyboard, after_pdf_kb, vertical_kb, feedback_skip_keyboard
+    rating_keyboard, feedback_skip_keyboard
 )
 from modules.utils import (
     SKIN_ASSETS, generate_premium_pdf, get_fsm_step, get_main_keyboard,
