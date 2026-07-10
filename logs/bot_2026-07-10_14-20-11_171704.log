@@ -1,0 +1,26 @@
+2026-07-10 14:20:17.228 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-10 14:20:17.231 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NODE-139 на 77 ✨
+2026-07-10 14:20:17.232 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='139783156930400'>, персонаж saint_germain, tema 'Линия сердца: как перестать наступать на одни и те же грабли?'
+2026-07-10 14:20:17.240 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-10 14:20:20.245 | ERROR    | modules.autoposter:handle_diagnosis_comment:104 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-10 14:20:23.154 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:218 - PDF успешно создан: test_output.pdf
+2026-07-10 14:20:23.169 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-10 14:20:23.180 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-10 14:20:23.549 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_placeholder.png
+2026-07-10 14:20:23.942 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_avatar.png
+2026-07-10 14:20:24.339 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_scaling.png
+2026-07-10 14:20:24.352 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-10 14:20:24.401 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NULL-822 на 109 ✨
+2026-07-10 14:20:24.401 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж professor, tema 'Как понять, в чем твоя истинная суперсила по знакам на ладони?'
+2026-07-10 14:20:24.406 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: GRID-886 на 97 ✨
+2026-07-10 14:20:24.406 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж pythia, tema 'Как понять, кто рядом с тобой - союзник или энергетический вампир?'
+2026-07-10 14:20:24.407 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: GHOST-859 на 58 ✨
+2026-07-10 14:20:24.407 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж professor, tema 'Как распознать, что ты живешь не свою жизнь, а навязанную извне?'
+2026-07-10 14:20:24.412 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NODE-146 на 78 ✨
+2026-07-10 14:20:24.412 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж saint_germain, tema 'Куда уходит твоя энергия в течение дня: аудит потерь.'
+2026-07-10 14:20:24.418 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PHANTOM-762 на 74 ✨
+2026-07-10 14:20:24.418 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж guzeeva, tema 'Твой личный код успеха: как его собрать из разных персонажей.'
+2026-07-10 14:20:24.423 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: DECODE-471 на 82 ✨
+2026-07-10 14:20:24.423 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж jack_sparrow, tema 'Синастрия: как использовать слабости партнера как твое преимущество.'
+2026-07-10 14:20:24.424 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NULL-286 на 182 ✨
+2026-07-10 14:20:24.424 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж rasputin, tema 'Почему ты ищешь одобрения у тех, кто тебя не понимает?'

@@ -1,0 +1,26 @@
+2026-07-10 14:18:55.473 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-10 14:18:55.474 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: SHADOW-325 на 118 ✨
+2026-07-10 14:18:55.475 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='139721895813408'>, персонаж vanga, tema 'Линия сердца: как перестать наступать на одни и те же грабли?'
+2026-07-10 14:18:55.480 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-10 14:18:58.482 | ERROR    | modules.autoposter:handle_diagnosis_comment:104 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-10 14:19:01.580 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:218 - PDF успешно создан: test_output.pdf
+2026-07-10 14:19:01.590 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-10 14:19:01.598 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-10 14:19:02.346 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_placeholder.png
+2026-07-10 14:19:02.735 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_avatar.png
+2026-07-10 14:19:03.105 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_scaling.png
+2026-07-10 14:19:03.116 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-10 14:19:03.164 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: SYSTEM-479 на 184 ✨
+2026-07-10 14:19:03.165 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж nostradamus, tema 'Роль партнеров в твоем личном развитии: зеркала или препятствия?'
+2026-07-10 14:19:03.169 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: SHELL-570 на 105 ✨
+2026-07-10 14:19:03.169 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж kaliostro, tema 'Как наладить отношения, если ваши «звезды» не сходятся?'
+2026-07-10 14:19:03.170 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NULL-499 на 156 ✨
+2026-07-10 14:19:03.170 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж rasputin, tema 'Как наладить отношения, если ваши «звезды» не сходятся?'
+2026-07-10 14:19:03.175 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PROXY-706 на 126 ✨
+2026-07-10 14:19:03.175 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж sheps_alex, tema 'Роль партнеров в твоем личном развитии: зеркала или препятствия?'
+2026-07-10 14:19:03.180 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: ERROR-688 на 146 ✨
+2026-07-10 14:19:03.180 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж cherevatov, tema 'Как архетипы помогают принимать жесткие решения.'
+2026-07-10 14:19:03.185 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PHANTOM-209 на 63 ✨
+2026-07-10 14:19:03.185 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж vanga, tema 'Почему правда о тебе - самая болезненная, но самая нужная?'
+2026-07-10 14:19:03.186 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NULL-210 на 192 ✨
+2026-07-10 14:19:03.186 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж professor, tema 'Почему «позитивное мышление» - это ловушка?'

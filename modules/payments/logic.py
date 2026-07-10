@@ -395,7 +395,7 @@ async def execute_generation(
                 res_text = res_text.replace("#", "").replace("*", "").replace("|", "").replace("\\", "")
 
                 # Чистый текст для истории и PDF (без меток и добавок чата)
-                full_reading_text = re.sub(r"ID_?ТАРО:\s*\d+", "", res_text).strip()
+                full_reading_text = re.sub(r"(?i)ID[-_\s]?[ТT][АA][РRРP][ОO]:\s*\d+", "", res_text).strip()
 
                 # 3. Программный заголовок для хиромантии и сонника
                 if target_section == "palmistry":
