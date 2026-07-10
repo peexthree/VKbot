@@ -24,7 +24,7 @@ from modules.utils.logic import (
     extract_russian_date, calculate_destiny_card, calculate_purpose_arcana,
     calculate_user_rank
 )
-from modules.utils.visual import generate_diagnosis_card
+from modules.utils.visual import generate_diagnosis_card, generate_card_history_image
 from modules.utils.consts import (
     SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES,
     SKIN_EMOJIS, HIDDEN_CIPHER_WORDS, ADMIN_ID
@@ -46,7 +46,14 @@ RUBRIC_NAMES = {
     "POLL": "ИНТЕРАКТИВНЫЙ ОПРОС",
     "NEWS_BREAKDOWN": "РАЗБОР ИНФОПОВОДА",
     "STAR_SYNASTRY": "ЗВЕЗДНЫЙ РАЗБОР",
-    "TREND_WATCH": "ТРЕНД-АНАЛИЗ"
+    "TREND_WATCH": "ТРЕНД-АНАЛИЗ",
+    "CARD_HISTORY": "ИСТОРИЯ АРКАНА",
+    "SACRED_SCIENCE": "САКРАЛЬНАЯ НАУКА",
+    "DREAM_DECODING": "ХРОНИКИ СНОВ",
+    "PALM_CHRONICLES": "ТАЙНЫ ХИРОМАНТИИ",
+    "KARMA_STORY": "КАРМИЧЕСКАЯ ХРОНИКА",
+    "CHAKRA_FLOW": "ПОТОКИ ЧАКР",
+    "SACRED_RITUAL": "САКРАЛЬНЫЙ РИТУАЛ"
 }
 
 labeler = BotLabeler()
@@ -235,12 +242,12 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             else:
                 logger.warning(f"Не удалось получить новости для принудительной рубрики {rubric}, используем стандартную тему")
                 tones = ["Жесткий цинизм", "Дерзкая провокация"]
-        elif rubric in ["SUPPORT", "FACT", "POLL"]:
+        elif rubric in ["SUPPORT", "FACT", "POLL", "CARD_HISTORY", "SACRED_SCIENCE", "DREAM_DECODING", "PALM_CHRONICLES", "KARMA_STORY", "CHAKRA_FLOW", "SACRED_RITUAL"]:
             tones = ["Психологическое сочувствие", "Глубокий экспертный инсайт"]
         else:
             tones = ["Жесткий цинизм", "Дерзкая провокация"]
     elif is_morning:
-        all_morning_rubrics = ["PROVOCATION", "MYTH_BUST", "BATTLE", "PRACTICUM"]
+        all_morning_rubrics = ["PROVOCATION", "MYTH_BUST", "BATTLE", "PRACTICUM", "CARD_HISTORY", "PALM_CHRONICLES", "SACRED_RITUAL"]
         rubric = await get_least_recent_rubric(all_morning_rubrics)
         tones = ["Жесткий цинизм", "Дерзкая провокация"]
     else:
@@ -258,7 +265,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         else:
             # Fallback if news fetch fails
             logger.warning("Не удалось получить новости, откат к стандартным рубрикам")
-            all_evening_rubrics = ["SUPPORT", "FACT", "POLL"]
+            all_evening_rubrics = ["SUPPORT", "FACT", "POLL", "SACRED_SCIENCE", "DREAM_DECODING", "KARMA_STORY", "CHAKRA_FLOW"]
             rubric = await get_least_recent_rubric(all_evening_rubrics)
 
             if all_available_topics:
@@ -270,26 +277,73 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
     tone = random.choice(tones)
 
-    # ГЕНЕРАЦИЯ СКРЫТОГО ШИФРА
-    cipher_base = random.choice(HIDDEN_CIPHER_WORDS)
-    cipher_num = random.randint(100, 999)
-    hidden_code = f"{cipher_base}-{cipher_num}"
-    energy_reward = random.randint(50, 200)
+    # Инициализация параметров для CARD_HISTORY
+    card_id = None
+    card_name = None
+    if rubric == "CARD_HISTORY":
+        from cards_data import get_card_data
+        card_id = random.randint(0, 77)
+        card_data = get_card_data(card_id)
+        card_name = card_data.get("name", "Шут")
+        category = "Карты Таро"
+        topic = f"История Аркана {card_name}"
+        logger.info(f"Выбран случайный Аркан для CARD_HISTORY: {card_name} (ID: {card_id})")
 
-    # Сохраняем код в БД
-    await save_hidden_promo(hidden_code, energy_reward)
-    logger.info(f"Сгенерирован скрытый шифр для поста: {hidden_code} на {energy_reward} ✨")
+    # СЕТКА ЭЗОТЕРИЧЕСКИХ ДИАГНОЗОВ (ВЕКТОРЫ А, Б, В, Г)
+    # Случайный выбор гарантирует 25% вероятность для каждого вектора, включая Вектор Г (Фантазии)
+    vector_choice = random.choice(["A", "B", "C", "D"])
+    vector_descriptions = {
+        "A": "Вектор А (Хаос): Человек делает слишком много пустых, суетливых действий, сливая энергию космоса на ментальный шум вместо точечного удара.",
+        "B": "Вектор Б (Страх силы): Человек готов действовать, но блокирует свой потенциал, потому что боится масштаба собственной личности и ответственности перед своей судьбой.",
+        "C": "Вектор В (Застой интеллекта): Человек ушел в глухой ментальный анализ, пытается все просчитать головой и полностью заглушил голос вселенной и интуиции.",
+        "D": "Вектор Г (Фантазии): Человек уходит в пустые медитации, иллюзии, мечтания и пассивные ожидания чуда без реальных действий."
+    }
+    vector_instruction = (
+        f"КРИТИЧЕСКОЕ ТРЕБОВАНИЕ К ПСИХОЛОГИЧЕСКОМУ АНАЛИЗУ:\n"
+        f"В этом посте ты обязан препарировать деструктивное поведение читателя строго через призму следующего вектора:\n"
+        f"{vector_descriptions[vector_choice]}\n"
+        f"СТРОЖАЙШЕ ЗАПРЕЩЕНО сводить проблему к банальной лени, ленивости или прокрастинации. "
+        f"Покажи глубокое понимание этого деструктивного вектора и дай его детальный разбор в ToV нашего проекта."
+    )
 
-    cipher_masks = [
-        f"как кармический узел или блок (например: 'энергия заблокирована в {hidden_code}')",
-        f"как сакральный номер в реестре судеб (например: 'твой индекс в звездной карте - {hidden_code}')",
-        f"как мистическую частоту или код доступа (например: 'ключ к переходу - {hidden_code}')",
-        f"как количество накопленных грехов или очков кармы (например: 'счетчик тени замер на {hidden_code}')",
-        f"как зашифрованное время или координату (например: 'встречаемся в точке {hidden_code}')",
-        f"как индекс уровня хайпа или аномалии (например: 'уровень шума в эфире - {hidden_code}')",
-        f"как номер старого архивного дела или протокола (например: 'согласно протоколу {hidden_code}')"
-    ]
-    chosen_mask = random.choice(cipher_masks)
+    # ГЕНЕРАЦИЯ СКРЫТОГО ШИФРА (20% шанс)
+    has_promo = random.random() < 0.2
+    hidden_code = None
+    cipher_instruction = ""
+    if has_promo:
+        cipher_base = random.choice(HIDDEN_CIPHER_WORDS)
+        cipher_num = random.randint(100, 999)
+        hidden_code = f"{cipher_base}-{cipher_num}"
+        energy_reward = random.randint(50, 200)
+
+        # Сохраняем код в БД
+        await save_hidden_promo(hidden_code, energy_reward)
+        logger.info(f"Сгенерирован скрытый шифр для поста: {hidden_code} на {energy_reward} ✨")
+
+        cipher_masks = [
+            f"как кармический узел или блок (например: 'энергия заблокирована в {hidden_code}')",
+            f"как сакральный номер в реестре судеб (например: 'твой индекс в звездной карте - {hidden_code}')",
+            f"как мистическую частоту или код доступа (например: 'ключ к переходу - {hidden_code}')",
+            f"как количество накопленных грехов или очков кармы (например: 'счетчик тени замер на {hidden_code}')",
+            f"как зашифрованное время или координату (например: 'встречаемся в точке {hidden_code}')",
+            f"как индекс уровня хайпа или аномалии (например: 'уровень шума в эфире - {hidden_code}')",
+            f"как номер старого архивного дела (например: 'согласно протоколу {hidden_code}')"
+        ]
+        chosen_mask = random.choice(cipher_masks)
+
+        cipher_instruction = (
+            f"КРИТИЧЕСКОЕ ЗАДАНИЕ: Вшей в текст поста скрытый игровой шифр: {hidden_code}. "
+            f"Подай его как конкретный маркер искажения частоты или кармический узел в звездной карте судьбы читателя. "
+            f"Вплети его {chosen_mask}. "
+            "Инструкция по интеграции: НЕ выплевывай его сухим текстом в конце или в начале. "
+            f"Органично вплети его в сакральное повествование, чтобы он выглядел как естественная часть фразы "
+            f"или тайное знание (например: «...тот самый шифр {hidden_code}, открывающий врата...» или «...искажение на частоте {hidden_code}...»). "
+            "Он НЕ должен быть в конце или начале. Он должен быть органично вшит в середину одного из абзацев. "
+            "Код должен быть написан именно так: КАПСОМ, латиницей, через дефис. "
+            "НЕ делай на нем акцент, он должен выглядеть как естественная часть повествования."
+        )
+    else:
+        cipher_instruction = "Скрытый игровой шифр в этом посте использовать НЕ нужно. Не упоминай никакие коды или шифры."
 
     # Логика Битвы Архетипов
     opponent_id = ""
@@ -317,28 +371,11 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         rubric_instruction = rubric_instruction.replace("твоим оппонентом", opponent_name)
     elif rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
         rubric_instruction = f"СВОДКА НОВОСТЕЙ ДЛЯ РАЗБОРА:\n{news_context}\n\n" + rubric_instruction
+    elif rubric == "CARD_HISTORY":
+        rubric_instruction = f"ВЫПУСК ПОСВЯЩЕН АРКАНУ: {card_name} (ID/номер {card_id}).\n\n" + rubric_instruction
 
-    # Логика разделения шифра по воскресеньям
-    is_sunday = now.weekday() == 6
-    if is_sunday:
-        cipher_parts = hidden_code.split('-')
-        part1, part2 = cipher_parts[0], cipher_parts[1]
-        cipher_instruction = (
-            f"КРИТИЧЕСКОЕ ЗАДАНИЕ: Сегодня воскресенье, поэтому мы делим шифр на две части. "
-            f"Вшей в середину текста ПЕРВУЮ ЧАСТЬ ШИФРА: {part1}. "
-            f"Подай её как конкретный маркер блокировки энергии или кармический блок в звездной карте судьбы читателя. "
-            f"Вплети её {chosen_mask}. "
-            "Она должна выглядеть как естественная часть повествования."
-        )
-    else:
-        cipher_instruction = (
-            f"КРИТИЧЕСКОЕ ЗАДАНИЕ: Вшей в текст поста скрытый игровой шифр: {hidden_code}. "
-            f"Подай его как конкретный маркер блокировки энергии или кармический блок в звездной карте судьбы читателя. "
-            f"Вплети его {chosen_mask}. "
-            "Он НЕ должен быть в конце или начале. Он должен быть органично вшит в середину одного из абзацев. "
-            "Код должен быть написан именно так: КАПСОМ, латиницей, через дефис. "
-            "НЕ делай на нем акцент, он должен выглядеть как естественная часть повествования."
-        )
+    # Воскресная механика полностью отменена. Sunday is just a normal day.
+    is_sunday = False
 
     # Инструкция по динамической концовке (CTA)
     dynamic_cta_instruction = (
@@ -358,6 +395,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         "метафорами и глубоким пониманием психологии.\n\n"
         f"Твой роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
         f"Рубрика поста: {rubric}. ИНСТРУКЦИЯ К РУБРИКЕ: {rubric_instruction}\n\n"
+        f"{vector_instruction}\n\n"
         f"{cipher_instruction}\n\n"
         f"{dynamic_cta_instruction}\n\n"
         "ГЛОБАЛЬНАЯ КОМПОЗИЦИЯ: Органично склей четыре элемента: Личность персонажа + Тематику рубрики + Боль/Эго читателя + Уникальный динамический CTA. "
@@ -536,7 +574,9 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         "rubric": rubric,
         "quote": quote,
         "is_sunday": is_sunday,
-        "hidden_code": hidden_code
+        "hidden_code": hidden_code,
+        "card_id": card_id,
+        "card_name": card_name
     }
 
 async def create_vk_poll(options: list):
@@ -588,7 +628,7 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         # --- СБОР ВЛОЖЕНИЙ (ЕДИНАЯ СЕТКА) ---
         attachments = []
 
-        # 1. Основные фото (Персонажи)
+        # 1. Основные фото (Персонажи или Карта для CARD_HISTORY)
         if rubric == "BATTLE" and opponent_id:
             photo1 = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
             photo2 = SKIN_VISUALS.get(opponent_id, "main_menu.jpeg")
@@ -596,19 +636,30 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             att2 = await upload_wall_photo(bot.api, photo2)
             if att1: attachments.append(att1)
             if att2: attachments.append(att2)
+        elif rubric == "CARD_HISTORY":
+            try:
+                card_filename = f"card_hist_{random.randint(1000,9999)}.jpg"
+                card_path = os.path.join("cards", card_filename)
+                c_id = post_data.get("card_id", 0)
+                c_name = post_data.get("card_name", "Шут")
+                generate_card_history_image(c_id, c_name, card_path)
+                att_card = await upload_wall_photo(bot.api, card_filename)
+                if att_card:
+                    attachments.append(att_card)
+                if os.path.exists(card_path):
+                    os.remove(card_path)
+            except Exception as e:
+                logger.error(f"Ошибка при создании картинки CARD_HISTORY: {e}")
+                # Fallback to character photo
+                photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
+                att = await upload_wall_photo(bot.api, photo_filename)
+                if att: attachments.append(att)
         else:
             photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
             att = await upload_wall_photo(bot.api, photo_filename)
             if att: attachments.append(att)
 
-        # 2. Дополнительная карта (20% шанс, кроме опросов)
-        if random.random() < 0.2 and rubric != "POLL":
-            card_id = random.randint(0, 77)
-            att_card = await upload_wall_photo(bot.api, f"{card_id}.jpeg")
-            if att_card:
-                attachments.append(att_card)
-
-        # 3. Карточка-диагноз (генерируется из цитаты ИИ)
+        # 2. Карточка-диагноз (генерируется из цитаты ИИ)
         quote = post_data.get("quote")
         if quote:
             try:
@@ -659,21 +710,12 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         except Exception as e:
             logger.error(f"Ошибка сохранения привязки скина в Redis: {e}")
 
-        # АВТОМАТИЧЕСКИЙ КОММЕНТАРИЙ (Вскрытие + Вторая часть шифра)
+        # АВТОМАТИЧЕСКИЙ КОММЕНТАРИЙ (Вскрытие)
         # Публикуем сразу после поста, чтобы он был самым первым и вверху ветки
         comment_parts = []
 
         # 1. Триггер "Вскрытие"
         comment_parts.append("Напиши в комментариях свою дату рождения - и Проводник раскроет твою кармическую задачу на сегодня.")
-
-        # 2. Вторая часть шифра по воскресеньям (Квестовая механика)
-        if post_data.get("is_sunday"):
-            hidden_code = post_data.get("hidden_code", "")
-            if "-" in hidden_code:
-                cipher_parts = hidden_code.split("-")
-                if len(cipher_parts) > 1:
-                    part2 = cipher_parts[1]
-                    comment_parts.append(f"Вторая часть ключа найдена на просторах вселенной: {part2}")
 
         comment_text = "\n\n".join(comment_parts)
         # Техническая очистка комментария

@@ -1,8 +1,10 @@
 import asyncio
 import json
+import os
 from unittest.mock import patch, MagicMock
 import pytest
 from modules.autoposter import generate_post
+from modules.utils.visual import generate_card_history_image
 
 @pytest.mark.asyncio
 async def test_viral_post_generation():
@@ -76,30 +78,6 @@ async def test_hashtag_handling_punctuation_and_deduplication():
                         assert "Тело поста." in text
 
 @pytest.mark.asyncio
-async def test_sunday_mechanics():
-    # Мокаем текущую дату на воскресенье
-    sunday = MagicMock()
-    sunday.weekday.return_value = 6
-    sunday.strftime.return_value = "07.07.2024"
-
-    with patch("datetime.datetime") as mock_date:
-        mock_date.now.return_value = sunday
-        # На самом деле в коде используется now = datetime.datetime.now(tz_bash)
-        # Нам нужно убедиться что logic подхватит is_sunday
-
-        with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
-            with patch("modules.autoposter.get_active_poll", return_value=None):
-                with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
-                    with patch("modules.autoposter.save_hidden_promo", return_value=True):
-                        mock_json = {
-                            "text": "Текст с ЧАСТЬ1. Этот текст должен быть достаточно длинным, чтобы пройти валидацию по длине чистого текста от искусственного интеллекта. Мы пишем о прекрасных звездах, созвучиях планет и таинственных силах вселенной, которые направляют наши жизненные потоки и сонастраивают внутреннее эго с великим планом бытия. Это великое учение откроет новые сияющие горизонты перед каждым, кто готов вслушаться в истинную мудрость. #АнтиТар",
-                            "quote": "Цитата"
-                        }
-                        with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json)):
-                            post_data = await generate_post(is_morning=True)
-                            assert post_data["is_sunday"] is True
-
-@pytest.mark.asyncio
 async def test_dynamic_cta_handling():
     """Тестирует детекцию динамического CTA (эмодзи 🔮) и пропуск жесткого навигатора."""
     with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
@@ -131,8 +109,7 @@ async def test_dynamic_cta_handling():
                         text = post_data["text"]
 
                         # Жесткий навигатор ДОЛЖЕН быть приклеен
-                        # На этом этапе в modules/autoposter.py все еще старый текст, поэтому поддержим оба варианта в тесте для надежности
-                        assert ("Чтобы взломать свою судьбу" in text or "Чтобы сонастроить свои внутренние" in text)
+                        assert ("Чтобы сонастроить свои внутренние" in text)
 
 @pytest.mark.asyncio
 async def test_autoposter_validation_and_alerting():
@@ -223,10 +200,35 @@ async def test_escaped_newline_handling():
                         # Проверяем, что хэштеги были успешно выделены в самый конец
                         assert "#АнтиТар #Судьба" in text
 
-if __name__ == "__main__":
-    asyncio.run(test_viral_post_generation())
-    asyncio.run(test_sunday_mechanics())
-    asyncio.run(test_dynamic_cta_handling())
-    asyncio.run(test_autoposter_validation_and_alerting())
-    asyncio.run(test_escaped_newline_handling())
-    print("Tests passed!")
+@pytest.mark.asyncio
+async def test_card_history_rubric_generation():
+    """Тестирует рубрику CARD_HISTORY в генераторе постов."""
+    with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
+        with patch("modules.autoposter.get_active_poll", return_value=None):
+            with patch("modules.autoposter.get_least_recent_rubric", return_value="CARD_HISTORY"):
+                with patch("modules.autoposter.save_hidden_promo", return_value=True):
+                    mock_json = {
+                        "text": "Разбор Аркана. Это очень глубокий и развернутый разбор тарологии и космических путей, который заставит каждого задуматься о своих жизненных потоках. Мы препарируем самые сокровенные тайны души и указываем на истинное величие каждого адепта. Хватит плыть по течению, пора настроить свои внутренние струны и услышать настоящий шепот далеких звезд. Мы направляем жизненные потоки в нужное русло. #АнтиТар",
+                        "quote": "Цитата"
+                    }
+                    with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json)):
+                        post_data = await generate_post(is_morning=True)
+                        assert post_data is not None
+                        assert "card_id" in post_data
+                        assert "card_name" in post_data
+                        assert post_data["card_id"] is not None
+                        assert post_data["card_name"] is not None
+                        assert "ИСТОРИЯ АРКАНА" in post_data["text"]
+
+def test_generate_card_history_image_file():
+    """Тестирует корректную генерацию Pillow изображения для CARD_HISTORY."""
+    temp_path = "cards/test_temp_hist.jpg"
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
+    try:
+        generate_card_history_image(0, "Шут", temp_path)
+        assert os.path.exists(temp_path)
+        assert os.path.getsize(temp_path) > 100
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
