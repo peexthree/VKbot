@@ -1,0 +1,23 @@
+2026-07-10 09:04:03.026 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-10 09:04:03.031 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NULL-687 на 89 ✨
+2026-07-10 09:04:03.033 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140673293840128'>, персонаж kaliostro, tema 'Как настроить себя на высокий уровень продуктивности.'
+2026-07-10 09:04:03.044 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-10 09:04:06.255 | INFO     | modules.autoposter:handle_diagnosis_comment:102 - Персонаж для поста 67890 не найден в кэше, выбран рандомный: ai_mom
+2026-07-10 09:04:10.553 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-10 09:04:10.564 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-10 09:04:10.573 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-10 09:04:10.586 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-10 09:04:10.634 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: OVERRIDE-737 на 116 ✨
+2026-07-10 09:04:10.635 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж guzeeva, tema 'Что делать, когда «карты» говорят одно, а логика - другое?'
+2026-07-10 09:04:10.639 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: ZERO-136 на 182 ✨
+2026-07-10 09:04:10.640 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж sheps_alex, tema 'Как настроить себя на высокий уровень продуктивности.'
+2026-07-10 09:04:10.641 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PROXY-523 на 56 ✨
+2026-07-10 09:04:10.641 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж guzeeva, tema 'Как понять, в чем твоя истинная суперсила по знакам на ладони?'
+2026-07-10 09:04:10.645 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: MATRIX-730 на 130 ✨
+2026-07-10 09:04:10.646 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж anubis, tema 'Как отличить свою истинную цель от навязанного желания.'
+2026-07-10 09:04:10.651 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PHANTOM-697 на 112 ✨
+2026-07-10 09:04:10.651 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж saint_germain, tema 'Хиромантия для бизнеса: как читать знаки успеха.'
+2026-07-10 09:04:10.656 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: ROOT-870 на 97 ✨
+2026-07-10 09:04:10.656 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж cleopatra, tema 'Как наладить отношения, если ваши «звезды» не сходятся?'
+2026-07-10 09:04:10.657 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: BYPASS-876 на 191 ✨
+2026-07-10 09:04:10.658 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж vanga, tema 'Как по руке определить предрасположенность к большим деньгам.'
