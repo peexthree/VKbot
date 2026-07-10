@@ -428,38 +428,62 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             ai_text = "\n\n".join(paragraphs)
 
     # Агрессивный предохранитель хэштегов: обрабатываем именно ai_text
-    ai_lines = [line.strip() for line in ai_text.strip().split('\n') if line.strip()]
+    ai_lines = [line.strip() for line in ai_text.strip().split('\n')]
 
-    # Сначала отделим хэштеги от основного текста
-    hashtags = ""
-    if ai_lines:
-        # Посмотрим на последнюю строку, не хэштеги ли это
-        last_line = ai_lines[-1]
+    extracted_hashtags = []
+
+    # Обратное сканирование с конца списка строк
+    while ai_lines:
+        last_line = ai_lines[-1].strip()
+        if not last_line:
+            ai_lines.pop()
+            continue
+
         words = last_line.split()
         if words and all(w.startswith('#') for w in words):
-            # Это строка хэштегов
-            hashtags = last_line
-            ai_lines.pop() # Удаляем строку хэштегов из основного текста
+            # Извлекаем хэштеги и удаляем строку из основного тела
+            extracted_hashtags = words + extracted_hashtags
+            ai_lines.pop()
         else:
-            # Иначе дефолтные хэштеги
-            hashtags = "#АнтиТар #МатрицаСудьбы #Психология #Судьба"
-    else:
-        # Иначе дефолтные хэштеги
-        hashtags = "#АнтиТар #МатрицаСудьбы #Психология #Судьба"
+            # Прекращаем сканирование при встрече любого другого текста
+            break
 
-    # Склеиваем обратно текст
-    main_body = "\n\n".join(ai_lines).strip()
+    # Склеиваем обратно очищенное тело поста
+    main_body = "\n".join(ai_lines).strip()
+
+    # Очистка извлеченных хэштегов от любых знаков препинания
+    cleaned_tags = []
+    for tag in extracted_hashtags:
+        if tag.startswith('#'):
+            # Оставляем только буквы и цифры после #
+            clean_word = re.sub(r'[^\w\s]', '', tag[1:])
+            if clean_word:
+                cleaned_tags.append(f"#{clean_word}")
+
+    # Если обратный сканер выдал пустоту, используем базовый пак
+    if not cleaned_tags:
+        hashtags_str = "#АнтиТар #МатрицаСудьбы #Психология #Судьба"
+    else:
+        # Дедупликация с сохранением порядка (без учета регистра)
+        seen = set()
+        unique_tags = []
+        for t in cleaned_tags:
+            t_lower = t.lower()
+            if t_lower not in seen:
+                seen.add(t_lower)
+                unique_tags.append(t)
+        hashtags_str = " ".join(unique_tags)
 
     # Добавляем жесткую фиксированную строчку-навигатор
     fixed_navigator = "Чтобы взломать свою судьбу и получить доступ к скрытым настройкам души, нажми кнопку Написать сообществу и бот тебя проведет по лучшему пути"
 
-    # Формируем итоговый текст
+    # Формируем итоговый текст: тело поста, навигатор, хэштеги
     final_text_parts = []
     if main_body:
         final_text_parts.append(main_body)
     final_text_parts.append(fixed_navigator)
-    if hashtags:
-        final_text_parts.append(hashtags)
+    if hashtags_str:
+        final_text_parts.append(hashtags_str)
 
     final_text = "\n\n".join(final_text_parts)
 
