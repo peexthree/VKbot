@@ -297,7 +297,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         opponent_id = random.choice(opponents)
         opponent_name = SKIN_DISPLAY_NAMES.get(opponent_id, opponent_id)
 
-    logger.info(f"Генерация поста: {rubric}, персонаж {skin_id}, тема '{topic}'")
+    logger.info(f"Генерация поста: {rubric}, персонаж {skin_id}, tema '{topic}'")
 
     # Получаем текущую дату по UTC+5 (Башкирия)
     tz_bash = timezone(timedelta(hours=5))
@@ -354,7 +354,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         "Твой текст должен стать объемным, плотным и развернутым лонгридом (ОТ 1500 ДО 2500 СИМВОЛОВ). "
         "Никаких коротких отписок и лозунгов. Пиши емко, с конкретными жизненными примерами, "
         "метафорами и глубоким пониманием психологии.\n\n"
-        f"Твоя роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
+        f"Твой роль: {skin_name}. Твой эмоциональный тон: {tone}.\n"
         f"Рубрика поста: {rubric}. ИНСТРУКЦИЯ К РУБРИКЕ: {rubric_instruction}\n\n"
         f"{cipher_instruction}\n\n"
         f"{dynamic_cta_instruction}\n\n"
@@ -428,8 +428,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             ai_text = "\n\n".join(paragraphs)
 
     # Агрессивный предохранитель хэштегов: обрабатываем именно ai_text
-    ai_lines = [line.strip() for line in ai_text.strip().split('\n')]
-
+    ai_lines = ai_text.split('\n')
     extracted_hashtags = []
 
     # Обратное сканирование с конца списка строк
@@ -439,10 +438,11 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             ai_lines.pop()
             continue
 
-        words = last_line.split()
-        if words and all(w.startswith('#') for w in words):
-            # Извлекаем хэштеги и удаляем строку из основного тела
-            extracted_hashtags = words + extracted_hashtags
+        if '#' in last_line:
+            # Находим все хэштеги в строке с помощью регулярного выражения
+            tags_in_line = re.findall(r'#\w+', last_line)
+            if tags_in_line:
+                extracted_hashtags = tags_in_line + extracted_hashtags
             ai_lines.pop()
         else:
             # Прекращаем сканирование при встрече любого другого текста
@@ -474,14 +474,21 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
                 unique_tags.append(t)
         hashtags_str = " ".join(unique_tags)
 
-    # Добавляем жесткую фиксированную строчку-навигатор
+    # Детекция динамического CTA: ищем 🔮 в последних 500 символах
+    search_tail = main_body[-500:] if len(main_body) >= 500 else main_body
+    has_dynamic_cta = "🔮" in search_tail
+
+    # Добавляем жесткую фиксированную строчку-навигатор только если нет динамического CTA
     fixed_navigator = "Чтобы взломать свою судьбу и получить доступ к скрытым настройкам души, нажми кнопку Написать сообществу и бот тебя проведет по лучшему пути"
 
-    # Формируем итоговый текст: тело поста, навигатор, хэштеги
+    # Формируем итоговый текст: тело поста, навигатор (если нужен), хэштеги
     final_text_parts = []
     if main_body:
         final_text_parts.append(main_body)
-    final_text_parts.append(fixed_navigator)
+
+    if not has_dynamic_cta:
+        final_text_parts.append(fixed_navigator)
+
     if hashtags_str:
         final_text_parts.append(hashtags_str)
 
