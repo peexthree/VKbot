@@ -38,8 +38,8 @@ async def test_rpm_limiter_wait():
 async def test_generate_text_uses_limiter():
     # Mock everything generate_text needs before it hits the network or redis
     with patch("ai.logic.get_gemini_api_keys", new_callable=AsyncMock) as mock_keys, \
-         patch("cache.redis_client") as mock_redis, \
-         patch("cache.acquire_ai_slot", new_callable=AsyncMock) as mock_acquire:
+         patch("ai.logic.redis_client") as mock_redis, \
+         patch("ai.logic.acquire_ai_slot", new_callable=AsyncMock) as mock_acquire:
 
         mock_keys.return_value = ["key1"]
         mock_redis.get = AsyncMock(return_value=b"1") # proxy_enabled

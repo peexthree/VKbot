@@ -16,12 +16,18 @@ from prompts.rubrics import RUBRIC_PROMPTS
 from cache import redis_client as redis
 from database.autoposter import (
     get_daily_used_content, get_active_poll, close_poll,
-    save_hidden_promo, get_least_recent_rubric, save_active_poll
+    save_hidden_promo, get_least_recent_rubric, save_active_poll,
+    add_post_history
+)
+from database import get_user
+from modules.utils.logic import (
+    extract_russian_date, calculate_destiny_card, calculate_purpose_arcana,
+    calculate_user_rank
 )
 from modules.utils.visual import generate_diagnosis_card
 from modules.utils.consts import (
     SKIN_VISUALS, SKIN_DISPLAY_NAMES, SKIN_SHORT_NAMES,
-    SKIN_EMOJIS, HIDDEN_CIPHER_WORDS
+    SKIN_EMOJIS, HIDDEN_CIPHER_WORDS, ADMIN_ID
 )
 from modules.utils.photos import upload_wall_photo
 from modules.utils.news import fetch_trending_news
@@ -76,7 +82,6 @@ async def handle_diagnosis_comment(event: dict):
 
     if from_id <= 0: return # Игнорируем группы и пустые ID
 
-    from modules.utils.logic import extract_russian_date
     birth_date = extract_russian_date(text)
 
     # Проверка, что дата является основой сообщения (не слишком длинный текст и дата присутствует)
@@ -104,15 +109,12 @@ async def handle_diagnosis_comment(event: dict):
             logger.error(f"Ошибка получения скина из Redis: {e}")
             target_skin = "olesya"
 
-        from modules.utils.logic import calculate_destiny_card, calculate_purpose_arcana
         main_arcana = calculate_destiny_card(birth_date)
         purpose_arcana = calculate_purpose_arcana(birth_date)
 
-        from database import get_user
         user = await get_user(from_id)
 
         if user:
-            from modules.utils.logic import calculate_user_rank
             level, _ = calculate_user_rank(user)
             active_skin_id = user.get("active_skin", "olesya")
             active_skin_name = SKIN_DISPLAY_NAMES.get(active_skin_id, active_skin_id)
@@ -518,6 +520,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
     return {
         "text": final_text,
+        "ai_text": ai_text,
         "skin_id": skin_id,
         "opponent_id": opponent_id,
         "topic": topic,
@@ -545,6 +548,22 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
     try:
         post_data = await generate_post(is_morning=is_morning, forced_rubric=forced_rubric)
         if not post_data:
+            logger.error("Аборт публикации: пост не сгенерирован")
+            alert_msg = "🚨 Сбой автопостинга! Публикация отменена. Причина: ИИ вернул пустой текст или сработал тайтмаут прокси. Проверь логи Cloudflare"
+            try:
+                await bot.api.messages.send(peer_id=ADMIN_ID, message=alert_msg, random_id=random.getrandbits(63))
+            except Exception as ae:
+                logger.error(f"Не удалось отправить алерт админу: {ae}")
+            return
+
+        ai_text = post_data.get("ai_text", "")
+        if len(ai_text.strip()) < 400:
+            logger.error(f"Аборт публикации: текст ИИ слишком короткий ({len(ai_text)} < 400 символов)")
+            alert_msg = "🚨 Сбой автопостинга! Публикация отменена. Причина: ИИ вернул пустой текст или сработал тайтмаут прокси. Проверь логи Cloudflare"
+            try:
+                await bot.api.messages.send(peer_id=ADMIN_ID, message=alert_msg, random_id=random.getrandbits(63))
+            except Exception as ae:
+                logger.error(f"Не удалось отправить алерт админу: {ae}")
             return
 
         text = post_data["text"]
@@ -663,7 +682,6 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             logger.error(f"Ошибка при создании комментария: {e}")
 
         # Записываем в историю публикаций (используем и тему и скин для лога 72ч)
-        from database.autoposter import add_post_history
         await add_post_history(topic, skin_id=skin_id, rubric=rubric)
 
     except Exception as e:

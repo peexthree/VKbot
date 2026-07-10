@@ -419,21 +419,25 @@ def create_neon_feedback_card(
     base.save(output_path, "PNG")
     logger.success(f"Successfully generated crystal cosmic feedback card at {output_path}")
 
-async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_text: str):
+async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_text: str, force: bool = False) -> tuple[bool, str]:
     """Сбор отзывов пачками по 4 штуки и публикация каруселью"""
     # Используем глобальную блокировку для предотвращения гонки при пакетной публикации
     if not await acquire_lock("batch_feedback_publish", ttl=60):
-        return
+        return False, "Ресурс заблокирован. Попробуйте позже."
 
     try:
         # Получаем список неопубликованных отзывов
         unposted = await get_unposted_feedbacks(limit=4)
 
-        if len(unposted) < 4:
-            logger.info(f"Feedback queue: {len(unposted)}/4. Waiting for more.")
-            return
+        if not unposted:
+            logger.info("No unposted feedbacks found.")
+            return False, "Нет неопубликованных отзывов для публикации."
 
-        logger.info("Feedback queue full (4/4). Starting batch publication...")
+        if not force and len(unposted) < 4:
+            logger.info(f"Feedback queue: {len(unposted)}/4. Waiting for more.")
+            return False, f"Очередь отзывов: {len(unposted)}/4. Ожидаем больше."
+
+        logger.info(f"Starting publication (Force: {force}, Count: {len(unposted)})...")
 
         attachments = []
         temp_files = []
@@ -499,7 +503,7 @@ async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_t
 
         if not attachments:
             logger.error("Failed to upload feedback batch cards to VK")
-            return
+            return False, "Не удалось загрузить карточки отзывов в ВК."
 
         # 2. Публикация поста
         post_text = (
@@ -524,8 +528,11 @@ async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_t
             if os.path.exists(path):
                 os.remove(path)
 
+        return True, f"Опубликована карусель из {len(attachments)} отзывов!"
+
     except Exception as e:
         logger.exception(f"Error in batch send_feedback_to_chat: {e}")
+        return False, f"Ошибка при публикации: {e}"
     finally:
         await release_lock("batch_feedback_publish")
 

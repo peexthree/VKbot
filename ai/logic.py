@@ -7,6 +7,8 @@ import aiohttp
 from configs.models import MODELS
 from prompts.base import BASE_SYSTEM_INSTRUCTION
 from prompts.personas import SKIN_MAP
+from ai.core import init_session
+from cache import redis_client, acquire_ai_slot
 
 SANITIZATION_TABLE = str.maketrans({
     '*': '',
@@ -58,19 +60,27 @@ async def check_proxy_status():
         # Используем первый ключ для проверки через воркер
         test_url = f"{proxy_url.rstrip('/')}/v1beta/models?key={keys[0]}"
 
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
-            async with session.get(test_url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    if "models" in data:
-                        logger.info(f"SUCCESS: Cloudflare Proxy is working. Models available: {len(data['models'])}")
-                    else:
-                        logger.info("SUCCESS: Cloudflare Proxy is working, but response format is unexpected.")
+        session = init_session()
+        async with session.get(test_url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if "models" in data:
+                    logger.info(f"SUCCESS: Cloudflare Proxy is working. Models available: {len(data['models'])}")
                 else:
-                    error_text = await resp.text()
-                    logger.warning(f"WARNING: Cloudflare Proxy returned status {resp.status}. Details: {error_text}")
+                    logger.info("SUCCESS: Cloudflare Proxy is working, but response format is unexpected.")
+            else:
+                error_text = await resp.text()
+                cf_ray = resp.headers.get("cf-ray", "N/A")
+                server = resp.headers.get("server", "N/A")
+                logger.error(
+                    f"WARNING: Cloudflare Proxy returned status {resp.status}.\n"
+                    f"URL: {test_url}\n"
+                    f"CF-Ray: {cf_ray}\n"
+                    f"Server: {server}\n"
+                    f"Details: {error_text}"
+                )
     except Exception as e:
-        logger.warning(f"WARNING: Cloudflare Proxy diagnostic failed: {e}")
+        logger.error(f"WARNING: Cloudflare Proxy diagnostic failed: {e}")
 
 async def get_gemini_api_keys() -> list[str]:
     global _cached_api_keys
@@ -107,7 +117,6 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
     last_exception = Exception("Unknown error")
     tov_instruction = SKIN_MAP.get(skin, SKIN_MAP["olesya"])
 
-    from cache import redis_client, acquire_ai_slot
     proxy_enabled_raw = await redis_client.get("system_config:proxy_enabled")
     # По умолчанию прокси включен, если ключ не установлен
     is_proxy_active = bool(int(proxy_enabled_raw)) if proxy_enabled_raw is not None else True
@@ -117,12 +126,9 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
         base_api_url = proxy_url.rstrip('/')
         logger.info(f"Using Cloudflare Proxy for AI generation: {base_api_url}")
 
-    async with aiohttp.ClientSession(
-        timeout=aiohttp.ClientTimeout(total=90),
-        connector=aiohttp.TCPConnector(limit=10)
-    ) as session:
-        for model, version in MODELS:
-            for api_key in api_keys:
+    session = init_session()
+    for model, version in MODELS:
+        for api_key in api_keys:
                 url = f"{base_api_url}/{version}/{model}:generateContent?key={api_key}"
 
                 # Премиальная инструкция для более глубоких ответов
@@ -204,10 +210,20 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                                     break
                                 else:
                                     error_text = await resp.text()
-                                    logger.error(f"API Error {resp.status} on {model} (Key: {api_key[:8]}...). Details: {error_text}")
+                                    cf_ray = resp.headers.get("cf-ray", "N/A")
+                                    server = resp.headers.get("server", "N/A")
+                                    logger.error(
+                                        f"Cloudflare/API Error Status: {resp.status}\n"
+                                        f"URL: {url}\n"
+                                        f"CF-Ray: {cf_ray}\n"
+                                        f"Server: {server}\n"
+                                        f"Details: {error_text}"
+                                    )
                                     break
                     except (asyncio.TimeoutError, aiohttp.ClientError) as e:
-                        logger.warning(f"Network error/timeout on {model} (attempt {attempt+1}/3): {e}")
+                        logger.error(
+                            f"Network error/timeout on {model} (attempt {attempt+1}/3) to URL {url}: {e}"
+                        )
                         if attempt < 2:
                             await asyncio.sleep(1)
                             continue
@@ -215,7 +231,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
                         break
                     except Exception as e:
                         last_exception = e
-                        logger.error(f"Unexpected error: {str(e)}")
+                        logger.error(f"Unexpected error on URL {url}: {str(e)}")
                         break
 
     logger.error(f"All keys and models exhausted or failed for text generation. Last error: {last_exception}")

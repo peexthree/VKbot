@@ -8,6 +8,8 @@ from vkbottle.bot import BotLabeler, Message
 
 from cache import redis_client, set_fsm_state
 from database import get_all_users, get_user, update_user, get_user_count, get_users_paginated
+from database.feedbacks import get_unposted_feedbacks
+from modules.support import send_feedback_to_chat
 from modules.utils import ADMIN_ID, clear_photo_cache, ghost_edit, get_fsm_step
 from modules.bot_init import bot
 
@@ -41,6 +43,7 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     kb.add(Callback("👥 АДЕПТЫ", payload={"cmd": "admin_nav", "menu": "users"}), color=KeyboardButtonColor.PRIMARY)
     kb.add(Callback("📢 ВЕЩАНИЕ", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.PRIMARY)
     kb.row()
+    kb.add(Callback("💬 ОТЗЫВЫ", payload={"cmd": "admin_nav", "menu": "feedbacks"}), color=KeyboardButtonColor.POSITIVE)
     kb.add(Callback("💎 VIP ХАБ", payload={"cmd": "admin_nav", "menu": "vip"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
     kb.add(Callback("⚡ SQL", payload={"cmd": "admin_cmd", "action": "sql_exec_start"}), color=KeyboardButtonColor.NEGATIVE)
@@ -256,6 +259,25 @@ async def show_admin_broadcast(peer_id: int, conversation_message_id: int = None
     kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
+async def show_admin_feedbacks(peer_id: int, conversation_message_id: int = None):
+    """Раздел управления отзывами"""
+    unposted = await get_unposted_feedbacks(limit=4)
+    count = len(unposted)
+
+    text = (
+        "💬 УПРАВЛЕНИЕ ОТЗЫВАМИ 💬\n\n"
+        f"Неопубликованных отзывов в очереди: {count}/4.\n"
+        "При достижении 4 отзывов система автоматически публикует карусель на стену.\n\n"
+        "Вы можете принудительно запустить публикацию карусели для тестирования, даже если в очереди меньше 4 отзывов."
+    )
+
+    kb = Keyboard(inline=True)
+    kb.add(Callback("🚀 ОПУБЛИКОВАТЬ КАРАУСЕЛЬ", payload={"cmd": "admin_cmd", "action": "force_publish_feedbacks"}), color=KeyboardButtonColor.POSITIVE)
+    kb.row()
+    kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+
+    await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
+
 async def show_admin_autopost_rubrics(peer_id: int, conversation_message_id: int = None, page: int = 0):
     """Выбор рубрики для автопоста с пагинацией"""
     rubrics = [
@@ -438,9 +460,18 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         elif nav_menu == "autopost_rubrics": await show_admin_autopost_rubrics(peer_id, conversation_message_id, page=page)
         elif nav_menu == "logs": await show_admin_logs(peer_id, conversation_message_id)
         elif nav_menu == "vip": await show_admin_vip(peer_id, conversation_message_id)
+        elif nav_menu == "feedbacks": await show_admin_feedbacks(peer_id, conversation_message_id)
         elif nav_menu == "ux_analytics": await show_admin_ux_analytics(peer_id, conversation_message_id)
         return
-    if action == "toggle_warmup":
+    if action == "force_publish_feedbacks":
+        await bot.api.messages.send(peer_id=peer_id, message="⏳ Начинаю принудительную публикацию карусели отзывов...", random_id=random.getrandbits(63))
+        success, msg = await send_feedback_to_chat(vk_id=vk_id, section="", rating=5, comment_text="", force=True)
+        if success:
+            await bot.api.messages.send(peer_id=peer_id, message=f"✅ {msg}", random_id=random.getrandbits(63))
+        else:
+            await bot.api.messages.send(peer_id=peer_id, message=f"❌ {msg}", random_id=random.getrandbits(63))
+        await show_admin_feedbacks(peer_id, conversation_message_id)
+    elif action == "toggle_warmup":
         c = await redis_client.get("system_config:warmup_active")
         nv = 0 if c and int(c) == 1 else 1
         await redis_client.set("system_config:warmup_active", str(nv))
