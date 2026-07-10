@@ -1,6 +1,5 @@
 import os
 import io
-import pytest
 from PIL import Image
 from modules.support import create_neon_feedback_card
 

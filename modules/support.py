@@ -2,12 +2,11 @@ import os
 import json
 import datetime
 import random
-import textwrap
 import asyncio
 import math
 import io
 import aiohttp
-from typing import Optional, List
+from typing import Optional
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
