@@ -1,0 +1,26 @@
+2026-07-10 09:22:02.464 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-10 09:22:02.466 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: ERROR-513 на 187 ✨
+2026-07-10 09:22:02.467 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='139719665155776'>, персонаж olesya, tema 'Почему твой персонаж - это ты в лучшие свои времена?'
+2026-07-10 09:22:02.472 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-10 09:22:05.687 | INFO     | modules.autoposter:handle_diagnosis_comment:102 - Персонаж для поста 67890 не найден в кэше, выбран рандомный: messing
+2026-07-10 09:22:08.597 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-10 09:22:08.608 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-10 09:22:08.617 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-10 09:22:09.120 | SUCCESS  | modules.support:create_neon_feedback_card:421 - Successfully generated crystal cosmic feedback card at cards/test_feedback_placeholder.png
+2026-07-10 09:22:09.499 | SUCCESS  | modules.support:create_neon_feedback_card:421 - Successfully generated crystal cosmic feedback card at cards/test_feedback_avatar.png
+2026-07-10 09:22:09.873 | SUCCESS  | modules.support:create_neon_feedback_card:421 - Successfully generated crystal cosmic feedback card at cards/test_feedback_scaling.png
+2026-07-10 09:22:09.885 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-10 09:22:09.932 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CRASH-420 на 83 ✨
+2026-07-10 09:22:09.933 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж messing, tema 'Как вернуть контроль над потоками, если ты чувствуешь себя "в песке".'
+2026-07-10 09:22:09.937 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NODE-851 на 145 ✨
+2026-07-10 09:22:09.937 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж cherevatov, tema 'Знаки «кармических долгов»: что с этим делать?'
+2026-07-10 09:22:09.938 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PROXY-387 на 117 ✨
+2026-07-10 09:22:09.939 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж pythia, tema 'Зачем нужно «заземляться» в эпоху цифрового шума?'
+2026-07-10 09:22:09.943 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: FLOW-247 на 107 ✨
+2026-07-10 09:22:09.943 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж jack_sparrow, tema 'Твое состояние - главный актив: как управлять им осознанно.'
+2026-07-10 09:22:09.948 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CODE-210 на 58 ✨
+2026-07-10 09:22:09.948 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж vanga, tema 'Почему правда о тебе - самая болезненная, но самая нужная?'
+2026-07-10 09:22:09.953 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PROXY-270 на 179 ✨
+2026-07-10 09:22:09.953 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж freud, tema 'Философия Анти-Таро: почему реальность всегда лучше иллюзий.'
+2026-07-10 09:22:09.954 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: FAIL-470 на 167 ✨
+2026-07-10 09:22:09.954 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж pythia, tema 'Куда уходит твоя энергия в течение дня: аудит потерь.'
