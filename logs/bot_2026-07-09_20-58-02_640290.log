@@ -1,0 +1,13 @@
+2026-07-09 20:58:08.700 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-09 20:58:08.701 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PROXY-846 на 183 ✨
+2026-07-09 20:58:08.702 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140510597419024'>, персонаж blinovskaya, тема 'Энергия успеха: что заставляет её блокироваться?'
+2026-07-09 20:58:08.708 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-09 20:58:11.713 | ERROR    | modules.autoposter:handle_diagnosis_comment:104 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-09 20:58:14.757 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-09 20:58:14.766 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-09 20:58:14.775 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-09 20:58:14.785 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-09 20:58:14.827 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: VOID-884 на 198 ✨
+2026-07-09 20:58:14.827 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж cleopatra, тема 'Как превратить свою слабость в неуязвимый аргумент.'
+2026-07-09 20:58:14.832 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CODE-880 на 115 ✨
+2026-07-09 20:58:14.832 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж rasputin, тема 'Что делать, когда «карты» говорят одно, а логика - другое?'

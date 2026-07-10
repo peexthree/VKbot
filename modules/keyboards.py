@@ -98,8 +98,6 @@ def profile_menu_kb() -> str:
     """Меню Профиля"""
     return vertical_kb([
         ("✨ Баланс энергии", "balance", KeyboardButtonColor.PRIMARY),
-        ("📜 Мои разборы", "history_menu", KeyboardButtonColor.PRIMARY),
-        ("🃏 Гримуар", {"cmd": "profile_action", "action": "grimoire"}, KeyboardButtonColor.PRIMARY),
         ("🎭 Зал пророков", {"cmd": "profile_action", "action": "change_skin"}, KeyboardButtonColor.PRIMARY),
         ("⚙️ Настройки", {"cmd": "profile_action", "action": "settings"}, KeyboardButtonColor.SECONDARY),
     ], nav_buttons=[

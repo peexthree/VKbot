@@ -34,7 +34,7 @@ from modules.keyboards import (
     rating_keyboard, feedback_skip_keyboard
 )
 from modules.utils import (
-    SKIN_ASSETS, generate_premium_pdf, get_fsm_step, get_main_keyboard,
+    SKIN_ASSETS, generate_premium_pdf, get_fsm_step,
     ghost_edit, pdf_semaphore, upload_local_photo, upload_pdf_to_vk,
     delete_bot_message
 )
@@ -164,9 +164,32 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             # Defer answering until payment logic completes (to show success/error snackbar)
             pass
         else:
-            # Универсальный пустой ответ для всех остальных нажатий
+            # Атмосферные снэкбары при переходах между разделами (ToV Анти-Тар)
+            nav_msg = None
+            action = payload.get("action")
+
+            if cmd == "main_menu":
+                nav_msg = "Синхронизация с центром матрицы... ✨"
+            elif cmd in ["services_menu", "service_page"]:
+                nav_msg = "Вскрываю витрину глубоких откровений... 🔮"
+            elif action == "grimoire" or cmd in ["grimoire_page", "grimoire_cards_list"]:
+                nav_msg = "Доступ к Гримуару карт получен... 🃏"
+            elif cmd in ["history_menu", "view_history"]:
+                nav_msg = "Дешифровка хроники откровений... 📜"
+            elif cmd in ["balance", "tariff_page"]:
+                nav_msg = "Считывание энергетического потенциала... ✨"
+            elif action == "change_skin" or cmd in ["hall_of_prophets", "skin_page", "skins_page"]:
+                nav_msg = "Вход в Зал Проводников разблокирован... 🎭"
+
             try:
-                await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
+                if nav_msg:
+                    await bot.api.messages.send_message_event_answer(
+                        event_id=event_id, user_id=vk_id, peer_id=peer_id,
+                        event_data=json.dumps({"type": "show_snackbar", "text": nav_msg}, ensure_ascii=False)
+                    )
+                else:
+                    # Универсальный пустой ответ для всех остальных нажатий
+                    await bot.api.messages.send_message_event_answer(event_id=event_id, user_id=vk_id, peer_id=peer_id)
             except Exception as e:
                 logger.warning(f"Could not answer event {event_id}: {e}")
     elif event_id:
@@ -842,7 +865,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 if buy_type == "service":
                     from database import add_event
                     asyncio.create_task(add_event(vk_id, "paid_feature_used", {"service": key}))
-                    await process_payment_and_generate(vk_id, key)
+                    await process_payment_and_generate(vk_id, key, peer_id=peer_id, conversation_message_id=obj.get("conversation_message_id"))
                     if event_id:
                         await bot.api.messages.send_message_event_answer(
                             event_id=event_id, user_id=vk_id, peer_id=peer_id,
@@ -871,8 +894,35 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                             event_id=event_id, user_id=vk_id, peer_id=peer_id,
                             event_data=json.dumps({"type": "show_snackbar", "text": f"✨ Транзит активирован! Баланс: {new_balance} ✨"})
                         )
-                    else:
-                        await bot.api.messages.send(peer_id=peer_id, message=f"ОПЛАТА УСПЕШНА.\n\nТранзит продлен до {new_expires.strftime('%d.%m.%Y %H:%M')}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {new_balance} Энергии звезд.", random_id=random.getrandbits(63), keyboard=get_main_keyboard(vk_id))
+
+                    tariff_names = {
+                        "tariff_1": "Спутник (7 дней)",
+                        "tariff_2": "Оракул (30 дней)",
+                        "tariff_vip": "VIP-Адепт (30 дней)"
+                    }
+                    tariff_name = tariff_names.get(key, "Транзит")
+
+                    text = (
+                        f"🛰 ТАРИФ УСПЕШНО АКТИВИРОВАН\n\n"
+                        f"Ты успешно подключил тариф: {tariff_name}.\n"
+                        f"Твой транзит активен до {new_expires.strftime('%d.%m.%Y %H:%M')} UTC.\n"
+                        f"Твой новый баланс: {new_balance} ✨\n\n"
+                        "Теперь тебе доступен ежедневный Шепот Звезд — твой персональный навигатор матрицы. Каждое утро ты будешь получать личный прогноз и советы от Проводника."
+                    )
+
+                    if key == "tariff_vip":
+                        text += "\n\n👑 Полный безлимит на Сонник и Хиромантию, а также вечный доступ к натальной карте успешно разблокированы!"
+
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("🏠 В ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.PRIMARY)
+
+                    await ghost_edit(
+                        bot.api,
+                        peer_id,
+                        message=text,
+                        conversation_message_id=obj.get("conversation_message_id"),
+                        keyboard=kb.get_json()
+                    )
             else:
                 if event_id:
                     await bot.api.messages.send_message_event_answer(

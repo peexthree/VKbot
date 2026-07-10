@@ -72,13 +72,28 @@ async def add_reading_to_history(vk_id: int | str, item: dict, ttl: int = 86400)
     await redis_client.set(f"user:readings_history:{vk_id}", json.dumps(history, ensure_ascii=False), ex=ttl)
 
 async def get_readings_history(vk_id: int | str) -> list:
-    """Получает историю разборов из Redis"""
+    """Получает историю разборов из Redis, при отсутствии кэша загружает из БД"""
     res = await redis_client.get(f"user:readings_history:{vk_id}")
     if res:
         try:
             return json.loads(res)
         except Exception:
             pass
+
+    # Фолбэк на Supabase
+    try:
+        from database import get_user
+        user = await get_user(int(vk_id))
+        if user:
+            history = user.get("readings_history") or []
+            if not isinstance(history, list):
+                history = []
+            # Кэшируем в Redis на 24 часа (86400 секунд)
+            await redis_client.set(f"user:readings_history:{vk_id}", json.dumps(history, ensure_ascii=False), ex=86400)
+            return history
+    except Exception as e:
+        from loguru import logger
+        logger.error(f"Ошибка получения истории из Supabase для {vk_id}: {e}")
     return []
 
 async def set_destiny_card_data(vk_id: int | str, data: dict, ttl: int = 86400):
