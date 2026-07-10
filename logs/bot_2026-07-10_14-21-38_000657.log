@@ -1,0 +1,26 @@
+2026-07-10 14:21:44.058 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-10 14:21:44.060 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: VOID-464 на 95 ✨
+2026-07-10 14:21:44.060 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='139884853945664'>, персонаж fluffy, tema 'Где на твоей руке спрятаны признаки эмоционального выгорания?'
+2026-07-10 14:21:44.065 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-10 14:21:47.070 | ERROR    | modules.autoposter:handle_diagnosis_comment:104 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-10 14:21:49.758 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:218 - PDF успешно создан: test_output.pdf
+2026-07-10 14:21:49.771 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-10 14:21:49.780 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-10 14:21:50.148 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_placeholder.png
+2026-07-10 14:21:50.536 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_avatar.png
+2026-07-10 14:21:50.913 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_scaling.png
+2026-07-10 14:21:50.926 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-10 14:21:50.971 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: NULL-112 на 70 ✨
+2026-07-10 14:21:50.971 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж guzeeva, tema 'Как отличить свою истинную цель от навязанного желания.'
+2026-07-10 14:21:50.976 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: MATRIX-945 на 83 ✨
+2026-07-10 14:21:50.976 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж professor, tema 'Как наладить отношения, если ваши «звезды» не сходятся?'
+2026-07-10 14:21:50.977 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PROXY-833 на 65 ✨
+2026-07-10 14:21:50.978 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж olesya, tema 'Почему комфорт - главный враг твоего развития?'
+2026-07-10 14:21:50.982 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CRASH-455 на 195 ✨
+2026-07-10 14:21:50.982 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж blinovskaya, tema 'Почему важно иметь «темную» сторону личности для успеха.'
+2026-07-10 14:21:50.987 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PHANTOM-971 на 109 ✨
+2026-07-10 14:21:50.987 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж ai_mom, tema 'Синастрия: как использовать слабости партнера как твое преимущество.'
+2026-07-10 14:21:50.991 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: ROOT-274 на 123 ✨
+2026-07-10 14:21:50.991 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж anubis, tema 'Почему твои страхи - это просто плохая прошивка мозга?'
+2026-07-10 14:21:50.992 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: VOID-883 на 193 ✨
+2026-07-10 14:21:50.992 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж blinovskaya, tema 'Почему твои страхи - это просто плохая прошивка мозга?'
