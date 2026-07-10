@@ -1,7 +1,6 @@
-import asyncio
 import json
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import pytest
 from modules.autoposter import generate_post
 from modules.utils.visual import generate_card_history_image
