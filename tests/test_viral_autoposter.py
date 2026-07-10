@@ -99,7 +99,42 @@ async def test_sunday_mechanics():
                             post_data = await generate_post(is_morning=True)
                             assert post_data["is_sunday"] is True
 
+@pytest.mark.asyncio
+async def test_dynamic_cta_handling():
+    """Тестирует детекцию динамического CTA (эмодзи 🔮) и пропуск жесткого навигатора."""
+    with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
+        with patch("modules.autoposter.get_active_poll", return_value=None):
+            with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
+                with patch("modules.autoposter.save_hidden_promo", return_value=True):
+
+                    # 1. Сценарий, когда ИИ сгенерировал динамический CTA с 🔮 в конце
+                    mock_json_with_cta = {
+                        "text": "Тело поста. Разрушаем иллюзии.\n\n🔮 Хватит кормить чужих демонов... Нажимай на кнопку Написать сообществу...\n#АнтиТар #МатрицаСудьбы",
+                        "quote": "Цитата"
+                    }
+                    with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json_with_cta)):
+                        post_data = await generate_post(is_morning=True)
+                        text = post_data["text"]
+
+                        # Должен быть динамический CTA
+                        assert "🔮 Хватит кормить чужих демонов... Нажимай на кнопку Написать сообществу..." in text
+                        # Жесткого навигатора быть НЕ должно
+                        assert "Чтобы взломать свою судьбу" not in text
+
+                    # 2. Сценарий, когда ИИ забыл выдать концовку с 🔮
+                    mock_json_no_cta = {
+                        "text": "Тело поста. Разрушаем иллюзии без призывов.\n#АнтиТар #МатрицаСудьбы",
+                        "quote": "Цитата"
+                    }
+                    with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json_no_cta)):
+                        post_data = await generate_post(is_morning=True)
+                        text = post_data["text"]
+
+                        # Жесткий навигатор ДОЛЖЕН быть приклеен
+                        assert "Чтобы взломать свою судьбу и получить доступ к скрытым настройкам души, нажми кнопку Написать сообществу и бот тебя проведет по лучшему пути" in text
+
 if __name__ == "__main__":
     asyncio.run(test_viral_post_generation())
     asyncio.run(test_sunday_mechanics())
+    asyncio.run(test_dynamic_cta_handling())
     print("Tests passed!")

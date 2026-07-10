@@ -1,0 +1,23 @@
+2026-07-10 07:54:40.218 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-10 07:54:40.221 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: SHELL-189 на 77 ✨
+2026-07-10 07:54:40.222 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140316481769968'>, персонаж olesya, tema 'Философия Анти-Таро: почему реальность всегда лучше иллюзий.'
+2026-07-10 07:54:40.226 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-10 07:54:43.434 | INFO     | modules.autoposter:handle_diagnosis_comment:102 - Персонаж для поста 67890 не найден в кэше, выбран рандомный: cherevatov
+2026-07-10 07:54:48.235 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-10 07:54:48.245 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-10 07:54:48.253 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-10 07:54:48.263 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-10 07:54:48.307 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PULSE-925 на 164 ✨
+2026-07-10 07:54:48.307 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж nostradamus, tema 'Почему ты боишься успеха больше, чем поражения?'
+2026-07-10 07:54:48.311 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: PROXY-906 на 191 ✨
+2026-07-10 07:54:48.312 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж anubis, tema 'Как отличить свою истинную цель от навязанного желания.'
+2026-07-10 07:54:48.313 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: ZERO-476 на 85 ✨
+2026-07-10 07:54:48.313 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж freud, tema 'Почему линии меняются: как твои решения переписывают судьбу.'
+2026-07-10 07:54:48.317 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: ZERO-134 на 55 ✨
+2026-07-10 07:54:48.317 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж anubis, tema 'Почему линии меняются: как твои решения переписывают судьбу.'
+2026-07-10 07:54:48.322 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: BYPASS-933 на 195 ✨
+2026-07-10 07:54:48.322 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж sheps_alex, tema 'Как перестать сравнивать себя с другими и начать диктовать свои правила.'
+2026-07-10 07:54:48.326 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: BUG-679 на 153 ✨
+2026-07-10 07:54:48.327 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж fluffy, tema 'Синастрия с самим собой: почему ты конфликтуешь со своими желаниями?'
+2026-07-10 07:54:48.328 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CIPHER-261 на 50 ✨
+2026-07-10 07:54:48.328 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж ai_mom, tema 'Линия сердца: как перестать наступать на одни и те же грабли?'
