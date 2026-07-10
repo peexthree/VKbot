@@ -1,0 +1,13 @@
+2026-07-09 20:29:51.198 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-09 20:29:51.200 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: BYPASS-720 на 178 ✨
+2026-07-09 20:29:51.200 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140098231608688'>, персонаж honest_oracle, тема 'Линия сердца: как перестать наступать на одни и те же грабли?'
+2026-07-09 20:29:51.205 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-09 20:29:54.414 | INFO     | modules.autoposter:handle_diagnosis_comment:102 - Персонаж для поста 67890 не найден в кэше, выбран рандомный: pythia
+2026-07-09 20:29:58.843 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-09 20:29:58.852 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-09 20:29:58.860 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-09 20:29:58.869 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-09 20:29:58.909 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CODE-657 на 65 ✨
+2026-07-09 20:29:58.909 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж jack_sparrow, тема 'Как перестать сравнивать себя с другими и начать диктовать свои правила.'
+2026-07-09 20:29:58.913 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CODE-745 на 184 ✨
+2026-07-09 20:29:58.914 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж jack_sparrow, тема 'Как понять, кто рядом с тобой - союзник или энергетический вампир?'

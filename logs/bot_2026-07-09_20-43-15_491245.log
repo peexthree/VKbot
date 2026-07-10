@@ -1,0 +1,17 @@
+2026-07-09 20:43:18.979 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-09 20:43:18.981 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: OVERRIDE-739 на 183 ✨
+2026-07-09 20:43:18.982 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140437324118400'>, персонаж cleopatra, тема 'Можно ли изменить линию судьбы, если она тебя не устраивает?'
+2026-07-09 20:43:18.988 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-09 20:43:22.194 | INFO     | modules.autoposter:handle_diagnosis_comment:102 - Персонаж для поста 67890 не найден в кэше, выбран рандомный: sheps_alex
+2026-07-09 20:43:24.868 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-09 20:43:24.877 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-09 20:43:24.885 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-09 20:43:24.894 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-09 20:43:24.935 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: LOG-104 на 172 ✨
+2026-07-09 20:43:24.936 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж vanga, тема 'Почему «сны» - это не просто картинки, а твои системные логи.'
+2026-07-09 20:43:24.939 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CIPHER-709 на 160 ✨
+2026-07-09 20:43:24.939 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж guzeeva, тема 'Почему ты притягиваешь «токсиков»: взгляд через синастрию.'
+2026-07-09 20:43:24.940 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: GHOST-168 на 59 ✨
+2026-07-09 20:43:24.940 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж cherevatov, тема 'Что делать, когда «карты» говорят одно, а логика - другое?'
+2026-07-09 20:43:24.945 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: ZERO-651 на 168 ✨
+2026-07-09 20:43:24.945 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж anubis, тема 'Почему некоторые люди выжигают тебя за 5 минут, а с другими - подъем?'

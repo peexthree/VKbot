@@ -25,6 +25,33 @@ async def test_viral_post_generation():
                         assert "PROVOCATION" in post_data["text"] or "ПРОВОКАЦИЯ" in post_data["text"]
 
 @pytest.mark.asyncio
+async def test_hashtag_handling_clean():
+    """Тестирует правильность извлечения хэштегов и непопадание обычных слов в хэштеги."""
+    with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
+        with patch("modules.autoposter.get_active_poll", return_value=None):
+            with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
+                with patch("modules.autoposter.save_hidden_promo", return_value=True):
+                    # 1. Сценарий с явно выделенными хэштегами в конце
+                    mock_json_1 = {
+                        "text": "Ты жаришь хлеб в реакторе\n#АнтиТар #Судьба",
+                        "quote": "Цитата"
+                    }
+                    with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json_1)):
+                        post_data_1 = await generate_post(is_morning=True)
+                        assert "#АнтиТар #Судьба" in post_data_1["text"]
+                        assert "Ты жаришь хлеб в реакторе" in post_data_1["text"]
+
+                    # 2. Сценарий с обычным текстом в конце (без хэштегов)
+                    mock_json_2 = {
+                        "text": "Ты жаришь хлеб в реакторе\nИ это очень странно.",
+                        "quote": "Цитата"
+                    }
+                    with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json_2)):
+                        post_data_2 = await generate_post(is_morning=True)
+                        assert "И это очень странно." in post_data_2["text"]
+                        assert "#АнтиТар #МатрицаСудьбы #Психология #Судьба" in post_data_2["text"]
+
+@pytest.mark.asyncio
 async def test_sunday_mechanics():
     # Мокаем текущую дату на воскресенье
     sunday = MagicMock()
