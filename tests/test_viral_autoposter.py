@@ -52,6 +52,30 @@ async def test_hashtag_handling_clean():
                         assert "#АнтиТар #МатрицаСудьбы #Психология #Судьба" in post_data_2["text"]
 
 @pytest.mark.asyncio
+async def test_hashtag_handling_punctuation_and_deduplication():
+    """Тестирует обратное сканирование, очистку знаков препинания из хэштегов и дедупликацию."""
+    with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
+        with patch("modules.autoposter.get_active_poll", return_value=None):
+            with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
+                with patch("modules.autoposter.save_hidden_promo", return_value=True):
+                    # Сценарий с грязными хэштегами и дубликатами в конце
+                    mock_json = {
+                        "text": "Тело поста.\n\n#АнтиТар, #Психология. #Судьба! #антитар #МатрицаСудьбы...",
+                        "quote": "Цитата"
+                    }
+                    with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json)):
+                        post_data = await generate_post(is_morning=True)
+                        text = post_data["text"]
+
+                        # Хэштеги должны быть очищены от знаков препинания
+                        # Из-за дедупликации без учета регистра, #антитар должен остаться только один раз
+                        assert "#АнтиТар #Психология #Судьба #МатрицаСудьбы" in text
+                        assert "#АнтиТар, " not in text
+                        assert "#Психология." not in text
+                        assert "#антитар" not in text.split("Чтобы взломать")[1] # В финальной части только первый дедуплицированный
+                        assert "Тело поста." in text
+
+@pytest.mark.asyncio
 async def test_sunday_mechanics():
     # Мокаем текущую дату на воскресенье
     sunday = MagicMock()

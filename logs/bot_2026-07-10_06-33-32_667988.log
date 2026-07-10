@@ -1,0 +1,19 @@
+2026-07-10 06:33:38.723 | WARNING  | modules.autoposter:generate_post:258 - Не удалось получить новости, откат к стандартным рубрикам
+2026-07-10 06:33:38.724 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: LOG-452 на 165 ✨
+2026-07-10 06:33:38.725 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: <AsyncMock name='mock.autoposter.get_least_recent_rubric()' id='140409075060368'>, персонаж professor, тема 'Твой личный код успеха: как его собрать из разных персонажей.'
+2026-07-10 06:33:38.729 | INFO     | modules.autoposter:handle_diagnosis_comment:85 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-10 06:33:41.734 | ERROR    | modules.autoposter:handle_diagnosis_comment:104 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-10 06:33:44.329 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:80 - PDF успешно создан: test_output.pdf
+2026-07-10 06:33:44.339 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-10 06:33:44.346 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-10 06:33:44.357 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-10 06:33:44.400 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: FAIL-220 на 165 ✨
+2026-07-10 06:33:44.401 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж sheps_alex, тема 'Как наладить отношения, если ваши «звезды» не сходятся?'
+2026-07-10 06:33:44.404 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: MATRIX-112 на 74 ✨
+2026-07-10 06:33:44.405 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж honest_oracle, тема 'Синастрия с самим собой: почему ты конфликтуешь со своими желаниями?'
+2026-07-10 06:33:44.406 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: VOID-205 на 174 ✨
+2026-07-10 06:33:44.406 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж vanga, тема 'Как понять, кто рядом с тобой - союзник или энергетический вампир?'
+2026-07-10 06:33:44.410 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: VOID-664 на 79 ✨
+2026-07-10 06:33:44.410 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж freud, тема 'Почему «позитивное мышление» - это ловушка?'
+2026-07-10 06:33:44.415 | INFO     | modules.autoposter:generate_post:279 - Сгенерирован скрытый шифр для поста: CIPHER-880 на 165 ✨
+2026-07-10 06:33:44.415 | INFO     | modules.autoposter:generate_post:300 - Генерация поста: PROVOCATION, персонаж sheps_alex, тема 'Где на твоей руке спрятаны признаки эмоционального выгорания?'
