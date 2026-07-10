@@ -194,9 +194,39 @@ async def test_autoposter_validation_and_alerting():
                 any_alert = any(call[0][0] == "messages.send" and "🚨 Сбой автопостинга!" in call[0][1].get("message", "") for call in mock_request.call_args_list)
                 assert any_alert is False
 
+@pytest.mark.asyncio
+async def test_escaped_newline_handling():
+    """Тестирует сценарий, когда ИИ вернул JSON с экранированными переносами строк \\n.
+    Проверяет, что переносы строк правильно преобразуются в реальные,
+    чтобы обратный сканер не стер тело поста."""
+    with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
+        with patch("modules.autoposter.get_active_poll", return_value=None):
+            with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
+                with patch("modules.autoposter.save_hidden_promo", return_value=True):
+                    # Тело содержит экранированные \\n вместо настоящих переносов строк
+                    # Делаем его достаточно длинным (>= 400 символов), чтобы пройти проверку на длину
+                    mock_json = {
+                        "text": "Это первая строка нашего сакрального лонгрида, которая наполнена глубоким смыслом и величием звездной карты.\\nА это его вторая строка, которая раскрывает космические тайны, недоступные обычным скептикам и любителям простых гороскопов.\\nТретья строка содержит важный вывод для адептов и ведет к просветлению, сонастраивая внутренние энергетические потоки.\\nЧетвертая строка представляет собой напутствие на путь истинный и призывает отбросить все сомнения перед лицом вечности.\\n#АнтиТар #Судьба",
+                        "quote": "Цитата"
+                    }
+                    with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json)):
+                        post_data = await generate_post(is_morning=True)
+
+                        assert post_data is not None
+                        text = post_data["text"]
+
+                        # Проверяем, что тело поста не стерто и в нем присутствуют все ключевые строки
+                        assert "Это первая строка нашего сакрального лонгрида" in text
+                        assert "А это его вторая строка" in text
+                        assert "Третья строка содержит важный вывод" in text
+                        assert "Четвертая строка" in text
+                        # Проверяем, что хэштеги были успешно выделены в самый конец
+                        assert "#АнтиТар #Судьба" in text
+
 if __name__ == "__main__":
     asyncio.run(test_viral_post_generation())
     asyncio.run(test_sunday_mechanics())
     asyncio.run(test_dynamic_cta_handling())
     asyncio.run(test_autoposter_validation_and_alerting())
+    asyncio.run(test_escaped_newline_handling())
     print("Tests passed!")

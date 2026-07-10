@@ -408,6 +408,10 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         ai_text = raw_response
         quote = ""
 
+    # Заменяем строковые \\n на реальные переводы строк ДО валидации длины и работы со сканером
+    if ai_text:
+        ai_text = ai_text.replace("\\n", "\n")
+
     if not ai_text or len(ai_text.strip()) < 400:
         logger.error(f"Генерация поста прервана: чистый ИИ-текст слишком короткий или отсутствует ({len(ai_text) if ai_text else 0} < 400)")
         return None
