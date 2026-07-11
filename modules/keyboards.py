@@ -83,15 +83,100 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     return kb.get_json()
 
 def services_menu_kb() -> str:
-    """Меню Услуг"""
+    """Единый корневой каталог услуг по категориям (Кабинеты)"""
     return vertical_kb([
-        ("🔮 Все услуги", "service_page", KeyboardButtonColor.PRIMARY),
-        ("❤️ Совместимость", {"cmd": "use_section", "key": "synastry"}, KeyboardButtonColor.PRIMARY),
-        ("✨ Хиромантия", {"cmd": "use_section", "key": "palmistry"}, KeyboardButtonColor.POSITIVE),
-        ("🌙 Сонник", {"cmd": "dream_interpret_start"}, KeyboardButtonColor.POSITIVE),
-        ("⭐ Подписка / Тарифы", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
+        ("👁 Биометрия и Фото", {"cmd": "secret_arts_cat", "cat": "biometrics"}, KeyboardButtonColor.PRIMARY),
+        ("🎨 Сакральные Артефакты", {"cmd": "secret_arts_cat", "cat": "artifacts"}, KeyboardButtonColor.PRIMARY),
+        ("🧭 Проекции Судьбы", {"cmd": "secret_arts_cat", "cat": "destiny"}, KeyboardButtonColor.PRIMARY),
+        ("🏺 Древние Оракулы", {"cmd": "secret_arts_cat", "cat": "oracles"}, KeyboardButtonColor.PRIMARY),
+        ("❤️ Энергия и Слияние", {"cmd": "secret_arts_cat", "cat": "energy_sync"}, KeyboardButtonColor.PRIMARY),
     ], nav_buttons=[
+        ("⭐ Подписка / Тарифы", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+    ])
+
+def secret_arts_menu_kb() -> str:
+    """Устаревшее имя, ведет на единое меню услуг"""
+    return services_menu_kb()
+
+def category_menu_kb(category_key: str, user_purchased: dict = None, vip_unlimited: bool = False) -> str:
+    """Меню конкретного кабинета (категории услуг)"""
+    buttons = []
+    if category_key == "biometrics":
+        buttons.append(("👁 Окуломантия (1200 ✨)", {"cmd": "secret_arts_item", "key": "oculomancy"}, KeyboardButtonColor.PRIMARY))
+        hiro_label = "✋ Хиромантия (Бесплатно)" if vip_unlimited else "✋ Хиромантия (1200 ✨)"
+        buttons.append((hiro_label, {"cmd": "secret_arts_item", "key": "palmistry"}, KeyboardButtonColor.PRIMARY))
+    elif category_key == "artifacts":
+        buttons.append(("🎨 Сигил-Мастер (1000 ✨)", {"cmd": "secret_arts_item", "key": "sigil"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🧪 Алхимик Кода (700 ✨)", {"cmd": "secret_arts_item", "key": "alchemist"}, KeyboardButtonColor.PRIMARY))
+    elif category_key == "destiny":
+        buttons.append(("🧬 Карма-Навигатор (900 ✨)", {"cmd": "secret_arts_item", "key": "karma"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🐾 Тотем-Проводник (900 ✨)", {"cmd": "secret_arts_item", "key": "totem"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🗺 Астро-Карты (900 ✨)", {"cmd": "secret_arts_item", "key": "astro_geo"}, KeyboardButtonColor.PRIMARY))
+    elif category_key == "oracles":
+        buttons.append(("🏺 Оракул Египта (700 ✨)", {"cmd": "secret_arts_item", "key": "egyptian_oracle"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("👤 Теневой Оракул (700 ✨)", {"cmd": "secret_arts_item", "key": "shadow_oracle"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("⏱ Хроно-Прогноз (700 ✨)", {"cmd": "secret_arts_item", "key": "chrono"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🌾 Чарослов Дня (600 ✨)", {"cmd": "secret_arts_item", "key": "charoslov"}, KeyboardButtonColor.PRIMARY))
+    elif category_key == "energy_sync":
+        buttons.append(("❤️ Совместимость (1500 ✨)", {"cmd": "secret_arts_item", "key": "synastry"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("⭐ Карта Судьбы (1500 ✨)", {"cmd": "secret_arts_item", "key": "destiny_card"}, KeyboardButtonColor.PRIMARY))
+        dream_label = "🌙 Сонник (Бесплатно)" if vip_unlimited else "🌙 Сонник (1000 ✨)"
+        buttons.append((dream_label, {"cmd": "secret_arts_item", "key": "dream"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🔥 Сексуальность (1000 ✨)", {"cmd": "secret_arts_item", "key": "sex"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("💰 Денежный поток (900 ✨)", {"cmd": "secret_arts_item", "key": "money"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("👹 Ваши демоны (700 ✨)", {"cmd": "secret_arts_item", "key": "shadow"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🧭 Ваш путь в жизни (1200 ✨)", {"cmd": "secret_arts_item", "key": "final"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🔮 Спроси у звезд (500 ✨)", {"cmd": "secret_arts_item", "key": "oracle"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🃏 Анти-Таро (500 ✨)", {"cmd": "secret_arts_item", "key": "antitaro"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("✨ Микро-инсайт (100 ✨)", {"cmd": "secret_arts_item", "key": "micro_insight"}, KeyboardButtonColor.PRIMARY))
+
+    return vertical_kb(buttons, nav_buttons=[
+        ("⬅️ НАЗАД В КАТАЛОГ", "services_menu", KeyboardButtonColor.SECONDARY)
+    ])
+
+def totem_quiz_step1_kb() -> str:
+    """Тотем шаг 1: Время суток"""
+    return vertical_kb([
+        ("🌅 Рассвет", {"cmd": "totem_quiz_s1", "val": "🌅 Рассвет"}, KeyboardButtonColor.PRIMARY),
+        ("☀️ Полдень", {"cmd": "totem_quiz_s1", "val": "☀️ Полдень"}, KeyboardButtonColor.PRIMARY),
+        ("🌇 Закат", {"cmd": "totem_quiz_s1", "val": "🌇 Закат"}, KeyboardButtonColor.PRIMARY),
+        ("🌌 Полночь", {"cmd": "totem_quiz_s1", "val": "🌌 Полночь"}, KeyboardButtonColor.PRIMARY),
+    ], nav_buttons=[
+        ("❌ ОТМЕНА", "secret_arts_menu", KeyboardButtonColor.NEGATIVE)
+    ])
+
+def totem_quiz_step2_kb() -> str:
+    """Тотем шаг 2: Стихия"""
+    return vertical_kb([
+        ("🔥 Пламя", {"cmd": "totem_quiz_s2", "val": "🔥 Пламя"}, KeyboardButtonColor.PRIMARY),
+        ("💧 Вода", {"cmd": "totem_quiz_s2", "val": "💧 Вода"}, KeyboardButtonColor.PRIMARY),
+        ("🌪 Воздух", {"cmd": "totem_quiz_s2", "val": "🌪 Воздух"}, KeyboardButtonColor.PRIMARY),
+        ("🪵 Земля", {"cmd": "totem_quiz_s2", "val": "🪵 Земля"}, KeyboardButtonColor.PRIMARY),
+    ], nav_buttons=[
+        ("❌ ОТМЕНА", "secret_arts_menu", KeyboardButtonColor.NEGATIVE)
+    ])
+
+def karma_quiz_step1_kb() -> str:
+    """Карма шаг 1: Символ"""
+    return vertical_kb([
+        ("✵ Руна", {"cmd": "karma_quiz_s1", "val": "✵ Руна"}, KeyboardButtonColor.PRIMARY),
+        ("✥ Врата", {"cmd": "karma_quiz_s1", "val": "✥ Врата"}, KeyboardButtonColor.PRIMARY),
+        ("❖ Кристалл", {"cmd": "karma_quiz_s1", "val": "❖ Кристалл"}, KeyboardButtonColor.PRIMARY),
+        ("❂ Спираль", {"cmd": "karma_quiz_s1", "val": "❂ Спираль"}, KeyboardButtonColor.PRIMARY),
+    ], nav_buttons=[
+        ("❌ ОТМЕНА", "secret_arts_menu", KeyboardButtonColor.NEGATIVE)
+    ])
+
+def karma_quiz_step2_kb() -> str:
+    """Карма шаг 2: Цвет ауры"""
+    return vertical_kb([
+        ("🟣 Фиолетовый", {"cmd": "karma_quiz_s2", "val": "🟣 Фиолетовый"}, KeyboardButtonColor.PRIMARY),
+        ("🟢 Изумрудный", {"cmd": "karma_quiz_s2", "val": "🟢 Изумрудный"}, KeyboardButtonColor.PRIMARY),
+        ("🔴 Алый", {"cmd": "karma_quiz_s2", "val": "🔴 Алый"}, KeyboardButtonColor.PRIMARY),
+        ("🟡 Золотой", {"cmd": "karma_quiz_s2", "val": "🟡 Золотой"}, KeyboardButtonColor.PRIMARY),
+    ], nav_buttons=[
+        ("❌ ОТМЕНА", "secret_arts_menu", KeyboardButtonColor.NEGATIVE)
     ])
 
 def profile_menu_kb() -> str:

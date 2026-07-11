@@ -585,6 +585,10 @@ async def process_feedback_comment(message: Message):
     # Публикация отзыва в группу (сработает при накоплении 4 штук)
     await send_feedback_to_chat(vk_id, section, rating, comment_text)
 
+    # Начисление 50 энергии за отзыв
+    from database.users import add_energy
+    await add_energy(vk_id, 50)
+
     await set_user_state(vk_id, "")
 
     # Удаляем сообщение с предложением оставить комментарий
@@ -601,7 +605,7 @@ async def process_feedback_comment(message: Message):
     kb.add(Callback("🏠 Главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
     await message.answer(
-        "Спасибо за обратную связь! Твой вклад помогает системе эволюционировать.",
+        "Спасибо за обратную связь! На твой баланс начислено +50 ✨ Энергии звёзд. Твой вклад помогает системе эволюционировать.",
         keyboard=kb.get_json()
     )
 
