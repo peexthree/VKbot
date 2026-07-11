@@ -4,7 +4,6 @@ import os
 import datetime
 from datetime import timezone, timedelta
 from loguru import logger
-from os.path import exists
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from vkbottle.bot import BotLabeler
@@ -17,7 +16,7 @@ from prompts.rubrics import RUBRIC_PROMPTS
 from cache import redis_client as redis
 from database.autoposter import (
     get_daily_used_content, get_active_poll, close_poll,
-    save_hidden_promo, get_least_recent_rubric, save_active_poll,
+    save_hidden_promo, save_active_poll,
     add_post_history
 )
 from database import get_user
