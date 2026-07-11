@@ -172,9 +172,9 @@ async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = 
         elif section == "oculomancy":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
-            await set_user_state(vk_id, '{"step": "waiting_oculomancy_photo"}')
+            await set_user_state(vk_id, "waiting_oculomancy_photo")
             from modules.states import MyStates
-            await bot.state_dispenser.set(target_peer, MyStates.WAITING_OCULOMANCY_PHOTO, raw_json='{"step": "waiting_oculomancy_photo"}')
+            await bot.state_dispenser.set(target_peer, MyStates.WAITING_OCULOMANCY_PHOTO, raw_json="waiting_oculomancy_photo")
 
             msg = (
                 "✅ ОПЛАТА ПРОШЛА.\n\n"
