@@ -2,7 +2,7 @@ import random
 import asyncio
 from vkbottle.bot import BotLabeler, Message
 
-from cache import acquire_lock, release_lock, get_fsm_step
+from modules.utils import acquire_lock, release_lock, get_fsm_step
 from database import set_user_state
 from modules.bot_init import bot
 from modules.utils import extract_msg_id
