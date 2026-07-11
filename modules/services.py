@@ -100,14 +100,14 @@ async def _ensure_user_state(vk_id: int, peer_id: int) -> bool:
     return True
 
 async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int = None, filter_val: str = None, is_catalog: bool = False, target_key: str = None):
-    """Главный экран Услуг с новой клавиатурой"""
+    """Главный экран Услуг с пагинацией и разделением по Кабинетам"""
     if not await _ensure_user_state(vk_id, peer_id):
         return
 
-    # Если мы зашли в раздел услуг, но не в конкретную пагинацию
+    # Если мы зашли в раздел услуг, но не выбрали конкретный кабинет/услугу
     if not is_catalog and not filter_val and not target_key:
         from modules.keyboards import services_menu_kb
-        text = "🔮 ВИТРИНА УСЛУГ И ТАЙНЫХ ЗНАНИЙ\n\nВыбери раздел, который откликается твоему запросу."
+        text = "🔮 ВИТРИНА УСЛУГ И ТАЙНЫХ ЗНАНИЙ\n\nДобро пожаловать в единую обитель откровений Анти-Таро. Здесь все наши услуги разложены по тематическим Кабинетам для удобства вашего духовного поиска."
         header_att = await upload_local_photo(bot.api, "uslugi/main_menu.jpeg", peer_id=vk_id)
         await ghost_edit(bot.api, peer_id, text, keyboard=services_menu_kb(), attachment=header_att, conversation_message_id=edit_msg_id)
         return
@@ -115,20 +115,184 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
     header_att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
 
     services = [
-        {"key": "synastry", "title": "❤️ Совместимость", "desc": "1500 Энергии. Глубокий анализ ваших отношений по звездам. Узнайте, созданы ли вы друг для друга.", "image_name": "uslugi/SINISTRY.jpeg", "category": "deep"},
-        {"key": "palmistry", "title": "✨ Хиромантия", "desc": "1200 Энергии. Чтение судьбы по ладоням. Узнай свой врожденный потенциал и текущую реализацию.", "image_name": "uslugi/hiro.jpeg", "category": "deep"},
-        {"key": "dream", "title": "🌙 Сонник", "desc": "1000 Энергии. Толкование твоих снов через призму архетипов и символов. Узнай, что хочет сказать твое подсознание.", "image_name": "uslugi/dream.jpeg", "category": "deep"},
-        {"key": "destiny_card", "title": "⭐ Карта Судьбы", "desc": "1500 Энергии. Твой главный жизненный путь на всю жизнь. Самый важный разбор в твоем профиле.", "image_name": "uslugi/WAYLIFE.jpeg", "category": "deep"},
-        {"key": "sex", "title": "🔥 Страсть", "desc": "1000 Энергии. Погружение в мир твоих чувств и желаний.", "image_name": "uslugi/sex.jpeg", "category": "deep"},
-        {"key": "money", "title": "💰 Денежный поток", "desc": "900 Энергии. Раскрой свой путь к финансовой свободе.", "image_name": "uslugi/Money.jpeg", "category": "deep"},
-        {"key": "shadow", "title": "👹 Ваши демоны", "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя.", "image_name": "uslugi/DEMONS.jpeg", "category": "deep"},
-        {"key": "final", "title": "🧭 Ваш путь в жизни", "desc": "1200 Энергии. Главный вектор твоей жизни.", "image_name": "uslugi/WAYLIFE.jpeg", "category": "deep"},
-        {"key": "oracle", "title": "🔮 Спроси у звёзд", "desc": "500 Энергии. Ответ на твой самый важный вопрос.", "image_name": "uslugi/QUEST.jpeg", "category": "tarot"},
-        {"key": "antitaro", "title": "🃏 Анти-Таро", "desc": "500 Энергии. Взгляд на ситуацию без розовых очков.", "image_name": "uslugi/ANTITARO.jpeg", "category": "tarot"},
-        {"key": "all", "title": "👑 VIP", "desc": "3000 Энергии. Полный разбор Матрицы Судьбы: Совместимость, Карта Судьбы и все 4 тайных раздела натальной карты.", "image_name": "uslugi/VIP.jpeg", "category": "deep"},
-        {"key": "micro_insight", "title": "🔮 Спроси у звёзд (Микро)", "desc": "100 Энергии. Быстрый совет от твоего персонального Проводника.", "image_name": "uslugi/QUEST.jpeg", "category": "tarot"},
-        {"key": "card_of_day", "title": "🎴 Карта дня", "desc": "Бесплатно. Твое личное напутствие на сегодня.", "image_name": "uslugi/cardofday.jpeg", "category": "tarot"},
+        # --- BIOMETRICS ---
+        {
+            "key": "oculomancy",
+            "title": "👁 Окуломантия: Зеркало души",
+            "desc": "1200 Энергии. Загрузи крупное фото своего глаза. ИИ считывает оттенок, узоры радужки и форму разреза, выдавая глубокий психологический портрет, скрытые таланты и «уязвимости» твоей души.",
+            "image_name": "uslugi/services.jpeg",
+            "category": "biometrics"
+        },
+        {
+            "key": "palmistry",
+            "title": "✋ Хиромантия",
+            "desc": "1200 Энергии (Бесплатно по VIP). Чтение судьбы по ладоням. Узнай свой врожденный потенциал, сильные стороны и текущую реализацию через глубокий анализ линий твоей руки по фото.",
+            "image_name": "uslugi/hiro.jpeg",
+            "category": "biometrics"
+        },
+
+        # --- ARTIFACTS ---
+        {
+            "key": "sigil",
+            "title": "🎨 Сигил-Мастер: Генератор знаков",
+            "desc": "1000 Энергии. Трансформируй свое сокровенное желание в уникальный графический символ — сигил по древним канонам практической магии. Сохрани его на экран для активации потоков удачи!",
+            "image_name": "uslugi/services.jpeg",
+            "category": "artifacts"
+        },
+        {
+            "key": "alchemist",
+            "title": "🧪 Цифровой Алхимик",
+            "desc": "700 Энергии. Расчет твоего ведущего первоэлемента (Философская Ртуть, Сера или Соль) на основе точной даты рождения и составление персональной формулы душевного и энергетического баланса.",
+            "image_name": "uslugi/services.jpeg",
+            "category": "artifacts"
+        },
+
+        # --- DESTINY ---
+        {
+            "key": "karma",
+            "title": "🧬 Кармический навигатор",
+            "desc": "900 Энергии. Раскрой тайны своего предыдущего воплощения, невыполненные кармические долги и получи индивидуальный ключ к решению текущих жизненных трудностей через интерактивный тест.",
+            "image_name": "uslugi/services.jpeg",
+            "category": "destiny"
+        },
+        {
+            "key": "totem",
+            "title": "🐾 Тотемный проводник",
+            "desc": "900 Энергии. Определение твоего священного животного силы через шаманский интерактивный квиз, получение сакрального послания от тотема и ценные советы по использованию его энергии.",
+            "image_name": "uslugi/services.jpeg",
+            "category": "destiny"
+        },
+        {
+            "key": "astro_geo",
+            "title": "🗺 Астро-картография",
+            "desc": "900 Энергии. Анализ влияния планетарных линий на земную географию. Введи город или страну и узнай, какие энергии принесет тебе это место: богатство, любовь, испытания или гармонию.",
+            "image_name": "uslugi/services.jpeg",
+            "category": "destiny"
+        },
+
+        # --- ORACLES ---
+        {
+            "key": "egyptian_oracle",
+            "title": "🏺 Древний Египетский Оракул",
+            "desc": "700 Энергии. Свитки Судьбы из Книги Тота. Три священных пророчества древних богов Гелиополя, раскрывающие векторы твоего триумфа и предупреждающие о скрытых преградах.",
+            "image_name": "uslugi/services.jpeg",
+            "category": "oracles"
+        },
+        {
+            "key": "shadow_oracle",
+            "title": "👤 Теневой Оракул Лилит",
+            "desc": "700 Энергии. Встреча со своими истинными, подавленными желаниями и теневой стороной личности по концепции Карла Юнга. Трансформируй своих внутренних демонов в огромный ресурс силы.",
+            "image_name": "uslugi/services.jpeg",
+            "category": "oracles"
+        },
+        {
+            "key": "chrono",
+            "title": "⏱ Хроно-прогноз",
+            "desc": "700 Энергии. Расчет личных 'ведьминских часов' и пиков мистической и интуитивной активности на месяц вперед. Идеальный эзотерический тайм-менеджмент для планирования важных дел.",
+            "image_name": "uslugi/services.jpeg",
+            "category": "oracles"
+        },
+        {
+            "key": "charoslov",
+            "title": "🌾 Славянский Чарослов",
+            "desc": "600 Энергии. Старообрядческие заговоры, обереги и индивидуальные ведовские практики защиты, привлечения блага и гармонизации пространства на сегодняшний день.",
+            "image_name": "uslugi/services.jpeg",
+            "category": "oracles"
+        },
+        {
+            "key": "oracle",
+            "title": "🔮 Спроси у звезд",
+            "desc": "500 Энергии. Прямой и точный ответ на твой самый важный, волнующий вопрос от звездного Оракула. Напиши свой вопрос и звезды дадут тебе ясный ориентир.",
+            "image_name": "uslugi/QUEST.jpeg",
+            "category": "oracles"
+        },
+        {
+            "key": "antitaro",
+            "title": "🃏 Анти-Таро",
+            "desc": "500 Энергии. Честный, трезвый взгляд на любую запутанную ситуацию без иллюзий, приукрашиваний и розовых очков. Получи прямой совет, как действовать прямо сейчас.",
+            "image_name": "uslugi/ANTITARO.jpeg",
+            "category": "oracles"
+        },
+        {
+            "key": "micro_insight",
+            "title": "✨ Микро-инсайт",
+            "desc": "100 Энергии. Быстрый и точный совет от твоего персонального Проводника на ближайший час. Идеально для мгновенной сонастройки перед принятием решения.",
+            "image_name": "uslugi/QUEST.jpeg",
+            "category": "oracles"
+        },
+        {
+            "key": "card_of_day",
+            "title": "🎴 Карта дня",
+            "desc": "Бесплатно. Твое личное напутствие на сегодня для сонастройки с матрицей.",
+            "image_name": "uslugi/cardofday.jpeg",
+            "category": "oracles"
+        },
+
+        # --- ENERGY & SYNC ---
+        {
+            "key": "synastry",
+            "title": "❤️ Совместимость",
+            "desc": "1500 Энергии. Глубокий анализ ваших отношений по звездам. Узнайте, созданы ли вы друг для друга, какие кармические задачи стоят перед вашей парой, а также раскройте потенциал вашей сексуальной и эмоциональной связи.",
+            "image_name": "uslugi/SINISTRY.jpeg",
+            "category": "energy_sync"
+        },
+        {
+            "key": "destiny_card",
+            "title": "⭐ Карта Судьбы",
+            "desc": "1500 Энергии. Твой главный жизненный путь на всю жизнь. Самый важный разбор в твоем профиле, определяющий твой архетип, предназначение и кармические задачи.",
+            "image_name": "uslugi/WAYLIFE.jpeg",
+            "category": "energy_sync"
+        },
+        {
+            "key": "dream",
+            "title": "🌙 Сонник",
+            "desc": "1000 Энергии (Бесплатно по VIP). Толкование твоих снов через призму архетипов и символов. Узнай, что хочет сказать твое подсознание, и расшифруй тайные знаки ночи.",
+            "image_name": "uslugi/dream.jpeg",
+            "category": "energy_sync"
+        },
+        {
+            "key": "sex",
+            "title": "🔥 Сексуальность",
+            "desc": "1000 Энергии. Погружение в мир твоих истинных чувств, желаний и сексуального потенциала через анализ твоих планет страсти.",
+            "image_name": "uslugi/sex.jpeg",
+            "category": "energy_sync"
+        },
+        {
+            "key": "money",
+            "title": "💰 Денежный поток",
+            "desc": "900 Энергии. Раскрой свой путь к финансовой свободе, сильные и слабые стороны в материальном мире и способы привлечения изобилия.",
+            "image_name": "uslugi/Money.jpeg",
+            "category": "energy_sync"
+        },
+        {
+            "key": "shadow",
+            "title": "👹 Ваши демоны / Тень",
+            "desc": "700 Энергии. Встреча с тем, что скрыто в глубине тебя. Осознание и принятие своей теневой стороны для обретения целостности.",
+            "image_name": "uslugi/DEMONS.jpeg",
+            "category": "energy_sync"
+        },
+        {
+            "key": "final",
+            "title": "🧭 Ваш путь в жизни",
+            "desc": "1200 Энергии. Главный вектор твоей жизни, долгосрочные цели и предназначение души в этом воплощении.",
+            "image_name": "uslugi/WAYLIFE.jpeg",
+            "category": "energy_sync"
+        },
+        {
+            "key": "all",
+            "title": "👑 VIP-Пакет",
+            "desc": "3000 Энергии. Полный разбор Матрицы Судьбы: Совместимость, Карта Судьбы и все 4 тайных раздела натальной карты (Сексуальность, Денежный поток, Тень, Ваш путь). Вечный доступ!",
+            "image_name": "uslugi/VIP.jpeg",
+            "category": "energy_sync"
+        },
     ]
+
+    # Если передан target_key, определим его категорию для фиксации навигации в кабинете
+    if target_key and not filter_val:
+        for s in services:
+            if s["key"] == target_key:
+                filter_val = s.get("category")
+                break
 
     if filter_val:
         services = [s for s in services if s.get("category") == filter_val]
@@ -148,7 +312,6 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
             tags_lower = [t.lower() for t in tags]
             # Если в тегах есть 'отношения' или 'любовь', поднимаем синастрию
             if any(x in " ".join(tags_lower) for x in ["люб", "отнош", "секс", "партнер"]):
-                # Перемещаем 'synastry' и 'sex' в начало
                 rel_keys = ["synastry", "sex"]
                 rel_items = [s for s in services if s["key"] in rel_keys]
                 other_items = [s for s in services if s["key"] not in rel_keys]
@@ -160,7 +323,16 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
                 other_items = [s for s in services if s["key"] not in rel_keys]
                 services = rel_items + other_items
 
-    header = "🔮 ПОСЛАНИЯ ТАРО" if filter_val == "tarot" else "✨ КАТАЛОГ УСЛУГ ✨"
+    # Текстовые заголовки Кабинетов
+    cat_headers = {
+        "biometrics": "👁 КАБИНЕТ БИОМЕТРИИ И ФОТО 👁",
+        "artifacts": "🎨 САД САКРАЛЬНЫХ АРТЕФАКТОВ 🎨",
+        "destiny": "🧭 ПРОЕКЦИИ СУДЬБЫ 🧭",
+        "oracles": "🏺 ДРЕВНИЕ ОРАКУЛЫ 🏺",
+        "energy_sync": "❤️ КАБИНЕТ ЭНЕРГИИ И СЛИЯНИЯ ❤️"
+    }
+
+    header = cat_headers.get(filter_val, "✨ КАТАЛОГ УСЛУГ ✨")
 
     await _send_catalog_page(
         vk_id=vk_id,

@@ -487,21 +487,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             await ghost_edit(bot.api, peer_id, text, keyboard=services_menu_kb(), attachment=att, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "secret_arts_cat":
             cat = payload.get("cat")
-            from modules.keyboards import category_menu_kb
-            user = await get_user(vk_id)
-            from modules.utils.logic import is_vip_unlimited
-            vip_unlimited = is_vip_unlimited(user) if user else False
-
-            cat_titles = {
-                "biometrics": "👁 КАБИНЕТ БИОМЕТРИИ\n\nАнализ вашей уникальной физиологии и энергетических полей по фотографиям. Познайте скрытый потенциал вашего тела и души.",
-                "artifacts": "🎨 САД САКРАЛЬНЫХ АРТЕФАКТОВ\n\nСоздание и калибровка индивидуальных цифровых талисманов и формул баланса по древним канонам.",
-                "destiny": "🧭 ПРОЕКЦИИ СУДЬБЫ\n\nГлубокие интерактивные квизы и астро-картография для раскрытия ваших прошлых жизней, тотемов и мест силы на планете.",
-                "oracles": "🏺 ДРЕВНИЕ ОРАКУЛЫ\n\nТайные предсказательные системы, не подвластные времени. Послания древнеегипетских жрецов, руны Лилит и хроно-расчеты вашей ведьминской активности.",
-                "energy_sync": "❤️ КАБИНЕТ ЭНЕРГИИ И СЛИЯНИЯ\n\nКлассические глубокие натальные разборы, анализ совместимости, толкование сновидений и оракулы судьбы. Вся сила Анти-Таро для гармонизации ваших жизненных потоков."
-            }
-            text = cat_titles.get(cat, "Тайные искусства")
-            att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
-            await ghost_edit(bot.api, peer_id, text, keyboard=category_menu_kb(cat, vip_unlimited=vip_unlimited), attachment=att, conversation_message_id=obj.get("conversation_message_id"))
+            await show_services(vk_id, peer_id, idx=0, edit_msg_id=obj.get("conversation_message_id"), filter_val=cat, is_catalog=True)
         elif cmd == "secret_arts_item":
             key = payload.get("key")
 
