@@ -2,10 +2,9 @@ import random
 import asyncio
 from vkbottle.bot import BotLabeler, Message
 
-from modules.utils import acquire_lock, release_lock, get_fsm_step
 from database import set_user_state
 from modules.bot_init import bot
-from modules.utils import extract_msg_id
+from modules.utils import acquire_lock, release_lock, extract_msg_id
 from modules.payments.logic import execute_generation
 from modules.states import MyStates
 
