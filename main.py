@@ -324,9 +324,9 @@ async def main():
     # Импорт обработчиков "Тайных искусств"
     from modules.tarot.secret_arts_handlers import labeler as secret_arts_labeler
 
+    bot.labeler.load(secret_arts_labeler)
     bot.labeler.load(services.labeler)
     bot.labeler.load(tarot.labeler)
-    bot.labeler.load(secret_arts_labeler)
     bot.labeler.load(support.labeler)
     bot.labeler.load(registration.labeler)
     bot.labeler.load(profile.labeler)

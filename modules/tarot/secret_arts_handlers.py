@@ -1,5 +1,6 @@
 import random
 import asyncio
+from loguru import logger
 from vkbottle.bot import BotLabeler, Message
 
 from database import set_user_state
@@ -42,12 +43,36 @@ async def process_oculomancy_photo(message: Message):
     if not await acquire_lock(vk_id): return
     try:
         photos = []
+        logger.info(f"process_oculomancy_photo triggered for user {vk_id}. Attachments: {message.attachments}")
         if message.attachments:
             for att in message.attachments:
+                logger.info(f"Attachment type: {att.type}, object: {att}")
+                url = None
                 if att.photo:
                     sizes = att.photo.sizes
-                    max_size = max(sizes, key=lambda s: s.width * s.height)
-                    photos.append(max_size.url)
+                    if sizes:
+                        max_size = max(sizes, key=lambda s: (s.width or 0) * (s.height or 0))
+                        url = max_size.url
+
+                # Сверхнадежный фолбэк для оригинальных фото/капризов API ВК
+                if not url:
+                    try:
+                        raw_dict = att.dict() if hasattr(att, "dict") else {}
+                        photo_data = raw_dict.get("photo") or {}
+                        sizes = photo_data.get("sizes")
+                        if sizes:
+                            max_size = max(sizes, key=lambda s: (s.get("width") or 0) * (s.get("height") or 0))
+                            url = max_size.get("url")
+                        elif "orig_photo" in photo_data:
+                            url = photo_data["orig_photo"].get("url")
+                    except Exception as e:
+                        logger.error(f"Fallback parsing failed for attachment: {e}")
+
+                if url:
+                    logger.info(f"Successfully extracted photo URL: {url}")
+                    photos.append(url)
+                else:
+                    logger.warning(f"Failed to extract photo URL from attachment of type {att.type}")
 
         if not photos:
             if message.text and message.text.lower() in ["начать", "главное меню", "тайные искусства"]:
