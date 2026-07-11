@@ -480,12 +480,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             from database import add_event
             asyncio.create_task(add_event(vk_id, "daily_card_view"))
             await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
-        elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"), is_catalog=False)
-        elif cmd == "secret_arts_menu":
-            from modules.keyboards import secret_arts_menu_kb
-            text = "✨ ТАЙНЫЕ ИСКУССТВА АНТИ-ТАР\n\nДобро пожаловать в обитель тайных откровений. Здесь собраны древние системы познания себя и мира, выходящие за рамки обычного."
+        elif cmd in ["services_menu", "secret_arts_menu"]:
+            from modules.keyboards import services_menu_kb
+            text = "🔮 ВИТРИНА УСЛУГ И ТАЙНЫХ ЗНАНИЙ\n\nДобро пожаловать в единую обитель откровений Анти-Таро. Здесь все наши услуги разложены по тематическим Кабинетам для удобства вашего духовного поиска."
             att = await upload_local_photo(bot.api, "uslugi/main_menu.jpeg", peer_id=vk_id)
-            await ghost_edit(bot.api, peer_id, text, keyboard=secret_arts_menu_kb(), attachment=att, conversation_message_id=obj.get("conversation_message_id"))
+            await ghost_edit(bot.api, peer_id, text, keyboard=services_menu_kb(), attachment=att, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "secret_arts_cat":
             cat = payload.get("cat")
             from modules.keyboards import category_menu_kb
@@ -497,13 +496,39 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "biometrics": "👁 КАБИНЕТ БИОМЕТРИИ\n\nАнализ вашей уникальной физиологии и энергетических полей по фотографиям. Познайте скрытый потенциал вашего тела и души.",
                 "artifacts": "🎨 САД САКРАЛЬНЫХ АРТЕФАКТОВ\n\nСоздание и калибровка индивидуальных цифровых талисманов и формул баланса по древним канонам.",
                 "destiny": "🧭 ПРОЕКЦИИ СУДЬБЫ\n\nГлубокие интерактивные квизы и астро-картография для раскрытия ваших прошлых жизней, тотемов и мест силы на планете.",
-                "oracles": "🏺 ДРЕВНИЕ ОРАКУЛЫ\n\nТайные предсказательные системы, не подвластные времени. Послания древнеегипетских жрецов, руны Лилит и хроно-расчеты вашей ведьминской активности."
+                "oracles": "🏺 ДРЕВНИЕ ОРАКУЛЫ\n\nТайные предсказательные системы, не подвластные времени. Послания древнеегипетских жрецов, руны Лилит и хроно-расчеты вашей ведьминской активности.",
+                "energy_sync": "❤️ КАБИНЕТ ЭНЕРГИИ И СЛИЯНИЯ\n\nКлассические глубокие натальные разборы, анализ совместимости, толкование сновидений и оракулы судьбы. Вся сила Анти-Таро для гармонизации ваших жизненных потоков."
             }
             text = cat_titles.get(cat, "Тайные искусства")
             att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
             await ghost_edit(bot.api, peer_id, text, keyboard=category_menu_kb(cat, vip_unlimited=vip_unlimited), attachment=att, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "secret_arts_item":
             key = payload.get("key")
+
+            # Проверяем, есть ли уже купленный доступ или VIP-безлимит для услуг
+            user = await get_user(vk_id)
+            if user:
+                purchased = user.get("purchased_sections", {})
+                has_access = purchased.get(key, False)
+                if key in ["sex", "money", "shadow", "final"]:
+                    if purchased.get("all") or user.get("has_full_chart"):
+                        has_access = True
+                elif key == "oracle":
+                    has_access = purchased.get("oracle_access", False)
+
+                from modules.utils.logic import is_vip_unlimited
+                # Сонник и Хиромантия бесплатны для VIP-безлимита
+                if key in ["palmistry", "dream"] and is_vip_unlimited(user):
+                    has_access = True
+
+                if has_access:
+                    # Сразу запускаем услугу!
+                    # Для этого мы просто имитируем вызов use_section
+                    payload_use = {"cmd": "use_section", "key": key}
+                    event_copy = event.copy()
+                    event_copy["object"]["payload"] = payload_use
+                    return await _message_event_handler_wrapped(event_copy, skip_lock=True)
+
             item_data = {
                 "oculomancy": ("👁 ОКУЛОМАНТИЯ: ЗЕРКАЛО ДУШИ", "Пользователь загружает крупное фото своего глаза. ИИ считывает оттенок, узоры радужки и форму разреза, выдавая глубокий психологический портрет, скрытые таланты и «уязвимости» души.\n\nСтоимость: 1200 ✨", "biometrics", 1200),
                 "palmistry": ("✋ ХИРОМАНТИЯ", "Чтение судьбы по ладоням. Узнай свой врожденный потенциал и текущую реализацию через глубокий анализ линий твоей руки.\n\nСтоимость: 1200 ✨", "biometrics", 1200),
@@ -515,23 +540,37 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "egyptian_oracle": ("🏺 ДРЕВНИЙ ЕГИПЕТСКИЙ ОРАКУЛ", "Свитки Судьбы из Книги Тота. Три священных пророчества древних богов Гелиополя, раскрывающие векторы твоего триумфа.\n\nСтоимость: 700 ✨", "oracles", 700),
                 "shadow_oracle": ("👤 ТЕНЕВОЙ ОРАКУЛ ЛИЛИТ", "Встреча со своими истинными, подавленными желаниями и теневой стороной личности по концепции Юнга. Трансформируй своих демонов в огромный ресурс силы.\n\nСтоимость: 700 ✨", "oracles", 700),
                 "chrono": ("⏱ ХРОНО-ПРОГНОЗ", "Расчет личных 'ведьминских часов' и пиков мистической активности на месяц вперед. Идеальный эзотерический тайм-менеджмент.\n\nСтоимость: 700 ✨", "oracles", 700),
-                "charoslov": ("🌾 СЛАВЯНСКИЙ ЧАРОСЛОВ", "Старообрядческие заговоры, обереги и индивидуальные ведовские практики защиты/привлечения блага на сегодняшний день.\n\nСтоимость: 600 ✨", "oracles", 600)
+                "charoslov": ("🌾 СЛАВЯНСКИЙ ЧАРОСЛОВ", "Старообрядческие заговоры, обереги и индивидуальные ведовские практики защиты/привлечения блага на сегодняшний день.\n\nСтоимость: 600 ✨", "oracles", 600),
+                "synastry": ("❤️ СОВМЕСТИМОСТЬ", "Глубокий анализ ваших отношений по звездам. Узнайте, созданы ли вы друг для друга, какие кармические задачи стоят перед вами как парой, а также раскройте потенциал вашей сексуальной и эмоциональной связи.\n\nСтоимость: 1500 ✨", "energy_sync", 1500),
+                "destiny_card": ("⭐ КАРТА СУДЬБЫ", "Твой главный жизненный путь на всю жизнь. Самый важный разбор в твоем профиле, определяющий твой архетип, предназначение и кармические задачи.\n\nСтоимость: 1500 ✨", "energy_sync", 1500),
+                "dream": ("🌙 СОННИК", "Толкование твоих снов через призму архетипов и символов. Узнай, что хочет сказать твое подсознание, и расшифруй тайные знаки ночи.\n\nСтоимость: 1000 ✨", "energy_sync", 1000),
+                "sex": ("🔥 СЕКСУАЛЬНОСТЬ", "Погружение в мир твоих истинных чувств, желаний и сексуального потенциала через анализ твоих планет страсти.\n\nСтоимость: 1000 ✨", "energy_sync", 1000),
+                "money": ("💰 ДЕНЕЖНЫЙ ПОТОК", "Раскрой свой путь к финансовой свободе, сильные и слабые стороны в материальном мире и способы привлечения изобилия.\n\nСтоимость: 900 ✨", "energy_sync", 900),
+                "shadow": ("👹 ВАШИ ДЕМОНЫ / ТЕНЬ", "Встреча с тем, что скрыто в глубине тебя. Осознание и принятие своей теневой стороны для обретения целостности.\n\nСтоимость: 700 ✨", "energy_sync", 700),
+                "final": ("🧭 ВАШ ПУТЬ В ЖИЗНИ", "Главный вектор твоей жизни, долгосрочные цели и предназначение души в этом воплощении.\n\nСтоимость: 1200 ✨", "energy_sync", 1200),
+                "oracle": ("🔮 СПРОСИ У ЗВЕЗД", "Ответ на твой самый важный и волнующий вопрос от звездного Оракула.\n\nСтоимость: 500 ✨", "energy_sync", 500),
+                "antitaro": ("🃏 АНТИ-ТАРО", "Честный, трезвый взгляд на ситуацию без розовых очков и иллюзий.\n\nСтоимость: 500 ✨", "energy_sync", 500),
+                "micro_insight": ("✨ МИКРО-ИНСАЙТ", "Быстрый и точный совет от твоего персонального Проводника на ближайший час.\n\nСтоимость: 100 ✨", "energy_sync", 100)
             }
             title, desc, cat, cost = item_data.get(key, ("Услуга", "Описание", "biometrics", 700))
 
             # Проверка VIP-безлимита для Хиромантии и Сонника
             user = await get_user(vk_id)
             from modules.utils.logic import is_vip_unlimited
-            if user and key in ["palmistry"] and is_vip_unlimited(user):
-                cost = 0
-                desc = desc.replace("Стоимость: 1200 ✨", "Вам доступно БЕСПЛАТНО по VIP-тарификации!")
+            if user and is_vip_unlimited(user):
+                if key == "palmistry":
+                    cost = 0
+                    desc = desc.replace("Стоимость: 1200 ✨", "Вам доступно БЕСПЛАТНО по VIP-тарификации!")
+                elif key == "dream":
+                    cost = 0
+                    desc = desc.replace("Стоимость: 1000 ✨", "Вам доступно БЕСПЛАТНО по VIP-тарификации!")
 
             kb = Keyboard(inline=True)
             kb.add(Callback("✅ АКТИВИРОВАТЬ РИТУАЛ", payload={"cmd": "confirm_buy", "type": "service", "key": key}), color=KeyboardButtonColor.POSITIVE)
             kb.row()
             kb.add(Callback("⬅️ НАЗАД В КАБИНЕТ", payload={"cmd": "secret_arts_cat", "cat": cat}), color=KeyboardButtonColor.SECONDARY)
 
-            att = await upload_local_photo(bot.api, f"uslugi/services.jpeg", peer_id=vk_id)
+            att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
             await ghost_edit(bot.api, peer_id, f"✨ {title}\n\n{desc}", keyboard=kb.get_json(), attachment=att, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "totem_quiz_s1":
             val = payload.get("val")

@@ -1,16 +1,11 @@
-import json
 import random
 import asyncio
-from loguru import logger
-from vkbottle import Keyboard, Callback, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
-from cache import acquire_lock, release_lock, get_fsm_step, set_fsm_state
-from database import get_user, set_user_state, update_user
+from cache import acquire_lock, release_lock, get_fsm_step
+from database import set_user_state
 from modules.bot_init import bot
-from modules.utils import (
-    ghost_edit, get_last_bot_msg, set_last_bot_msg, delete_bot_message, extract_msg_id
-)
+from modules.utils import extract_msg_id
 from modules.payments.logic import execute_generation
 
 labeler = BotLabeler()

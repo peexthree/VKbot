@@ -64,10 +64,6 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     kb.add(Callback("🔮 Услуги", payload={"cmd": "services_menu"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
 
-    # Ряд 2.5 - Тайные искусства
-    kb.add(Callback("✨ Тайные искусства", payload={"cmd": "secret_arts_menu"}), color=KeyboardButtonColor.POSITIVE)
-    kb.row()
-
     # Ряд 3 (Горизонтальный)
     kb.add(Callback("📖 ГРИМУАР", payload={"cmd": "profile_action", "action": "grimoire"}), color=KeyboardButtonColor.PRIMARY)
     kb.add(Callback("👥 МОЙ КРУГ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
@@ -87,34 +83,27 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     return kb.get_json()
 
 def services_menu_kb() -> str:
-    """Меню Услуг"""
-    return vertical_kb([
-        ("🔮 Все услуги", "service_page", KeyboardButtonColor.PRIMARY),
-        ("❤️ Совместимость", {"cmd": "use_section", "key": "synastry"}, KeyboardButtonColor.PRIMARY),
-        ("🌙 Сонник", {"cmd": "dream_interpret_start"}, KeyboardButtonColor.POSITIVE),
-        ("⭐ Подписка / Тарифы", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
-    ], nav_buttons=[
-        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-    ])
-
-def secret_arts_menu_kb() -> str:
-    """Корневое меню Тайных искусств (Кабинеты)"""
+    """Единый корневой каталог услуг по категориям (Кабинеты)"""
     return vertical_kb([
         ("👁 Биометрия и Фото", {"cmd": "secret_arts_cat", "cat": "biometrics"}, KeyboardButtonColor.PRIMARY),
         ("🎨 Сакральные Артефакты", {"cmd": "secret_arts_cat", "cat": "artifacts"}, KeyboardButtonColor.PRIMARY),
         ("🧭 Проекции Судьбы", {"cmd": "secret_arts_cat", "cat": "destiny"}, KeyboardButtonColor.PRIMARY),
         ("🏺 Древние Оракулы", {"cmd": "secret_arts_cat", "cat": "oracles"}, KeyboardButtonColor.PRIMARY),
+        ("❤️ Энергия и Слияние", {"cmd": "secret_arts_cat", "cat": "energy_sync"}, KeyboardButtonColor.PRIMARY),
     ], nav_buttons=[
-        ("🏠 В ГЛАВНОЕ МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
+        ("⭐ Подписка / Тарифы", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
+        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
+
+def secret_arts_menu_kb() -> str:
+    """Устаревшее имя, ведет на единое меню услуг"""
+    return services_menu_kb()
 
 def category_menu_kb(category_key: str, user_purchased: dict = None, vip_unlimited: bool = False) -> str:
     """Меню конкретного кабинета (категории услуг)"""
     buttons = []
     if category_key == "biometrics":
-        # Окуломантия
         buttons.append(("👁 Окуломантия (1200 ✨)", {"cmd": "secret_arts_item", "key": "oculomancy"}, KeyboardButtonColor.PRIMARY))
-        # Хиромантия (перенесена из общего меню)
         hiro_label = "✋ Хиромантия (Бесплатно)" if vip_unlimited else "✋ Хиромантия (1200 ✨)"
         buttons.append((hiro_label, {"cmd": "secret_arts_item", "key": "palmistry"}, KeyboardButtonColor.PRIMARY))
     elif category_key == "artifacts":
@@ -129,9 +118,21 @@ def category_menu_kb(category_key: str, user_purchased: dict = None, vip_unlimit
         buttons.append(("👤 Теневой Оракул (700 ✨)", {"cmd": "secret_arts_item", "key": "shadow_oracle"}, KeyboardButtonColor.PRIMARY))
         buttons.append(("⏱ Хроно-Прогноз (700 ✨)", {"cmd": "secret_arts_item", "key": "chrono"}, KeyboardButtonColor.PRIMARY))
         buttons.append(("🌾 Чарослов Дня (600 ✨)", {"cmd": "secret_arts_item", "key": "charoslov"}, KeyboardButtonColor.PRIMARY))
+    elif category_key == "energy_sync":
+        buttons.append(("❤️ Совместимость (1500 ✨)", {"cmd": "secret_arts_item", "key": "synastry"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("⭐ Карта Судьбы (1500 ✨)", {"cmd": "secret_arts_item", "key": "destiny_card"}, KeyboardButtonColor.PRIMARY))
+        dream_label = "🌙 Сонник (Бесплатно)" if vip_unlimited else "🌙 Сонник (1000 ✨)"
+        buttons.append((dream_label, {"cmd": "secret_arts_item", "key": "dream"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🔥 Сексуальность (1000 ✨)", {"cmd": "secret_arts_item", "key": "sex"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("💰 Денежный поток (900 ✨)", {"cmd": "secret_arts_item", "key": "money"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("👹 Ваши демоны (700 ✨)", {"cmd": "secret_arts_item", "key": "shadow"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🧭 Ваш путь в жизни (1200 ✨)", {"cmd": "secret_arts_item", "key": "final"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🔮 Спроси у звезд (500 ✨)", {"cmd": "secret_arts_item", "key": "oracle"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🃏 Анти-Таро (500 ✨)", {"cmd": "secret_arts_item", "key": "antitaro"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("✨ Микро-инсайт (100 ✨)", {"cmd": "secret_arts_item", "key": "micro_insight"}, KeyboardButtonColor.PRIMARY))
 
     return vertical_kb(buttons, nav_buttons=[
-        ("⬅️ НАЗАД В КАТАЛОГ", "secret_arts_menu", KeyboardButtonColor.SECONDARY)
+        ("⬅️ НАЗАД В КАТАЛОГ", "services_menu", KeyboardButtonColor.SECONDARY)
     ])
 
 def totem_quiz_step1_kb() -> str:
