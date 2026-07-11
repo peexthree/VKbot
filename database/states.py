@@ -67,7 +67,16 @@ async def set_user_state(vk_id: int, state: str):
         "admin_user_edit_balance": "admin_user_edit_balance",
         "admin_user_give_card": "admin_user_give_card",
         "global_cut": MyStates.GLOBAL_CUT,
-        "waiting_reset_confirm": MyStates.WAITING_RESET_CONFIRM
+        "waiting_reset_confirm": MyStates.WAITING_RESET_CONFIRM,
+        "waiting_oculomancy_photo": MyStates.WAITING_OCULOMANCY_PHOTO,
+        "waiting_sigil_wish": MyStates.WAITING_SIGIL_WISH,
+        "waiting_geo_location": MyStates.WAITING_GEO_LOCATION,
+        "waiting_totem_step1": MyStates.WAITING_TOTEM_STEP1,
+        "waiting_totem_step2": MyStates.WAITING_TOTEM_STEP2,
+        "waiting_karma_step1": MyStates.WAITING_KARMA_STEP1,
+        "waiting_karma_step2": MyStates.WAITING_KARMA_STEP2,
+        "waiting_dream_text": MyStates.WAITING_DREAM_TEXT,
+        "waiting_feedback_comment": MyStates.WAITING_FEEDBACK_COMMENT
     }
     # Always persist to Redis for reliability across restarts
     await set_fsm_state(vk_id, state)
