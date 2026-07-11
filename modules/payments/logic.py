@@ -31,7 +31,9 @@ async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = 
         birth_data = await get_temp_birth_data(vk_id)
 
         # Для микро-инсайта, услуг и т.д. нам нужны данные
-        if not birth_data and section not in ["oracle", "antitaro"]:
+        # Новые тайные искусства тоже требуют данные рождения
+        non_birth_sections = ["oracle", "antitaro", "egyptian_oracle", "shadow_oracle"]
+        if not birth_data and section not in non_birth_sections:
             # Пытаемся спарсить из ВК
             try:
                 users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
@@ -166,6 +168,96 @@ async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = 
                 await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
             return
 
+        elif section == "oculomancy":
+            purchased[section] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await set_user_state(vk_id, '{"step": "waiting_oculomancy_photo"}')
+
+            msg = (
+                "✅ ОПЛАТА ПРОШЛА.\n\n"
+                "Для проведения ритуала Окуломантии пришли, пожалуйста, крупное фото своего глаза:\n\n"
+                "• Хорошее освещение и четкость узора радужки\n"
+                "• Глаз широко открыт и смотрит прямо в объектив\n"
+                "• Сделайте фото без бликов и вспышки"
+            )
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
+            return
+
+        elif section == "sigil":
+            purchased[section] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await set_user_state(vk_id, '{"step": "waiting_sigil_wish"}')
+
+            msg = (
+                "✅ ОПЛАТА ПРОШЛА.\n\n"
+                "Напиши свое самое заветное желание или намерение (например, 'хочу закрыть сделку' или 'привлечь финансовый поток').\n\n"
+                "Я переведу буквы твоего намерения в уникальный графический символ - сигил удачи ✨"
+            )
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
+            return
+
+        elif section == "astro_geo":
+            purchased[section] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await set_user_state(vk_id, '{"step": "waiting_geo_location"}')
+
+            msg = (
+                "✅ ОПЛАТА ПРОШЛА.\n\n"
+                "Напиши город или страну, которую планируешь посетить, переехать или где хочешь узнать силу своего притяжения (например, 'Париж' или 'Бали'):"
+            )
+            kb = Keyboard(inline=True)
+            kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=kb.get_json())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=kb.get_json())
+            return
+
+        elif section == "totem":
+            purchased[section] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await set_user_state(vk_id, '{"step": "waiting_totem_step1"}')
+
+            from modules.keyboards import totem_quiz_step1_kb
+            msg = (
+                "🐾 АКТИВАЦИЯ ТОТЕМНОГО ПРОВОДНИКА\n\n"
+                "Начнем шаманский медитативный квиз. Отключи лишние мысли и выбери время суток, когда твоя внутренняя сила ощущается наиболее мощно:"
+            )
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=totem_quiz_step1_kb())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=totem_quiz_step1_kb())
+            return
+
+        elif section == "karma":
+            purchased[section] = True
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await set_user_state(vk_id, '{"step": "waiting_karma_step1"}')
+
+            from modules.keyboards import karma_quiz_step1_kb
+            msg = (
+                "🧬 КАРМИЧЕСКИЙ НАВИГАТОР\n\n"
+                "Запускаю синхронизацию с хрониками прошлых жизней. Доверься интуиции. Выбери сакральный символ, который притягивает твой взгляд в этот миг:"
+            )
+            if conversation_message_id:
+                await ghost_edit(bot.api, target_peer, msg, conversation_message_id=conversation_message_id, keyboard=karma_quiz_step1_kb())
+            else:
+                await bot.api.messages.send(peer_id=target_peer, message=msg, random_id=random.getrandbits(63), keyboard=karma_quiz_step1_kb())
+            return
+
         elif section == "synastry":
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
@@ -291,12 +383,31 @@ async def execute_generation(
                 res = await redis_client.get(f"palmistry_photos:{vk_id}")
                 if res:
                     image_urls = json.loads(res)
+            elif target_section == "oculomancy":
+                from cache import redis_client
+                res = await redis_client.get(f"oculomancy_photo:{vk_id}")
+                if res:
+                    eye_url = res.decode() if isinstance(res, bytes) else res
+                    image_urls = [eye_url]
 
             if target_section == "dream":
                 from cache import redis_client
                 dream_text = await redis_client.get(f"dream_text:{vk_id}")
                 if dream_text:
                     partner_date = dream_text.decode() if isinstance(dream_text, bytes) else dream_text
+            elif target_section == "sigil":
+                from cache import redis_client
+                wish_text = await redis_client.get(f"sigil_wish:{vk_id}")
+                if wish_text:
+                    partner_date = wish_text.decode() if isinstance(wish_text, bytes) else wish_text
+            elif target_section == "astro_geo":
+                from cache import redis_client
+                loc_text = await redis_client.get(f"astro_geo_loc:{vk_id}")
+                if loc_text:
+                    partner_date = loc_text.decode() if isinstance(loc_text, bytes) else loc_text
+            elif target_section in ["totem", "karma"]:
+                # partner_date содержит переданные ответы квизов
+                pass
 
             from cache import get_temp_birth_data
             birth_data = await get_temp_birth_data(vk_id)
@@ -412,8 +523,26 @@ async def execute_generation(
                     "sex": "Сексуальность", "money": "Богатство", "shadow": "Тень",
                     "final": "Путь", "synastry": "Синастрия", "oracle": "Оракул",
                     "antitaro": "Антитаро", "report": "Разбор", "card_of_day": "Карта дня",
-                    "palmistry": "Хиромантия", "dream": "Толкование сна"
+                    "palmistry": "Хиромантия", "dream": "Толкование сна",
+                    "oculomancy": "Окуломантия", "sigil": "Сигил-Мастер",
+                    "karma": "Карма-Навигатор", "totem": "Тотем-Проводник",
+                    "astro_geo": "Астро-Карты", "alchemist": "Алхимик Кода",
+                    "egyptian_oracle": "Оракул Египта", "shadow_oracle": "Теневой Оракул",
+                    "chrono": "Хроно-Прогноз", "charoslov": "Чарослов Дня"
                 }
+
+                # Pillow генерация для Окуломантии и Сигилов
+                sigil_img_path = None
+                eye_img_path = None
+
+                if target_section == "sigil" and partner_date:
+                    sigil_img_path = f"sigil_{vk_id}.jpeg"
+                    from modules.tarot.secret_arts_logic import generate_sigil_image
+                    await asyncio.to_thread(generate_sigil_image, partner_date, sigil_img_path)
+                elif target_section == "oculomancy" and image_urls:
+                    eye_img_path = f"eye_{vk_id}.jpeg"
+                    from modules.tarot.secret_arts_logic import process_oculomancy_eye
+                    await asyncio.to_thread(process_oculomancy_eye, image_urls[0], eye_img_path)
 
                 history_item = {
                     "title": titles.get(target_section, "Разбор"),
@@ -424,9 +553,16 @@ async def execute_generation(
                 if target_section == "synastry" and partner_name:
                     history_item["partner_name"] = partner_name
 
+                # Если это сигил или окуломантия, сохраняем пути к картинкам в редис данных для PDF
+                latest_data_to_store = res_data if isinstance(res_data, dict) else {"text": res_text}
+                if sigil_img_path:
+                    latest_data_to_store["sigil_photo"] = sigil_img_path
+                if eye_img_path:
+                    latest_data_to_store["eye_photo"] = eye_img_path
+
                 from cache import set_latest_reading, add_reading_to_history, get_readings_history
                 await add_reading_to_history(vk_id, history_item)
-                await set_latest_reading(vk_id, display_text, data=res_data if isinstance(res_data, dict) else None)
+                await set_latest_reading(vk_id, display_text, data=latest_data_to_store)
 
                 # Получаем обновленную историю из Redis для проверки достижений и сохранения в БД
                 history = await get_readings_history(vk_id)
@@ -575,6 +711,16 @@ async def execute_generation(
                     kb.row()
                     kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
                     kb_str = kb.get_json()
+                elif target_section in ["oculomancy", "sigil", "karma", "totem", "astro_geo", "alchemist", "egyptian_oracle", "shadow_oracle", "chrono", "charoslov"]:
+                    kb = Keyboard(inline=True)
+                    kb.add(Callback("📜 ПОЛНЫЙ PDF-ОТЧЕТ", payload={"cmd": "gen_pdf", "section": target_section, "card": card_id}), color=KeyboardButtonColor.POSITIVE)
+                    kb.row()
+                    kb.add(Callback("⭐️ Оценить прогноз", payload={"cmd": "show_rating", "section": target_section, "card": card_id}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("✨ Тайные Искусства", payload={"cmd": "secret_arts_menu"}), color=KeyboardButtonColor.PRIMARY)
+                    kb.row()
+                    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                    kb_str = kb.get_json()
                 else:
                     kb_str = after_pdf_kb(target_section, card_id)
 
@@ -642,6 +788,15 @@ async def execute_generation(
                 if card_data:
                     header = f"🃏 {card_data.get('name')} — {card_data.get('subtitle')}\n------------------\n\n"
 
+                # Загружаем Pillow-изображения сигила или глаза для отправки в ВК чат
+                attachment = None
+                if target_section == "sigil" and sigil_img_path and os.path.exists(sigil_img_path):
+                    from modules.utils import upload_local_photo
+                    attachment = await upload_local_photo(bot.api, sigil_img_path, peer_id=peer_id)
+                elif target_section == "oculomancy" and eye_img_path and os.path.exists(eye_img_path):
+                    from modules.utils import upload_local_photo
+                    attachment = await upload_local_photo(bot.api, eye_img_path, peer_id=peer_id)
+
                 # Если conversation_message_id был передан (регистрация), используем его как CMID.
                 # Если нет (расклад), используем ID сообщения динамического тайпинга как MID.
                 if conversation_message_id:
@@ -650,7 +805,8 @@ async def execute_generation(
                         peer_id,
                         header + display_text,
                         conversation_message_id=conversation_message_id,
-                        keyboard=kb_str
+                        keyboard=kb_str,
+                        attachment=attachment
                     )
                 else:
                     await ghost_edit(
@@ -658,7 +814,8 @@ async def execute_generation(
                         peer_id,
                         header + display_text,
                         message_id=typing_msg_id,
-                        keyboard=kb_str
+                        keyboard=kb_str,
+                        attachment=attachment
                     )
             else:
                 await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id, partner_name=partner_name, partner_date=partner_date, card_id=card_id)
@@ -676,7 +833,11 @@ async def handle_generation_failure(vk_id: int, peer_id: int, target_section: st
         "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
         "synastry": 1500, "palmistry": 1200, "dream": 1000, "all": 3000, "oracle": 500, "antitaro": 500,
         "micro_insight": 100, "oracle_upsell": 250,
-        "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
+        "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900,
+        "oculomancy": 1200, "sigil": 1000,
+        "karma": 900, "totem": 900, "astro_geo": 900,
+        "egyptian_oracle": 700, "shadow_oracle": 700, "alchemist": 700, "chrono": 700,
+        "charoslov": 600
     }
     price_of_service = prices.get(target_section, 0)
     user = await get_user(vk_id)

@@ -224,7 +224,27 @@
             </div>
             {% endif %}
 
+            {% if eye_photo %}
+            <div class="section-divider">
+                <h2 style="font-family: 'Lora', serif; font-weight: 700; color:#f4d48c; text-align: center; font-size: 20pt;">ВАШ ГЛАЗ</h2>
+            </div>
+            <div style="display: flex; justify-content: center; margin-bottom: 40px; text-align: center;">
+                <div style="width: 50%;">
+                    <img src="{{ eye_photo }}" style="width: 100%; border-radius: 50%; border: 3px solid #f4d48c; box-shadow: 0 0 20px rgba(244, 212, 140, 0.6);">
+                    <p style="color: #f4d48c; font-size: 12pt; margin-top: 5px;">👁 ЗЕРКАЛО ДУШИ</p>
+                </div>
+            </div>
+            {% endif %}
+
             <div class="content">{{ text_content | safe }}</div>
+
+            <!-- ИЗОБРАЖЕНИЕ СИГИЛА -->
+            {% if sigil_photo %}
+            <div class="card-container">
+                <img src="cards/uslugi/bac.png" class="card-background">
+                <img src="{{ sigil_photo }}" class="card-image" style="border-radius: 12px; max-width: 320px;">
+            </div>
+            {% endif %}
 
             <!-- КАРТА -->
             {% if card_image_path %}
@@ -332,6 +352,12 @@
         <div style="color: #f4d48c; line-height: 1.8;">
             <p style="font-family: 'Lora', serif; font-weight: 700; font-size: 18pt; letter-spacing: 2px; margin: 0; text-transform: uppercase;">РИТУАЛ ЗАВЕРШЕН</p>
             <p style="font-family: 'Lora', serif; font-size: 13pt; color: #ffe8a3; margin-top: 15px; margin-bottom: 0;">Проводник: {{ character_name }} • {{ current_date }}</p>
+        </div>
+
+        <!-- Маркетинговый блок отзывов -->
+        <div style="margin: 40px auto; max-width: 500px; padding: 20px; border: 1px solid #f4d48c; border-radius: 12px; background: rgba(30, 20, 45, 0.6); box-shadow: 0 0 15px rgba(244, 212, 140, 0.3);">
+            <p style="font-family: 'Lora', serif; font-weight: 700; font-size: 11pt; color: #ffe8a3; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">ПОНРАВИЛСЯ РАЗБОР?</p>
+            <p style="font-family: 'Lora', serif; font-size: 10pt; color: #f0e6d2; margin: 0; line-height: 1.5;">Оставь свой отзыв в нашей группе VK через кнопку оценки в чате и получи <strong style="color: #f4d48c;">+50 ✨ Энергии звёзд</strong> на баланс!</p>
         </div>
 
         <!-- Юридический дисклеймер в самом низу страницы -->

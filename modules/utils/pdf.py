@@ -155,7 +155,9 @@ def generate_premium_pdf(
     current_date: str = "",
     palm_photos: list[str] = None,
     interesting_facts: str = "",
-    character_name: str = "Проводник"
+    character_name: str = "Проводник",
+    sigil_photo: str = None,
+    eye_photo: str = None
 ):
     try:
         template = jinja_env.get_template('report.html')
@@ -209,7 +211,9 @@ def generate_premium_pdf(
             current_date=current_date,
             palm_photos=palm_photos,
             interesting_facts=interesting_facts,
-            character_name=character_name
+            character_name=character_name,
+            sigil_photo=sigil_photo,
+            eye_photo=eye_photo
         )
 
         from weasyprint import HTML

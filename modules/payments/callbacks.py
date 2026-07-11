@@ -481,6 +481,114 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             asyncio.create_task(add_event(vk_id, "daily_card_view"))
             await card_of_day_logic(vk_id, peer_id, skip_lock=True, event_id=event_id, conversation_message_id=obj.get("conversation_message_id"))
         elif cmd == "services_menu": await show_services(vk_id, peer_id, 0, edit_msg_id=obj.get("conversation_message_id"), filter_val=payload.get("filter"), is_catalog=False)
+        elif cmd == "secret_arts_menu":
+            from modules.keyboards import secret_arts_menu_kb
+            text = "✨ ТАЙНЫЕ ИСКУССТВА АНТИ-ТАР\n\nДобро пожаловать в обитель тайных откровений. Здесь собраны древние системы познания себя и мира, выходящие за рамки обычного."
+            att = await upload_local_photo(bot.api, "uslugi/main_menu.jpeg", peer_id=vk_id)
+            await ghost_edit(bot.api, peer_id, text, keyboard=secret_arts_menu_kb(), attachment=att, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "secret_arts_cat":
+            cat = payload.get("cat")
+            from modules.keyboards import category_menu_kb
+            user = await get_user(vk_id)
+            from modules.utils.logic import is_vip_unlimited
+            vip_unlimited = is_vip_unlimited(user) if user else False
+
+            cat_titles = {
+                "biometrics": "👁 КАБИНЕТ БИОМЕТРИИ\n\nАнализ вашей уникальной физиологии и энергетических полей по фотографиям. Познайте скрытый потенциал вашего тела и души.",
+                "artifacts": "🎨 САД САКРАЛЬНЫХ АРТЕФАКТОВ\n\nСоздание и калибровка индивидуальных цифровых талисманов и формул баланса по древним канонам.",
+                "destiny": "🧭 ПРОЕКЦИИ СУДЬБЫ\n\nГлубокие интерактивные квизы и астро-картография для раскрытия ваших прошлых жизней, тотемов и мест силы на планете.",
+                "oracles": "🏺 ДРЕВНИЕ ОРАКУЛЫ\n\nТайные предсказательные системы, не подвластные времени. Послания древнеегипетских жрецов, руны Лилит и хроно-расчеты вашей ведьминской активности."
+            }
+            text = cat_titles.get(cat, "Тайные искусства")
+            att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
+            await ghost_edit(bot.api, peer_id, text, keyboard=category_menu_kb(cat, vip_unlimited=vip_unlimited), attachment=att, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "secret_arts_item":
+            key = payload.get("key")
+            item_data = {
+                "oculomancy": ("👁 ОКУЛОМАНТИЯ: ЗЕРКАЛО ДУШИ", "Пользователь загружает крупное фото своего глаза. ИИ считывает оттенок, узоры радужки и форму разреза, выдавая глубокий психологический портрет, скрытые таланты и «уязвимости» души.\n\nСтоимость: 1200 ✨", "biometrics", 1200),
+                "palmistry": ("✋ ХИРОМАНТИЯ", "Чтение судьбы по ладоням. Узнай свой врожденный потенциал и текущую реализацию через глубокий анализ линий твоей руки.\n\nСтоимость: 1200 ✨", "biometrics", 1200),
+                "sigil": ("🎨 СИГИЛ-МАСТЕР: ГЕНЕРАТОР ЗНАКОВ УДАЧИ", "Трансформируй свое желание в уникальный графический символ - сигил по древним правилам практической магии. Сохрани его на экран телефона для активации потоков удачи!\n\nСтоимость: 1000 ✨", "artifacts", 1000),
+                "alchemist": ("🧪 ЦИФРОВОЙ АЛХИМИК", "Расчет ведущего первоэлемента (Философская Ртуть, Сера или Соль) на основе даты твоего рождения и составление персональной формулы баланса.\n\nСтоимость: 700 ✨", "artifacts", 700),
+                "karma": ("🧬 КАРМИЧЕСКИЙ НАВИГАТОР", "Узнай тайну своего предыдущего воплощения, невыполненные кармические долги и получи ключ к решению текущих жизненных трудностей через интерактивный тест.\n\nСтоимость: 900 ✨", "destiny", 900),
+                "totem": ("🐾 ТОТЕМНЫЙ ПРОВОДНИК", "Определение твоего священного животного силы через шаманский интерактивный квиз, послание от тотема и советы по использованию его энергии.\n\nСтоимость: 900 ✨", "destiny", 900),
+                "astro_geo": ("🗺 АСТРО-КАРТОГРАФИЯ", "Анализ влияния планетарных линий на земную географию. Введи город или страну и узнай, принесет ли это место тебе богатство, любовь или испытания.\n\nСтоимость: 900 ✨", "destiny", 900),
+                "egyptian_oracle": ("🏺 ДРЕВНИЙ ЕГИПЕТСКИЙ ОРАКУЛ", "Свитки Судьбы из Книги Тота. Три священных пророчества древних богов Гелиополя, раскрывающие векторы твоего триумфа.\n\nСтоимость: 700 ✨", "oracles", 700),
+                "shadow_oracle": ("👤 ТЕНЕВОЙ ОРАКУЛ ЛИЛИТ", "Встреча со своими истинными, подавленными желаниями и теневой стороной личности по концепции Юнга. Трансформируй своих демонов в огромный ресурс силы.\n\nСтоимость: 700 ✨", "oracles", 700),
+                "chrono": ("⏱ ХРОНО-ПРОГНОЗ", "Расчет личных 'ведьминских часов' и пиков мистической активности на месяц вперед. Идеальный эзотерический тайм-менеджмент.\n\nСтоимость: 700 ✨", "oracles", 700),
+                "charoslov": ("🌾 СЛАВЯНСКИЙ ЧАРОСЛОВ", "Старообрядческие заговоры, обереги и индивидуальные ведовские практики защиты/привлечения блага на сегодняшний день.\n\nСтоимость: 600 ✨", "oracles", 600)
+            }
+            title, desc, cat, cost = item_data.get(key, ("Услуга", "Описание", "biometrics", 700))
+
+            # Проверка VIP-безлимита для Хиромантии и Сонника
+            user = await get_user(vk_id)
+            from modules.utils.logic import is_vip_unlimited
+            if user and key in ["palmistry"] and is_vip_unlimited(user):
+                cost = 0
+                desc = desc.replace("Стоимость: 1200 ✨", "Вам доступно БЕСПЛАТНО по VIP-тарификации!")
+
+            kb = Keyboard(inline=True)
+            kb.add(Callback("✅ АКТИВИРОВАТЬ РИТУАЛ", payload={"cmd": "confirm_buy", "type": "service", "key": key}), color=KeyboardButtonColor.POSITIVE)
+            kb.row()
+            kb.add(Callback("⬅️ НАЗАД В КАБИНЕТ", payload={"cmd": "secret_arts_cat", "cat": cat}), color=KeyboardButtonColor.SECONDARY)
+
+            att = await upload_local_photo(bot.api, f"uslugi/services.jpeg", peer_id=vk_id)
+            await ghost_edit(bot.api, peer_id, f"✨ {title}\n\n{desc}", keyboard=kb.get_json(), attachment=att, conversation_message_id=obj.get("conversation_message_id"))
+        elif cmd == "totem_quiz_s1":
+            val = payload.get("val")
+            await set_user_state(vk_id, json.dumps({"step": "waiting_totem_step2", "time_of_day": val}))
+            from modules.keyboards import totem_quiz_step2_kb
+            await ghost_edit(
+                bot.api, peer_id,
+                "🐾 Шаг 2 из 2: Стихия силы\n\nВыбери природную стихию твоего духа:",
+                keyboard=totem_quiz_step2_kb(),
+                conversation_message_id=obj.get("conversation_message_id")
+            )
+        elif cmd == "totem_quiz_s2":
+            val = payload.get("val")
+            state = await get_fsm_step(vk_id)
+            time_of_day = state.get("time_of_day", "☀️ Полдень") if state else "☀️ Полдень"
+            await set_user_state(vk_id, "")
+
+            conv_id = obj.get("conversation_message_id")
+            await ghost_edit(
+                bot.api, peer_id,
+                "✦ РИТУАЛ ТОТЕМА НАЧАТ. СОЕДИНЯЮ СИЛЫ ПРИРОДЫ...",
+                keyboard=Keyboard(inline=True).get_json(),
+                conversation_message_id=conv_id
+            )
+            asyncio.create_task(execute_generation(
+                vk_id, peer_id, "totem", partner_name="",
+                partner_date=f"Время силы: {time_of_day}, Стихия: {val}",
+                conversation_message_id=conv_id
+            ))
+        elif cmd == "karma_quiz_s1":
+            val = payload.get("val")
+            await set_user_state(vk_id, json.dumps({"step": "waiting_karma_step2", "symbol": val}))
+            from modules.keyboards import karma_quiz_step2_kb
+            await ghost_edit(
+                bot.api, peer_id,
+                "🧬 Шаг 2 из 2: Цвет ауры\n\nВыбери преобладающий цвет твоей ауры в этот миг:",
+                keyboard=karma_quiz_step2_kb(),
+                conversation_message_id=obj.get("conversation_message_id")
+            )
+        elif cmd == "karma_quiz_s2":
+            val = payload.get("val")
+            state = await get_fsm_step(vk_id)
+            symbol = state.get("symbol", "✵ Руна") if state else "✵ Руна"
+            await set_user_state(vk_id, "")
+
+            conv_id = obj.get("conversation_message_id")
+            await ghost_edit(
+                bot.api, peer_id,
+                "✦ СВЯЗЬ С ХРОНИКАМИ ПРОШЛОГО НАСТРОЕНА. СЧИТЫВАЮ КАРМУ...",
+                keyboard=Keyboard(inline=True).get_json(),
+                conversation_message_id=conv_id
+            )
+            asyncio.create_task(execute_generation(
+                vk_id, peer_id, "karma", partner_name="",
+                partner_date=f"Выбранный символ: {symbol}, Цвет ауры: {val}",
+                conversation_message_id=conv_id
+            ))
         elif cmd == "profile_menu":
             from modules.profile.views import show_profile_logic
             await show_profile_logic(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=obj.get("conversation_message_id"))
@@ -603,7 +711,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     card_name=card_data.get("name"),
                     card_description=card_data.get("description"),
                     shadow_side=latest_data.get("shadow_side", ""),
-                    activation_level=latest_data.get("activation_level") if section != "palmistry" else None,
+                    activation_level=latest_data.get("activation_level") if section not in ["palmistry", "dream"] else None,
                     activation_comment=latest_data.get("activation_comment", ""),
                     affirmations=latest_data.get("affirmations", ""),
                     next_activation_date=latest_data.get("next_activation_date", ""),
@@ -614,7 +722,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     current_date=current_date_str,
                     palm_photos=latest_data.get("palm_photos"),
                     interesting_facts=latest_data.get("interesting_facts", ""),
-                    character_name=char_name
+                    character_name=char_name,
+                    sigil_photo=latest_data.get("sigil_photo"),
+                    eye_photo=latest_data.get("eye_photo")
                 )
             if success and os.path.exists(pdf_name):
                 doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{section}.pdf", peer_id=peer_id)
@@ -707,7 +817,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "destiny_card": 1500,
                 "destiny_card_update": 1000,
                 "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900,
-                "topup_5000": 400, "topup_10000": 750, "topup_50000": 3500
+                "topup_5000": 400, "topup_10000": 750, "topup_50000": 3500,
+                "oculomancy": 1200, "sigil": 1000,
+                "karma": 900, "totem": 900, "astro_geo": 900,
+                "egyptian_oracle": 700, "shadow_oracle": 700, "alchemist": 700, "chrono": 700,
+                "charoslov": 600
             }
             amount_needed = prices.get(key)
             if not amount_needed: return
@@ -1031,7 +1145,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "oracle_upsell": 250, "micro_insight": 100,
                 "destiny_card": 1500, "destiny_card_update": 1000,
                 "skin": 1500,
-                "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900
+                "tariff_1": 990, "tariff_2": 2900, "tariff_vip": 5900,
+                "oculomancy": 1200, "sigil": 1000,
+                "karma": 900, "totem": 900, "astro_geo": 900,
+                "egyptian_oracle": 700, "shadow_oracle": 700, "alchemist": 700, "chrono": 700,
+                "charoslov": 600
             }
             cost = prices.get(key, 0)
 

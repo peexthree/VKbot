@@ -321,8 +321,12 @@ async def main():
 
     # ПОРЯДОК ЗАГРУЗКИ ВАЖЕН: сначала загружаем обработчики со стейтами (услуги, таро, саппорт),
     # чтобы они имели приоритет над общими командами вроде "сброс" или "профиль"
+    # Импорт обработчиков "Тайных искусств"
+    from modules.tarot.secret_arts_handlers import labeler as secret_arts_labeler
+
     bot.labeler.load(services.labeler)
     bot.labeler.load(tarot.labeler)
+    bot.labeler.load(secret_arts_labeler)
     bot.labeler.load(support.labeler)
     bot.labeler.load(registration.labeler)
     bot.labeler.load(profile.labeler)
