@@ -4,9 +4,8 @@ from vkbottle.bot import BotLabeler, Message
 
 from database import set_user_state
 from modules.bot_init import bot
-from modules.utils import acquire_lock, release_lock, extract_msg_id
+from modules.utils import acquire_lock, release_lock, extract_msg_id, get_fsm_step
 from modules.payments.logic import execute_generation
-from modules.states import MyStates
 
 labeler = BotLabeler()
 
@@ -18,8 +17,26 @@ async def _is_text_valid_for_fsm(message: Message) -> bool:
     if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар", "тайные искусства"]: return False
     return True
 
+
+async def is_waiting_oculomancy_photo(message: Message) -> bool:
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_oculomancy_photo"
+
+
+async def is_waiting_sigil_wish(message: Message) -> bool:
+    if not await _is_text_valid_for_fsm(message): return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_sigil_wish"
+
+
+async def is_waiting_geo_location(message: Message) -> bool:
+    if not await _is_text_valid_for_fsm(message): return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_geo_location"
+
+
 # --- 👁 ОКУЛОМАНТИЯ: ОЖИДАНИЕ ФОТО ГЛАЗА ---
-@labeler.message(state=MyStates.WAITING_OCULOMANCY_PHOTO)
+@labeler.message(func=is_waiting_oculomancy_photo)
 async def process_oculomancy_photo(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
@@ -71,7 +88,7 @@ async def process_oculomancy_photo(message: Message):
 
 
 # --- 🎨 СИГИЛ-МАСТЕР: ОЖИДАНИЕ ЖЕЛАНИЯ ---
-@labeler.message(state=MyStates.WAITING_SIGIL_WISH)
+@labeler.message(func=is_waiting_sigil_wish)
 async def process_sigil_wish(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
@@ -109,7 +126,7 @@ async def process_sigil_wish(message: Message):
 
 
 # --- 🗺 АСТРО-КАРТОГРАФИЯ: ОЖИДАНИЕ ГЕОЛОКАЦИИ ---
-@labeler.message(state=MyStates.WAITING_GEO_LOCATION)
+@labeler.message(func=is_waiting_geo_location)
 async def process_geo_location(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
