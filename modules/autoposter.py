@@ -4,12 +4,13 @@ import os
 import datetime
 from datetime import timezone, timedelta
 from loguru import logger
+from os.path import exists
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from vkbottle.bot import BotLabeler
 from vkbottle import GroupEventType
-
 import re
+
 from modules.bot_init import bot
 from ai_service import generate_text, clean_ai_json, sanitize_user_input
 from prompts.rubrics import RUBRIC_PROMPTS
@@ -31,6 +32,7 @@ from modules.utils.consts import (
 )
 from modules.utils.photos import upload_wall_photo
 from modules.utils.news import fetch_trending_news
+from cards_data import get_card_data
 
 # Загрузка тем и персонажей
 CONTENT_PATH = "data/content_core.json"
@@ -57,6 +59,79 @@ RUBRIC_NAMES = {
 }
 
 labeler = BotLabeler()
+
+# ==================== САКРАЛЬНЫЙ ПУЛ И ЦИКЛИЧЕСКАЯ ОЧЕРЕДЬ ====================
+
+async def get_remaining_rubrics_pool() -> list:
+    """Возвращает список оставшихся рубрик в текущем цикле из Redis."""
+    try:
+        val = await redis.get("autopost_pool:remaining")
+        if val:
+            decoded = val.decode() if isinstance(val, bytes) else val
+            pool = json.loads(decoded)
+            if isinstance(pool, list) and pool:
+                valid_pool = [r for r in pool if r in RUBRIC_NAMES]
+                if valid_pool:
+                    return valid_pool
+    except Exception as e:
+        logger.error(f"Ошибка получения пула рубрик из Redis: {e}")
+
+    return await reset_rubrics_pool()
+
+async def reset_rubrics_pool() -> list:
+    """Инициализирует/сбрасывает пул всеми 17 рубриками."""
+    pool = list(RUBRIC_NAMES.keys())
+    try:
+        await redis.set("autopost_pool:remaining", json.dumps(pool))
+        logger.info(f"🔄 Сакральный круг замкнулся. Пул рубрик инициализирован заново: {pool}")
+    except Exception as e:
+        logger.error(f"Ошибка сохранения пула рубрик в Redis: {e}")
+    return pool
+
+async def save_rubrics_pool(pool: list):
+    """Сохраняет текущий пул рубрик в Redis."""
+    try:
+        await redis.set("autopost_pool:remaining", json.dumps(pool))
+    except Exception as e:
+        logger.error(f"Ошибка сохранения пула рубрик в Redis: {e}")
+
+async def pull_next_rubric() -> str:
+    """Берет случайную рубрику из оставшихся в пуле и удаляет ее."""
+    pool = await get_remaining_rubrics_pool()
+    if not pool:
+        pool = await reset_rubrics_pool()
+
+    rubric = random.choice(pool)
+    pool.remove(rubric)
+    await save_rubrics_pool(pool)
+    logger.info(f"🔮 Из пула выбрана рубрика: {rubric}. Осталось в пуле: {len(pool)} рубрик.")
+    return rubric
+
+async def draw_fallback_rubric(failed_rubric: str) -> str:
+    """
+    Если выбранная новостная рубрика дала сбой, возвращаем её обратно в пул
+    и выбираем любую другую доступную рубрику.
+    """
+    pool = await get_remaining_rubrics_pool()
+    if failed_rubric not in pool:
+        pool.append(failed_rubric)
+
+    alternatives = [r for r in pool if r != failed_rubric]
+    if not alternatives:
+        await reset_rubrics_pool()
+        pool = await get_remaining_rubrics_pool()
+        alternatives = [r for r in pool if r != failed_rubric]
+        if not alternatives:
+            alternatives = pool
+
+    chosen = random.choice(alternatives)
+    if chosen in pool:
+        pool.remove(chosen)
+    await save_rubrics_pool(pool)
+    logger.warning(f"⚠️ Фолбэк: вместо зафейленной {failed_rubric} выбрана {chosen}. Пул сохранен.")
+    return chosen
+
+# ==============================================================================
 
 @labeler.raw_event(GroupEventType.WALL_POST_NEW, dataclass=dict)
 async def ignore_self_wall_posts(event: dict):
@@ -186,7 +261,6 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     active_poll = await get_active_poll()
     if active_poll:
         try:
-            # Вытягиваем данные опроса из ВК (метод getById возвращает список)
             res = await bot.api.request("polls.getById", {
                 "owner_id": active_poll["owner_id"],
                 "poll_id": active_poll["poll_id"]
@@ -194,7 +268,6 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             if res and isinstance(res, list) and len(res) > 0:
                 poll_data = res[0]
                 if poll_data.get("answers"):
-                    # Определяем вариант с максимальным количеством голосов
                     winner = max(poll_data["answers"], key=lambda a: a.get("votes", 0))
                     forced_topic = winner.get("text")
                     logger.info(f"Тема выбрана пользователями через опрос: {forced_topic}")
@@ -227,53 +300,46 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     skin_id = random.choice(available_skins)
     skin_name = SKIN_DISPLAY_NAMES.get(skin_id, skin_id)
 
-    # Выбор рубрики и тона
+    # Выбор рубрики
     if forced_rubric:
         rubric = forced_rubric
-        if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
-            news_list = await fetch_trending_news()
-            if news_list:
-                selected_news = news_list[:4]
-                topic = selected_news[0]["title"]
-                news_context = "\n".join([f"НОВОСТЬ {i+1}: {n['title']}\nФАКТУРА: {n['description']}" for i, n in enumerate(selected_news)])
-                category = "Новости"
-                logger.info(f"Выбрана сводка новостей для принудительной рубрики {rubric}")
-                tones = ["Эмоциональный разбор", "Высоковибрационный хайп", "Циничный инсайд"]
-            else:
-                logger.warning(f"Не удалось получить новости для принудительной рубрики {rubric}, используем стандартную тему")
-                tones = ["Жесткий цинизм", "Дерзкая провокация"]
-        elif rubric in ["SUPPORT", "FACT", "POLL", "CARD_HISTORY", "SACRED_SCIENCE", "DREAM_DECODING", "PALM_CHRONICLES", "KARMA_STORY", "CHAKRA_FLOW", "SACRED_RITUAL"]:
-            tones = ["Психологическое сочувствие", "Глубокий экспертный инсайт"]
-        else:
-            tones = ["Жесткий цинизм", "Дерзкая провокация"]
-    elif is_morning:
-        all_morning_rubrics = ["PROVOCATION", "MYTH_BUST", "BATTLE", "PRACTICUM", "CARD_HISTORY", "PALM_CHRONICLES", "SACRED_RITUAL"]
-        rubric = await get_least_recent_rubric(all_morning_rubrics)
-        tones = ["Жесткий цинизм", "Дерзкая провокация"]
     else:
-        # Вечерний пост: 100% новостной хайп (согласно ТЗ 50% от общего числа постов)
+        rubric = await pull_next_rubric()
+
+    # Обработка новостных рубрик и фолбэк
+    if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
         news_list = await fetch_trending_news()
-        if news_list:
-            news_rubrics = ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]
-            rubric = await get_least_recent_rubric(news_rubrics)
+        if not news_list:
+            logger.warning(f"⚠️ Не удалось получить новости для {rubric}, выполняем фолбэк...")
+            rubric = await draw_fallback_rubric(rubric)
+            if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
+                # Если выбранная на замену рубрика тоже новостная, пробуем стянуть новости еще раз
+                news_list = await fetch_trending_news()
+                if not news_list:
+                    # Сверхжесткий фолбэк на гарантированно не-новостную из оставшихся или просто случайную
+                    pool = await get_remaining_rubrics_pool()
+                    non_news = [r for r in pool if r not in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]]
+                    if not non_news:
+                        non_news = [r for r in RUBRIC_NAMES.keys() if r not in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]]
+                    rubric = random.choice(non_news)
+                    logger.warning(f"⚠️ Сверхжесткий фолбэк на ненавостную рубрику: {rubric}")
+
+        if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"] and news_list:
             selected_news = news_list[:4]
             topic = selected_news[0]["title"]
             news_context = "\n".join([f"НОВОСТЬ {i+1}: {n['title']}\nФАКТУРА: {n['description']}" for i, n in enumerate(selected_news)])
             category = "Новости"
-            logger.info(f"Выбрана сводка новостей для рубрики {rubric}")
             tones = ["Эмоциональный разбор", "Высоковибрационный хайп", "Циничный инсайд"]
         else:
-            # Fallback if news fetch fails
-            logger.warning("Не удалось получить новости, откат к стандартным рубрикам")
-            all_evening_rubrics = ["SUPPORT", "FACT", "POLL", "SACRED_SCIENCE", "DREAM_DECODING", "KARMA_STORY", "CHAKRA_FLOW"]
-            rubric = await get_least_recent_rubric(all_evening_rubrics)
-
-            if all_available_topics:
-                category, topic = random.choice(all_available_topics)
+            if rubric in ["SUPPORT", "FACT", "POLL", "CARD_HISTORY", "SACRED_SCIENCE", "DREAM_DECODING", "PALM_CHRONICLES", "KARMA_STORY", "CHAKRA_FLOW", "SACRED_RITUAL"]:
+                tones = ["Психологическое сочувствие", "Глубокий экспертный инсайт"]
             else:
-                category, topic = random.choice([(c, t) for c, ts in topics_by_category.items() for t in ts])
-
+                tones = ["Жесткий цинизм", "Дерзкая провокация"]
+    else:
+        if rubric in ["SUPPORT", "FACT", "POLL", "CARD_HISTORY", "SACRED_SCIENCE", "DREAM_DECODING", "PALM_CHRONICLES", "KARMA_STORY", "CHAKRA_FLOW", "SACRED_RITUAL"]:
             tones = ["Психологическое сочувствие", "Глубокий экспертный инсайт"]
+        else:
+            tones = ["Жесткий цинизм", "Дерзкая провокация"]
 
     tone = random.choice(tones)
 
@@ -281,7 +347,6 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     card_id = None
     card_name = None
     if rubric == "CARD_HISTORY":
-        from cards_data import get_card_data
         card_id = random.randint(0, 77)
         card_data = get_card_data(card_id)
         card_name = card_data.get("name", "Шут")
@@ -374,7 +439,6 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     elif rubric == "CARD_HISTORY":
         rubric_instruction = f"ВЫПУСК ПОСВЯЩЕН АРКАНУ: {card_name} (ID/номер {card_id}).\n\n" + rubric_instruction
 
-    # Воскресная механика полностью отменена. Sunday is just a normal day.
     is_sunday = False
 
     # Инструкция по динамической концовке (CTA)
@@ -431,7 +495,6 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             "- НИКАКИХ внешних ссылок!"
         )
 
-    # Мы передаем skin_id, и generate_text сам возьмет нужный TOV из SKIN_MAP в prompts/personas.py
     raw_response = await generate_text(prompt, skin=skin_id, json_mode=True, is_background=True)
     if not raw_response or raw_response == "ERROR_RPM_LIMIT":
         logger.error("Не удалось сгенерировать текст поста")
@@ -446,7 +509,6 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         ai_text = raw_response
         quote = ""
 
-    # Заменяем строковые \\n на реальные переводы строк ДО валидации длины и работы со сканером
     if ai_text:
         ai_text = ai_text.replace("\\n", "\n")
 
@@ -454,32 +516,16 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         logger.error(f"Генерация поста прервана: чистый ИИ-текст слишком короткий или отсутствует ({len(ai_text) if ai_text else 0} < 400)")
         return None
 
-    # Фолбэк для карточки-диагноза
     if not quote or len(quote.strip()) < 5:
-        # Берем первые 90 символов из основного текста
         clean_text_for_quote = re.sub(r'РУБРИКА:.*?\n', '', ai_text, flags=re.DOTALL).strip()
         clean_text_for_quote = re.sub(r'#\w+', '', clean_text_for_quote).strip()
         quote = clean_text_for_quote[:90].strip()
         if len(quote) == 90:
             quote += "..."
 
-    # Проверка на наличие первой части шифра по воскресеньям
-    if is_sunday:
-        part1 = hidden_code.split('-')[0]
-        if part1 not in ai_text:
-            # Принудительно вшиваем в начало второго абзаца или просто в середину
-            paragraphs = ai_text.split('\n\n')
-            if len(paragraphs) > 1:
-                paragraphs[1] = f"Твой сакральный индекс зафиксирован: {part1}. " + paragraphs[1]
-            else:
-                paragraphs.insert(len(paragraphs)//2, f"Сакральный код: {part1}")
-            ai_text = "\n\n".join(paragraphs)
-
-    # Агрессивный предохранитель хэштегов: обрабатываем именно ai_text
     ai_lines = ai_text.split('\n')
     extracted_hashtags = []
 
-    # Обратное сканирование с конца списка строк
     while ai_lines:
         last_line = ai_lines[-1].strip()
         if not last_line:
@@ -487,32 +533,25 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             continue
 
         if '#' in last_line:
-            # Находим все хэштеги в строке с помощью регулярного выражения
             tags_in_line = re.findall(r'#\w+', last_line)
             if tags_in_line:
                 extracted_hashtags = tags_in_line + extracted_hashtags
             ai_lines.pop()
         else:
-            # Прекращаем сканирование при встрече любого другого текста
             break
 
-    # Склеиваем обратно очищенное тело поста
     main_body = "\n".join(ai_lines).strip()
 
-    # Очистка извлеченных хэштегов от любых знаков препинания
     cleaned_tags = []
     for tag in extracted_hashtags:
         if tag.startswith('#'):
-            # Оставляем только буквы и цифры после #
             clean_word = re.sub(r'[^\w\s]', '', tag[1:])
             if clean_word:
                 cleaned_tags.append(f"#{clean_word}")
 
-    # Если обратный сканер выдал пустоту, используем базовый пак
     if not cleaned_tags:
         hashtags_str = "#АнтиТар #МатрицаСудьбы #Психология #Судьба"
     else:
-        # Дедупликация с сохранением порядка (без учета регистра)
         seen = set()
         unique_tags = []
         for t in cleaned_tags:
@@ -522,14 +561,11 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
                 unique_tags.append(t)
         hashtags_str = " ".join(unique_tags)
 
-    # Детекция динамического CTA: ищем 🔮 в последних 500 символах
     search_tail = main_body[-500:] if len(main_body) >= 500 else main_body
     has_dynamic_cta = "🔮" in search_tail
 
-    # Добавляем жесткую фиксированную строчку-навигатор только если нет динамического CTA
     fixed_navigator = "Чтобы сонастроить свои внутренние потоки, войти в резонанс с космосом и получить сакральное руководство от звезд, нажми кнопку Написать сообществу - Проводник укажет твой истинный путь"
 
-    # Формируем итоговый текст: тело поста, навигатор (если нужен), хэштеги
     final_text_parts = []
     if main_body:
         final_text_parts.append(main_body)
@@ -542,12 +578,10 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
     final_text = "\n\n".join(final_text_parts)
 
-    # Принудительная очистка текста перед возвратом (убираем звездочки, превращаем длинные тире в короткие дефисы)
     final_text = final_text.replace("\\n", "\n")
     final_text = final_text.replace("—", "-")
     final_text = final_text.replace("*", "")
 
-    # Внедрение заголовка рубрики
     rubric_label = RUBRIC_NAMES.get(rubric, rubric)
     header = f"РУБРИКА: {rubric_label}"
 
@@ -557,7 +591,6 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         battle_title = f"{skin_emoji} {skin_name.upper()} vs {opp_emoji} {opponent_name.upper()}"
         header += f"\n{battle_title}"
     else:
-        # Для всех остальных рубрик добавляем имя персонажа на второй строке
         skin_emoji = SKIN_EMOJIS.get(skin_id, '👁')
         skin_short_name = SKIN_SHORT_NAMES.get(skin_id, skin_name).upper()
         header += f"\n{skin_emoji} {skin_short_name}"
@@ -616,19 +649,16 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
 
         text = post_data["text"]
 
-        # Принудительная очистка текста перед публикацией
-        text = text.replace("\\n", "\n")  # Превращаем строковые \n в реальные
-        text = text.replace("—", "-")  # Убиваем длинные тире
+        text = text.replace("\\n", "\n")
+        text = text.replace("—", "-")
 
         skin_id = post_data["skin_id"]
         opponent_id = post_data.get("opponent_id")
         rubric = post_data["rubric"]
         topic = post_data["topic"]
 
-        # --- СБОР ВЛОЖЕНИЙ (ЕДИНАЯ СЕТКА) ---
         attachments = []
 
-        # 1. Основные фото (Персонажи или Карта для CARD_HISTORY)
         if rubric == "BATTLE" and opponent_id:
             photo1 = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
             photo2 = SKIN_VISUALS.get(opponent_id, "main_menu.jpeg")
@@ -650,7 +680,6 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
                     os.remove(card_path)
             except Exception as e:
                 logger.error(f"Ошибка при создании картинки CARD_HISTORY: {e}")
-                # Fallback to character photo
                 photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
                 att = await upload_wall_photo(bot.api, photo_filename)
                 if att: attachments.append(att)
@@ -659,7 +688,6 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             att = await upload_wall_photo(bot.api, photo_filename)
             if att: attachments.append(att)
 
-        # 2. Карточка-диагноз (генерируется из цитаты ИИ)
         quote = post_data.get("quote")
         if quote:
             try:
@@ -674,7 +702,6 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             except Exception as e:
                 logger.error(f"Ошибка при создании карточки: {e}")
 
-        # 4. Опрос (добавляется в конец списка вложений)
         if rubric == "POLL":
             content = load_content()
             all_topics = [t for ts in content["TOPICS"].values() for t in ts]
@@ -684,7 +711,6 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
                 attachments.append(f"poll{poll.owner_id}_{poll.id}")
                 await save_active_poll(poll.id, poll.owner_id, "Голосование", poll_options)
 
-        # Валидация перед отправкой
         if not text or text.strip() == "" or text == "Post text":
             logger.error("Аборт публикации: пустой текст")
             return
@@ -692,8 +718,6 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             logger.error("Аборт публикации: нет вложений")
             return
 
-        # Публикация на Стену сообщества (единый запрос для сетки)
-        # ВК автоматически сверстает сетку-плитку из списка вложений, перечисленных через запятую
         res_wall = await bot.api.wall.post(
             owner_id=-GROUP_ID,
             from_group=1,
@@ -703,22 +727,15 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         post_id = res_wall.post_id
         logger.info(f"Пост опубликован на стену: {post_id}")
 
-        # ПРИВЯЗКА ПЕРСОНАЖА К ПОСТУ (Redis)
         try:
             await redis.set(f"post_skin:{post_id}", skin_id, ex=2592000)
             logger.info(f"Привязка скина {skin_id} к посту {post_id} сохранена в Redis")
         except Exception as e:
             logger.error(f"Ошибка сохранения привязки скина в Redis: {e}")
 
-        # АВТОМАТИЧЕСКИЙ КОММЕНТАРИЙ (Вскрытие)
-        # Публикуем сразу после поста, чтобы он был самым первым и вверху ветки
         comment_parts = []
-
-        # 1. Триггер "Вскрытие"
         comment_parts.append("Напиши в комментариях свою дату рождения - и Проводник раскроет твою кармическую задачу на сегодня.")
-
         comment_text = "\n\n".join(comment_parts)
-        # Техническая очистка комментария
         comment_text = comment_text.replace("\\n", "\n").replace("—", "-")
 
         try:
@@ -731,26 +748,21 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         except Exception as e:
             logger.error(f"Ошибка при создании комментария: {e}")
 
-        # Записываем в историю публикаций (используем и тему и скин для лога 72ч)
         await add_post_history(topic, skin_id=skin_id, rubric=rubric)
 
     except Exception as e:
         logger.exception(f"Ошибка при автопостинге: {e}")
 
 def setup_autoposter():
-    # Таймзона Башкортостана (UTC+5)
     bash_tz = "Asia/Yekaterinburg"
     scheduler = AsyncIOScheduler(timezone=bash_tz)
 
-    # 🌅 Утренний выход: ровно 08:00
     morning_hour = 5
     morning_minute = 0
 
-    # 🌌 Вечерний выход: ровно 19:00
     evening_hour = 12
     evening_minute = 0
 
-    # Утреннее задание
     scheduler.add_job(
         post_to_vk,
         CronTrigger(hour=morning_hour, minute=morning_minute),
@@ -758,7 +770,6 @@ def setup_autoposter():
         name="morning_autopost"
     )
 
-    # Вечернее задание
     scheduler.add_job(
         post_to_vk,
         CronTrigger(hour=evening_hour, minute=evening_minute),

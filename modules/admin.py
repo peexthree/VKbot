@@ -283,7 +283,9 @@ async def show_admin_autopost_rubrics(peer_id: int, conversation_message_id: int
     rubrics = [
         "PROVOCATION", "MYTH_BUST", "BATTLE", "PRACTICUM",
         "NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH",
-        "SUPPORT", "FACT", "POLL"
+        "SUPPORT", "FACT", "POLL", "CARD_HISTORY",
+        "SACRED_SCIENCE", "DREAM_DECODING", "PALM_CHRONICLES",
+        "KARMA_STORY", "CHAKRA_FLOW", "SACRED_RITUAL"
     ]
     limit = 4
     total_pages = (len(rubrics) + limit - 1) // limit

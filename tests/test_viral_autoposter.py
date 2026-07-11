@@ -10,7 +10,7 @@ async def test_viral_post_generation():
     # Мокаем БД
     with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
         with patch("modules.autoposter.get_active_poll", return_value=None):
-            with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
+            with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
                     # Мокаем AI (длина >= 400 символов)
                     mock_json = {
@@ -30,7 +30,7 @@ async def test_hashtag_handling_clean():
     """Тестирует правильность извлечения хэштегов и непопадание обычных слов в хэштеги."""
     with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
         with patch("modules.autoposter.get_active_poll", return_value=None):
-            with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
+            with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
                     # 1. Сценарий с явно выделенными хэштегами в конце
                     mock_json_1 = {
@@ -57,7 +57,7 @@ async def test_hashtag_handling_punctuation_and_deduplication():
     """Тестирует обратное сканирование, очистку знаков препинания из хэштегов и дедупликацию."""
     with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
         with patch("modules.autoposter.get_active_poll", return_value=None):
-            with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
+            with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
                     # Сценарий с грязными хэштегами и дубликатами в конце
                     mock_json = {
@@ -81,7 +81,7 @@ async def test_dynamic_cta_handling():
     """Тестирует детекцию динамического CTA (эмодзи 🔮) и пропуск жесткого навигатора."""
     with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
         with patch("modules.autoposter.get_active_poll", return_value=None):
-            with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
+            with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
 
                     # 1. Сценарий, когда ИИ сгенерировал динамический CTA с 🔮 в конце
@@ -177,7 +177,7 @@ async def test_escaped_newline_handling():
     чтобы обратный сканер не стер тело поста."""
     with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
         with patch("modules.autoposter.get_active_poll", return_value=None):
-            with patch("modules.autoposter.get_least_recent_rubric", return_value="PROVOCATION"):
+            with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
                     # Тело содержит экранированные \\n вместо настоящих переносов строк
                     # Делаем его достаточно длинным (>= 400 символов), чтобы пройти проверку на длину
@@ -204,7 +204,7 @@ async def test_card_history_rubric_generation():
     """Тестирует рубрику CARD_HISTORY в генераторе постов."""
     with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
         with patch("modules.autoposter.get_active_poll", return_value=None):
-            with patch("modules.autoposter.get_least_recent_rubric", return_value="CARD_HISTORY"):
+            with patch("modules.autoposter.pull_next_rubric", return_value="CARD_HISTORY"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
                     mock_json = {
                         "text": "Разбор Аркана. Это очень глубокий и развернутый разбор тарологии и космических путей, который заставит каждого задуматься о своих жизненных потоках. Мы препарируем самые сокровенные тайны души и указываем на истинное величие каждого адепта. Хватит плыть по течению, пора настроить свои внутренние струны и услышать настоящий шепот далеких звезд. Мы направляем жизненные потоки в нужное русло. #АнтиТар",
