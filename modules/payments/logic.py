@@ -173,6 +173,8 @@ async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = 
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_oculomancy_photo"}')
+            from modules.states import MyStates
+            await bot.state_dispenser.set(target_peer, MyStates.WAITING_OCULOMANCY_PHOTO, raw_json='{"step": "waiting_oculomancy_photo"}')
 
             msg = (
                 "✅ ОПЛАТА ПРОШЛА.\n\n"
@@ -194,6 +196,8 @@ async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = 
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_sigil_wish"}')
+            from modules.states import MyStates
+            await bot.state_dispenser.set(target_peer, MyStates.WAITING_SIGIL_WISH, raw_json='{"step": "waiting_sigil_wish"}')
 
             msg = (
                 "✅ ОПЛАТА ПРОШЛА.\n\n"
@@ -213,6 +217,8 @@ async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = 
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_geo_location"}')
+            from modules.states import MyStates
+            await bot.state_dispenser.set(target_peer, MyStates.WAITING_GEO_LOCATION, raw_json='{"step": "waiting_geo_location"}')
 
             msg = (
                 "✅ ОПЛАТА ПРОШЛА.\n\n"
@@ -301,6 +307,8 @@ async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = 
             purchased[section] = True
             await update_user(vk_id, {"purchased_sections": purchased})
             await set_user_state(vk_id, '{"step": "waiting_dream_text"}')
+            from modules.states import MyStates
+            await bot.state_dispenser.set(target_peer, MyStates.WAITING_DREAM_TEXT, raw_json='{"step": "waiting_dream_text"}')
 
             msg = (
                 "✅ ОПЛАТА ПРОШЛА.\n\n"

@@ -7,6 +7,7 @@ from database import set_user_state
 from modules.bot_init import bot
 from modules.utils import extract_msg_id
 from modules.payments.logic import execute_generation
+from modules.states import MyStates
 
 labeler = BotLabeler()
 
@@ -19,11 +20,7 @@ async def _is_text_valid_for_fsm(message: Message) -> bool:
     return True
 
 # --- 👁 ОКУЛОМАНТИЯ: ОЖИДАНИЕ ФОТО ГЛАЗА ---
-async def is_waiting_oculomancy_photo(message: Message) -> bool:
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "waiting_oculomancy_photo"
-
-@labeler.message(func=is_waiting_oculomancy_photo)
+@labeler.message(state=MyStates.WAITING_OCULOMANCY_PHOTO)
 async def process_oculomancy_photo(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
@@ -75,17 +72,12 @@ async def process_oculomancy_photo(message: Message):
 
 
 # --- 🎨 СИГИЛ-МАСТЕР: ОЖИДАНИЕ ЖЕЛАНИЯ ---
-async def is_waiting_sigil_wish(message: Message) -> bool:
-    if not await _is_text_valid_for_fsm(message): return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "waiting_sigil_wish"
-
-@labeler.message(func=is_waiting_sigil_wish)
+@labeler.message(state=MyStates.WAITING_SIGIL_WISH)
 async def process_sigil_wish(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
     try:
-        wish_text = message.text.strip()
+        wish_text = message.text.strip() if message.text else ""
         if len(wish_text) < 5:
             await message.answer("Пожалуйста, опиши свое желание более осознанно (хотя бы одно предложение), чтобы я смогла начертить точный глиф.")
             return
@@ -118,17 +110,12 @@ async def process_sigil_wish(message: Message):
 
 
 # --- 🗺 АСТРО-КАРТОГРАФИЯ: ОЖИДАНИЕ ГЕОЛОКАЦИИ ---
-async def is_waiting_geo_location(message: Message) -> bool:
-    if not await _is_text_valid_for_fsm(message): return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "waiting_geo_location"
-
-@labeler.message(func=is_waiting_geo_location)
+@labeler.message(state=MyStates.WAITING_GEO_LOCATION)
 async def process_geo_location(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id): return
     try:
-        location_text = message.text.strip()
+        location_text = message.text.strip() if message.text else ""
         await set_user_state(vk_id, "")
 
         # Сохраняем локацию в Redis

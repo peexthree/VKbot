@@ -13,6 +13,7 @@ from vkbottle.bot import BotLabeler, Message
 from cache import acquire_lock, release_lock
 from database import get_user, set_user_state
 from modules.bot_init import bot
+from modules.states import MyStates
 from modules.utils import (
     get_fsm_step,
     upload_local_photo,
@@ -450,21 +451,13 @@ async def process_synastry_time(message: Message):
     finally:
         await release_lock(vk_id)
 
-async def is_waiting_dream_text(message: Message) -> bool:
-    if not message.text: return False
-    # Игнорируем команды навигации
-    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
-    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар"]: return False
-    state_dict = await get_fsm_step(message.from_id)
-    return state_dict is not None and state_dict.get("step") == "waiting_dream_text"
-
-@labeler.message(func=is_waiting_dream_text)
+@labeler.message(state=MyStates.WAITING_DREAM_TEXT)
 async def process_dream_text(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
         return
     try:
-        dream_text = message.text.strip()
+        dream_text = message.text.strip() if message.text else ""
         if len(dream_text) < 15:
             await message.answer("Пожалуйста, опиши свой сон подробнее (хотя бы пару предложений), чтобы я смог провести глубокий анализ.")
             return
