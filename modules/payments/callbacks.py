@@ -1093,6 +1093,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 purchased = user.get("purchased_sections", {})
                 if purchased.get("dream"):
                     await set_user_state(vk_id, json.dumps({"step": "waiting_dream_text"}))
+                    from modules.states import MyStates
+                    await bot.state_dispenser.set(peer_id, MyStates.WAITING_DREAM_TEXT, raw_json=json.dumps({"step": "waiting_dream_text"}))
                     msg = (
                         "Расскажи мне свой сон подробным текстом.\n\n"
                         "Можно добавить:\n"
