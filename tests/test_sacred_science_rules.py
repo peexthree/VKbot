@@ -1,5 +1,5 @@
 import json
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 import pytest
 from modules.autoposter import generate_post
 
