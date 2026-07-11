@@ -6,7 +6,6 @@ from database import set_user_state
 from modules.bot_init import bot
 from modules.utils import acquire_lock, release_lock, extract_msg_id, get_fsm_step
 from modules.payments.logic import execute_generation
-from modules.states import MyStates
 
 labeler = BotLabeler()
 

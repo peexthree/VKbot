@@ -13,7 +13,6 @@ from vkbottle.bot import BotLabeler, Message
 from cache import acquire_lock, release_lock
 from database import get_user, set_user_state
 from modules.bot_init import bot
-from modules.states import MyStates
 from modules.utils import (
     get_fsm_step,
     upload_local_photo,
