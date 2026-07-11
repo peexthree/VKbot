@@ -451,7 +451,15 @@ async def process_synastry_time(message: Message):
     finally:
         await release_lock(vk_id)
 
-@labeler.message(state=MyStates.WAITING_DREAM_TEXT)
+async def is_waiting_dream_text(message: Message) -> bool:
+    # Игнорируем команды и меню
+    if not message.text: return False
+    if any(message.text.startswith(emoji) for emoji in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
+    if message.text.lower() in ["начать", "start", "/start", "главное меню", "профиль", "услуги", "гримуар", "тайные искусства"]: return False
+    state_dict = await get_fsm_step(message.from_id)
+    return state_dict is not None and state_dict.get("step") == "waiting_dream_text"
+
+@labeler.message(func=is_waiting_dream_text)
 async def process_dream_text(message: Message):
     vk_id = message.from_id
     if not await acquire_lock(vk_id):
