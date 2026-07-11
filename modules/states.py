@@ -26,3 +26,4 @@ class MyStates(BaseStateGroup):
     WAITING_TOTEM_STEP2 = "waiting_totem_step2"
     WAITING_KARMA_STEP1 = "waiting_karma_step1"
     WAITING_KARMA_STEP2 = "waiting_karma_step2"
+    WAITING_DREAM_TEXT = "waiting_dream_text"
