@@ -617,29 +617,33 @@ async def execute_generation(
                 eye_img_path = None
 
                 if target_section == "sigil" and partner_date:
-                    sigil_img_path = f"sigil_{vk_id}.jpeg"
+                    sigil_img_path = os.path.join("cards", f"sigil_{vk_id}.jpeg")
                     from modules.tarot.secret_arts_logic import generate_sigil_image
                     await asyncio.to_thread(generate_sigil_image, partner_date, sigil_img_path)
                 elif target_section == "oculomancy" and image_urls:
-                    eye_img_path = f"eye_{vk_id}.jpeg"
+                    eye_img_path = os.path.join("cards", f"eye_{vk_id}.jpeg")
                     from modules.tarot.secret_arts_logic import process_oculomancy_eye
                     await asyncio.to_thread(process_oculomancy_eye, image_urls[0], eye_img_path)
+
+                # Если это сигил или окуломантия, сохраняем пути к картинкам в редис данных для PDF
+                latest_data_to_store = res_data if isinstance(res_data, dict) else {"text": res_text}
+                if sigil_img_path:
+                    latest_data_to_store["sigil_photo"] = "cards/sigil_" + str(vk_id) + ".jpeg"
+                    latest_data_to_store["sigil_wish"] = partner_date
+                if eye_img_path:
+                    latest_data_to_store["eye_photo"] = "cards/eye_" + str(vk_id) + ".jpeg"
+                    if image_urls:
+                        latest_data_to_store["eye_url"] = image_urls[0]
 
                 history_item = {
                     "title": titles.get(target_section, "Разбор"),
                     "date": datetime.datetime.now().strftime("%d.%m.%Y"),
                     "text": display_text,
-                    "section": target_section
+                    "section": target_section,
+                    "data": latest_data_to_store
                 }
                 if target_section == "synastry" and partner_name:
                     history_item["partner_name"] = partner_name
-
-                # Если это сигил или окуломантия, сохраняем пути к картинкам в редис данных для PDF
-                latest_data_to_store = res_data if isinstance(res_data, dict) else {"text": res_text}
-                if sigil_img_path:
-                    latest_data_to_store["sigil_photo"] = sigil_img_path
-                if eye_img_path:
-                    latest_data_to_store["eye_photo"] = eye_img_path
 
                 from cache import set_latest_reading, add_reading_to_history, get_readings_history
                 await add_reading_to_history(vk_id, history_item)
@@ -880,10 +884,10 @@ async def execute_generation(
                 attachment = None
                 if target_section == "sigil" and sigil_img_path and os.path.exists(sigil_img_path):
                     from modules.utils import upload_local_photo
-                    attachment = await upload_local_photo(bot.api, sigil_img_path, peer_id=peer_id)
+                    attachment = await upload_local_photo(bot.api, f"sigil_{vk_id}.jpeg", peer_id=peer_id)
                 elif target_section == "oculomancy" and eye_img_path and os.path.exists(eye_img_path):
                     from modules.utils import upload_local_photo
-                    attachment = await upload_local_photo(bot.api, eye_img_path, peer_id=peer_id)
+                    attachment = await upload_local_photo(bot.api, f"eye_{vk_id}.jpeg", peer_id=peer_id)
 
                 # Если conversation_message_id был передан (регистрация), используем его как CMID.
                 # Если нет (расклад), используем ID сообщения динамического тайпинга как MID.
@@ -909,6 +913,17 @@ async def execute_generation(
                 await handle_generation_failure(vk_id, peer_id, target_section, conversation_message_id=conversation_message_id, partner_name=partner_name, partner_date=partner_date, card_id=card_id)
         finally:
             await stop_dynamic_typing(peer_id)
+            # Принудительно очищаем временные файлы с диска в блоке finally
+            if sigil_img_path and os.path.exists(sigil_img_path):
+                try:
+                    os.remove(sigil_img_path)
+                except Exception as ex:
+                    logger.error(f"Error removing temp sigil file in finally: {ex}")
+            if eye_img_path and os.path.exists(eye_img_path):
+                try:
+                    os.remove(eye_img_path)
+                except Exception as ex:
+                    logger.error(f"Error removing temp eye file in finally: {ex}")
     except Exception as e:
         await stop_dynamic_typing(peer_id)
         logger.error(f"Ошибка: {str(e)}")
@@ -934,7 +949,7 @@ async def handle_generation_failure(vk_id: int, peer_id: int, target_section: st
         new_balance = int(user.get("balance", 0) or 0) + price_of_service
         await update_user(vk_id, {"balance": new_balance})
 
-    msg = "🛑 КАНАЛ СВЯЗИ НЕСТАБИЛЕН\n\nЗвезды скрылись за облаками матрицы. Энергия возвращена на твой баланс. Попробуй инициировать ритуал снова."
+    msg = "🛑 ПОТОКИ КОСМОСА ПЕРЕГРУЖЕНЫ\n\nЗвезды скрылись за облаками матрицы. Повтори попытку через минуту, твоя Энергия сохранена и возвращена на баланс."
 
     await stop_dynamic_typing(peer_id)
 

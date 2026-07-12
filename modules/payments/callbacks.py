@@ -663,57 +663,62 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             user = await get_user(vk_id)
             if not user: return
 
-            from cache import get_latest_reading
+            from cache import get_latest_reading, get_readings_history
             latest_reading = await get_latest_reading(vk_id)
             latest_data = {}
             if latest_reading:
                 latest_data = latest_reading.get("data") or {"text": latest_reading.get("text")}
 
             if not latest_data or "text" not in latest_data:
-                # Пытаемся восстановить данные для PDF через подтверждение
-                try:
-                    users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
-                    bdate, city = "", ""
-                    if users_info:
-                        info = users_info[0]
-                        bdate = info.bdate or ""
-                        if info.city and hasattr(info.city, "title"): city = info.city.title
+                # Попытка восстановить из readings_history
+                history = await get_readings_history(vk_id)
+                found_item = None
+                for item in reversed(history):
+                    if item.get("section") == section:
+                        found_item = item
+                        break
+                if found_item:
+                    latest_data = found_item.get("data") or {"text": found_item.get("text")}
+                    if not latest_data:
+                        latest_data = {"text": found_item.get("text")}
 
-                    if bdate and city:
-                        state_dict = {
-                            "step": "confirm_data",
-                            "date": bdate,
-                            "time": "12:00",
-                            "city": city,
-                            "original_intent": {"cmd": "gen_pdf", "section": section, "card": card_id}
-                        }
-                        await set_user_state(vk_id, json.dumps(state_dict))
-
-                        kb = Keyboard(inline=True)
-                        kb.add(Callback("✅ ВЕРНО", payload={"cmd": "confirm_registration"}), color=KeyboardButtonColor.POSITIVE)
-                        kb.row().add(Callback("🔄 ИЗМЕНИТЬ", payload={"cmd": "edit_onboarding_data"}), color=KeyboardButtonColor.NEGATIVE)
-
-                        text = (
-                            "🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\n"
-                            "Твой разбор был очищен. Чтобы заново сгенерировать его и создать PDF, пожалуйста, проверь свои данные:\n\n"
-                            f"☾ Дата: {bdate}\n"
-                            f"☾ Город: {city}\n"
-                            "☾ Время: 12:00 (по умолчанию)\n\n"
-                            "Всё верно?"
-                        )
-                        await bot.api.messages.send(peer_id=peer_id, message=text, keyboard=kb.get_json(), random_id=random.getrandbits(63))
-                        return
-                except Exception as e:
-                    logger.error(f"Error parsing VK data for PDF retry: {e}")
-
+            if not latest_data or "text" not in latest_data:
                 await bot.api.messages.send(peer_id=peer_id, message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nТекст разбора был очищен. Сгенерируйте разбор заново в разделе Услуг.", random_id=random.getrandbits(63))
                 return
+
             await bot.api.messages.send(peer_id=peer_id, message="Создаю PDF-файл, подожди секунду...", random_id=random.getrandbits(63))
             pdf_name = f"report_{vk_id}_{section}.pdf"
 
-            # Берем данные рождения из Redis
-            from cache import get_temp_birth_data
+            # Берем данные рождения из Redis, с надежным фолбэком на Supabase/VK
+            from cache import get_temp_birth_data, set_temp_birth_data
             temp_birth = await get_temp_birth_data(vk_id) or {}
+            if not temp_birth:
+                if user.get("core_profile"):
+                    cp = user.get("core_profile", "").strip()
+                    parts = cp.split(maxsplit=2)
+                    if len(parts) >= 3:
+                        temp_birth = {"date": parts[0], "time": parts[1], "city": parts[2]}
+                    elif len(parts) == 2:
+                        temp_birth = {"date": parts[0], "time": "12:00", "city": parts[1]}
+                    elif len(parts) == 1:
+                        temp_birth = {"date": parts[0], "time": "12:00", "city": ""}
+
+                if not temp_birth:
+                    try:
+                        users_info = await bot.api.users.get(user_ids=[vk_id], fields=["bdate", "city"])
+                        if users_info:
+                            info = users_info[0]
+                            bdate = info.bdate or ""
+                            city = ""
+                            if info.city and hasattr(info.city, "title"):
+                                city = info.city.title
+                            temp_birth = {"date": bdate, "time": "12:00", "city": city}
+                    except Exception as e:
+                        logger.error(f"Error fetching VK data as fallback for PDF: {e}")
+
+                if temp_birth:
+                    await set_temp_birth_data(vk_id, temp_birth)
+
             b_info = f"{temp_birth.get('date', '')} {temp_birth.get('time', '')} {temp_birth.get('city', '')}"
             u_name = user.get("first_name") or user.get("purchased_sections", {}).get("first_name", "Адепт")
             card_data = get_card_data(card_id) if card_id else {}
@@ -723,44 +728,83 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             active_skin = user.get("active_skin", "olesya")
             char_name = SKIN_DISPLAY_NAMES.get(active_skin, "Проводник")
 
-            async with pdf_semaphore:
-                success = await asyncio.to_thread(
-                    generate_premium_pdf,
-                    user_name=u_name,
-                    birth_info=b_info,
-                    section_name=section.upper(),
-                    text_content=latest_data.get("text", ""),
-                    output_filename=pdf_name,
-                    card_id=card_id,
-                    advice_content="",
-                    card_name=card_data.get("name"),
-                    card_description=card_data.get("description"),
-                    shadow_side=latest_data.get("shadow_side", ""),
-                    activation_level=latest_data.get("activation_level") if section not in ["palmistry", "dream"] else None,
-                    activation_comment=latest_data.get("activation_comment", ""),
-                    affirmations=latest_data.get("affirmations", ""),
-                    next_activation_date=latest_data.get("next_activation_date", ""),
-                    thirty_day_forecast=latest_data.get("thirty_day_forecast", ""),
-                    activation_recommendations=latest_data.get("activation_recommendations", ""),
-                    star_code=latest_data.get("star_code", ""),
-                    energy_map=latest_data.get("energy_map", ""),
-                    current_date=current_date_str,
-                    palm_photos=latest_data.get("palm_photos"),
-                    interesting_facts=latest_data.get("interesting_facts", ""),
-                    character_name=char_name,
-                    sigil_photo=latest_data.get("sigil_photo"),
-                    eye_photo=latest_data.get("eye_photo")
-                )
-            if success and os.path.exists(pdf_name):
-                doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{section}.pdf", peer_id=peer_id)
-                if not doc:
-                    await bot.api.messages.send(peer_id=peer_id, message="Ошибка при загрузке PDF в систему ВК. Попробуйте позже.", random_id=random.getrandbits(63))
-                    return
+            # Восстанавливаем временные файлы на диске для WeasyPrint, если они были удалены
+            temp_files_to_clean = []
+            if latest_data.get("sigil_photo"):
+                full_sigil_path = latest_data.get("sigil_photo")
+                if not os.path.exists(full_sigil_path):
+                    wish = latest_data.get("sigil_wish") or "Удача и Изобилие"
+                    from modules.tarot.secret_arts_logic import generate_sigil_image
+                    success_sigil = generate_sigil_image(wish, full_sigil_path)
+                    if success_sigil:
+                        temp_files_to_clean.append(full_sigil_path)
+            elif latest_data.get("eye_photo"):
+                full_eye_path = latest_data.get("eye_photo")
+                if not os.path.exists(full_eye_path):
+                    eye_url = latest_data.get("eye_url")
+                    if not eye_url:
+                        from cache import redis_client
+                        res_eye = await redis_client.get(f"oculomancy_photo:{vk_id}")
+                        if res_eye:
+                            eye_url = res_eye.decode() if isinstance(res_eye, bytes) else res_eye
+                    if eye_url:
+                        from modules.tarot.secret_arts_logic import process_oculomancy_eye
+                        success_eye = process_oculomancy_eye(eye_url, full_eye_path)
+                        if success_eye:
+                            temp_files_to_clean.append(full_eye_path)
 
-                from modules.keyboards import post_pdf_kb
-                kb = post_pdf_kb(section, card=card_id)
-                await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=random.getrandbits(63), keyboard=kb)
-            else: await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=random.getrandbits(63))
+            try:
+                async with pdf_semaphore:
+                    success = await asyncio.to_thread(
+                        generate_premium_pdf,
+                        user_name=u_name,
+                        birth_info=b_info,
+                        section_name=section.upper(),
+                        text_content=latest_data.get("text", ""),
+                        output_filename=pdf_name,
+                        card_id=card_id,
+                        advice_content="",
+                        card_name=card_data.get("name"),
+                        card_description=card_data.get("description"),
+                        shadow_side=latest_data.get("shadow_side", ""),
+                        activation_level=latest_data.get("activation_level") if section not in ["palmistry", "dream"] else None,
+                        activation_comment=latest_data.get("activation_comment", ""),
+                        affirmations=latest_data.get("affirmations", ""),
+                        next_activation_date=latest_data.get("next_activation_date", ""),
+                        thirty_day_forecast=latest_data.get("thirty_day_forecast", ""),
+                        activation_recommendations=latest_data.get("activation_recommendations", ""),
+                        star_code=latest_data.get("star_code", ""),
+                        energy_map=latest_data.get("energy_map", ""),
+                        current_date=current_date_str,
+                        palm_photos=latest_data.get("palm_photos"),
+                        interesting_facts=latest_data.get("interesting_facts", ""),
+                        character_name=char_name,
+                        sigil_photo=latest_data.get("sigil_photo"),
+                        eye_photo=latest_data.get("eye_photo")
+                    )
+                if success and os.path.exists(pdf_name):
+                    doc = await upload_pdf_to_vk(bot.api, filepath=pdf_name, title=f"{section}.pdf", peer_id=peer_id)
+                    if not doc:
+                        await bot.api.messages.send(peer_id=peer_id, message="Ошибка при загрузке PDF в систему ВК. Попробуйте позже.", random_id=random.getrandbits(63))
+                        return
+
+                    from modules.keyboards import post_pdf_kb
+                    kb = post_pdf_kb(section, card=card_id)
+                    await bot.api.messages.send(peer_id=peer_id, message="Твой PDF-файл готов. Ты можешь сохранить его или поделиться с друзьями:", attachment=doc, random_id=random.getrandbits(63), keyboard=kb)
+                else: await bot.api.messages.send(peer_id=peer_id, message="Ошибка при создании PDF. Пожалуйста, попробуйте позже.", random_id=random.getrandbits(63))
+            finally:
+                # Очищаем временные воссозданные файлы и сгенерированный PDF
+                for tmp_f in temp_files_to_clean:
+                    if os.path.exists(tmp_f):
+                        try:
+                            os.remove(tmp_f)
+                        except Exception as e:
+                            logger.error(f"Error removing recreated temp file {tmp_f}: {e}")
+                if os.path.exists(pdf_name):
+                    try:
+                        os.remove(pdf_name)
+                    except Exception as e:
+                        logger.error(f"Error removing generated PDF file {pdf_name}: {e}")
         elif cmd == "profile_action":
             action, conv_id = payload.get("action"), obj.get("conversation_message_id")
             if action == "settings": await settings_handler(vk_id=vk_id, peer_id=peer_id, skip_lock=True, conversation_message_id=conv_id)
