@@ -120,7 +120,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
             "key": "oculomancy",
             "title": "👁 Окуломантия: Зеркало души",
             "desc": "1200 Энергии. Загрузи крупное фото своего глаза. ИИ считывает оттенок, узоры радужки и форму разреза, выдавая глубокий психологический портрет, скрытые таланты и «уязвимости» твоей души.",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_performing_oculomancy_202607121938.jpeg",
             "category": "biometrics"
         },
         {
@@ -136,14 +136,14 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
             "key": "sigil",
             "title": "🎨 Сигил-Мастер: Генератор знаков",
             "desc": "1000 Энергии. Трансформируй свое сокровенное желание в уникальный графический символ — сигил по древним канонам практической магии. Сохрани его на экран для активации потоков удачи!",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_holding_glowing_sigil_202607121938.jpeg",
             "category": "artifacts"
         },
         {
             "key": "alchemist",
             "title": "🧪 Цифровой Алхимик",
             "desc": "700 Энергии. Расчет твоего ведущего первоэлемента (Философская Ртуть, Сера или Соль) на основе точной даты рождения и составление персональной формулы душевного и энергетического баланса.",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_holding_alembic_flask_202607121938.jpeg",
             "category": "artifacts"
         },
 
@@ -152,21 +152,21 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
             "key": "karma",
             "title": "🧬 Кармический навигатор",
             "desc": "900 Энергии. Раскрой тайны своего предыдущего воплощения, невыполненные кармические долги и получи индивидуальный ключ к решению текущих жизненных трудностей через интерактивный тест.",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_turns_cosmic_wheel_202607121938.jpeg",
             "category": "destiny"
         },
         {
             "key": "totem",
             "title": "🐾 Тотемный проводник",
             "desc": "900 Энергии. Определение твоего священного животного силы через шаманский интерактивный квиз, получение сакрального послания от тотема и ценные советы по использованию его энергии.",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_guides_phantom_beast_202607121938.jpeg",
             "category": "destiny"
         },
         {
             "key": "astro_geo",
             "title": "🗺 Астро-картография",
             "desc": "900 Энергии. Анализ влияния планетарных линий на земную географию. Введи город или страну и узнай, какие энергии принесет тебе это место: богатство, любовь, испытания или гармонию.",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_opens_map_202607121938.jpeg",
             "category": "destiny"
         },
 
@@ -175,35 +175,35 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
             "key": "egyptian_oracle",
             "title": "🏺 Древний Египетский Оракул",
             "desc": "700 Энергии. Свитки Судьбы из Книги Тота. Три священных пророчества древних богов Гелиополя, раскрывающие векторы твоего триумфа и предупреждающие о скрытых преградах.",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_Egyptian_oracle_tarot_202607121938.jpeg",
             "category": "oracles"
         },
         {
             "key": "shadow_oracle",
             "title": "👤 Теневой Оракул Лилит",
             "desc": "700 Энергии. Встреча со своими истинными, подавленными желаниями и теневой стороной личности по концепции Карла Юнга. Трансформируй своих внутренних демонов в огромный ресурс силы.",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_holding_obsidian_st…_202607121938.jpeg",
             "category": "oracles"
         },
         {
             "key": "chrono",
             "title": "⏱ Хроно-прогноз",
             "desc": "700 Энергии. Расчет личных 'ведьминских часов' и пиков мистической и интуитивной активности на месяц вперед. Идеальный эзотерический тайм-менеджмент для планирования важных дел.",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_holds_pocket_watch_202607121938.jpeg",
             "category": "oracles"
         },
         {
             "key": "charoslov",
             "title": "🌾 Славянский Чарослов",
             "desc": "600 Энергии. Старообрядческие заговоры, обереги и индивидуальные ведовские практики защиты, привлечения блага и гармонизации пространства на сегодняшний день.",
-            "image_name": "uslugi/services.jpeg",
+            "image_name": "uslugi/Purple_demon_weaving_violet_energy_202607121938.jpeg",
             "category": "oracles"
         },
         {
             "key": "oracle",
             "title": "🔮 Спроси у звезд",
             "desc": "500 Энергии. Прямой и точный ответ на твой самый важный, волнующий вопрос от звездного Оракула. Напиши свой вопрос и звезды дадут тебе ясный ориентир.",
-            "image_name": "uslugi/QUEST.jpeg",
+            "image_name": "uslugi/Fluffy_pointing_at_constellation_202607122311.jpeg",
             "category": "oracles"
         },
         {
@@ -217,7 +217,7 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
             "key": "micro_insight",
             "title": "✨ Микро-инсайт",
             "desc": "100 Энергии. Быстрый и точный совет от твоего персонального Проводника на ближайший час. Идеально для мгновенной сонастройки перед принятием решения.",
-            "image_name": "uslugi/QUEST.jpeg",
+            "image_name": "uslugi/Fluffy_holding_sacred_seal_202607122311.jpeg",
             "category": "oracles"
         },
         {

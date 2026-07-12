@@ -327,13 +327,17 @@ async def get_seal_logic(
         kb.add(Callback("⬅️ МОЙ КРУГ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
         kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+        att = await upload_local_photo(bot.api, "uslugi/Fluffy_holding_neon-pink_spark_202607122313.jpeg", peer_id=vk_id)
+
         await ghost_edit(
             bot.api,
             peer_id,
             text,
             conversation_message_id=conversation_message_id,
             message_id=typing_msg_id,
-            keyboard=kb.get_json()
+            keyboard=kb.get_json(),
+            attachment=att
         )
     finally:
         await stop_dynamic_typing(peer_id)
@@ -348,10 +352,12 @@ async def enter_seal_logic(vk_id: int, message: Message, skip_lock: bool = False
     try:
         await start_dynamic_typing(bot.api, message.peer_id)
         kb_json = get_cancel_seal_keyboard()
+        att = await upload_local_photo(bot.api, "uslugi/Fluffy_watching_arcane_code_202607122311.jpeg", peer_id=vk_id)
         await bot.api.messages.send(
             peer_id=message.peer_id,
             message="Введи Теневой Шифр, который тебе передал другой адепт:",
             keyboard=kb_json,
+            attachment=att,
             random_id=random.getrandbits(63)
         )
     finally:
