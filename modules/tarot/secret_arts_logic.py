@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from loguru import logger
 
 # 1. Pillow-генератор сигилов
-def generate_sigil_image(wish_text: str, output_path: str, background_path: str = "cards/uslugi/main_menu.jpeg"):
+def generate_sigil_image(wish_text: str, output_path: str, background_path: str = "cards/uslugi/Новый проект (13).png"):
     """
     Генерирует уникальный сигил на основе хэша желания пользователя,
     рисует геометрическую композицию и накладывает текст желания шрифтом Lora.
