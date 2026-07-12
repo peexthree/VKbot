@@ -17,6 +17,75 @@ from modules.utils import (
 )
 from cache import acquire_lock, release_lock
 
+def synthesize_chat_text(res_data: dict, target_section: str) -> str:
+    if "geom_analysis" in res_data:
+        chat_text = (
+            f"🎨 СИГИЛ-МАСТЕР: ПЕЧАТЬ ИЗОБИЛИЯ\n\n"
+            f"✦ САКРАЛЬНАЯ ГЕОМЕТРИЯ ЗНАКА:\n{res_data.get('geom_analysis', '')}\n\n"
+            f"✦ РИТУАЛ МЕНТАЛЬНОЙ АКТИВАЦИИ:\n{res_data.get('activation_ritual', '')}\n\n"
+            f"✦ ЭНЕРГЕТИЧЕСКИЙ ВЕКТОР:\n{res_data.get('energy_vector', '')}"
+        )
+        focus_mantras = res_data.get('focus_mantras')
+        if focus_mantras:
+            if isinstance(focus_mantras, list):
+                focus_mantras_text = "\n".join([f"- {m}" for m in focus_mantras])
+            else:
+                focus_mantras_text = str(focus_mantras)
+            chat_text += f"\n\n✦ МАНТРЫ ФИКСАЦИИ СОЗНАНИЯ:\n{focus_mantras_text}"
+        return chat_text
+
+    elif "iris_or_line_decoding" in res_data:
+        title_b = "👁 ОКУЛОМАНТИЯ" if target_section == "oculomancy" else "✋ ХИРОМАНТИЯ" if target_section == "palmistry" else "🌙 СОННИК"
+        chat_text = (
+            f"{title_b}\n\n"
+            f"✦ ДЕШИФРОВКА ВНЕШНИХ МАРКЕРОВ:\n{res_data.get('iris_or_line_decoding', '')}\n\n"
+            f"✦ САКРАЛЬНАЯ УЯЗВИМОСТЬ И БЛОКИ:\n{res_data.get('spiritual_vulnerability', '')}\n\n"
+            f"✦ ВЕКТОР РАСКРЫТИЯ ИНТУИЦИИ:\n{res_data.get('intuition_unlk', '')}\n\n"
+            f"✦ ПРАКТИКИ СОНАС ТРОЙКИ (МУДРЫ/РИТУАЛЫ):\n{res_data.get('daily_mudras', '')}"
+        )
+        return chat_text
+
+    elif "message_from_abyss" in res_data:
+        title_c = "🏺 ЕГИПЕТСКИЙ ОРАКУЛ" if target_section == "egyptian_oracle" else "👤 ТЕНЕВОЙ ОРАКУЛ ЛИЛИТ" if target_section == "shadow_oracle" else "🐾 ТОТЕМНЫЙ ПРОВОДНИК" if target_section == "totem" else "🧬 КАРМИЧЕСКИЙ НАВИГАТОР"
+        chat_text = (
+            f"{title_c}\n\n"
+            f"✦ ПОСЛАНИЕ ДРЕВНИХ СИЛ:\n{res_data.get('message_from_abyss', '')}\n\n"
+            f"✦ ИНТЕГРАЦИЯ СКРЫТЫХ ЖЕЛАНИЙ:\n{res_data.get('shadow_integration', '')}\n\n"
+            f"✦ САКРАЛЬНОЕ ТАБУ (ЗАПРЕТЫ):\n{res_data.get('sacred_taboo', '')}\n\n"
+            f"✦ ПРАКТИКА ПРИЗЫВА СИЛЫ:\n{res_data.get('astral_totem_ritual', '')}"
+        )
+        return chat_text
+
+    elif "macrocosm_resonance" in res_data:
+        title_d = "🧪 ЦИФРОВОЙ АЛХИМИК" if target_section == "alchemist" else "🌾 СЛАВЯНСКИЙ СЛОВО-ОБЕРЕГ" if target_section == "charoslov" else "⏱ ХРОНО-ПРОГНОЗ" if target_section == "chrono" else "🗺 АСТРО-КАРТОГРАФИЯ"
+        chat_text = (
+            f"{title_d}\n\n"
+            f"✦ РЕЗОНАНС МАКРОКОСМА:\n{res_data.get('macrocosm_resonance', '')}\n\n"
+            f"✦ ФОРМУЛА БАЛАНСА ИЛИ ЗАЩИТЫ:\n{res_data.get('balance_formula', '')}\n\n"
+            f"✦ РИТУАЛ СОНАС ТРОЙКИ:\n{res_data.get('space_alignment', '')}"
+        )
+        status = res_data.get('cosmic_frequency_status')
+        if status:
+            chat_text += f"\n\n⚡ СТАТУС СОНАС ТРОЙКИ: {status}"
+        return chat_text
+
+    elif "tarot_arcana_analysis" in res_data:
+        chat_text = (
+            f"🔮 РАЗБОР АРКАНОВ:\n{res_data.get('tarot_arcana_analysis', '')}\n\n"
+            f"✦ КАРМИЧЕСКИЙ УРОК СИТУАЦИИ:\n{res_data.get('karmic_lesson', '')}\n\n"
+            f"✦ СОВЕТЫ ПО ВЫРАВНИВАНИЮ ЭНЕРГИИ:\n{res_data.get('energy_alignment_tips', '')}"
+        )
+        da_val = res_data.get('daily_affirmations')
+        if da_val:
+            if isinstance(da_val, list):
+                da_text = "\n".join([f"- {a}" for a in da_val])
+            else:
+                da_text = str(da_val)
+            chat_text += f"\n\n✦ САКРАЛЬНЫЕ АФФИРМАЦИИ:\n{da_text}"
+        return chat_text
+
+    return res_data.get("text", "")
+
 async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = None, conversation_message_id: int = None):
     lock_key = f"process_payment_and_generate:{vk_id}"
     if not await acquire_lock(lock_key, ttl=300): return
@@ -179,7 +248,7 @@ async def process_payment_and_generate(vk_id: int, section: str, peer_id: int = 
             msg = (
                 "✅ ОПЛАТА ПРОШЛА.\n\n"
                 "Для проведения ритуала Окуломантии пришли, пожалуйста, крупное фото своего глаза:\n\n"
-                "• Хорошее освещение и четкость узора радужки\n"
+                "• Хорошее освещение и чёткость узора радужки\n"
                 "• Глаз широко открыт и смотрит прямо в объектив\n"
                 "• Сделайте фото без бликов и вспышки"
             )
@@ -496,7 +565,10 @@ async def execute_generation(
                 purchased_skins=user.get("purchased_skins", [])
             )
 
-            res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
+            if isinstance(res_data, dict):
+                res_text = synthesize_chat_text(res_data, target_section)
+            else:
+                res_text = res_data
 
             if res_text == "ERROR_RPM_LIMIT":
                 msg = "Оракул перегружен космической энергией. Попробуй запустить ритуал через 30 секунд ✨"
@@ -764,25 +836,32 @@ async def execute_generation(
                 if isinstance(res_data, dict):
                     # В чат выводим сокращенную версию: Текст + Уровень активации + Аффирмации
                     # Остальное (Прогноз на 30 дней, Факты и т.д.) остается только в PDF
-                    chat_text = full_reading_text
+                    is_classic_taro = "tarot_arcana_analysis" in res_data or "text" in res_data
 
-                    act_lvl = res_data.get('activation_level')
-                    if act_lvl:
-                        chat_text += f"\n\n⚡ УРОВЕНЬ АКТИВАЦИИ: {act_lvl}%"
-                        if res_data.get('activation_comment'):
-                            chat_text += f"\n{res_data.get('activation_comment')}"
+                    if is_classic_taro:
+                        chat_text = full_reading_text
 
-                    affirmations = res_data.get('affirmations')
-                    if affirmations:
-                        if isinstance(affirmations, list):
-                            affirmations_list = [f"- {a}" for a in affirmations]
-                            affirmations_text = "\n".join(affirmations_list)
-                        else:
-                            affirmations_text = str(affirmations)
-                        chat_text += f"\n\nТвои аффирмации:\n{affirmations_text}"
+                        act_lvl = res_data.get('activation_level')
+                        if act_lvl:
+                            chat_text += f"\n\n⚡ УРОВЕНЬ АКТИВАЦИИ: {act_lvl}%"
+                            if res_data.get('activation_comment'):
+                                chat_text += f"\n{res_data.get('activation_comment')}"
 
-                    chat_text += "\n\n------------------\n✨ Твой сакральный отчет со всеми деталями, кодами и картой энергии готов к загрузке. Нажми на кнопку ниже, чтобы сохранить это знание навсегда."
-                    display_text = chat_text
+                        affirmations = res_data.get('affirmations')
+                        if affirmations:
+                            if isinstance(affirmations, list):
+                                affirmations_list = [f"- {a}" for a in affirmations]
+                                affirmations_text = "\n".join(affirmations_list)
+                            else:
+                                affirmations_text = str(affirmations)
+                            chat_text += f"\n\nТвои аффирмации:\n{affirmations_text}"
+
+                        chat_text += "\n\n------------------\n✨ Твой сакральный отчет со всеми деталями, кодами и картой энергии готов к загрузке. Нажми на кнопку ниже, чтобы сохранить это знание навсегда."
+                        display_text = chat_text
+                    else:
+                        chat_text = full_reading_text
+                        chat_text += "\n\n------------------\n✨ Твой сакральный отчет со всеми деталями, геометриями и ритуалами готов к загрузке. Нажми на кнопку ниже, чтобы сохранить это знание навсегда."
+                        display_text = chat_text
 
                 # Финальная очистка от возможных остатков JSON-разметки если что-то пошло не так
                 if display_text.strip().startswith('{') or '"text":' in display_text:

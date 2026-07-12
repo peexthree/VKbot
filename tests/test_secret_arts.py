@@ -51,3 +51,44 @@ def test_process_oculomancy_eye_dummy_file(tmp_path):
     success = process_oculomancy_eye(dummy_eye_path, output_file, background_path="nonexistent.jpeg")
     assert success is True
     assert os.path.exists(output_file)
+
+def test_service_groups_and_synthesis():
+    from prompts.services import SERVICE_GROUP_MAP, get_group_prompt
+    from modules.payments.logic import synthesize_chat_text
+
+    # Verify service mappings
+    assert SERVICE_GROUP_MAP["sigil"] == "A"
+    assert SERVICE_GROUP_MAP["oculomancy"] == "B"
+    assert SERVICE_GROUP_MAP["palmistry"] == "B"
+    assert SERVICE_GROUP_MAP["totem"] == "C"
+    assert SERVICE_GROUP_MAP["alchemist"] == "D"
+    assert SERVICE_GROUP_MAP["sex"] == "E"
+
+    # Verify prompt selection
+    prompt_a = get_group_prompt("sigil")
+    assert "geom_analysis" in prompt_a
+    assert "activation_ritual" in prompt_a
+
+    prompt_b = get_group_prompt("oculomancy")
+    assert "iris_or_line_decoding" in prompt_b
+
+    # Verify synthesis
+    data_a = {
+        "geom_analysis": "Круг выражает полноту.",
+        "activation_ritual": "Медитируйте 5 минут.",
+        "energy_vector": "Действуйте уверенно.",
+        "focus_mantras": ["МАНТРА 1", "МАНТРА 2"]
+    }
+    chat_text_a = synthesize_chat_text(data_a, "sigil")
+    assert "СИГИЛ-МАСТЕР" in chat_text_a
+    assert "МАНТРА 1" in chat_text_a
+
+    data_b = {
+        "iris_or_line_decoding": "У вас глубокая радужка.",
+        "spiritual_vulnerability": "Некоторые блоки видны.",
+        "intuition_unlk": "Слушайте внутренний голос.",
+        "daily_mudras": "Практикуйте по утрам."
+    }
+    chat_text_b = synthesize_chat_text(data_b, "oculomancy")
+    assert "ОКУЛОМАНТИЯ" in chat_text_b
+    assert "У вас глубокая радужка" in chat_text_b
