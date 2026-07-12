@@ -1,7 +1,6 @@
 import os
 import re
 from loguru import logger
-from modules.utils.consts import jinja_env
 
 def clean_slang(text: str) -> str:
     if not text:
@@ -23,10 +22,7 @@ def clean_slang(text: str) -> str:
         (r'\bПерепрошивки\b', 'Трансформации'),
         (r'\bПЕРЕПРОШИВКУ\b', 'ТРАНСФОРМАЦИЮ'),
         (r'\bперепрошивку\b', 'трансформацию'),
-        (r'\bПерепрошивку\b', 'Трансформацию'),
-        (r'\bПЕРЕПРОШИВКОЙ\b', 'ТРАНСФОРМАЦИЕЙ'),
-        (r'\bперепрошивкой\b', 'трансформацией'),
-        (r'\bПерепрошивкой\b', 'Трансформацией'),
+        (r'\bПерепрошивку\b', 'Трансформирование'),
 
         # прошивка
         (r'\bПРОШИВКА\b', 'СУДЬБА'),
@@ -157,10 +153,16 @@ def generate_premium_pdf(
     interesting_facts: str = "",
     character_name: str = "Проводник",
     sigil_photo: str = None,
-    eye_photo: str = None
+    eye_photo: str = None,
+    **kwargs
 ):
     try:
-        template = jinja_env.get_template('report.html')
+        from prompts.pdf_templates import get_html_template
+        from jinja2 import Template
+
+        section_key = section_name.lower()
+        template_str = get_html_template(section_key)
+        template = Template(template_str)
 
         def safe_br(val):
             if val is None:
@@ -186,6 +188,42 @@ def generate_premium_pdf(
         section_name = clean_slang(section_name)
         card_name = clean_slang(card_name) if card_name else ""
         card_description = clean_slang(card_description) if card_description else ""
+
+        # Format group-specific keys to be passed to templates
+        geom_analysis = safe_br(kwargs.get("geom_analysis", ""))
+        activation_ritual = safe_br(kwargs.get("activation_ritual", ""))
+        energy_vector = safe_br(kwargs.get("energy_vector", ""))
+
+        fm_val = kwargs.get("focus_mantras", "")
+        if isinstance(fm_val, list):
+            focus_mantras = "".join([f"<li>{clean_slang(str(m))}</li>" for m in fm_val])
+        else:
+            focus_mantras = safe_br(fm_val)
+
+        iris_or_line_decoding = safe_br(kwargs.get("iris_or_line_decoding", ""))
+        spiritual_vulnerability = safe_br(kwargs.get("spiritual_vulnerability", ""))
+        intuition_unlk = safe_br(kwargs.get("intuition_unlk", ""))
+        daily_mudras = safe_br(kwargs.get("daily_mudras", ""))
+
+        message_from_abyss = safe_br(kwargs.get("message_from_abyss", ""))
+        shadow_integration = safe_br(kwargs.get("shadow_integration", ""))
+        sacred_taboo = safe_br(kwargs.get("sacred_taboo", ""))
+        astral_totem_ritual = safe_br(kwargs.get("astral_totem_ritual", ""))
+
+        macrocosm_resonance = safe_br(kwargs.get("macrocosm_resonance", ""))
+        balance_formula = safe_br(kwargs.get("balance_formula", ""))
+        space_alignment = safe_br(kwargs.get("space_alignment", ""))
+        cosmic_frequency_status = clean_slang(str(kwargs.get("cosmic_frequency_status", "")))
+
+        tarot_arcana_analysis = safe_br(kwargs.get("tarot_arcana_analysis", ""))
+        karmic_lesson = safe_br(kwargs.get("karmic_lesson", ""))
+        energy_alignment_tips = safe_br(kwargs.get("energy_alignment_tips", ""))
+
+        da_val = kwargs.get("daily_affirmations", "")
+        if isinstance(da_val, list):
+            daily_affirmations = "".join([f"<li>{clean_slang(str(a))}</li>" for a in da_val])
+        else:
+            daily_affirmations = safe_br(da_val)
 
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         card_image_path = f"cards/{card_id}.jpeg" if card_id else ""
@@ -213,7 +251,33 @@ def generate_premium_pdf(
             interesting_facts=interesting_facts,
             character_name=character_name,
             sigil_photo=sigil_photo,
-            eye_photo=eye_photo
+            eye_photo=eye_photo,
+
+            # Group specific fields
+            geom_analysis=geom_analysis,
+            activation_ritual=activation_ritual,
+            energy_vector=energy_vector,
+            focus_mantras=focus_mantras,
+
+            iris_or_line_decoding=iris_or_line_decoding,
+            spiritual_vulnerability=spiritual_vulnerability,
+            intuition_unlk=intuition_unlk,
+            daily_mudras=daily_mudras,
+
+            message_from_abyss=message_from_abyss,
+            shadow_integration=shadow_integration,
+            sacred_taboo=sacred_taboo,
+            astral_totem_ritual=astral_totem_ritual,
+
+            macrocosm_resonance=macrocosm_resonance,
+            balance_formula=balance_formula,
+            space_alignment=space_alignment,
+            cosmic_frequency_status=cosmic_frequency_status,
+
+            tarot_arcana_analysis=tarot_arcana_analysis,
+            karmic_lesson=karmic_lesson,
+            energy_alignment_tips=energy_alignment_tips,
+            daily_affirmations=daily_affirmations
         )
 
         from weasyprint import HTML

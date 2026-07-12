@@ -1,0 +1,3 @@
+2026-07-12 02:16:47.195 | WARNING  | modules.tarot.secret_arts_logic:generate_sigil_image:20 - Background nonexistent.jpeg not found. Creating a dark cosmic template.
+2026-07-12 02:16:47.351 | SUCCESS  | modules.tarot.secret_arts_logic:generate_sigil_image:120 - Сигил успешно сгенерирован и сохранен по пути: /tmp/pytest-of-jules/pytest-1/test_generate_sigil_image_defa0/test_sigil.jpeg
+2026-07-12 02:16:47.424 | SUCCESS  | modules.tarot.secret_arts_logic:process_oculomancy_eye:220 - Окуломантия-карточка глаза успешно создана: /tmp/pytest-of-jules/pytest-1/test_process_oculomancy_eye_du0/test_eye_out.jpeg

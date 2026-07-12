@@ -1,5 +1,4 @@
 import json
-import random
 import re
 from loguru import logger
 from cards_data import get_card_data
@@ -103,12 +102,12 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         gender_instruction = "ОБРАЩАЙСЯ К ПОЛЬЗОВАТЕЛЮ НЕЙТРАЛЬНО, БЕЗ УКАЗАНИЯ ПОЛА."
 
     s_city = sanitize_user_input(city)
-    base_info = f"Данные: {date}, время {time}, город <user_input>{s_city}</user_input>. {gender_instruction}"
+    base_info = f"Данные пользователя: дата рождения {date}, время {time}, город рождения <user_input>{s_city}</user_input>. {gender_instruction}"
     if current_date:
         base_info += f" СЕГОДНЯШНЯЯ ДАТА: {current_date}."
     if first_name:
         s_first_name = sanitize_user_input(first_name)
-        base_info += f" ИМЯ - <user_input>{s_first_name}</user_input>."
+        base_info += f" ИМЯ ПОЛЬЗОВАТЕЛЯ - <user_input>{s_first_name}</user_input>."
 
     if core_profile:
         base_info += f" Прошлый анализ (учитывай это, чтобы показать, что ты знаешь пользователя): {core_profile}."
@@ -123,7 +122,6 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         pass
 
     if tags and tag_memory_active:
-        # Дополнительная защита: если передана строка вместо списка
         if isinstance(tags, str):
             try:
                 import ast
@@ -132,20 +130,17 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
                 tags = [tags]
 
         if isinstance(tags, list):
-            # Фильтруем мусор перед склейкой
             clean_tags = [str(t) for t in tags if len(str(t)) > 2 and str(t) not in ["[", "]", "{", "}"]]
             if clean_tags:
                 tags_str = ", ".join(clean_tags)
                 base_info += f" ВАЖНО: Я помню наши прошлые темы: [{tags_str}]. " \
-                             f"Используй это, чтобы наш диалог был глубоким и личным. Не просто упомяни их, а мягко свяжи " \
-                             f"текущий разбор с тем, как меняется состояние пользователя. " \
-                             f"Покажи, что ты — внимательный проводник, который чувствует каждое движение его души."
+                             f"Используй это, чтобы наш диалог был глубоким и личным."
 
     if card_id and not card_data:
         card_data = get_card_data(card_id)
 
     if card_data:
-        base_info += f" ВАЖНО: Пользователь вытянул карту: '{card_data.get('name')}'. Ее базовое значение: '{card_data.get('description')}'. Построй весь свой персонализированный разбор ИСКЛЮЧИТЕЛЬНО вокруг энергии и символизма этой карты."
+        base_info += f" ВАЖНО: Пользователь вытянул карту Таро: '{card_data.get('name')}'. Ее базовое значение: '{card_data.get('description')}'. Построй весь свой разбор вокруг энергии и символизма этой карты."
 
     style_instruction = (
         " ВАЖНО: Соблюдай свой уникальный стиль персонажа! Никаких маркеров форматирования, "
@@ -154,216 +149,76 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         "Текст должен разбиваться на абзацы по 2-3 предложения."
     )
 
-    if section == "base":
-        prompt = f"{base_info} Составь ИСТОКИ (разбор Солнца, Луны и Асцендента, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ИСТОКИ на отдельной строке перед основным разбором. Выдели заголовок ИСТОКИ КАПСОМ."
-    elif section == "sex":
-        cid = card_id if card_id else random.choice(list(range(22, 50)))
-        prompt = f"{base_info} Сделай разбор СТРАСТЬ (анализ Венеры и Марса, отношение к любви и близости, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово СТРАСТЬ на отдельной строке перед основным разбором. Выдели заголовок СТРАСТЬ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
-    elif section == "money":
-        cid = card_id if card_id else random.randint(64, 77)
-        prompt = f"{base_info} Сделай разбор ИЗОБИЛИЕ (анализ 2-го и 10-го домов, самореализация и процветание, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ИЗОБИЛИЕ на отдельной строке перед основным разбором. Выдели заголовок ИЗОБИЛИЕ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
-    elif section == "shadow":
-        cid = card_id if card_id else random.randint(50, 63)
-        prompt = f"{base_info} Сделай разбор ТЕНЬ (анализ Лилит и Селены, скрытые уголки души, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ТЕНЬ на отдельной строке перед основным разбором. Выдели заголовок ТЕНЬ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
-    elif section == "final":
-        cid = card_id if card_id else random.randint(0, 21)
-        prompt = f"{base_info} Сделай ПУТЬ (Итоговое напутствие в жизни и светлый совет для души, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ПУТЬ на отдельной строке перед основным разбором. Выдели заголовок ПУТЬ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
-    elif section == "synastry":
-        cid = card_id if card_id else random.randint(0, 21)
-        s_partner_name = sanitize_user_input(partner_name)
-        s_partner_date = sanitize_user_input(partner_date)
-        prompt = f"{base_info} Сделай профессиональный разбор вашей связи (СОЮЗ). Имя партнера: <user_input>{s_partner_name}</user_input>, полные данные рождения партнера (дата, время, город): <user_input>{s_partner_date}</user_input>. В основном блоке СОЮЗ проведи глубокий синастрический анализ вашей совместимости, используя предоставленные данные обоих партнеров. Опиши магию вашего мэтча, кармические точки соприкосновения и уроки, которые вы несете друг другу. Обязательно удели внимание сексуальной совместимости и потенциалу развития отношений. Твой стиль должен быть точным, как в SaaS-продукте, но сохранять эзотерическую глубину. ОБЯЗАТЕЛЬНО используй слово СОЮЗ на отдельной строке перед основным разбором. Выдели заголовок СОЮЗ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
-    elif section == "antitaro":
-        cid = card_id if card_id else random.randint(0, 77)
-        prompt = f"{base_info} Сделай разбор ОТКРОВЕНИЕ (честный, глубокий взгляд на то, что мешает твоему счастью, освобождение от иллюзий, глубокий и подробный анализ). ОБЯЗАТЕЛЬНО используй слово ОТКРОВЕНИЕ на отдельной строке перед основным разбором. Выдели заголовок ОТКРОВЕНИЕ КАПСОМ. В самом конце текста ОБЯЗАТЕЛЬНО добавь строку с ID карты Таро в формате: ID_ТАРО: {cid}. Вплети этот ID прямо в свой прогноз."
-    elif section == "destiny_card":
-        prompt = (
-            f"{base_info} Сделай разбор КАРТА СУДЬБЫ (главный жизненный путь, предназначение, кармические задачи и скрытые сильные и слабые стороны). "
-            "ОБЯЗАТЕЛЬНО используй слово КАРТА СУДЬБЫ на отдельной строке перед основным разбором. Выдели заголовок КАРТА СУДЬБЫ КАПСОМ. "
-            "Построй глубокий, вдохновляющий и сакральный разбор, полностью основанный на энергии выпавшей карты и дате рождения."
-        )
-    elif section == "card_of_day":
-        card_name = card_data.get('name', 'Твою карту') if card_data else "Твою карту"
-        prompt = f"{base_info} Выдай карту дня: {card_name} (как ежедневный гороскоп, но в стиле Таро). ОБЯЗАТЕЛЬНО используй слово КАРТА ДНЯ на отдельной строке перед основным разбором. Выдели заголовок КАРТА ДНЯ КАПСОМ."
-    elif section == "dream":
-        # Используем partner_date для передачи текста сна
-        dream_text = sanitize_user_input(partner_date or "Пусто")
+    from prompts.services import get_group_prompt, SERVICE_GROUP_MAP
+    group = SERVICE_GROUP_MAP.get(section, "E")
 
-        prompt = (
-            f"{base_info}\n"
-            f"Пользователю приснился сон: <user_input>{dream_text}</user_input>\n\n"
-            "Ты — профессиональный толкователь снов, мастер архетипов и символов. "
-            f"Твой стиль и тон полностью соответствуют выбранному пользователем персонажу ({skin}).\n\n"
-            "Ты анализируешь сон глубоко, психологически точно и практично. "
-            "Исключаешь дешёвые эзотерические штампы и «магическое мышление». "
-            "Даёшь честный, глубокий и полезный разбор.\n\n"
-            "Структура ответа всегда такая:\n"
-            "1. Краткий пересказ сна (1–2 предложения)\n"
-            "2. ОСНОВНЫЕ СИМВОЛЫ И ИХ ЗНАЧЕНИЕ (Перечисляешь ключевые образы и что они означают лично для этого человека)\n"
-            "3. ГЛУБИННЫЙ СМЫСЛ СНА (Что подсознание пытается сказать, связь с текущей жизнью и внутренними процессами)\n"
-            "4. ПРАКТИЧЕСКИЕ РЕКОМЕНДАЦИИ (Что делать с этим инсайтом, на что обратить внимание в ближайшее время)\n\n"
-            f"Тон ответа должен точно соответствовать выбранному скину {skin}. "
-            "Используй характерную лексику, метафоры и стиль именно этого персонажа.\n\n"
-            "В конце всегда добавляй одну сильную фразу типа «Это твой сон. А ты — его главный автор.»"
-        )
-    elif section == "palmistry":
-        palm_style_instruction = (
-            " СТРОЖАЙШИЙ ЗАПРЕТ на любые символы форматирования: решетки (#), звездочки (*), палочки (|), слэши (\\). "
-            "Используй ТОЛЬКО обычный текст, КАПС для акцентов и заголовков, и тире (-) для списков. "
-            "Текст должен быть разбит на абзацы по 3-4 предложения. "
-            "НИКАКИХ МАРКДАУН-РАЗМЕТОК."
-        )
-        prompt = (
-            f"{base_info}\n"
-            "Ты — профессиональный хиромант-аналитик экстра-класса. Твой разбор должен быть максимально подробным, глубоким и объемным. "
-            "Твоя задача — составить детальный психологический и событийный портрет человека, основываясь на фотографиях его ладоней. "
-            "Ты должен написать ОГРОМНЫЙ текст, который раскроет личность пользователя со всех сторон.\n\n"
-            "### Темы для глубокого раскрытия:\n"
-            "1. ХАРАКТЕР И ПСИХОТИП: Внутренние драйверы, скрытые страхи, истинные желания, сильные стороны личности.\n"
-            "2. ТАЛАНТЫ И РЕАЛИЗАЦИЯ: Врожденные способности, наиболее подходящие сферы деятельности, потенциал финансового успеха.\n"
-            "3. ЛИЧНАЯ ЖИЗНЬ: Способность любить, эмоциональность, паттерны в отношениях.\n"
-            "4. ЭНЕРГЕТИКА И ПЕРИОДЫ: Текущий жизненный этап, на что обратить внимание прямо сейчас, точки будущего роста.\n\n"
-            "### Правила анализа:\n"
-            "1. Левая и правая рука — анализируй их отдельно и чётко разделяй (потенциал против реализации).\n"
-            "2. Описывай линии (Головы, Жизни, Судьбы, Сердца) максимально подробно, объясняя, как каждая деталь влияет на судьбу.\n"
-            "3. Холмы и знаки — не просто перечисляй, а вплетай их в общую картину личности.\n\n"
-            "### Структура ответа (используй КАПС для заголовков):\n\n"
-            "ХИРОМАНТИЯ\n"
-            "1. ТИП ЛАДОНИ И ОБЩАЯ ЭНЕРГЕТИКА\n"
-            "2. ГЛУБОКИЙ АНАЛИЗ ВНУТРЕННЕГО МИРА (ЛЕВАЯ РУКА)\n"
-            "3. ПУТЬ РЕАЛИЗАЦИИ И ТЕКУЩИЕ ДОСТИЖЕНИЯ (ПРАВАЯ РУКА)\n"
-            "4. ТАЛАНТЫ, ДЕНЬГИ И КАРЬЕРА\n"
-            "5. ЛЮБОВЬ И ЭМОЦИОНАЛЬНЫЙ КОД\n"
-            "6. ВАЖНЫЕ ЗНАКИ И ПРЕДУПРЕЖДЕНИЯ\n"
-            "7. ИТОГОВАЯ РЕКОМЕНДАЦИЯ ПРОВОДНИКА\n\n"
-            "В конце ответа добавь фразу: «Это лишь карта твоего пути. А ты — её главный автор.»\n\n"
-        )
-    elif section == "oculomancy":
-        prompt = (
-            f"{base_info}\n"
-            "Ты — мистический диагност Окуломантии. Тебе предоставлено фото радужки глаза пользователя. "
-            "Сделай подробный и точный психологический, эзотерический и кармический портрет по радужке глаза.\n"
-            "Опиши:\n"
-            "- Скрытые таланты души и врожденный потенциал.\n"
-            "- Уязвимости души и психологические блоки.\n"
-            "- Кармическую задачу текущего воплощения.\n\n"
-            "Стиль ответа должен быть благородным, глубоким, без тех-сленга. Используй КАПС для заголовков."
-        )
-    elif section == "sigil":
-        wish_text = partner_date
-        prompt = (
-            f"{base_info}\n"
-            f"Пользователь создал уникальный Сигил Удачи для своего желания: '<user_input>{wish_text}</user_input>'.\n"
-            "Ты — мастер оккультных символов и древней практической магии. "
-            "Опиши символику и структуру его сигила, как именно геометрические линии и круги активируют его намерение, "
-            "и выдай четкие инструкции по медитации на этот сигил и его практическому применению (например, поставить на экран телефона, созерцать перед сном).\n\n"
-            "В основном тексте органично опиши структуру получившейся фигуры."
-        )
-    elif section == "karma":
-        # partner_date содержит выборы квиза
-        prompt = (
-            f"{base_info}\n"
-            f"Пользователь прошел кармический квиз. Его выборы: {partner_date}.\n"
-            "Сделай глубокий кармический разбор его прошлых воплощений. Кем он был, какие невыполненные долги несет, и "
-            "какой главный урок ему нужно пройти в этой жизни, чтобы развязать кармические узлы."
-        )
-    elif section == "totem":
-        # partner_date содержит выборы квиза
-        prompt = (
-            f"{base_info}\n"
-            f"Пользователь прошел тотемный квиз. Его выборы: {partner_date}.\n"
-            "Определи его тотемное животное силы, опиши его дикую первозданную энергию, "
-            "передай священное послание от тотема лично пользователю и дай практический совет, как активировать и направить эту силу на текущей неделе."
-        )
-    elif section == "astro_geo":
-        location = partner_date
-        prompt = (
-            f"{base_info}\n"
-            f"Пользователь хочет узнать свое Место Силы в локации: '<user_input>{location}</user_input>'.\n"
-            "Проведи астро-картографический анализ этой локации лично для него. "
-            "Какую энергию несет это место (богатство, любовь, испытания или стагнация)? Стоит ли туда ехать, и какой скрытый ресурс "
-            "он там сможет активировать."
-        )
-    elif section == "alchemist":
-        from modules.tarot.secret_arts_logic import calculate_alchemy_element
-        el = calculate_alchemy_element(date)
-        prompt = (
-            f"{base_info}\n"
-            f"Нумерологический расчет определил ведущий первоэлемент пользователя: {el['name']} ({el['latin']}) {el['symbol']}. "
-            f"Базовое свойство элемента: {el['desc']}.\n"
-            "Составь индивидуальную алхимическую формулу баланса для жизни пользователя. "
-            "Опиши, как этот элемент влияет на характер, какие металлы носить, какие ароматы и практики использовать "
-            "для полной гармонизации жизненных сфер."
-        )
-    elif section == "egyptian_oracle":
-        from modules.tarot.secret_arts_logic import get_random_egyptian_oracle
-        drawn = get_random_egyptian_oracle()
-        drawn_str = "; ".join([f"{d['name']} ({d['desc']})" for d in drawn])
-        prompt = (
-            f"{base_info}\n"
-            f"Древнеегипетский Оракул вытащил 3 свитка богов: {drawn_str}.\n"
-            "Ты — верховный жрец храма Гелиополя. Растолкуй это послание богов. "
-            "Какое пророчество несут эти три силы для пользователя на данном жизненном этапе, какие препятствия будут устранены, "
-            "и какой совет жрецов поможет обрести триумф."
-        )
-    elif section == "shadow_oracle":
-        from modules.tarot.secret_arts_logic import get_random_shadow_oracle
-        drawn = get_random_shadow_oracle()
-        drawn_str = "; ".join([f"{d['name']} ({d['desc']})" for d in drawn])
-        prompt = (
-            f"{base_info}\n"
-            f"Теневой Оракул Лилит выявил 3 руны теней: {drawn_str}.\n"
-            "Проведи глубокий теневой анализ скрытых желаний, подавленных эмоций и того, что пользователь в себе отрицает (по Юнгу). "
-            "Помоги ему экологично 'выгулять своих демонов' и трансформировать теневую энергию в огромный ресурс силы."
-        )
-    elif section == "chrono":
-        prompt = (
-            f"{base_info}\n"
-            "Ты — хроно-астролог. Рассчитай персональные мистические биоритмы и 'ведьминские часы' успеха на месяц вперед.\n"
-            "Опиши:\n"
-            "- В какие часы суток его личная магия и интуиция достигают пика.\n"
-            "- Дни максимальной активности и время, когда лучше затаиться.\n"
-            "- Расписание действий на ближайшие недели (когда подписывать соглашения, когда медитировать)."
-        )
-    elif section == "charoslov":
-        prompt = (
-            f"{base_info}\n"
-            "Ты — хранитель славянского обрядового ведовства. "
-            "Подбери индивидуальное древнеславянское 'слово-оберег' и обрядовую практику защиты/привлечения блага на сегодняшний день. "
-            "Опиши значение оберега, как правильно провести утренний ритуал и какие слова произнести, чтобы сонастроиться со своим родом."
-        )
+    # Формируем context_info для шаблона промпта
+    context_info = base_info
+
+    if section == "sigil":
+        wish_text = partner_date or "Удача и Изобилие"
+        raw_prompt_template = get_group_prompt(section)
+        prompt = raw_prompt_template.format(wish_text=wish_text)
     else:
-        return None
+        if section == "oculomancy":
+            context_info += " Ритуал Окуломантии. Пользователь предоставил фотографию своего глаза для мистического анализа радужной оболочки."
+        elif section == "palmistry":
+            context_info += " Ритуал Хиромантии. Пользователь прислал фотографии своих ладоней (левой и правой) для детального разбора линий судьбы, сердца, ума и жизни."
+        elif section == "dream":
+            dream_text = partner_date or "Неизвестный сон"
+            context_info += f" Толкование снов. Пользователю приснился следующий сон: <user_input>{dream_text}</user_input>. Проведи разбор символов подсознания."
+        elif section == "egyptian_oracle":
+            from modules.tarot.secret_arts_logic import get_random_egyptian_oracle
+            drawn = get_random_egyptian_oracle()
+            drawn_str = "; ".join([f"{d['name']} ({d['desc']})" for d in drawn])
+            context_info += f" Древнеегипетский Оракул вытащил 3 свитка богов: {drawn_str}."
+        elif section == "shadow_oracle":
+            from modules.tarot.secret_arts_logic import get_random_shadow_oracle
+            drawn = get_random_shadow_oracle()
+            drawn_str = "; ".join([f"{d['name']} ({d['desc']})" for d in drawn])
+            context_info += f" Теневой Оракул Лилит выявил 3 руны теней по Юнгу: {drawn_str}."
+        elif section == "totem":
+            context_info += f" Тотемный шаманский квиз. Выборы пользователя в квизе: {partner_date}."
+        elif section == "karma":
+            context_info += f" Кармический навигатор. Выборы пользователя в кармическом квизе: {partner_date}."
+        elif section == "astro_geo":
+            location = partner_date or "Место силы"
+            context_info += f" Астро-Картография. Анализ географической точки силы пользователя в локации: '<user_input>{location}</user_input>'."
+        elif section == "alchemist":
+            from modules.tarot.secret_arts_logic import calculate_alchemy_element
+            el = calculate_alchemy_element(date)
+            context_info += f" Цифровой Алхимик. Расчет определил ведущий первоэлемент пользователя: {el['name']} ({el['latin']}) {el['symbol']}. Базовое свойство: {el['desc']}."
+        elif section == "chrono":
+            context_info += " Хроно-Прогноз. Персональные мистические биоритмы и ведьминские часы успеха на месяц вперед."
+        elif section == "charoslov":
+            context_info += " Славянский Чарослов. Древнеславянские обереги, слова силы и утренние ведовские практики защиты/привлечения блага."
+        elif section == "sex":
+            context_info += " Разбор СТРАСТЬ (анализ Венеры и Марса, отношение к любви и близости)."
+        elif section == "money":
+            context_info += " Разбор ИЗОБИЛИЕ (анализ 2-го и 10-го домов, самореализация и процветание)."
+        elif section == "shadow":
+            context_info += " Разбор ТЕНЬ (анализ Лилит и Селены, скрытые уголки души)."
+        elif section == "final":
+            context_info += " Разбор ПУТЬ (Итоговое напутствие в жизни и светлый совет для души)."
+        elif section == "synastry":
+            s_partner_name = sanitize_user_input(partner_name)
+            s_partner_date = sanitize_user_input(partner_date)
+            context_info += f" Разбор СОЮЗ (совместимость партнеров). Имя партнера: <user_input>{s_partner_name}</user_input>, данные рождения партнера: <user_input>{s_partner_date}</user_input>."
+        elif section == "antitaro":
+            context_info += " Разбор ОТКРОВЕНИЕ (честный, глубокий взгляд на то, что мешает счастью, освобождение от иллюзий)."
+        elif section == "destiny_card":
+            context_info += " Разбор КАРТА СУДЬБЫ (главный жизненный путь, предназначение, кармические задачи)."
+        elif section == "card_of_day":
+            card_name = card_data.get('name', 'Твою карту') if card_data else "Твою карту"
+            context_info += f" Карта дня: {card_name}."
 
-    # Перехватываем return_json для Хиромантии и Снов (отключаем JSON-режим для стабильности)
-    # Новые услуги ТАКЖЕ используют полную структуру для PDF-отчетов!
-    effective_json_mode = return_json
-    if section in ["palmistry", "dream"]:
-        effective_json_mode = False
-
-    if effective_json_mode:
-        prompt += (
-            "\n\nRESPONSE FORMAT: Return STRICTLY a JSON object with the following keys. No markdown formatting outside the JSON block.\n\n"
-            "Key 'text': Must contain the main deeply personalized esoteric analysis in Russian.\n"
-            "Key 'shadow_side': Must contain a description of the shadow side of the card or personality (exactly 3 sentences in Russian).\n"
-            "Key 'activation_level': Must be an integer from 0 to 100 representing the energy activation level.\n"
-            "Key 'activation_comment': Exactly 1 sentence in Russian explaining the activation level.\n"
-            "Key 'affirmations': A list of 3-4 personal affirmations or mantras in Russian.\n"
-            "Key 'next_activation_date': Must contain the date of the next powerful astrological activity in DD.MM.YYYY format. "
-            f"The year must be EXACTLY the same as in {current_date if current_date else 'today'} or the following year. "
-            "Include a brief astrological justification and a specific micro-ritual for that day in Russian.\n"
-            f"Key 'thirty_day_forecast': A mini-forecast for the next 30 days starting from {current_date if current_date else 'today'} in Russian.\n"
-            "Key 'activation_recommendations': Recommendations for activation (stone, color, scent, ritual) in Russian.\n"
-            "Key 'star_code': A personal Star Code/Magical Seal (unique phrase-code) in Russian.\n"
-            "Key 'energy_map': Description of the visual Energy Map (which planets influence) in Russian.\n"
-            "Key 'interesting_facts': 3 unique and surprising esoteric facts about the person with this Arcana (in Russian).\n"
-        )
+        raw_prompt_template = get_group_prompt(section)
+        prompt = raw_prompt_template.format(context_info=context_info)
 
     # Приклеиваем style_instruction в самый конец
-    if section == "palmistry":
-        prompt += f"\n{palm_style_instruction}"
-    else:
-        prompt += f"\n{style_instruction}"
+    prompt += f"\n{style_instruction}"
+
+    effective_json_mode = return_json
 
     if effective_json_mode:
         res = await generate_text(prompt, json_mode=True, skin=skin, image_urls=image_urls, is_background=False)
@@ -372,8 +227,9 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         if res:
             try:
                 clean = clean_ai_json(res)
+                if not (clean.strip().startswith('{') or clean.strip().startswith('[')):
+                    return res.replace('\\\\n', '\n').replace('\\n', '\n')
                 data = json.loads(clean, strict=False)
-                # Очистка от артефактов экранирования (n/nn) во всех строковых полях
                 for k, v in data.items():
                     if isinstance(v, str):
                         data[k] = v.replace('\\\\n', '\n').replace('\\n', '\n')
@@ -382,18 +238,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
                 return data
             except Exception as e:
                 logger.error(f"Failed to parse JSON from AI: {e}. Attempting manual extraction.")
-
-                # Попытка ручного извлечения 'text' через regex если JSON сломан совсем
-                text_match = re.search(r'"text":\s*"(.*?)"(?=,\s*"|\s*})', res, re.DOTALL)
-                if text_match:
-                    extracted_text = text_match.group(1).replace('\\\\n', '\n').replace('\\n', '\n').replace('\\"', '"')
-                    return {"text": extracted_text}
-
-                # Если даже regex не помог, отдаем очищенный сырой текст без JSON-структуры
-                # (убираем возможные скобки и названия полей в начале)
-                fallback_text = res.replace('\\\\n', '\n').replace('\\n', '\n')
-                fallback_text = re.sub(r'^\{.*?"text":\s*"', '', fallback_text, flags=re.DOTALL)
-                return {"text": fallback_text}
+                return res.replace('\\\\n', '\n').replace('\\n', '\n')
         return {"text": "Ошибка генерации."}
     else:
         res = await generate_text(prompt, skin=skin, image_urls=image_urls, is_background=False)

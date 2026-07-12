@@ -1,0 +1,4 @@
+2026-07-12 02:15:40.752 | ERROR    | ai.sections:generate_section:242 - Failed to parse JSON from AI: Expecting value: line 1 column 1 (char 0). Attempting manual extraction.
+2026-07-12 02:15:43.881 | WARNING  | modules.tarot.secret_arts_logic:generate_sigil_image:20 - Background nonexistent.jpeg not found. Creating a dark cosmic template.
+2026-07-12 02:15:44.041 | SUCCESS  | modules.tarot.secret_arts_logic:generate_sigil_image:120 - Сигил успешно сгенерирован и сохранен по пути: /tmp/pytest-of-jules/pytest-0/test_generate_sigil_image_defa0/test_sigil.jpeg
+2026-07-12 02:15:44.114 | SUCCESS  | modules.tarot.secret_arts_logic:process_oculomancy_eye:220 - Окуломантия-карточка глаза успешно создана: /tmp/pytest-of-jules/pytest-0/test_process_oculomancy_eye_du0/test_eye_out.jpeg
