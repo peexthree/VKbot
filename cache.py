@@ -6,19 +6,23 @@ from upstash_redis.asyncio import Redis
 
 redis_client = Redis(
     url=os.getenv("UPSTASH_REDIS_REST_URL", ""),
-    token=os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
+    token=os.getenv("UPSTASH_REDIS_REST_TOKEN", ""),
 )
+
 
 async def acquire_lock(vk_id: int | str, ttl: int = 90) -> bool:
     res = await redis_client.set(f"lock:{vk_id}", "1", nx=True, ex=ttl)
     return bool(res)
 
+
 async def release_lock(vk_id: int | str):
     await redis_client.delete(f"lock:{vk_id}")
+
 
 async def check_throttle(vk_id: int | str) -> bool:
     """Returns True if the user is throttled (should be ignored), False otherwise."""
     from loguru import logger
+
     try:
         # Reduced throttle from 2s to 0.8s for better UX
         res = await redis_client.set(f"throttle:{vk_id}", "1", nx=True, px=800)
@@ -27,9 +31,11 @@ async def check_throttle(vk_id: int | str) -> bool:
         logger.error(f"Ошибка проверки троттлинга для {vk_id}: {str(e)}")
         return False
 
+
 async def check_and_set_throttle_warning(vk_id: int | str) -> bool:
     """Returns True if a warning should be sent (i.e. cooldown is over), False if warning is on cooldown."""
     from loguru import logger
+
     try:
         res = await redis_client.set(f"throttle_warning:{vk_id}", "1", nx=True, ex=10)
         return bool(res)
@@ -37,18 +43,24 @@ async def check_and_set_throttle_warning(vk_id: int | str) -> bool:
         logger.error(f"Ошибка проверки предупреждения троттлинга для {vk_id}: {str(e)}")
         return False
 
+
 async def set_fsm_state(vk_id: int | str, state_data: str, ttl: int = 86400):
     if not state_data:
         await redis_client.delete(f"fsm:{vk_id}")
     else:
         await redis_client.set(f"fsm:{vk_id}", state_data, ex=ttl)
 
+
 async def get_fsm_state(vk_id: int | str):
     return await redis_client.get(f"fsm:{vk_id}")
 
+
 async def set_temp_birth_data(vk_id: int | str, data: dict, ttl: int = 86400):
     """Сохраняет данные рождения в Redis на 24 часа"""
-    await redis_client.set(f"user:birth_data:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl)
+    await redis_client.set(
+        f"user:birth_data:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl
+    )
+
 
 async def get_temp_birth_data(vk_id: int | str) -> dict | None:
     """Получает данные рождения из Redis на 24 часа (строгий TTL)"""
@@ -60,16 +72,23 @@ async def get_temp_birth_data(vk_id: int | str) -> dict | None:
             pass
     return None
 
+
 async def get_core_profile(vk_id: int | str) -> str:
     """Получает core_profile из Redis"""
     res = await redis_client.get(f"user:core_profile:{vk_id}")
     return res.decode() if isinstance(res, bytes) else (res or "")
 
+
 async def add_reading_to_history(vk_id: int | str, item: dict, ttl: int = 86400):
     """Добавляет разбор в историю в Redis на 24 часа"""
     history = await get_readings_history(vk_id)
     history.append(item)
-    await redis_client.set(f"user:readings_history:{vk_id}", json.dumps(history, ensure_ascii=False), ex=ttl)
+    await redis_client.set(
+        f"user:readings_history:{vk_id}",
+        json.dumps(history, ensure_ascii=False),
+        ex=ttl,
+    )
+
 
 async def get_readings_history(vk_id: int | str) -> list:
     """Получает историю разборов из Redis, при отсутствии кэша загружает из БД"""
@@ -83,22 +102,32 @@ async def get_readings_history(vk_id: int | str) -> list:
     # Фолбэк на Supabase
     try:
         from database import get_user
+
         user = await get_user(int(vk_id))
         if user:
             history = user.get("readings_history") or []
             if not isinstance(history, list):
                 history = []
             # Кэшируем в Redis на 24 часа (86400 секунд)
-            await redis_client.set(f"user:readings_history:{vk_id}", json.dumps(history, ensure_ascii=False), ex=86400)
+            await redis_client.set(
+                f"user:readings_history:{vk_id}",
+                json.dumps(history, ensure_ascii=False),
+                ex=86400,
+            )
             return history
     except Exception as e:
         from loguru import logger
+
         logger.error(f"Ошибка получения истории из Supabase для {vk_id}: {e}")
     return []
 
+
 async def set_destiny_card_data(vk_id: int | str, data: dict, ttl: int = 86400):
     """Сохраняет данные карты судьбы в Redis на 24 часа"""
-    await redis_client.set(f"user:destiny_card:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl)
+    await redis_client.set(
+        f"user:destiny_card:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl
+    )
+
 
 async def get_destiny_card_data(vk_id: int | str) -> dict | None:
     """Получает данные карты судьбы из Redis"""
@@ -110,9 +139,11 @@ async def get_destiny_card_data(vk_id: int | str) -> dict | None:
             pass
     return None
 
+
 async def delete_temp_birth_data(vk_id: int | str):
     """Удаляет данные рождения из Redis"""
     await redis_client.delete(f"user:birth_data:{vk_id}")
+
 
 async def clear_all_pii(vk_id: int | str):
     """Полная очистка всех персональных данных из Redis"""
@@ -121,15 +152,21 @@ async def clear_all_pii(vk_id: int | str):
         f"user:latest_reading:{vk_id}",
         f"user:readings_history:{vk_id}",
         f"user:core_profile:{vk_id}",
-        f"user:destiny_card:{vk_id}"
+        f"user:destiny_card:{vk_id}",
     ]
     for k in keys:
         await redis_client.delete(k)
 
-async def set_latest_reading(vk_id: int | str, text: str, data: dict = None, ttl: int = 86400):
+
+async def set_latest_reading(
+    vk_id: int | str, text: str, data: dict = None, ttl: int = 86400
+):
     """Сохраняет последний разбор в Redis на 24 часа"""
     payload = {"text": text, "data": data or {}}
-    await redis_client.set(f"user:latest_reading:{vk_id}", json.dumps(payload, ensure_ascii=False), ex=ttl)
+    await redis_client.set(
+        f"user:latest_reading:{vk_id}", json.dumps(payload, ensure_ascii=False), ex=ttl
+    )
+
 
 async def get_latest_reading(vk_id: int | str) -> dict | None:
     """Получает последний разбор из Redis"""
@@ -141,12 +178,15 @@ async def get_latest_reading(vk_id: int | str) -> dict | None:
             pass
     return None
 
+
 TAROT_NAMES_CACHE = None
+
 
 async def record_ai_request():
     """Записывает таймстамп запроса к ИИ для подсчета RPM"""
     import time
     import random
+
     now = time.time()
     key = "stats:ai_requests_rpm"
     member = f"{now}:{random.random()}"
@@ -155,6 +195,7 @@ async def record_ai_request():
     pipe.zremrangebyscore(key, 0, now - 60)
     pipe.expire(key, 120)
     await pipe.exec()
+
 
 async def acquire_ai_slot(limit: int = 15, wait: bool = True) -> bool:
     """
@@ -207,11 +248,13 @@ async def acquire_ai_slot(limit: int = 15, wait: bool = True) -> bool:
         if not wait:
             return False
 
-        await asyncio.sleep(2) # Ждем и пробуем снова
+        await asyncio.sleep(2)  # Ждем и пробуем снова
+
 
 async def get_ai_rpm() -> int:
     """Возвращает количество запросов к ИИ за последнюю минуту"""
     import time
+
     now = time.time()
     key = "stats:ai_requests_rpm"
     try:
@@ -221,12 +264,14 @@ async def get_ai_rpm() -> int:
     except Exception:
         return 0
 
+
 async def get_tarot_names() -> dict:
     global TAROT_NAMES_CACHE
     if TAROT_NAMES_CACHE is not None:
         return TAROT_NAMES_CACHE
 
     from loguru import logger
+
     try:
         cached = await redis_client.get("system:tarot_names")
         if cached:
@@ -244,10 +289,49 @@ async def get_tarot_names() -> dict:
             names = json.loads(content)
             TAROT_NAMES_CACHE = names
             try:
-                await redis_client.set("system:tarot_names", json.dumps(names, ensure_ascii=False))
+                await redis_client.set(
+                    "system:tarot_names", json.dumps(names, ensure_ascii=False)
+                )
             except Exception as e:
                 logger.error(f"Ошибка сохранения имен таро в кэш: {str(e)}")
             return names
     except Exception as e:
         logger.error(f"Ошибка загрузки имен таро из файла: {str(e)}")
         return {}
+
+
+async def get_birth_data_or_fallback(
+    vk_id: int | str, user: dict = None
+) -> dict | None:
+    """
+    Возвращает данные рождения из кэша. Если их там нет, берет из профиля Supabase (core_profile)
+    и кэширует на 24 часа, исключая лишний онбординг.
+    """
+    data = await get_temp_birth_data(vk_id)
+    if data:
+        return data
+
+    if not user:
+        try:
+            from database import get_user
+
+            user = await get_user(int(vk_id))
+        except Exception:
+            pass
+
+    if user and user.get("core_profile"):
+        cp = user.get("core_profile", "").strip()
+        parts = cp.split(maxsplit=2)
+        parsed = {}
+        if len(parts) >= 3:
+            parsed = {"date": parts[0], "time": parts[1], "city": parts[2]}
+        elif len(parts) == 2:
+            parsed = {"date": parts[0], "time": "12:00", "city": parts[1]}
+        elif len(parts) == 1:
+            parsed = {"date": parts[0], "time": "12:00", "city": ""}
+
+        if parsed and parsed.get("date"):
+            await set_temp_birth_data(vk_id, parsed)
+            return parsed
+
+    return None
