@@ -1,0 +1,291 @@
+2026-07-12 08:45:05.027 | ERROR    | modules.autoposter:get_remaining_rubrics_pool:76 - Ошибка получения пула рубрик из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-12 08:45:08.032 | ERROR    | modules.autoposter:reset_rubrics_pool:87 - Ошибка сохранения пула рубрик в Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-12 08:45:11.036 | ERROR    | modules.autoposter:save_rubrics_pool:95 - Ошибка сохранения пула рубрик в Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-12 08:45:11.037 | INFO     | modules.autoposter:pull_next_rubric:106 - 🔮 Из пула выбрана рубрика: PALM_CHRONICLES. Осталось в пуле: 16 рубрик.
+2026-07-12 08:45:11.037 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: PALM_CHRONICLES, персонаж professor, tema 'Почему ты притягиваешь «токсиков»: взгляд через синастрию.'
+2026-07-12 08:45:11.037 | ERROR    | modules.autoposter:generate_post:562 - Генерация поста прервана: чистый ИИ-текст слишком короткий или отсутствует (16 < 400)
+2026-07-12 08:45:11.042 | INFO     | modules.autoposter:handle_diagnosis_comment:171 - Получен запрос на вскрытие от 12345 под постом 67890: 01.01.1990
+2026-07-12 08:45:14.047 | ERROR    | modules.autoposter:handle_diagnosis_comment:190 - Ошибка получения скина из Redis: Request URL is missing an 'http://' or 'https://' protocol.
+2026-07-12 08:45:16.686 | SUCCESS  | modules.utils.pdf:generate_premium_pdf:286 - PDF успешно создан: test_output.pdf
+2026-07-12 08:45:16.702 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ palmistry.pdf успешно загружен в ВК (попытка 1): doc27260796_702463127_test_access_key
+2026-07-12 08:45:16.711 | SUCCESS  | modules.utils.docs:upload_pdf_to_vk:72 - Документ test.pdf успешно загружен в ВК (попытка 1): doc654321_123456
+2026-07-12 08:45:17.086 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_placeholder.png
+2026-07-12 08:45:17.482 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_avatar.png
+2026-07-12 08:45:17.872 | SUCCESS  | modules.support:create_neon_feedback_card:420 - Successfully generated crystal cosmic feedback card at cards/test_feedback_scaling.png
+2026-07-12 08:45:17.884 | WARNING  | main:verify_vk_signature:82 - Signature mismatch! Expected (computed): 380btVrMzeEKKPp9EUHus1aZAKt3qY5s7uxCGFTRpbU | Received from VK: bHJNPfXXy1JFG2WQCmn-5VAw7TpzmaPuxNnhuan1Spg
+2026-07-12 08:45:17.913 | INFO     | modules.payments.callbacks:_message_event_handler_wrapped:320 - message_event_handler triggered by vk_id=27260796, cmd=main_menu
+2026-07-12 08:45:18.389 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: SACRED_SCIENCE, персонаж rasputin, tema 'Как вернуть контроль над потоками, если ты чувствуешь себя "в песке".'
+2026-07-12 08:45:18.399 | INFO     | modules.autoposter:generate_post:388 - Сгенерирован скрытый шифр для поста: BREACH-923 на 181 ✨
+2026-07-12 08:45:18.399 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: PROVOCATION, персонаж pythia, tema 'Почему твой персонаж - это ты в лучшие свои времена?'
+2026-07-12 08:45:18.597 | INFO     | modules.autoposter:generate_post:388 - Сгенерирован скрытый шифр для поста: ROOT-225 на 80 ✨
+2026-07-12 08:45:18.597 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: SACRED_SCIENCE, персонаж rasputin, tema 'Как по руке определить предрасположенность к большим деньгам.'
+2026-07-12 08:45:18.614 | WARNING  | modules.tarot.secret_arts_logic:generate_sigil_image:20 - Background nonexistent.jpeg not found. Creating a dark cosmic template.
+2026-07-12 08:45:18.750 | SUCCESS  | modules.tarot.secret_arts_logic:generate_sigil_image:120 - Сигил успешно сгенерирован и сохранен по пути: /tmp/pytest-of-jules/pytest-4/test_generate_sigil_image_defa0/test_sigil.jpeg
+2026-07-12 08:45:18.835 | SUCCESS  | modules.tarot.secret_arts_logic:process_oculomancy_eye:220 - Окуломантия-карточка глаза успешно создана: /tmp/pytest-of-jules/pytest-4/test_process_oculomancy_eye_du0/test_eye_out.jpeg
+2026-07-12 08:45:18.862 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: PROVOCATION, персонаж freud, tema 'В каких сферах жизни ты добровольно отдаешь свою силу другим?'
+2026-07-12 08:45:18.867 | INFO     | modules.autoposter:generate_post:388 - Сгенерирован скрытый шифр для поста: VOID-303 на 140 ✨
+2026-07-12 08:45:18.867 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: PROVOCATION, персонаж ai_mom, tema 'Твой личный код успеха: как его собрать из разных персонажей.'
+2026-07-12 08:45:18.869 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: PROVOCATION, персонаж sheps_alex, tema 'Почему ты ищешь одобрения у тех, кто тебя не понимает?'
+2026-07-12 08:45:18.873 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: PROVOCATION, персонаж saint_germain, tema 'Почему некоторые люди выжигают тебя за 5 минут, а с другими - подъем?'
+2026-07-12 08:45:18.877 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: PROVOCATION, персонаж sheps_alex, tema 'Почему линии меняются: как твои решения переписывают судьбу.'
+2026-07-12 08:45:18.879 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: PROVOCATION, персонаж sheps_alex, tema 'Почему важно иметь «темную» сторону личности для успеха.'
+2026-07-12 08:45:18.882 | ERROR    | modules.autoposter:post_to_vk:678 - Аборт публикации: пост не сгенерирован
+2026-07-12 08:45:18.883 | ERROR    | modules.autoposter:post_to_vk:683 - Не удалось отправить алерт админу: AsyncMock.keys() returned a non-iterable (type coroutine)
+2026-07-12 08:45:18.884 | ERROR    | modules.autoposter:post_to_vk:688 - Аборт публикации: текст ИИ слишком короткий (14 < 400 символов)
+2026-07-12 08:45:18.885 | ERROR    | modules.autoposter:post_to_vk:693 - Не удалось отправить алерт админу: AsyncMock.keys() returned a non-iterable (type coroutine)
+2026-07-12 08:45:19.098 | ERROR    | modules.autoposter:post_to_vk:800 - Ошибка при автопостинге: 1 validation error for PostResponse
+response
+  field required (type=value_error.missing)
+Traceback (most recent call last):
+
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/bin/pytest", line 8, in <module>
+    sys.exit(console_main())
+    │   │    └ <function console_main at 0x7faee2698f40>
+    │   └ <built-in function exit>
+    └ <module 'sys' (built-in)>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/config/__init__.py", line 223, in console_main
+    code = main()
+           └ <function main at 0x7faee2698ea0>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/config/__init__.py", line 199, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+         │                │      │    │                          └ <_pytest.config.Config object at 0x7faee3148470>
+         │                │      │    └ <HookCaller 'pytest_cmdline_main'>
+         │                │      └ <_pytest.config.compat.PathAwareHookProxy object at 0x7faee24cae10>
+         │                └ <_pytest.config.Config object at 0x7faee3148470>
+         └ <enum 'ExitCode'>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'config': <_pytest.config.Config object at 0x7faee3148470>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_cmdline_main'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_cmdline_main'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_cmdline_main'>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'config': <_pytest.config.Config object at 0x7faee3148470>}
+           │    │               │          └ [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3...
+           │    │               └ 'pytest_cmdline_main'
+           │    └ <function _multicall at 0x7faee2f55940>
+           └ <_pytest.config.PytestPluginManager object at 0x7faee2755dc0>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<_pytest.config.Config object at 0x7faee3148470>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3....
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/main.py", line 365, in pytest_cmdline_main
+    return wrap_session(config, _main)
+           │            │       └ <function _main at 0x7faee274bb00>
+           │            └ <_pytest.config.Config object at 0x7faee3148470>
+           └ <function wrap_session at 0x7faee274b9c0>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/main.py", line 318, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+    │       │            │    │       └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=61>
+    │       │            │    └ <_pytest.config.Config object at 0x7faee3148470>
+    │       │            └ <function _main at 0x7faee274bb00>
+    │       └ <ExitCode.OK: 0>
+    └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=61>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/main.py", line 372, in _main
+    config.hook.pytest_runtestloop(session=session)
+    │      │    │                          └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=61>
+    │      │    └ <HookCaller 'pytest_runtestloop'>
+    │      └ <_pytest.config.compat.PathAwareHookProxy object at 0x7faee24cae10>
+    └ <_pytest.config.Config object at 0x7faee3148470>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=61>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtestloop'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtestloop'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtestloop'>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=61>}
+           │    │               │          └ [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3...
+           │    │               └ 'pytest_runtestloop'
+           │    └ <function _multicall at 0x7faee2f55940>
+           └ <_pytest.config.PytestPluginManager object at 0x7faee2755dc0>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=61>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3....
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/main.py", line 396, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+    │    │                                        │              └ <Coroutine test_escaped_newline_handling>
+    │    │                                        └ <Coroutine test_autoposter_validation_and_alerting>
+    │    └ <member 'config' of 'Node' objects>
+    └ <Coroutine test_autoposter_validation_and_alerting>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'item': <Coroutine test_autoposter_validation_and_alerting>, 'nextitem': <Coroutine test_escaped_newline_handling>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtest_protocol'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtest_protocol'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtest_protocol'>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'item': <Coroutine test_autoposter_validation_and_alerting>, 'nextitem': <Coroutine test_escaped_newline_handling>}
+           │    │               │          └ [<HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h...
+           │    │               └ 'pytest_runtest_protocol'
+           │    └ <function _multicall at 0x7faee2f55940>
+           └ <_pytest.config.PytestPluginManager object at 0x7faee2755dc0>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Coroutine test_autoposter_validation_and_alerting>, <Coroutine test_escaped_newline_handling>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-...
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+    │               │              └ <Coroutine test_escaped_newline_handling>
+    │               └ <Coroutine test_autoposter_validation_and_alerting>
+    └ <function runtestprotocol at 0x7faee274ac00>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/runner.py", line 137, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+    │       │      │               │             └ True
+    │       │      │               └ <Coroutine test_autoposter_validation_and_alerting>
+    │       │      └ <function call_and_report at 0x7faee274b060>
+    │       └ <method 'append' of 'list' objects>
+    └ [<TestReport 'tests/test_viral_autoposter.py::test_autoposter_validation_and_alerting' when='setup' outcome='passed'>]
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/runner.py", line 244, in call_and_report
+    call = CallInfo.from_call(
+           │        └ <classmethod(<function CallInfo.from_call at 0x7faee274b420>)>
+           └ <class '_pytest.runner.CallInfo'>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/runner.py", line 353, in from_call
+    result: TResult | None = func()
+            │                └ <function call_and_report.<locals>.<lambda> at 0x7faedcff00e0>
+            └ +TResult
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/runner.py", line 245, in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            │                 │       └ {}
+            │                 └ <Coroutine test_autoposter_validation_and_alerting>
+            └ <HookCaller 'pytest_runtest_call'>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ False
+           │    │         │    │     │    │                  └ {'item': <Coroutine test_autoposter_validation_and_alerting>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtest_call'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtest_call'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtest_call'>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ False
+           │    │               │          │        └ {'item': <Coroutine test_autoposter_validation_and_alerting>}
+           │    │               │          └ [<HookImpl plugin_name='threadexception', plugin=<module '_pytest.threadexception' from '/home/jules/.cache/pypoetry/virtuale...
+           │    │               └ 'pytest_runtest_call'
+           │    └ <function _multicall at 0x7faee2f55940>
+           └ <_pytest.config.PytestPluginManager object at 0x7faee2755dc0>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Coroutine test_autoposter_validation_and_alerting>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-...
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/runner.py", line 179, in pytest_runtest_call
+    item.runtest()
+    │    └ <function PytestAsyncioFunction.runtest at 0x7faee1b3e020>
+    └ <Coroutine test_autoposter_validation_and_alerting>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pytest_asyncio/plugin.py", line 469, in runtest
+    super().runtest()
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/python.py", line 1720, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+    │    │                                   └ <Coroutine test_autoposter_validation_and_alerting>
+    │    └ <property object at 0x7faee26c4db0>
+    └ <Coroutine test_autoposter_validation_and_alerting>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'pyfuncitem': <Coroutine test_autoposter_validation_and_alerting>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_pyfunc_call'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_pyfunc_call'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_pyfunc_call'>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'pyfuncitem': <Coroutine test_autoposter_validation_and_alerting>}
+           │    │               │          └ [<HookImpl plugin_name='python', plugin=<module '_pytest.python' from '/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h...
+           │    │               └ 'pytest_pyfunc_call'
+           │    └ <function _multicall at 0x7faee2f55940>
+           └ <_pytest.config.PytestPluginManager object at 0x7faee2755dc0>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Coroutine test_autoposter_validation_and_alerting>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='python', plugin=<module '_pytest.python' from '/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-...
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/_pytest/python.py", line 166, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+             │              └ {}
+             └ <function test_autoposter_validation_and_alerting at 0x7faedb95f060>
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/pytest_asyncio/plugin.py", line 716, in inner
+    runner.run(coro, context=context)
+    │      │   │             └ <_contextvars.Context object at 0x7faedce89400>
+    │      │   └ <coroutine object test_autoposter_validation_and_alerting at 0x7faedbbbbd80>
+    │      └ <function Runner.run at 0x7faee22b8860>
+    └ <asyncio.runners.Runner object at 0x7faeda3d2bd0>
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           │    │     │                  └ <Task pending name='Task-105' coro=<test_autoposter_validation_and_alerting() running at /app/tests/test_viral_autoposter.py:...
+           │    │     └ <function BaseEventLoop.run_until_complete at 0x7faee22b63e0>
+           │    └ <_UnixSelectorEventLoop running=True closed=False debug=False>
+           └ <asyncio.runners.Runner object at 0x7faeda3d2bd0>
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/asyncio/base_events.py", line 678, in run_until_complete
+    self.run_forever()
+    │    └ <function BaseEventLoop.run_forever at 0x7faee22b6340>
+    └ <_UnixSelectorEventLoop running=True closed=False debug=False>
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/asyncio/base_events.py", line 645, in run_forever
+    self._run_once()
+    │    └ <function BaseEventLoop._run_once at 0x7faee22b8180>
+    └ <_UnixSelectorEventLoop running=True closed=False debug=False>
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/asyncio/base_events.py", line 1999, in _run_once
+    handle._run()
+    │      └ <function Handle._run at 0x7faee2254720>
+    └ <Handle <_asyncio.TaskStepMethWrapper object at 0x7faeda4b2d40>()>
+  File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+    │    │            │    │           │    └ <member '_args' of 'Handle' objects>
+    │    │            │    │           └ <Handle <_asyncio.TaskStepMethWrapper object at 0x7faeda4b2d40>()>
+    │    │            │    └ <member '_callback' of 'Handle' objects>
+    │    │            └ <Handle <_asyncio.TaskStepMethWrapper object at 0x7faeda4b2d40>()>
+    │    └ <member '_context' of 'Handle' objects>
+    └ <Handle <_asyncio.TaskStepMethWrapper object at 0x7faeda4b2d40>()>
+
+  File "/app/tests/test_viral_autoposter.py", line 163, in test_autoposter_validation_and_alerting
+    await post_to_vk(is_morning=True)
+          └ <function post_to_vk at 0x7faeddcc7380>
+
+> File "/app/modules/autoposter.py", line 767, in post_to_vk
+    res_wall = await bot.api.wall.post(
+                     │   │   └ <property object at 0x7faede065490>
+                     │   └ <API token_generator=<<class 'vkbottle.api.token_generator.single.SingleTokenGenerator'>>...>
+                     └ <vkbottle.framework.bot.bot.Bot object at 0x7faedddfac30>
+
+  File "/home/jules/.cache/pypoetry/virtualenvs/vkbot-9TtSrW0h-py3.12/lib/python3.12/site-packages/vkbottle_types/codegen/methods/wall.py", line 559, in post
+    return model(**response).response
+           │       └ {'post_id': 123}
+           └ <class 'vkbottle_types.codegen.responses.wall.PostResponse'>
+
+  File "pydantic/main.py", line 364, in pydantic.main.BaseModel.__init__
+    raise validation_error
+
+pydantic.error_wrappers.ValidationError: 1 validation error for PostResponse
+response
+  field required (type=value_error.missing)
+2026-07-12 08:45:19.121 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: PROVOCATION, персонаж kaliostro, tema 'Почему важно иметь «темную» сторону личности для успеха.'
+2026-07-12 08:45:19.126 | INFO     | modules.autoposter:generate_post:354 - Выбран случайный Аркан для CARD_HISTORY: Колесо Фортуны (ID: 10)
+2026-07-12 08:45:19.126 | INFO     | modules.autoposter:generate_post:434 - Генерация поста: CARD_HISTORY, персонаж blinovskaya, tema 'История Аркана Колесо Фортуны'

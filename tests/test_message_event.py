@@ -30,6 +30,7 @@ async def test_message_event_handler_main_menu():
     mock_redis = AsyncMock()
     mock_redis.set.return_value = True
     mock_redis.get.return_value = None
+    mock_redis.delete.return_value = True
 
     # Mock DB functions
     with (
@@ -38,12 +39,15 @@ async def test_message_event_handler_main_menu():
             "modules.payments.callbacks.update_user", new_callable=AsyncMock
         ) as mock_update,
         patch("modules.payments.callbacks.redis_client", mock_redis),
+        patch("modules.utils.ui.redis_client", mock_redis),
+        patch("cache.redis_client", mock_redis),
         patch("modules.payments.callbacks.acquire_lock", return_value=True),
         patch(
             "modules.payments.callbacks.release_lock", new_callable=AsyncMock
         ) as mock_release_lock,
         patch("modules.payments.callbacks.check_throttle", return_value=False),
         patch("modules.utils.logic.acquire_lock", return_value=True),
+        patch("modules.utils.logic.release_lock", new_callable=AsyncMock),
         patch(
             "modules.payments.callbacks.bot.api.request", new_callable=AsyncMock
         ) as mock_vk_request,
