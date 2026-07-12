@@ -487,8 +487,8 @@ async def execute_generation(
                 # partner_date содержит переданные ответы квизов
                 pass
 
-            from cache import get_temp_birth_data
-            birth_data = await get_temp_birth_data(vk_id)
+            from cache import get_birth_data_or_fallback
+            birth_data = await get_birth_data_or_fallback(vk_id, user)
             if not birth_data:
                 # В теории мы уже проверили это в process_payment_and_generate, но для надежности
                 await stop_dynamic_typing(peer_id)

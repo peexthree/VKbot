@@ -307,9 +307,13 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "city": city
             })
 
+            core_profile = f"{date} {time} {city}"
+            await redis_client.set(f"user:core_profile:{vk_id}", core_profile, ex=86400)
+
             user = await get_user(vk_id)
             updates = {
-                "is_registered": True
+                "is_registered": True,
+                "core_profile": core_profile
             }
 
             # Начисляем приветственный бонус если еще не получал
@@ -716,8 +720,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     except Exception as e:
                         logger.error(f"Error fetching VK data as fallback for PDF: {e}")
 
-                if temp_birth:
-                    await set_temp_birth_data(vk_id, temp_birth)
+                # Если все еще пусто, подставляем дефолтные метаданные без лишних вопросов к адепту
+                if not temp_birth or not temp_birth.get("date"):
+                    temp_birth = {"date": "Скрыто", "time": "12:00", "city": "Космос"}
+
+                await set_temp_birth_data(vk_id, temp_birth)
 
             b_info = f"{temp_birth.get('date', '')} {temp_birth.get('time', '')} {temp_birth.get('city', '')}"
             u_name = user.get("first_name") or user.get("purchased_sections", {}).get("first_name", "Адепт")
@@ -743,7 +750,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 if not os.path.exists(full_eye_path):
                     eye_url = latest_data.get("eye_url")
                     if not eye_url:
-                        from cache import redis_client
                         res_eye = await redis_client.get(f"oculomancy_photo:{vk_id}")
                         if res_eye:
                             eye_url = res_eye.decode() if isinstance(res_eye, bytes) else res_eye
@@ -905,8 +911,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
             # ПРОВЕРКА ДАТЫ РОЖДЕНИЯ ПЕРЕД ПОКУПКОЙ УСЛУГ (кроме пополнений и тарифов)
             if buy_type == "service" or key in ["destiny_card", "destiny_card_update"]:
-                from cache import get_temp_birth_data
-                birth_data = await get_temp_birth_data(vk_id)
+                from cache import get_birth_data_or_fallback
+                birth_data = await get_birth_data_or_fallback(vk_id, user)
                 if not birth_data:
                     # Пытаемся спарсить из ВК
                     try:

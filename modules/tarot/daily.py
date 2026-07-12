@@ -17,8 +17,8 @@ async def card_of_day_logic(vk_id: int, peer_id: int, skip_lock: bool = False, *
         conv_msg_id = kwargs.get("conversation_message_id")
 
         # Проверка данных в Redis
-        from cache import get_temp_birth_data
-        birth_data = await get_temp_birth_data(vk_id)
+        from cache import get_birth_data_or_fallback
+        birth_data = await get_birth_data_or_fallback(vk_id)
         if not birth_data:
             # Пытаемся спарсить из ВК
             try:

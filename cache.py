@@ -251,3 +251,37 @@ async def get_tarot_names() -> dict:
     except Exception as e:
         logger.error(f"Ошибка загрузки имен таро из файла: {str(e)}")
         return {}
+
+
+async def get_birth_data_or_fallback(vk_id: int | str, user: dict = None) -> dict | None:
+    """
+    Возвращает данные рождения из кэша. Если их там нет, берет из профиля Supabase (core_profile)
+    и кэширует на 24 часа, исключая лишний онбординг.
+    """
+    data = await get_temp_birth_data(vk_id)
+    if data:
+        return data
+
+    if not user:
+        try:
+            from database import get_user
+            user = await get_user(int(vk_id))
+        except Exception:
+            pass
+
+    if user and user.get("core_profile"):
+        cp = user.get("core_profile", "").strip()
+        parts = cp.split(maxsplit=2)
+        parsed = {}
+        if len(parts) >= 3:
+            parsed = {"date": parts[0], "time": parts[1], "city": parts[2]}
+        elif len(parts) == 2:
+            parsed = {"date": parts[0], "time": "12:00", "city": parts[1]}
+        elif len(parts) == 1:
+            parsed = {"date": parts[0], "time": "12:00", "city": ""}
+
+        if parsed and parsed.get("date"):
+            await set_temp_birth_data(vk_id, parsed)
+            return parsed
+
+    return None

@@ -24,6 +24,41 @@ STOP_WORDS_18PLUS = [
     "членосос", "пизда", "хуй", "ебать", "трахаться", "порнуха", "извращение", "грязь"
 ]
 
+def sanitize_premium_tov(text: str) -> str:
+    if not text:
+        return text
+
+    # Замена конкретных фраз (регистронезависимо)
+    text = re.sub(r'(?i)хватит\s+ныть', 'услышь зов силы', text)
+    text = re.sub(r'(?i)разуй\s+глаза', 'обрати свой взор', text)
+    text = re.sub(r'(?i)ты\s+тормозишь', 'ты на пороге выбора', text)
+
+    # "прокрастинация" и ее падежи
+    text = re.sub(r'(?i)\bпрокрастинация\b', 'период созерцания', text)
+    text = re.sub(r'(?i)\bпрокрастинации\b', 'периода созерцания', text)
+    text = re.sub(r'(?i)\bпрокрастинацию\b', 'период созерцания', text)
+    text = re.sub(r'(?i)\bпрокрастинацией\b', 'периодом созерцания', text)
+    text = re.sub(r'(?i)\bпрокрастинаци[ие]\b', 'периода созерцания', text)
+
+    # "лень" и ее падежи
+    text = re.sub(r'(?i)\bлень\b', 'замедление', text)
+    text = re.sub(r'(?i)\bлени\b', 'замедления', text)
+    text = re.sub(r'(?i)\bленью\b', 'замедлением', text)
+
+    # "пассивность" и ее падежи
+    text = re.sub(r'(?i)\bпассивность\b', 'созерцательность', text)
+    text = re.sub(r'(?i)\bпассивности\b', 'созерцательности', text)
+    text = re.sub(r'(?i)\bпассивностью\b', 'созерцательностью', text)
+
+    # МУЖЧИНА (строго капсом) -> Искатель
+    text = re.sub(r'\bМУЖЧИНА\b', 'Искатель', text)
+    text = re.sub(r'\bМУЖЧИНЫ\b', 'Искатели', text)
+    text = re.sub(r'\bМУЖЧИНЕ\b', 'Искателю', text)
+    text = re.sub(r'\bМУЖЧИНУ\b', 'Искателя', text)
+    text = re.sub(r'\bМУЖЧИНОЙ\b', 'Искателем', text)
+
+    return text
+
 _cached_api_keys = None
 
 proxy_url = os.getenv("GEMINI_PROXY")
@@ -195,6 +230,7 @@ async def generate_text(prompt: str, json_mode: bool = False, skin: str = "olesy
 
                                         # Жесткая очистка на уровне кода
                                         text = text.replace('*', '').replace('—', '-')
+                                        text = sanitize_premium_tov(text)
 
                                         if not json_mode:
                                             text = text.translate(SANITIZATION_TABLE)
