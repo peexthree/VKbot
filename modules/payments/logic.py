@@ -1025,6 +1025,9 @@ async def execute_generation(
                 latest_data_to_store = (
                     res_data if isinstance(res_data, dict) else {"text": res_text}
                 )
+                if isinstance(latest_data_to_store, dict):
+                    if "text" not in latest_data_to_store or not latest_data_to_store["text"]:
+                        latest_data_to_store["text"] = display_text
                 if sigil_img_path:
                     latest_data_to_store["sigil_photo"] = (
                         "cards/sigil_" + str(vk_id) + ".jpeg"
