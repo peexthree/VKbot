@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 @pytest.mark.asyncio
 async def test_pdf_fallback_with_missing_text_key():
