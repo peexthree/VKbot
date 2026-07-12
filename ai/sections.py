@@ -1,5 +1,4 @@
 import json
-import random
 import re
 from loguru import logger
 from cards_data import get_card_data
@@ -162,9 +161,9 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         prompt = raw_prompt_template.format(wish_text=wish_text)
     else:
         if section == "oculomancy":
-            context_info += f" Ритуал Окуломантии. Пользователь предоставил фотографию своего глаза для мистического анализа радужной оболочки."
+            context_info += " Ритуал Окуломантии. Пользователь предоставил фотографию своего глаза для мистического анализа радужной оболочки."
         elif section == "palmistry":
-            context_info += f" Ритуал Хиромантии. Пользователь прислал фотографии своих ладоней (левой и правой) для детального разбора линий судьбы, сердца, ума и жизни."
+            context_info += " Ритуал Хиромантии. Пользователь прислал фотографии своих ладоней (левой и правой) для детального разбора линий судьбы, сердца, ума и жизни."
         elif section == "dream":
             dream_text = partner_date or "Неизвестный сон"
             context_info += f" Толкование снов. Пользователю приснился следующий сон: <user_input>{dream_text}</user_input>. Проведи разбор символов подсознания."
@@ -190,25 +189,25 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
             el = calculate_alchemy_element(date)
             context_info += f" Цифровой Алхимик. Расчет определил ведущий первоэлемент пользователя: {el['name']} ({el['latin']}) {el['symbol']}. Базовое свойство: {el['desc']}."
         elif section == "chrono":
-            context_info += f" Хроно-Прогноз. Персональные мистические биоритмы и ведьминские часы успеха на месяц вперед."
+            context_info += " Хроно-Прогноз. Персональные мистические биоритмы и ведьминские часы успеха на месяц вперед."
         elif section == "charoslov":
-            context_info += f" Славянский Чарослов. Древнеславянские обереги, слова силы и утренние ведовские практики защиты/привлечения блага."
+            context_info += " Славянский Чарослов. Древнеславянские обереги, слова силы и утренние ведовские практики защиты/привлечения блага."
         elif section == "sex":
-            context_info += f" Разбор СТРАСТЬ (анализ Венеры и Марса, отношение к любви и близости)."
+            context_info += " Разбор СТРАСТЬ (анализ Венеры и Марса, отношение к любви и близости)."
         elif section == "money":
-            context_info += f" Разбор ИЗОБИЛИЕ (анализ 2-го и 10-го домов, самореализация и процветание)."
+            context_info += " Разбор ИЗОБИЛИЕ (анализ 2-го и 10-го домов, самореализация и процветание)."
         elif section == "shadow":
-            context_info += f" Разбор ТЕНЬ (анализ Лилит и Селены, скрытые уголки души)."
+            context_info += " Разбор ТЕНЬ (анализ Лилит и Селены, скрытые уголки души)."
         elif section == "final":
-            context_info += f" Разбор ПУТЬ (Итоговое напутствие в жизни и светлый совет для души)."
+            context_info += " Разбор ПУТЬ (Итоговое напутствие в жизни и светлый совет для души)."
         elif section == "synastry":
             s_partner_name = sanitize_user_input(partner_name)
             s_partner_date = sanitize_user_input(partner_date)
             context_info += f" Разбор СОЮЗ (совместимость партнеров). Имя партнера: <user_input>{s_partner_name}</user_input>, данные рождения партнера: <user_input>{s_partner_date}</user_input>."
         elif section == "antitaro":
-            context_info += f" Разбор ОТКРОВЕНИЕ (честный, глубокий взгляд на то, что мешает счастью, освобождение от иллюзий)."
+            context_info += " Разбор ОТКРОВЕНИЕ (честный, глубокий взгляд на то, что мешает счастью, освобождение от иллюзий)."
         elif section == "destiny_card":
-            context_info += f" Разбор КАРТА СУДЬБЫ (главный жизненный путь, предназначение, кармические задачи)."
+            context_info += " Разбор КАРТА СУДЬБЫ (главный жизненный путь, предназначение, кармические задачи)."
         elif section == "card_of_day":
             card_name = card_data.get('name', 'Твою карту') if card_data else "Твою карту"
             context_info += f" Карта дня: {card_name}."
