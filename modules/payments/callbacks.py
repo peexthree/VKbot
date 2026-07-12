@@ -1203,9 +1203,13 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             latest_reading = await get_latest_reading(vk_id)
             latest_data = {}
             if latest_reading:
-                latest_data = latest_reading.get("data") or {
-                    "text": latest_reading.get("text")
-                }
+                latest_data = latest_reading.get("data") or {}
+                if not isinstance(latest_data, dict):
+                    latest_data = {}
+                if "text" not in latest_data and latest_reading.get("text"):
+                    latest_data["text"] = latest_reading.get("text")
+                if not latest_data and latest_reading.get("text"):
+                    latest_data = {"text": latest_reading.get("text")}
 
             if not latest_data or "text" not in latest_data:
                 # Попытка восстановить из readings_history
@@ -1216,10 +1220,12 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         found_item = item
                         break
                 if found_item:
-                    latest_data = found_item.get("data") or {
-                        "text": found_item.get("text")
-                    }
-                    if not latest_data:
+                    latest_data = found_item.get("data") or {}
+                    if not isinstance(latest_data, dict):
+                        latest_data = {}
+                    if "text" not in latest_data and found_item.get("text"):
+                        latest_data["text"] = found_item.get("text")
+                    if not latest_data and found_item.get("text"):
                         latest_data = {"text": found_item.get("text")}
 
             if not latest_data or "text" not in latest_data:
@@ -1359,6 +1365,12 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         character_name=char_name,
                         sigil_photo=latest_data.get("sigil_photo"),
                         eye_photo=latest_data.get("eye_photo"),
+                        **{k: v for k, v in latest_data.items() if k not in [
+                            "text", "shadow_side", "activation_level", "activation_comment",
+                            "affirmations", "next_activation_date", "thirty_day_forecast",
+                            "activation_recommendations", "star_code", "energy_map",
+                            "palm_photos", "interesting_facts", "sigil_photo", "eye_photo"
+                        ]}
                     )
                 if success and os.path.exists(pdf_name):
                     doc = await upload_pdf_to_vk(
