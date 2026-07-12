@@ -37,6 +37,7 @@ async def test_message_event_handler_main_menu():
          patch("modules.payments.callbacks.acquire_lock", return_value=True), \
          patch("modules.payments.callbacks.release_lock", new_callable=AsyncMock) as mock_release_lock, \
          patch("modules.payments.callbacks.check_throttle", return_value=False), \
+         patch("modules.utils.logic.acquire_lock", return_value=True), \
          patch("modules.payments.callbacks.bot.api.request", new_callable=AsyncMock) as mock_vk_request, \
          patch("modules.payments.callbacks.upload_local_photo", return_value="photo-1234_5678"):
 
