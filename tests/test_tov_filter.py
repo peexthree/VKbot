@@ -1,4 +1,3 @@
-import pytest
 from ai.logic import sanitize_premium_tov
 
 def test_tov_filter_phrases():

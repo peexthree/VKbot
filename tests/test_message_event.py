@@ -1,5 +1,4 @@
 import asyncio
-import json
 from unittest.mock import AsyncMock, patch
 import pytest
 from modules.payments.callbacks import _message_event_handler_wrapped

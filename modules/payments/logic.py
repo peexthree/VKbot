@@ -885,9 +885,21 @@ async def execute_generation(
                 if target_section == "sigil" and sigil_img_path and os.path.exists(sigil_img_path):
                     from modules.utils import upload_local_photo
                     attachment = await upload_local_photo(bot.api, f"sigil_{vk_id}.jpeg", peer_id=peer_id)
+                    if attachment:
+                        try:
+                            os.remove(sigil_img_path)
+                            logger.info(f"Removed temp sigil path immediately after upload: {sigil_img_path}")
+                        except Exception as e:
+                            logger.error(f"Error removing sigil image immediately: {e}")
                 elif target_section == "oculomancy" and eye_img_path and os.path.exists(eye_img_path):
                     from modules.utils import upload_local_photo
                     attachment = await upload_local_photo(bot.api, f"eye_{vk_id}.jpeg", peer_id=peer_id)
+                    if attachment:
+                        try:
+                            os.remove(eye_img_path)
+                            logger.info(f"Removed temp eye path immediately after upload: {eye_img_path}")
+                        except Exception as e:
+                            logger.error(f"Error removing eye image immediately: {e}")
 
                 # Если conversation_message_id был передан (регистрация), используем его как CMID.
                 # Если нет (расклад), используем ID сообщения динамического тайпинга как MID.
