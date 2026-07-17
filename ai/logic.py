@@ -246,7 +246,7 @@ async def generate_text(
             payload = {
                 "contents": [{"parts": parts}],
                 "system_instruction": {"parts": [{"text": system_instruction_text}]},
-                "generationConfig": {"maxOutputTokens": 2048, "temperature": 0.8},
+                "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.8},
             }
 
             # Ретраи для сетевых ошибок и тайм-аутов (2 попытки + основной запрос)

@@ -510,7 +510,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     if is_targeted:
         role_description = f"Ты — {skin_name} в роли выдающегося научного журналиста и исследователя тайн сознания."
         size_instruction = (
-            "ОБЪЕМ ТЕКСТА (СТРОГО): Твой текст должен быть объемом СТРОГО ОТ 1000 ДО 1400 СИМВОЛОВ (включая пробелы). "
+            "ОБЪЕМ ТЕКСТА (СТРОГО): Твой текст должен быть объемом СТРОГО ОТ 700 ДО 1400 СИМВОЛОВ (включая пробелы). "
             "Текст должен быть сжатым, плотным, информативным, абсолютно без воды."
         )
         structure_instruction = (
@@ -526,7 +526,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     else:
         role_description = f"Твой роль: {skin_name}."
         size_instruction = (
-            "ОБЪЕМ ТЕКСТА (СТРОГО): Твой текст должен стать объемным, плотным и развернутым лонгридом (ОТ 1500 ДО 2500 СИМВОЛОВ). "
+            "ОБЪЕМ ТЕКСТА (СТРОГО): Твой текст должен стать объемным, плотным и развернутым лонгридом (ОТ 1000 ДО 2500 СИМВОЛОВ). "
             "Никаких коротких отписок и лозунгов. Пиши емко, с конкретными жизненными примерами, "
             "метафорами и глубоким пониманием психологии."
         )
@@ -616,9 +616,19 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
         if '#' in last_line:
             tags_in_line = re.findall(r'#\w+', last_line)
-            if tags_in_line:
-                extracted_hashtags = tags_in_line + extracted_hashtags
-            ai_lines.pop()
+            cleaned_line = re.sub(r'#\w+', '', last_line).strip()
+            # If the line contains only hashtags/whitespace/punctuation, safely pop the whole line
+            if not cleaned_line or re.match(r'^[.,!?;:\s-]*$', cleaned_line):
+                if tags_in_line:
+                    extracted_hashtags = tags_in_line + extracted_hashtags
+                ai_lines.pop()
+            else:
+                # The line has real text alongside hashtags. Extract hashtags but keep the text.
+                if tags_in_line:
+                    extracted_hashtags = tags_in_line + extracted_hashtags
+                cleaned_last_line = cleaned_line.rstrip('.,!?;: \t\n\r-').strip()
+                ai_lines[-1] = cleaned_last_line
+                break
         else:
             break
 
