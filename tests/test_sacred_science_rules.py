@@ -22,7 +22,7 @@ async def test_sacred_science_prompt_rules():
                     async def mock_generate_text(prompt, skin, json_mode, is_background):
                         # Проверяем, что промпт содержит новые правила для SACRED_SCIENCE
                         assert "выдающегося научного журналиста и исследователя тайн сознания" in prompt
-                        assert "ОТ 1000 ДО 1400 СИМВОЛОВ" in prompt
+                        assert "ОТ 700 ДО 1400 СИМВОЛОВ" in prompt
                         assert "СТРОГО 4 АБЗАЦА" in prompt
                         assert "ЗАПРЕЩЕННЫЕ ИИ-ФРАЗЫ" in prompt
                         assert "В этой статье мы..." in prompt
@@ -50,7 +50,7 @@ async def test_global_ai_forbidden_phrases_non_targeted():
                         # Проверяем, что промпт для PROVOCATION содержит глобальный запрет, но не правила 4 абзацев
                         assert "ЗАПРЕЩЕННЫЕ ИИ-ФРАЗЫ" in prompt
                         assert "В этой статье мы..." in prompt
-                        assert "ОТ 1500 ДО 2500 СИМВОЛОВ" in prompt
+                        assert "ОТ 1000 ДО 2500 СИМВОЛОВ" in prompt
                         assert "СТРОГО 4 АБЗАЦА" not in prompt
                         return json.dumps(mock_json)
 
