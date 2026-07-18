@@ -1,4 +1,6 @@
 import re
+import json
+import random
 from vkbottle.bot import BotLabeler, Message
 from modules.states import MyStates
 from modules.utils import get_fsm_step
@@ -166,3 +168,83 @@ async def show_advanced_settings(
 async def show_profile(message: Message):
     """Просто вызывает новый красивый профиль"""
     await show_profile_logic(message.from_id, message.peer_id, message)
+
+
+@labeler.message(state=MyStates.WAITING_EMAIL_INPUT)
+async def process_email_input(message: Message):
+    vk_id = message.from_id
+    text = message.text.strip() if message.text else ""
+    if not text:
+        return
+
+    EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    if not re.match(EMAIL_REGEX, text):
+        from vkbottle import Keyboard, KeyboardButtonColor, Callback
+        kb = Keyboard(inline=True)
+        kb.add(Callback("❌ Отмена", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.NEGATIVE)
+        await message.answer(
+            "❌ Некорректный формат Email. Пожалуйста, проверь адрес и попробуй еще раз или нажмите Отмена:",
+            keyboard=kb.get_json()
+        )
+        return
+
+    email = text.lower()
+    code = "".join(random.choices("0123456789", k=6))
+
+    from modules.utils.email_sender import send_verification_email
+    success = await send_verification_email(email, code)
+    if not success:
+        from loguru import logger
+        logger.warning(f"Could not send verification email to {email}")
+
+    from database import update_user
+    await update_user(vk_id, {
+        "email": email,
+        "verification_code": code,
+        "verification_status": "waiting_verification"
+    })
+
+    state_data = {"step": "waiting_email_code", "email": email}
+    await set_user_state(vk_id, json.dumps(state_data))
+
+    from vkbottle import Keyboard, KeyboardButtonColor, Callback
+    kb = Keyboard(inline=True)
+    kb.add(Callback("❌ Сбросить и выйти", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.NEGATIVE)
+    await message.answer(
+        "📨 Код подтверждения отправлен на твой Email. Введи 6-значный цифровой код из письма для завершения связки:",
+        keyboard=kb.get_json()
+    )
+
+
+@labeler.message(state=MyStates.WAITING_EMAIL_CODE)
+async def process_email_code(message: Message):
+    vk_id = message.from_id
+    text = message.text.strip() if message.text else ""
+    if not text:
+        return
+
+    from database import get_user, update_user
+    user = await get_user(vk_id)
+    if not user:
+        await set_user_state(vk_id, "")
+        await message.answer("❌ Пользователь не найден.")
+        return
+
+    saved_code = user.get("verification_code")
+    if text == str(saved_code):
+        await update_user(vk_id, {
+            "verification_status": "linked"
+        })
+        await set_user_state(vk_id, "")
+        await message.answer(
+            "✅ Твой аккаунт успешно привязан! Теперь ты можешь войти в мобильное приложение АНТИ-ТАР под этим Email, и твой прогресс (Энергия и Кубки) перенесется автоматически."
+        )
+        await show_profile_logic(vk_id, message.peer_id, message)
+    else:
+        from vkbottle import Keyboard, KeyboardButtonColor, Callback
+        kb = Keyboard(inline=True)
+        kb.add(Callback("❌ Сбросить и выйти", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.NEGATIVE)
+        await message.answer(
+            "❌ Неверный код подтверждения. Попробуй еще раз:",
+            keyboard=kb.get_json()
+        )

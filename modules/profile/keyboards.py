@@ -6,9 +6,9 @@ from modules.keyboards import (
 )
 
 # Прокси-функции для сохранения обратной совместимости по именам
-def get_profile_keyboard() -> str:
+def get_profile_keyboard(user: dict | None = None) -> str:
 
-    return get_profile_inline_keyboard()
+    return get_profile_inline_keyboard(user)
 
 def get_settings_keyboard(is_muted: bool = False, vk_id: int = 0) -> str:
     return get_settings_inline_keyboard(vk_id=vk_id, is_muted=is_muted)

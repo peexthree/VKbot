@@ -1438,6 +1438,26 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     skip_lock=True,
                     conversation_message_id=conv_id,
                 )
+            elif action == "bind_email":
+                await set_user_state(
+                    vk_id,
+                    json.dumps({"step": "waiting_email_input"}),
+                )
+                from vkbottle import Keyboard, KeyboardButtonColor, Callback
+                kb = Keyboard(inline=True)
+                kb.add(
+                    Callback(
+                        "❌ Отмена",
+                        payload={"cmd": "profile_action", "action": "back_to_profile"},
+                    ),
+                    color=KeyboardButtonColor.NEGATIVE,
+                )
+                await safe_edit(
+                    peer_id=peer_id,
+                    conversation_message_id=conv_id,
+                    message="📧 Введи свой Email для привязки аккаунта и переноса прогресса в мобильное приложение АНТИ-ТАР:",
+                    keyboard=kb.get_json(),
+                )
             elif action == "change_data":
                 await set_user_state(
                     vk_id,

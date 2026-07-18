@@ -179,13 +179,17 @@ def karma_quiz_step2_kb() -> str:
         ("❌ ОТМЕНА", "secret_arts_menu", KeyboardButtonColor.NEGATIVE)
     ])
 
-def profile_menu_kb() -> str:
+def profile_menu_kb(user: dict | None = None) -> str:
     """Меню Профиля"""
-    return vertical_kb([
+    buttons = [
         ("✨ Баланс энергии", "balance", KeyboardButtonColor.PRIMARY),
         ("🎭 Зал пророков", {"cmd": "profile_action", "action": "change_skin"}, KeyboardButtonColor.PRIMARY),
-        ("⚙️ Настройки", {"cmd": "profile_action", "action": "settings"}, KeyboardButtonColor.SECONDARY),
-    ], nav_buttons=[
+    ]
+    status = user.get("verification_status") if user else None
+    if status not in ("linked", "merged"):
+        buttons.append(("📧 Привязать Email", {"cmd": "profile_action", "action": "bind_email"}, KeyboardButtonColor.PRIMARY))
+    buttons.append(("⚙️ Настройки", {"cmd": "profile_action", "action": "settings"}, KeyboardButtonColor.SECONDARY))
+    return vertical_kb(buttons, nav_buttons=[
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
@@ -365,8 +369,8 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
 async def get_main_inline_keyboard(vk_id: int, user: dict | None) -> str:
     return main_menu_kb(vk_id, user)
 
-def get_profile_inline_keyboard() -> str:
-    return profile_menu_kb()
+def get_profile_inline_keyboard(user: dict | None = None) -> str:
+    return profile_menu_kb(user)
 
 def get_settings_inline_keyboard(vk_id: int = 0, is_muted: bool = False) -> str:
     return settings_menu_kb(vk_id, is_muted=is_muted)
