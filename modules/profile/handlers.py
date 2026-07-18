@@ -230,8 +230,20 @@ async def process_email_code(message: Message):
         await message.answer("❌ Пользователь не найден.")
         return
 
-    saved_code = user.get("verification_code")
-    if text == str(saved_code):
+    state_dict = await get_fsm_step(vk_id)
+    email = state_dict.get("email") if state_dict else None
+    if not email:
+        email = user.get("email")
+
+    if not email:
+        await set_user_state(vk_id, "")
+        await message.answer("❌ Email для верификации не найден.")
+        return
+
+    from modules.utils.email_sender import verify_email_otp
+    success = await verify_email_otp(email, text)
+
+    if success:
         await update_user(vk_id, {
             "verification_status": "linked"
         })
