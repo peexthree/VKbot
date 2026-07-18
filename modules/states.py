@@ -27,3 +27,5 @@ class MyStates(BaseStateGroup):
     WAITING_KARMA_STEP1 = "waiting_karma_step1"
     WAITING_KARMA_STEP2 = "waiting_karma_step2"
     WAITING_DREAM_TEXT = "waiting_dream_text"
+    WAITING_EMAIL_INPUT = "waiting_email_input"
+    WAITING_EMAIL_CODE = "waiting_email_code"

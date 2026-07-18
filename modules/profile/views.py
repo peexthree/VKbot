@@ -158,12 +158,18 @@ async def show_profile_logic(
             except Exception:
                 pass
 
+        email_status_str = ""
+        email_status = user.get("verification_status")
+        if email_status in ("linked", "merged") and user.get("email"):
+            email_status_str = f"📧 Email: {user.get('email')}\n"
+
         profile_text = (
             "💳 ЛИЧНЫЙ ПРОФИЛЬ\n\n"
             f"👤 {first_name} | {rank}\n"
             f"💠 Уровень: {level} | 🔥 Стрик: {visit_streak} дней\n"
             f"📍 {birth_display}\n\n"
             f"{destiny_info}"
+            f"{email_status_str}"
             f"💬 {greeting}\n\n"
             f"📊 ТВОЯ СТАТИСТИКА:\n"
             f"🛰 Шепот звезд: {whisper_status}\n"
@@ -173,7 +179,7 @@ async def show_profile_logic(
             f"🃏 ГРИМУАР: {unlocked_count}/78 [{progress_bar}]"
         )
 
-        keyboard = get_profile_keyboard()
+        keyboard = get_profile_keyboard(user)
 
         # Stop typing and get message_id used if any
         typing_msg_id = await stop_dynamic_typing(peer_id)

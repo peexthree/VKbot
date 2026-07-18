@@ -76,7 +76,9 @@ async def set_user_state(vk_id: int, state: str):
         "waiting_karma_step1": MyStates.WAITING_KARMA_STEP1,
         "waiting_karma_step2": MyStates.WAITING_KARMA_STEP2,
         "waiting_dream_text": MyStates.WAITING_DREAM_TEXT,
-        "waiting_feedback_comment": MyStates.WAITING_FEEDBACK_COMMENT
+        "waiting_feedback_comment": MyStates.WAITING_FEEDBACK_COMMENT,
+        "waiting_email_input": MyStates.WAITING_EMAIL_INPUT,
+        "waiting_email_code": MyStates.WAITING_EMAIL_CODE
     }
     # Always persist to Redis for reliability across restarts
     await set_fsm_state(vk_id, state)
