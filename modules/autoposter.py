@@ -281,6 +281,35 @@ def load_content():
     with open(CONTENT_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
+async def get_recent_topics_memory() -> list:
+    """Возвращает список 10 последних опубликованных тем из JSON файла."""
+    filepath = "data/recent_topics.json"
+    if not os.path.exists(filepath):
+        return []
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            topics = json.load(f)
+            if isinstance(topics, list):
+                return topics
+    except Exception as e:
+        logger.error(f"Ошибка чтения recent_topics.json: {e}")
+    return []
+
+async def save_topic_to_memory(topic: str):
+    """Сохраняет опубликованную тему в список последних 10 опубликованных тем."""
+    filepath = "data/recent_topics.json"
+    topics = await get_recent_topics_memory()
+    if topic in topics:
+        topics.remove(topic)
+    topics.insert(0, topic)
+    topics = topics[:10]
+    try:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(topics, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Ошибка сохранения recent_topics.json: {e}")
+
 async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     content = load_content()
     skin_ids = list(content["TONES"].keys())
@@ -289,6 +318,9 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
     # 1. Получаем список недавно использованного контента за 72ч
     used_skins, used_topics, used_rubrics = await get_daily_used_content()
+
+    # Фильтр памяти на последние 10 опубликованных тем
+    recent_topics_memory = await get_recent_topics_memory()
 
     # 2. Проверка активного опроса (результаты вчерашнего голосования)
     forced_topic = None
@@ -311,11 +343,11 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
         await close_poll(active_poll["id"])
 
-    # Собираем все доступные темы
+    # Собираем все доступные темы, исключая из recent_topics_memory и used_topics
     all_available_topics = []
     for cat, t_list in topics_by_category.items():
         for t in t_list:
-            if t not in used_topics:
+            if t not in used_topics and t not in recent_topics_memory:
                 all_available_topics.append((cat, t))
 
     if forced_topic:
@@ -324,7 +356,16 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     elif all_available_topics:
         category, topic = random.choice(all_available_topics)
     else:
-        category, topic = random.choice([(c, t) for c, ts in topics_by_category.items() for t in ts])
+        # Фолбэк, если все темы исключены — берем те, которых нет хотя бы во временной памяти recent_topics_memory
+        fallback_topics = []
+        for cat, t_list in topics_by_category.items():
+            for t in t_list:
+                if t not in recent_topics_memory:
+                    fallback_topics.append((cat, t))
+        if fallback_topics:
+            category, topic = random.choice(fallback_topics)
+        else:
+            category, topic = random.choice([(c, t) for c, ts in topics_by_category.items() for t in ts])
 
     # Выбор персонажа (исключая использованных за 24ч)
     available_skins = [s for s in skin_ids if s not in used_skins]
@@ -389,6 +430,9 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         logger.info(f"Выбран случайный Аркан для CARD_HISTORY: {card_name} (ID: {card_id})")
 
     # СЕТКА ЭЗОТЕРИЧЕСКИХ ДИАГНОЗОВ (ВЕКТОРЫ А, Б, В, Г)
+    # Твой ответ должен быть посвящен строго теме: [TOPIC]. Использование других тем запрещено.
+    topic_restriction = f"КРИТИЧЕСКОЕ ТРЕБОВАНИЕ: Твой ответ должен быть посвящен строго теме: «{topic}». Использование других тем запрещено."
+
     # Случайный выбор гарантирует 25% вероятность для каждого вектора, включая Вектор Г (Фантазии)
     vector_choice = random.choice(["A", "B", "C", "D"])
     vector_descriptions = {
@@ -480,6 +524,8 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
 
     # Формирование специфических инструкций под рубрику
     rubric_instruction = RUBRIC_PROMPTS.get(rubric, "")
+    if "[TOPIC]" in rubric_instruction:
+        rubric_instruction = rubric_instruction.replace("[TOPIC]", topic)
     if rubric == "BATTLE":
         rubric_instruction = rubric_instruction.replace("твоим оппонентом", opponent_name)
     elif rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
@@ -538,6 +584,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         "Напиши виральный пост для паблика Анти-Тар.\n\n"
         f"{role_description} Твой emotional_tone: {tone}.\n"
         f"Рубрика поста: {rubric}. ИНСТРУКЦИЯ К РУБРИКЕ: {rubric_instruction}\n\n"
+        f"{topic_restriction}\n\n"
         f"{structure_instruction}\n\n"
         f"{size_instruction}\n\n"
         f"{ai_phrases_instruction}\n\n"
@@ -840,6 +887,7 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         except Exception as e:
             logger.error(f"Ошибка при создании комментария: {e}")
 
+        await save_topic_to_memory(topic)
         await add_post_history(topic, skin_id=skin_id, rubric=rubric)
 
     except Exception as e:
