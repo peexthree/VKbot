@@ -279,7 +279,7 @@ async def show_admin_feedbacks(peer_id: int, conversation_message_id: int = None
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
 async def show_admin_autopost_rubrics(peer_id: int, conversation_message_id: int = None, page: int = 0):
-    """Выбор рубрики для автопоста с пагинацией"""
+    """Выбор рубрики для автопоста с пагинацией (все 17 рубрик)"""
     rubrics = [
         "PROVOCATION", "MYTH_BUST", "BATTLE", "PRACTICUM",
         "NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH",
