@@ -1473,7 +1473,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     vk_id,
                     json.dumps({"step": "waiting_email_input"}),
                 )
-                from vkbottle import Keyboard, KeyboardButtonColor, Callback
                 kb = Keyboard(inline=True)
                 kb.add(
                     Callback(

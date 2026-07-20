@@ -170,6 +170,8 @@ async def show_profile(message: Message):
     await show_profile_logic(message.from_id, message.peer_id, message)
 
 
+from vkbottle import Keyboard, KeyboardButtonColor, Callback
+
 @labeler.message(state=MyStates.WAITING_EMAIL_INPUT)
 async def process_email_input(message: Message):
     vk_id = message.from_id
@@ -179,7 +181,6 @@ async def process_email_input(message: Message):
 
     EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
     if not re.match(EMAIL_REGEX, text):
-        from vkbottle import Keyboard, KeyboardButtonColor, Callback
         kb = Keyboard(inline=True)
         kb.add(Callback("❌ Отмена", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.NEGATIVE)
         await message.answer(
@@ -207,7 +208,6 @@ async def process_email_input(message: Message):
     state_data = {"step": "waiting_email_code", "email": email}
     await set_user_state(vk_id, json.dumps(state_data))
 
-    from vkbottle import Keyboard, KeyboardButtonColor, Callback
     kb = Keyboard(inline=True)
     kb.add(Callback("❌ Сбросить и выйти", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.NEGATIVE)
     await message.answer(
@@ -253,7 +253,6 @@ async def process_email_code(message: Message):
         )
         await show_profile_logic(vk_id, message.peer_id, message)
     else:
-        from vkbottle import Keyboard, KeyboardButtonColor, Callback
         kb = Keyboard(inline=True)
         kb.add(Callback("❌ Сбросить и выйти", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.NEGATIVE)
         await message.answer(
