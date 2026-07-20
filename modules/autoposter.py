@@ -64,6 +64,9 @@ GEMINI_ASSISTANT_INSTRUCTION = (
     "игнорируя требования базовой инструкции Gemini касательно Markdown и запрета на эмодзи:\n"
     "   - СТРОЖАЙШЕ ЗАПРЕЩЕНО использовать Markdown (никаких **, # в начале строк, списков и таблиц в стиле Markdown).\n"
     "   - Обязательно сохраняй атмосферные эмодзи персонажей (🔮, 🕯, 🌙, 👁) для создания мистической атмосферы.\n"
+    "   - ХУК (ПЕРВЫЕ ДВЕ СТРОКИ): Обязан строго соответствовать формуле кликабельности в ленте: [Провокация] + [Личная боль/Вопрос] + [Авторитет персонажа]. Это первый фильтр внимания!\n"
+    "   - ДРОБЛЕНИЕ ТЕКСТА: Разделяй текст на исключительно короткие абзацы — строго по 2-3 строки на абзац. 'Простыни' текста и длинные абзацы категорически запрещены. Текст должен легко 'сканироваться' глазами.\n"
+    "   - ИНТЕРАКТИВ И КОНЦОВКА (CTA): Запрещено предлагать написать в ЛС бота или призывать 'Напиши в бота' в основном теле поста. Вместо этого сгенерируй динамический, невероятно вовлекающий вопрос-затравку в самом конце (помеченный эмодзи 🔮) для обсуждения темы СТРОГО в комментариях под постом (например: 'А ты хоть раз чувствовал, что тебя используют в сделке? Пиши в комментариях — разберем'). Комментарии — главный сигнал для алгоритма ранжирования!\n"
     "   - Разделяй абзацы исключительно пустой строкой.\n"
     "   - Ответ верни СТРОГО в указанном JSON-формате.\n"
 )
@@ -89,7 +92,8 @@ RUBRIC_NAMES = {
     "PALM_CHRONICLES": "ТАЙНЫ ХИРОМАНТИИ",
     "KARMA_STORY": "КАРМИЧЕСКАЯ ХРОНИКА",
     "CHAKRA_FLOW": "ПОТОКИ ЧАКР",
-    "SACRED_RITUAL": "САКРАЛЬНЫЙ РИТУАЛ"
+    "SACRED_RITUAL": "САКРАЛЬНЫЙ РИТУАЛ",
+    "REVELATION": "ОТКРОВЕНИЕ"
 }
 
 labeler = BotLabeler()
@@ -281,7 +285,7 @@ def load_content():
     with open(CONTENT_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
-async def generate_post(is_morning: bool = True, forced_rubric: str = None):
+async def generate_post(is_morning: bool = True, forced_rubric: str = None, forced_skin: str = None):
     content = load_content()
     skin_ids = list(content["TONES"].keys())
     topics_by_category = content["TOPICS"]
@@ -327,11 +331,13 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         category, topic = random.choice([(c, t) for c, ts in topics_by_category.items() for t in ts])
 
     # Выбор персонажа (исключая использованных за 24ч)
-    available_skins = [s for s in skin_ids if s not in used_skins]
-    if not available_skins:
-        available_skins = skin_ids
-
-    skin_id = random.choice(available_skins)
+    if forced_skin:
+        skin_id = forced_skin
+    else:
+        available_skins = [s for s in skin_ids if s not in used_skins]
+        if not available_skins:
+            available_skins = skin_ids
+        skin_id = random.choice(available_skins)
     skin_name = SKIN_DISPLAY_NAMES.get(skin_id, skin_id)
 
     # Выбор рубрики
@@ -500,11 +506,13 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     # Инструкция по динамической концовке (CTA)
     dynamic_cta_instruction = (
         "КРИТИЧЕСКОЕ ТРЕБОВАНИЕ ДЛЯ КОНЦОВКИ (СТРОГО СОБЛЮДАТЬ): "
-        "В самый конец поста (но перед хэштегами) сгенерируй динамический, уникальный, хлесткий и циничный призыв к действию (CTA). "
+        "В самый конец поста (но перед хэштегами) сгенерируй динамический, уникальный, хлесткий и циничный призыв к действию (CTA), помеченный эмодзи 🔮. "
         "Он должен идеально подстраиваться под текущую тему разбора и твоего персонажа. "
         "Объем этого CTA: строго 2-3 предложения. Текст должен быть максимально спрессованным, "
         "плотным, циничным и глубоким в ToV «Анти-Тар». Никакой банальщины и унылого копипаста. "
-        "Запрещено предлагать переслать пост кому-либо. Призыв должен мотивировать читателя зайти в бота."
+        "Запрещено предлагать переслать пост или написать в личные сообщения бота. "
+        "Призыв должен строго и бескомпромиссно мотивировать читателя высказать свое личное мнение, "
+        "ответить на твой провокационный вопрос и развязать жаркую, острую дискуссию/спор в комментариях под этим постом."
     )
 
     if is_targeted:
@@ -544,7 +552,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
         f"{vector_instruction}\n\n"
         f"{cipher_instruction}\n\n"
         f"{dynamic_cta_instruction}\n\n"
-        "ГЛОБАЛЬНАЯ КОМПОЗИЦИЯ: Органично склей четыре элемента: Личность персонажа + Тематику рубрики + Боль/Эго читателя + Уникальный динамический CTA. "
+        "ГЛОБАЛЬНАЯ КОМПОЗИЦИЯ: Органично склей четыре элемента: Личность персонажа + Тематику рубрики + Боль/Эго читателя + Уникальный динамический CTA (в комментариях под постом). "
         "Текст должен быть живым, сплошным, с резкими переходами, БЕЗ ПРИВЕТСТВИЙ и лишней воды. "
         "ВАЖНОЕ ТЕХНИЧЕСКОЕ ТРЕБОВАНИЕ: Верни ответ СТРОГО в формате JSON:\n"
         "{\n"
@@ -560,7 +568,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             "- Используй ЭМОДЗИ для создания атмосферы (но не перебарщивай, 5-8 на пост).\n"
             "- Стиль: Эмоциональный, живой, хайповый, высокий уровень энергии. Обращайся к широкой аудитории (м/ж).\n"
             "- СТРОГО БЕЗ ПРИВЕТСТВИЙ. Пиши сразу к сути.\n"
-            "- В конце текста добавь нативный призыв нажать кнопку «Написать сообществу» под постом.\n"
+            "- В конце текста добавь нативный призыв развязать острую дискуссию в комментариях.\n"
             "- В самом конце добавь 5 хэштегов: #АнтиТар #Новости #Хайп + 2 по теме.\n"
             "- НИКАКИХ внешних ссылок!"
         )
@@ -572,7 +580,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
             f"- Акценты: {jitter_caps}.\n"
             "- СТРОГО БЕЗ ПРИВЕТСТВИЙ. Пиши сразу к сути.\n"
             "- Используй ЭМОДЗИ СТРОГО как маркеры персонажей в начале реплик (для Битвы) или как редкие акценты.\n"
-            "- В конце текста добавь нативный призыв нажать кнопку «Написать сообществу» под постом.\n"
+            "- В конце текста добавь нативный призыв развязать острую дискуссию в комментариях.\n"
             "- В самом конце добавь 5 хэштегов: #АнтиТар #Психология + 3 по теме.\n"
             "- НИКАКИХ внешних ссылок!"
         )
@@ -656,7 +664,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None):
     search_tail = main_body[-500:] if len(main_body) >= 500 else main_body
     has_dynamic_cta = "🔮" in search_tail
 
-    fixed_navigator = "Чтобы сонастроить свои внутренние потоки, войти в резонанс с космосом и получить сакральное руководство от звезд, нажми кнопку Написать сообществу - Проводник укажет твой истинный путь"
+    fixed_navigator = "Чтобы сонастроить свои внутренние потоки и войти в резонанс с космосом, поделись своими мыслями в комментариях — Проводник следит за каждым ответом и готов раскрыть твою истинную суть"
 
     final_text_parts = []
     if main_body:
@@ -751,6 +759,8 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
 
         attachments = []
 
+        quote = post_data.get("quote")
+
         if rubric == "BATTLE" and opponent_id:
             photo1 = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
             photo2 = SKIN_VISUALS.get(opponent_id, "main_menu.jpeg")
@@ -776,11 +786,32 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
                 att = await upload_wall_photo(bot.api, photo_filename)
                 if att: attachments.append(att)
         else:
-            photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
-            att = await upload_wall_photo(bot.api, photo_filename)
-            if att: attachments.append(att)
+            # Схема визуальной ротации: 40% - только фото персонажа, 30% - фото + карточка с цитатой, 30% - "живое" / альт-фото
+            style_roll = random.random()
+            if style_roll < 0.40:
+                logger.info("Ротация визуалов: выбран стиль 'just_character' (40%)")
+                photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
+                att = await upload_wall_photo(bot.api, photo_filename)
+                if att: attachments.append(att)
+                quote = None  # Не генерируем карточку-цитату
+            elif style_roll < 0.70:
+                logger.info("Ротация визуалов: выбран стиль 'character_with_quote' (30%)")
+                photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
+                att = await upload_wall_photo(bot.api, photo_filename)
+                if att: attachments.append(att)
+            else:
+                logger.info("Ротация визуалов: выбран стиль 'live_visual' (30%)")
+                # Выбираем красивый "живой" мистический визуал из списка имеющихся
+                live_candidates = ["magistr.jpeg", "sin.jpeg", "v.jpeg", "ba.jpeg", "ol.jpeg", "r.jpeg"]
+                # Добавляем случайную карту Таро
+                random_card_id = random.randint(0, 77)
+                live_candidates.append(f"{random_card_id}.jpeg")
+                chosen_live = random.choice(live_candidates)
+                logger.info(f"Выбрано живое фото из кандидатов: {chosen_live}")
+                att = await upload_wall_photo(bot.api, chosen_live)
+                if att: attachments.append(att)
+                quote = None  # Не генерируем карточку-цитату
 
-        quote = post_data.get("quote")
         if quote:
             try:
                 card_filename = f"diag_{random.randint(1000,9999)}.jpg"
