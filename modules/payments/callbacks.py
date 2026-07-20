@@ -436,7 +436,37 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         elif cmd == "confirm_registration":
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "confirm_data":
-                return
+                # Fallback to temp birth data from Redis or user profile
+                from cache import get_temp_birth_data
+                temp_data = await get_temp_birth_data(vk_id)
+                if not temp_data:
+                    user_data = await get_user(vk_id)
+                    if user_data and user_data.get("core_profile"):
+                        cp = user_data.get("core_profile", "").strip()
+                        parts = cp.split(maxsplit=2)
+                        if len(parts) >= 3:
+                            temp_data = {"date": parts[0], "time": parts[1], "city": parts[2]}
+                        elif len(parts) == 2:
+                            temp_data = {"date": parts[0], "time": "12:00", "city": parts[1]}
+                        elif len(parts) == 1:
+                            temp_data = {"date": parts[0], "time": "12:00", "city": ""}
+
+                if temp_data and temp_data.get("date"):
+                    state_dict = {
+                        "step": "confirm_data",
+                        "date": temp_data.get("date"),
+                        "time": temp_data.get("time", "12:00"),
+                        "city": temp_data.get("city", "")
+                    }
+                else:
+                    await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date"}))
+                    await safe_edit(
+                        peer_id=peer_id,
+                        conversation_message_id=obj.get("conversation_message_id"),
+                        message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nДавай начнем сначала. Напиши свою ДАТУ рождения (например, 15.04.1990):",
+                    )
+                    return
+
             date, time, city = (
                 state_dict.get("date"),
                 state_dict.get("time"),
@@ -521,7 +551,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 state_dict["step"] = "global_cut"
                 await set_user_state(vk_id, json.dumps(state_dict))
                 kb = Keyboard(inline=True).add(
-                    Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}),
+                    Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut", "target": target_section}),
                     color=KeyboardButtonColor.SECONDARY,
                 )
                 await safe_edit(
@@ -625,7 +655,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         ),
                     )
                     kb = Keyboard(inline=True).add(
-                        Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}),
+                        Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut", "target": target_section}),
                         color=KeyboardButtonColor.SECONDARY,
                     )
                     await safe_edit(
@@ -2287,7 +2317,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         elif cmd == "skip_birth_time":
             state_dict = await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "waiting_birth_time":
-                return
+                state_dict = {"step": "waiting_birth_time", "date": "12.12.2000"}
             state_dict.update({"step": "waiting_birth_city", "time": "12:00"})
             await set_user_state(vk_id, json.dumps(state_dict))
             await safe_edit(
@@ -2297,8 +2327,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             )
         elif cmd == "oracle_cut":
             state = await get_fsm_step(vk_id)
-            if not state or state.get("step") != "oracle_cut":
-                return
+            question = ""
+            if state:
+                question = state.get("question", "")
+            if not question:
+                question = "Что меня ждет?"
             pool = list(range(0, 78))
             random.shuffle(pool)
             pool = pool[:10]
@@ -2307,7 +2340,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 json.dumps(
                     {
                         "step": "oracle_draw",
-                        "question": state.get("question", ""),
+                        "question": question,
                         "drawn_cards": [],
                         "pool": pool,
                     }
@@ -2330,11 +2363,16 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 await set_user_state(
                     vk_id, json.dumps({"step": "global_cut", "target_section": target})
                 )
+            else:
+                state_dict = await get_fsm_step(vk_id)
+                if state_dict:
+                    target = state_dict.get("target_section")
+
             kb = Keyboard(inline=True)
             # 2x5 grid to fit within 6 rows limit
             for _i in range(10):
                 kb.add(
-                    Callback("🎴", payload={"cmd": "global_draw"}),
+                    Callback("🎴", payload={"cmd": "global_draw", "target": target}),
                     color=KeyboardButtonColor.SECONDARY,
                 )
                 if (_i + 1) % 2 == 0 and _i < 9:
@@ -2355,14 +2393,21 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 keyboard=Keyboard(inline=True).get_json(),
             )
 
+            target_section = payload.get("target")
+            p_name = ""
+            p_date = ""
+
             state_dict = await get_fsm_step(vk_id)
-            if not state_dict:
-                return
-            target_section, p_name, p_date = (
-                state_dict.get("target_section", ""),
-                state_dict.get("partner_name", ""),
-                state_dict.get("partner_date", ""),
-            )
+            if state_dict:
+                if not target_section:
+                    target_section = state_dict.get("target_section")
+                p_name = state_dict.get("partner_name", "")
+                p_date = state_dict.get("partner_date", "")
+
+            if not target_section:
+                logger.warning(f"Target section missing in global_draw for vk_id={vk_id}, defaulting to card_of_day")
+                target_section = "card_of_day"
+
             await set_user_state(vk_id, "")
 
             card_id = str(random.randint(0, 77))
@@ -2441,7 +2486,15 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         elif "oracle_card" in payload:
             card_id, state_dict = payload["oracle_card"], await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "oracle_draw":
-                return
+                pool = list(range(0, 78))
+                random.shuffle(pool)
+                pool = pool[:10]
+                state_dict = {
+                    "step": "oracle_draw",
+                    "question": "Что меня ждет?",
+                    "drawn_cards": [],
+                    "pool": pool
+                }
             drawn, pool = state_dict.get("drawn_cards", []), state_dict.get("pool", [])
             if card_id not in drawn:
                 drawn.append(card_id)

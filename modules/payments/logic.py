@@ -664,7 +664,7 @@ async def process_payment_and_generate(
             )
             kb = Keyboard(inline=True)
             kb.add(
-                Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}),
+                Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut", "target": section}),
                 color=KeyboardButtonColor.SECONDARY,
             )
 

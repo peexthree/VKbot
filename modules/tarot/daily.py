@@ -140,7 +140,7 @@ async def card_of_day_logic(
             vk_id, json.dumps({"step": "global_cut", "target_section": "card_of_day"})
         )
         kb = Keyboard(inline=True).add(
-            Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}),
+            Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut", "target": "card_of_day"}),
             color=KeyboardButtonColor.SECONDARY,
         )
         att = await upload_local_photo(
