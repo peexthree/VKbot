@@ -603,7 +603,7 @@ async def process_synastry_city(message: Message):
         }))
 
         kb = Keyboard(inline=True)
-        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut"}), color=KeyboardButtonColor.SECONDARY)
+        kb.add(Callback("✦ СДВИНУТЬ КОЛОДУ", payload={"cmd": "global_cut", "target": "synastry"}), color=KeyboardButtonColor.SECONDARY)
         resp = await bot.api.messages.send(
             peer_id=message.peer_id,
             message="✨ ШАГ 2 ИЗ 3: НАСТРОЙКА ✨\nПрикоснись к колоде, чтобы настроиться на вашу связь.",

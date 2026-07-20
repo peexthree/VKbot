@@ -98,9 +98,9 @@ async def show_profile_logic(
             except Exception:
                 pass
 
-        # Получаем данные рождения из Redis
-        from cache import get_temp_birth_data
-        birth_data = await get_temp_birth_data(vk_id) or {}
+        # Получаем данные рождения из Redis с надежным фолбэком на Supabase/БД
+        from cache import get_birth_data_or_fallback
+        birth_data = await get_birth_data_or_fallback(vk_id, user=user) or {}
 
         b_date = birth_data.get("date", "⏳ Данные истекли")
         b_city = birth_data.get("city", "")
