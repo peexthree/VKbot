@@ -1,7 +1,7 @@
 import json
 import random
 from loguru import logger
-from vkbottle import Callback
+from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state
@@ -38,8 +38,6 @@ async def _send_skins_page(
     total_items = len(ordered_skins)
     page = idx % total_items
     s_key = ordered_skins[page]
-
-    from vkbottle import Keyboard, KeyboardButtonColor
 
     name = SKIN_DISPLAY_NAMES.get(s_key, s_key)
     filename = SKIN_VISUALS.get(s_key, "o.png")
@@ -163,7 +161,6 @@ async def settings_change_data_logic(vk_id: int, message: Message, skip_lock: bo
         return
     try:
         await set_user_state(vk_id, json.dumps({"step": "waiting_birth_date"}))
-        from vkbottle import Keyboard, KeyboardButtonColor, Callback
         kb = Keyboard(inline=True).add(Callback("ОТМЕНА", payload={"cmd": "profile_action", "action": "settings"}), color=KeyboardButtonColor.NEGATIVE)
         await bot.api.messages.send(
             peer_id=message.peer_id,

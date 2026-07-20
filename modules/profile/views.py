@@ -467,7 +467,6 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         referrer_id = referrer.get("vk_id")
         if referrer_id == vk_id:
             if not override_ref:
-                from vkbottle import Keyboard, KeyboardButtonColor, Callback
                 kb = Keyboard(inline=True)
                 kb.add(Callback("👥 МОЙ КРУГ", payload={"cmd": "profile_action", "action": "syndicate"}), color=KeyboardButtonColor.PRIMARY)
                 kb.row()
