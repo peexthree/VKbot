@@ -786,31 +786,21 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
                 att = await upload_wall_photo(bot.api, photo_filename)
                 if att: attachments.append(att)
         else:
-            # Схема визуальной ротации: 40% - только фото персонажа, 30% - фото + карточка с цитатой, 30% - "живое" / альт-фото
+            # Управляемая вариативность бренда (Правило 70/30):
+            # 70% случаев (Вариант А): Арт персонажа + динамическая карточка с цитатой (quote остаётся).
+            # 30% случаев (Вариант Б): Только «чистый» арт персонажа как тизер без наложения текста (quote зануляется).
             style_roll = random.random()
-            if style_roll < 0.40:
-                logger.info("Ротация визуалов: выбран стиль 'just_character' (40%)")
-                photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
-                att = await upload_wall_photo(bot.api, photo_filename)
-                if att: attachments.append(att)
-                quote = None  # Не генерируем карточку-цитату
-            elif style_roll < 0.70:
-                logger.info("Ротация визуалов: выбран стиль 'character_with_quote' (30%)")
+            if style_roll < 0.70:
+                logger.info("Ротация визуалов (Вариант А - 70%): Арт персонажа + карточка с цитатой.")
                 photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
                 att = await upload_wall_photo(bot.api, photo_filename)
                 if att: attachments.append(att)
             else:
-                logger.info("Ротация визуалов: выбран стиль 'live_visual' (30%)")
-                # Выбираем красивый "живой" мистический визуал из списка имеющихся
-                live_candidates = ["magistr.jpeg", "sin.jpeg", "v.jpeg", "ba.jpeg", "ol.jpeg", "r.jpeg"]
-                # Добавляем случайную карту Таро
-                random_card_id = random.randint(0, 77)
-                live_candidates.append(f"{random_card_id}.jpeg")
-                chosen_live = random.choice(live_candidates)
-                logger.info(f"Выбрано живое фото из кандидатов: {chosen_live}")
-                att = await upload_wall_photo(bot.api, chosen_live)
+                logger.info("Ротация визуалов (Вариант Б - 30%): Чистый арт персонажа как тизер (без цитаты).")
+                photo_filename = SKIN_VISUALS.get(skin_id, "main_menu.jpeg")
+                att = await upload_wall_photo(bot.api, photo_filename)
                 if att: attachments.append(att)
-                quote = None  # Не генерируем карточку-цитату
+                quote = None  # Отключаем генерацию карточки-цитаты
 
         if quote:
             try:
