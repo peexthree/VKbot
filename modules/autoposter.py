@@ -30,7 +30,7 @@ from modules.utils.consts import (
     SKIN_EMOJIS, HIDDEN_CIPHER_WORDS, ADMIN_ID
 )
 from modules.utils.photos import upload_wall_photo
-from modules.utils.news import fetch_trending_news, is_safe_text
+from modules.utils.news import fetch_trending_news
 from cards_data import get_card_data
 
 # Интеллектуальный движок Gemini-Редактора (Интеллектуальная основа для глубокого анализа)
