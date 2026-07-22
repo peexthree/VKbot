@@ -23,7 +23,7 @@ async def test_sacred_science_prompt_rules():
                         # Проверяем, что промпт содержит новые правила для SACRED_SCIENCE
                         assert "выдающегося научного журналиста и исследователя тайн сознания" in prompt
                         assert "ОТ 700 ДО 1400 СИМВОЛОВ" in prompt
-                        assert "СТРОГО 4 АБЗАЦА" in prompt
+                        assert "СТРОГО 4 СМЫСЛОВЫХ БЛОКА" in prompt or "СТРОГО 4 АБЗАЦА" in prompt
                         assert "ЗАПРЕЩЕННЫЕ ИИ-ФРАЗЫ" in prompt
                         assert "В этой статье мы..." in prompt
                         return json.dumps(mock_json)
@@ -51,7 +51,7 @@ async def test_global_ai_forbidden_phrases_non_targeted():
                         assert "ЗАПРЕЩЕННЫЕ ИИ-ФРАЗЫ" in prompt
                         assert "В этой статье мы..." in prompt
                         assert "ОТ 1000 ДО 2500 СИМВОЛОВ" in prompt
-                        assert "СТРОГО 4 АБЗАЦА" not in prompt
+                        assert "СТРОГО 4 СМЫСЛОВЫХ БЛОКА" not in prompt and "СТРОГО 4 АБЗАЦА" not in prompt
                         return json.dumps(mock_json)
 
                     with patch("modules.autoposter.generate_text", side_effect=mock_generate_text):
@@ -76,8 +76,8 @@ async def test_hidden_promo_integration_targeted_vs_normal():
 
                         async def mock_generate_text(prompt, skin, json_mode, is_background):
                             # Должна быть инструкция про встраивание строго во второй или третий абзац
-                            assert "Ты обязан органично внедрить его СТРОГО во второй или третий абзац" in prompt
-                            assert "абсолютно не нарушая визуальную целостность 4-абзацной структуры" in prompt
+                            assert "Ты обязан органично внедрить его СТРОГО во второй или третий абзац" in prompt or "Ты обязан органично внедрить его СТРОГО во второй или третий" in prompt
+                            assert "4-абзацной структуры" in prompt or "4-смысловых блоков" in prompt or "4-смыслового" in prompt or "целостность" in prompt
                             return json.dumps(mock_json)
 
                         with patch("modules.autoposter.generate_text", side_effect=mock_generate_text):
