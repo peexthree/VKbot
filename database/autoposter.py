@@ -182,3 +182,32 @@ async def save_hidden_promo(code: str, reward: int, max_uses: int = 10):
     except Exception as e:
         logger.error(f"Error in save_hidden_promo: {e}")
     return False
+
+async def add_community_post(vk_post_id: int, text: str, image_url: str = None) -> bool:
+    """Сохраняет свежий пост в Supabase (таблицу community_posts) для Android-приложения"""
+    if not URL or not KEY or core.session is None:
+        return False
+
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    payload = {
+        "vk_post_id": vk_post_id,
+        "text": text,
+        "image_url": image_url,
+        "published_at": now_iso
+    }
+
+    try:
+        upsert_headers = HEADERS.copy()
+        upsert_headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+        url = f"{URL}/rest/v1/community_posts?on_conflict=vk_post_id"
+        async with core.session.post(url, headers=upsert_headers, json=payload) as r:
+            if r.status in (200, 201, 204):
+                logger.success(f"✅ Пост {vk_post_id} успешно сохранен/обновлен в community_posts")
+                return True
+            else:
+                resp_text = await r.text()
+                logger.error(f"Ошибка сохранения в community_posts: {r.status} - {resp_text}")
+    except Exception as e:
+        logger.error(f"Исключение при добавлении в community_posts: {e}")
+    return False

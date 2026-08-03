@@ -17,7 +17,7 @@ from cache import redis_client as redis
 from database.autoposter import (
     get_daily_used_content, get_active_poll, close_poll,
     save_hidden_promo, save_active_poll,
-    add_post_history
+    add_post_history, add_community_post
 )
 from database import get_user
 from modules.utils.logic import (
@@ -791,6 +791,26 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         )
         post_id = res_wall.post_id
         logger.info(f"Пост опубликован на стену: {post_id}")
+
+        # Синхронизация с Supabase (community_posts)
+        try:
+            main_image_url = None
+            for att in attachments:
+                if att.startswith("photo"):
+                    cached_url = await redis.get(f"photo_url:{att}")
+                    if cached_url:
+                        main_image_url = cached_url.decode() if isinstance(cached_url, bytes) else cached_url
+                        logger.info(f"Найдена прямая ссылка на картинку для community_posts: {main_image_url}")
+                        break
+
+            # Сохраняем пост в Supabase
+            await add_community_post(
+                vk_post_id=post_id,
+                text=text,
+                image_url=main_image_url
+            )
+        except Exception as se:
+            logger.error(f"Ошибка при сохранении поста {post_id} в Supabase: {se}")
 
         try:
             await redis.set(f"post_skin:{post_id}", skin_id, ex=2592000)
