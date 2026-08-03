@@ -50,8 +50,8 @@ async def test_no_hashtags_at_all():
                         assert "Судьба" not in text
 
 @pytest.mark.asyncio
-async def test_cta_variation_selection():
-    """Тестирует, что случайный CTA выбирается корректно и его навигатор вставляется при отсутствии 🔮."""
+async def test_no_cta_in_autoposts():
+    """Тестирует, что в сгенерированном посте полностью отсутствуют призывы к действию (CTA) и ссылки vk.me / vk.com."""
     with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
         with patch("modules.autoposter.get_active_poll", return_value=None):
             with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
@@ -63,45 +63,14 @@ async def test_cta_variation_selection():
                     with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json)):
                         post_data = await generate_post(is_morning=True)
                         assert post_data is not None
-                        assert "cta_choice" in post_data
-                        assert post_data["cta_choice"] in ["BOT_READINGS", "COMMUNITY_FACTS", "DISCUSS_COMMENTS", "SUBSCRIBE_PAGE"]
-
-                        text = post_data["text"]
-                        # Проверяем наличие фолбэк навигаторов в зависимости от выбранного cta_choice
-                        if post_data["cta_choice"] == "BOT_READINGS":
-                            assert "vk.me" in text
-                        elif post_data["cta_choice"] == "COMMUNITY_FACTS":
-                            assert "vk.com" in text
-                            assert "эксклюзивные" in text
-                        elif post_data["cta_choice"] == "DISCUSS_COMMENTS":
-                            assert "комментариях" in text
-                        elif post_data["cta_choice"] == "SUBSCRIBE_PAGE":
-                            assert "vk.com" in text
-                            assert "Подпишись" in text
-
-@pytest.mark.asyncio
-async def test_dynamic_cta_handling():
-    """Тестирует детекцию динамического CTA (эмодзи 🔮) и пропуск жесткого навигатора."""
-    with patch("modules.autoposter.get_daily_used_content", return_value=([], [], [])):
-        with patch("modules.autoposter.get_active_poll", return_value=None):
-            with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
-                with patch("modules.autoposter.save_hidden_promo", return_value=True):
-
-                    # 1. Сценарий, когда ИИ сгенерировал динамический CTA с 🔮 в конце
-                    mock_json_with_cta = {
-                        "text": "Тело поста. Разрушаем иллюзии. Наш звездный путь полон загадок и великих открытий. Мы учим адептов видеть знаки, которые оставляет вселенная на их жизненном пути. Это длинный лонгрид, превосходящий установленные четыреста символов для успешного прохождения валидации нашими строгими алгоритмами. Вслушайся в биение вселенского сердца, чтобы сонастроить свои шаги с вечностью. Это совершенно необходимый дополнительный объем текста для прохождения внутренней проверки.\n\n🔮 Хватит кормить чужих демонов... Нажимай на кнопку Написать сообществу...\n#АнтиТар #МатрицаСудьбы",
-                        "quote": "Цитата"
-                    }
-                    with patch("modules.autoposter.generate_text", return_value=json.dumps(mock_json_with_cta)):
-                        post_data = await generate_post(is_morning=True)
                         text = post_data["text"]
 
-                        # Должен быть динамический CTA
-                        assert "🔮 Хватит кормить чужих демонов... Нажимай на кнопку Написать сообществу..." in text
-                        # Шаблонного фолбэк навигатора быть НЕ должно
-                        assert "Чтобы сонастроить свои внутренние" not in text
-                        # Хэштегов быть не должно
-                        assert "#" not in text
+                        # В тексте поста не должно быть ссылок на ВК или призывов писать боту/подписываться
+                        assert "vk.me" not in text
+                        assert "vk.com" not in text
+                        assert "напиши нашему Проводнику" not in text
+                        assert "Подпишись на наше сообщество" not in text
+                        assert "Присоединяйся к нашему сообществу" not in text
 
 @pytest.mark.asyncio
 async def test_autoposter_validation_and_alerting():
@@ -146,8 +115,7 @@ async def test_autoposter_validation_and_alerting():
         "skin_id": "olesya",
         "rubric": "PROVOCATION",
         "topic": "Тема",
-        "quote": "Цитата",
-        "cta_choice": "DISCUSS_COMMENTS"
+        "quote": "Цитата"
     }
     with patch("modules.autoposter.generate_post", return_value=long_post_data):
         with patch("modules.autoposter.bot.api.request", new_callable=AsyncMock) as mock_request:
