@@ -189,6 +189,50 @@ async def upload_local_photo(bot_api, filename: str, peer_id: int | None = None)
         await release_lock(lock_key)
 
 
+def extract_max_size_url(photo_obj) -> str:
+    if not photo_obj:
+        return ""
+
+    # Can be a dictionary or a vkbottle object with attributes
+    if isinstance(photo_obj, dict):
+        sizes = photo_obj.get("sizes")
+    else:
+        sizes = getattr(photo_obj, "sizes", None)
+
+    if not sizes:
+        return ""
+
+    try:
+        # Normalize and sort sizes by width * height
+        normalized_sizes = []
+        for s in sizes:
+            if isinstance(s, dict):
+                w = s.get("width", 0)
+                h = s.get("height", 0)
+                url = s.get("url", "")
+            else:
+                w = getattr(s, "width", 0)
+                h = getattr(s, "height", 0)
+                url = getattr(s, "url", "")
+            normalized_sizes.append({"width": w, "height": h, "url": url})
+
+        sorted_sizes = sorted(normalized_sizes, key=lambda s: s["width"] * s["height"], reverse=True)
+        if sorted_sizes:
+            return sorted_sizes[0]["url"]
+    except Exception as e:
+        logger.error(f"Error extracting max size url: {e}")
+
+    # Simple fallback: get last element url
+    try:
+        last_s = sizes[-1]
+        if isinstance(last_s, dict):
+            return last_s.get("url", "")
+        return getattr(last_s, "url", "")
+    except Exception:
+        pass
+
+    return ""
+
 async def upload_wall_photo(bot_api, filename: str) -> str:
     """Специальная загрузка фото для постов на стену сообщества."""
     if not filename:
@@ -209,6 +253,14 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
     try:
         cached_id = await redis_client.get(f"wall_photo_v2:{filename}")
         if cached_id:
+            try:
+                cached_id_str = cached_id.decode() if isinstance(cached_id, bytes) else cached_id
+                direct_url = await redis_client.get(f"photo_url_by_filename:{filename}")
+                if direct_url:
+                    direct_url_str = direct_url.decode() if isinstance(direct_url, bytes) else direct_url
+                    await redis_client.set(f"photo_url:{cached_id_str}", direct_url_str, ex=3600)
+            except Exception as ce:
+                logger.error(f"Error re-caching wall photo direct url from cache: {ce}")
             return cached_id
     except Exception as e:
         logger.error(f"Ошибка чтения wall_photo из Redis: {str(e)}")
@@ -305,6 +357,16 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
 
                                 photo_attachment_id = tmp_id
                                 logger.debug(f"Wall photo uploaded successfully: {photo_attachment_id}")
+
+                                # Extract direct URL and save in Redis
+                                try:
+                                    direct_url = extract_max_size_url(photo)
+                                    if direct_url:
+                                        await redis_client.set(f"photo_url:{photo_attachment_id}", direct_url, ex=3600)
+                                        # Also cache by filename in case we pull it from cache next time
+                                        await redis_client.set(f"photo_url_by_filename:{filename}", direct_url, ex=2592000)
+                                except Exception as ue:
+                                    logger.error(f"Error caching wall photo direct url: {ue}")
                                 break
 
                     except Exception as ex:

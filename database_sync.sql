@@ -133,9 +133,19 @@ CREATE TABLE IF NOT EXISTS promo_activations (
     UNIQUE(user_id, code)
 );
 
+-- Community posts table for mobile clients sync
+CREATE TABLE IF NOT EXISTS community_posts (
+    id BIGSERIAL PRIMARY KEY,
+    vk_post_id BIGINT UNIQUE NOT NULL,
+    text TEXT NOT NULL,
+    image_url TEXT,
+    published_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 
 -- 3. CREATE PERFORMANCE INDEXES
 CREATE INDEX IF NOT EXISTS idx_users_vk_id ON vk_esoteric_users(vk_id);
+CREATE INDEX IF NOT EXISTS idx_community_posts_vk_post_id ON community_posts(vk_post_id);
 CREATE INDEX IF NOT EXISTS idx_feedbacks_user_id ON feedbacks(user_id);
 CREATE INDEX IF NOT EXISTS idx_feedbacks_is_posted ON feedbacks(is_posted);
 CREATE INDEX IF NOT EXISTS idx_events_user_action ON events(user_id, action);
