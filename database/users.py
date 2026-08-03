@@ -7,7 +7,7 @@ import database.core as core
 async def create_user(vk_id: int, first_name: str = ""):
     if not URL or not KEY or core.session is None: return None
     payload = {
-        "vk_id": vk_id, "first_name": first_name, "is_registered": True,
+        "vk_id": vk_id, "first_name": first_name, "is_registered": False,
         "free_teaser_used": False, "is_subscribed": False, "compatibility_balance": 0, "core_profile": "",
         "partners": [], "free_card_used": False,
         "purchased_sections": {"sex": False, "money": False, "shadow": False, "final": False, "sex_val": 0, "first_name": first_name, "oracle_access": False, "card_of_day_last_used": None, "conversion_step": "started"},

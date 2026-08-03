@@ -303,16 +303,24 @@ async def process_skin_action_logic(
                         from modules.skins import unlock_skin
                         await unlock_skin(bot.api, vk_id, "cleopatra")
 
-                from modules.profile.views import show_profile_logic
-                await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
+                if user.get("is_registered"):
+                    from modules.profile.views import show_profile_logic
+                    await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
+                else:
+                    from modules.registration import process_onboarding_skin_logic
+                    await process_onboarding_skin_logic(vk_id, peer_id, target_skin, conversation_message_id=conversation_message_id)
             else:
                 msg = "Этот персонаж недоступен. Сначала купите его."
                 await ghost_edit(bot.api, peer_id, msg, conversation_message_id=conversation_message_id)
 
         elif action == "buy_skin":
             if target_skin in purchased_skins:
-                from modules.profile.views import show_profile_logic
-                await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
+                if user.get("is_registered"):
+                    from modules.profile.views import show_profile_logic
+                    await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
+                else:
+                    from modules.registration import process_onboarding_skin_logic
+                    await process_onboarding_skin_logic(vk_id, peer_id, target_skin, conversation_message_id=conversation_message_id)
                 return
 
             price = 1500
@@ -342,8 +350,12 @@ async def process_skin_action_logic(
                 await update_user(vk_id, updates)
                 from modules.skins import send_trigger_message
                 await send_trigger_message(bot.api, vk_id, target_skin)
-                from modules.profile.views import show_profile_logic
-                await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
+                if user.get("is_registered"):
+                    from modules.profile.views import show_profile_logic
+                    await show_profile_logic(vk_id, peer_id, message, skip_lock=True, conversation_message_id=conversation_message_id)
+                else:
+                    from modules.registration import process_onboarding_skin_logic
+                    await process_onboarding_skin_logic(vk_id, peer_id, target_skin, conversation_message_id=conversation_message_id)
             else:
                 msg = f"Недостаточно Энергии звезд. Цена: {price}.\nТВОЙ ТЕКУЩИЙ БАЛАНС: {balance} Энергии звезд."
                 await ghost_edit(bot.api, peer_id, msg, conversation_message_id=conversation_message_id)
