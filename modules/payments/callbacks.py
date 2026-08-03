@@ -112,6 +112,54 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             return
 
         cmd = payload.get("cmd")
+
+        # Проверка регистрации для предотвращения обхода онбординга
+        user_data = await get_user(vk_id)
+        is_registered = user_data.get("is_registered") if user_data else False
+        if user_data and is_registered is None:
+            # Обратная совместимость для старых записей и мок-тестов
+            is_registered = True
+
+        if not is_registered:
+            allowed_onboarding_cmds = [
+                "choose_onboarding_skin",
+                "confirm_registration",
+                "edit_onboarding_data",
+                "skip_birth_time",
+                "skin_page",
+                "skins_page",
+                "skin_quest",
+                "set_skin",
+                "buy_skin",
+            ]
+            if cmd not in allowed_onboarding_cmds:
+                if event_id:
+                    await bot.api.messages.send_message_event_answer(
+                        event_id=event_id,
+                        user_id=vk_id,
+                        peer_id=peer_id,
+                        event_data=json.dumps(
+                            {
+                                "type": "show_snackbar",
+                                "text": "🌌 Пожалуйста, заверши настройку своего профиля!",
+                            }
+                        ),
+                    )
+                from modules.registration import start_handler
+                class DummyMessage:
+                    def __init__(self, from_id, peer_id, conversation_message_id):
+                        self.from_id = from_id
+                        self.peer_id = peer_id
+                        self.conversation_message_id = conversation_message_id
+                        self.text = "начать"
+                        self.attachments = []
+                        self.fwd_messages = []
+                        self.reply_message = None
+
+                dummy_msg = DummyMessage(vk_id, peer_id, obj.get("conversation_message_id"))
+                await start_handler(dummy_msg, skip_lock=True)
+                return
+
         # Специфические ответы для специальных кнопок
         if cmd == "skin_quest":
             from modules.skins import get_short_quest_text
