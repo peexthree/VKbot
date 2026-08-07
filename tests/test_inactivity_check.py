@@ -1,5 +1,4 @@
 import datetime
-import pytest
 
 def check_inactivity(last_active, now):
     if last_active:
