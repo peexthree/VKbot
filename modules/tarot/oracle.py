@@ -51,7 +51,14 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
         tags = get_safe_tags(user)
         s_text = sanitize_user_input(text)
         prompt = f"{gender_instruction} " + (f"Прошлый анализ: {core}. " if core else "") + (f"Фокус: [{', '.join(tags)}]. " if tags else "")
-        prompt += f"Пользователь задает вопрос: <user_input>{s_text}</user_input>. Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. Сначала выведи Карта [N]: [Название] - [Краткий смысл], затем общий синтез."
+        prompt += (
+            f"Пользователь задает вопрос: <user_input>{s_text}</user_input>. "
+            f"Выпали карты: 1. {c_names[0]}, 2. {c_names[1]}, 3. {c_names[2]}. "
+            f"ОБЯЗАТЕЛЬНОЕ ТРЕБОВАНИЕ: для каждой из 3 выпавших карт начни с вывода 'Карта [N]: [Название]' "
+            f"и напиши по 4-5 предложений её классического/архетипического значения (базовый символизм, "
+            f"светлые и теневые стороны) в уникальном стиле твоего персонажа. Только после этих детальных описаний "
+            f"сделай общий синтез и ответь на вопрос."
+        )
 
         res = await generate_text(prompt, skin=user.get("active_skin", "olesya"), is_background=False)
         if not res or res == "ERROR_RPM_LIMIT":
