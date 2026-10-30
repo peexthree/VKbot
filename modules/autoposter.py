@@ -36,40 +36,20 @@ from cards_data import get_card_data
 # Интеллектуальный движок Gemini-Редактора (Интеллектуальная основа для глубокого анализа)
 GEMINI_ASSISTANT_INSTRUCTION = (
     "ИНТЕЛЛЕКТУАЛЬНЫЙ ДВИЖОК И СИСТЕМНЫЙ КОНТЕКСТ РЕДАКТОРА (GEMINI-REDACTOR):\n"
-    "You are Gemini, a large language model trained by Google.\n"
-    "You are chatting with the user via the Gemini Android app. This means most of the time your lines should be a short sentence or two, "
-    "unless the user's request requires deep reasoning, step-by-step analysis, or long-form outputs. Never use emojis, unless explicitly asked to.\n\n"
-    "# Tools & Capabilities\n"
-    "## google_search\n"
-    "You have access to Google Search. Use this tool in the following circumstances:\n"
-    "- The user is asking about current events, real-time information, or things that require up-to-date facts (weather, sports, news, recent releases).\n"
-    "- The user mentions terms, tools, or libraries you are unfamiliar with.\n"
-    "- The user explicitly asks you to find links, references, or browse the web.\n"
-    "*Behavior:* Formulate precise search queries. Synthesize information from multiple reliable sources, maintaining factual accuracy.\n\n"
-    "## file_processing\n"
-    "You can analyze files uploaded by the user (documents, code, images).\n"
-    "- When a user uploads a document, extract relevant context to answer their question directly.\n"
-    "- If the file is an image, use your visual capabilities to identify physical subjects, analyze structure, or read text (OCR).\n\n"
-    "## image_generation\n"
-    "You have the ability to generate images when requested by the user. Focus on high-quality, contextually accurate visual outputs that match the user's style and prompt requirements.\n\n"
-    "# Personality & Style\n"
-    "- Tone: Helpful, direct, and concise.\n"
-    "- Avoid lecturing or generic conversational filler (e.g., \"That's a great question!\").\n"
-    "- Format outputs using clean Markdown (bolding, lists, tables) to make long responses scannable at a glance.\n\n"
+    "Ты — гениальный главный редактор и мастер вирального сторителлинга.\n\n"
     "--- ДВУХСЛОЙНАЯ АРХИТЕКТУРА ИНТЕГРАЦИИ (КРИТИЧЕСКОЕ ТРЕБОВАНИЕ) ---\n"
-    "1. ПЕРВЫЙ СЛОЙ (Gemini-Редактор): Ты используешь вышеуказанную инструкцию как свою интеллектуальную основу, движок для глубокого анализа, "
-    "логики, построения цепляющего сторителлинга и раскрытия сути без лишней воды.\n"
+    "1. ПЕРВЫЙ СЛОЙ (Gemini-Редактор): Ты используешь глубокую логику, психологические триггеры, "
+    "построение цепляющего сторителлинга и раскрытие сути без лишней воды.\n"
     "2. ВТОРОЙ СЛОЙ (Исполнитель/Персонаж): Поверх этой глубокой логики ты накладываешь маску выбранного персонажа (его уникальные фразы, ToV и характер).\n"
-    "3. ТЕХНИЧЕСКИЙ ВЫВОД (ФИНАЛЬНЫЙ ФИЛЬТР): При формировании итогового текста ты обязан ЖЕСТКО соблюдать правила форматирования ВК и Анти-Таро, "
-    "игнорируя требования базовой инструкции Gemini касательно Markdown и запрета на эмодзи:\n"
+    "3. ТЕХНИЧЕСКИЙ ВЫВОД (ФИНАЛЬНЫЙ ФИЛЬТР): При формировании итогового текста ты обязан ЖЕСТКО соблюдать правила форматирования ВК и Анти-Таро:\n"
     "   - СТРОЖАЙШЕ ЗАПРЕЩЕНО использовать Markdown (никаких **, # в начале строк, списков и таблиц в стиле Markdown).\n"
-    "   - Обязательно сохраняй атмосферные эмодзи персонажей (🔮, 🕯, 🌙, 👁) для создания мистической атмосферы.\n"
-    "   - ХУК (П ПЕРВЫЕ ДВЕ СТРОКИ): Обязан строго соответствовать формуле кликабельности в ленте: [Интрига / Неочевидный факт] + [Личная боль / Любопытство] + [Авторитетный разбор]. Избегай оторванных от реальности литературных метафор в хуке! Это первый фильтр внимания!\n"
+    "   - Обязательно сохраняй атмосферные эмодзи персонажей (🔮, 🕯, 🌙, 👁) для создания мистической atmospheres.\n"
+    "   - ХУК (ПЕРВЫЕ ДВЕ СТРОКИ): Обязан строго соответствовать формуле кликабельности в ленте: [Интрига / Неочевидный факт] + [Личная боль / Любопытство] + [Авторитетный разбор]. Избегай оторванных от реальности литературных метафор в хуке! Это первый фильтр внимания!\n"
     "   - ДРОБЛЕНИЕ ТЕКСТА: Разделяй текст на исключительно короткие абзацы — строго по 1-2 предложения на абзац. Каждые 1-2 предложения разделяй пустой строкой, чтобы текст легко 'сканировался' глазами с экрана смартфона и содержал максимум воздуха.\n"
     "   - КОНЦОВКА (ФИЛОСОФСКАЯ ТОЧКА): В самом конце поста обязательно сделай глубокий экзистенциальный вывод, сильную философскую точку или мягкий, открытый вопрос для размышления. Сделай его глубоким, нативным, эзотерическим и органично вплетенным в Tone of Voice персонажа. Категорически запрещено добавлять любые призывы к действию (например: 'подпишись', 'переходи по ссылке', 'напиши в личку' или 'поделись в комментариях') или ссылки.\n"
     "   - Разделяй абзацы исключительно пустой строкой.\n"
     "   - Ответ верни СТРОГО в указанном JSON-формате.\n"
-    "   - КРИТИЧЕСКИЙ ЗАПРЕТ НА ЧЕРНЫЕ ТЕМЫ И ТЯЖЕЛЫЕ МЕТАФОРЫ: Категорически запрещено упоминать любые военные или геополитические действия (СВО, БПЛА, прилеты, взрывы, обстрелы, СВО, конфликт, санкции), имена политиков (Трамп, Байден, Путин и т.д.) и использовать тяжелые тревожные метафоры ('стальные птицы смерти', 'струны гильотины', 'агония мира', 'апокалипсис', 'запах гари', 'кровь на асфальте').\n"
+    "   - КРИТИЧЕСКИЙ ЗАПРЕТ НА ЧЕРНЫЕ ТЕМЫ И ТЯЖЕЛЫЕ МЕТАФОРЫ: Категорически запрещено упоминать любые военные или геополитические действия (СВО, БПЛА, прилеты, взрывы, обстрелы, конфликт, санкции), имена политиков (Трамп, Байден, Путин и т.д.) и использовать тяжелые тревожные метафоры ('стальные птицы смерти', 'струны гильотины', 'агония мира', 'апокалипсис', 'запах гари', 'кровь на асфальте').\n"
 )
 
 # Загрузка тем и персонажей
@@ -118,7 +98,7 @@ async def get_remaining_rubrics_pool() -> list:
     return await reset_rubrics_pool()
 
 async def reset_rubrics_pool() -> list:
-    """Инициализирует/сбрасывает пул всеми 17 рубриками."""
+    """Инициализирует/сбрасывает пул всеми 18 рубриками."""
     pool = list(RUBRIC_NAMES.keys())
     try:
         await redis.set("autopost_pool:remaining", json.dumps(pool))
@@ -251,13 +231,15 @@ async def handle_diagnosis_comment(event: dict):
             )
 
         prompt = (
-            f"Проведи мгновенное нумерологический разбор («Откровение») адепта на основе его Арканов: {user_context}. "
+            f"Проведи мгновенный нумерологический разбор («Откровение») адепта на основе его Арканов: {user_context}. "
             f"Пользователь также написал: <user_input>{s_text}</user_input>. "
             f"Твой ответ должен быть максимально ядовитым, жестким и психологически точным «диагнозом» его текущего состояния. "
             f"Бей по теневым сторонам именно этих Арканов ({main_arcana} и {purpose_arcana}). "
             "Помни: инструменты (цифры, арканы) безупречны, проблема всегда в кармических блоках и лени самого пользователя. "
             "Используй стиль Анти-Таро: цинизм, никакой пощады, метафоры звездной карты и кармических узлов. "
             f"ОБЯЗАТЕЛЬНО упомяни цифры Арканов ({main_arcana} и {purpose_arcana}) в тексте разбора. "
+            "В САМОМ КОНЦЕ разбора ОБЯЗАТЕЛЬНО задай короткий встречный провокационный вопрос по его Аркану, "
+            "чтобы втянуть его в споры и заставить ответить повторно (например: «Узнаешь свою тень по 15 Аркану, или снова скажешь, что обстоятельства виноваты?»). "
             "Объем: 2-3 хлестких предложения. Без приветствий."
         )
 
@@ -366,8 +348,8 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
                     logger.warning(f"⚠️ Сверхжесткий фолбэк на ненавостную рубрику: {rubric}")
 
         if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"] and news_list:
-            selected_news = news_list[:4]
-            topic = selected_news[0]["title"]
+            selected_news = news_list[:7]
+            topic = f"Анализ актуальных инфоповодов ({len(selected_news)} новостей)"
             news_context = "\n".join([f"НОВОСТЬ {i+1}: {n['title']}\nФАКТУРА: {n['description']}" for i, n in enumerate(selected_news)])
             category = "Новости"
             tones = ["Эмоциональный разбор", "Высоковибрационный хайп", "Циничный инсайд"]
@@ -427,6 +409,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
     # ГЕНЕРАЦИЯ СКРЫТОГО ШИФРА (20% шанс)
     has_promo = random.random() < 0.2
     hidden_code = None
+    energy_reward = 0
     cipher_instruction = ""
     if has_promo:
         cipher_base = random.choice(HIDDEN_CIPHER_WORDS)
@@ -484,9 +467,9 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
 
     logger.info(f"Генерация поста: {rubric}, персонаж {skin_id}, tema '{topic}'")
 
-    # Получаем текущую дату по UTC+5 (Башкирия)
-    tz_bash = timezone(timedelta(hours=5))
-    now = datetime.datetime.now(tz_bash)
+    # Получаем текущую дату по Europe/Moscow (MSK UTC+3)
+    tz_msk = timezone(timedelta(hours=3))
+    now = datetime.datetime.now(tz_msk)
     days_of_week = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
     current_day = days_of_week[now.weekday()]
     current_date_str = now.strftime("%d.%m.%Y")
@@ -499,7 +482,13 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
     if rubric == "BATTLE":
         rubric_instruction = rubric_instruction.replace("твоим оппонентом", opponent_name)
     elif rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
-        rubric_instruction = f"СВОДКА НОВОСТЕЙ ДЛЯ РАЗБОРА:\n{news_context}\n\n" + rubric_instruction
+        news_select_prompt = (
+            "ИНСТРУКЦИЯ ПО ВЫБОРУ НОВОСТИ: Ниже предложен список из нескольких свежих новостей. "
+            "Внимательно изучи их и ВЫБЕРИ СТРОГО 1 САМУЮ ТРИГГЕРНУЮ, массовую и обсуждаемую новость "
+            "(в сферах психологии, денег, технологий, поп-культуры или социальных феноменов) "
+            "для твоего глубокого разбора в посте. Категорически запрещено пытаться объединить все новости в один пост!\n\n"
+        )
+        rubric_instruction = news_select_prompt + f"СВОДКА НОВОСТЕЙ ДЛЯ РАЗБОРА:\n{news_context}\n\n" + rubric_instruction
     elif rubric == "CARD_HISTORY":
         rubric_instruction = f"ВЫПУСК ПОСВЯЩЕН АРКАНУ: {card_name} (ID/номер {card_id}).\n\n" + rubric_instruction
 
@@ -523,7 +512,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
     )
 
     if is_targeted:
-        role_description = f"Ты — {skin_name} в роли выдающегося научного журналиста и исследователя тайн сознания."
+        role_description = f"Ты — {skin_name}. Разбери научный факт или феномен строго через свою уникальную харизму, метафоры и лексику."
         size_instruction = (
             "ОБЪЕМ ТЕКСТА (СТРОГО): Твой текст должен быть объемом СТРОГО ОТ 700 ДО 1400 СИМВОЛОВ (включая пробелы). "
             "Текст должен быть сжатым, плотным, информативным, абсолютно без воды."
@@ -539,10 +528,10 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
             "Поскольку пост должен состоять строго из 4 смысловых блоков, твоя глубокая философская концовка должна быть гармонично интегрирована в конец 4-го блока (вместе с экзистенциальным вопросом), либо заменять/дополнять его, сохраняя визуальную легкость."
         )
     else:
-        role_description = f"Твой роль: {skin_name}."
+        role_description = f"Твоя роль: {skin_name}."
         size_instruction = (
-            "ОБЪЕМ ТЕКСТА (СТРОГО): Твой текст должен стать объемным, плотным и развернутым лонгридом (ОТ 1000 ДО 2500 СИМВОЛОВ). "
-            "Никаких коротких отписок и лозунгов. Пиши емко, с конкретными жизненными примерами, "
+            "ОБЪЕМ ТЕКСТА (СТРОГО): Твой текст должен быть объемом СТРОГО ОТ 1000 ДО 1400 СИМВОЛОВ (включая пробелы). "
+            "Никаких раздутых текстов. Пиши емко, с конкретными жизненными примерами, "
             "метафорами и глубоким пониманием психологии."
         )
         structure_instruction = ""
@@ -570,7 +559,8 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
         "ВАЖНОЕ ТЕХНИЧЕСКОЕ ТРЕБОВАНИЕ: Верни ответ СТРОГО в формате JSON:\n"
         "{\n"
         "  \"text\": \"полный текст поста без призывов к действию и внешних ссылок\",\n"
-        "  \"quote\": \"самая хлесткая и ядовитая фраза из текста для картинки (до 120 символов)\"\n"
+        "  \"quote\": \"короткий жизненный инсайт или афоризм до 100 символов, который читатель захочет репостнуть себе в Истории или переслать другу\",\n"
+        "  \"first_comment\": \"первый призывающий комментарий от лица твоего персонажа с предложением написать дату рождения в комментариях для сакрального разбора\"\n"
         "}"
     )
 
@@ -584,9 +574,14 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
             "- КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО добавлять хэштеги, знаки #, призывы к действию (CTA) или ссылки."
         )
     else:
+        topic_case_instruction = (
+            f"Базовый вектор темы: «{topic}». КРИТИЧЕСКОЕ ТРЕБОВАНИЕ: Не пиши общие абстрактные фразы на эту тему. "
+            "Используй этот вектор как основу и сгенерируй внутри него узкий, жизненный бытовой кейс из реальности "
+            "(например: почему человек годами сидит на ненавистной работе, прикрываясь астрологией, или почему не может отпустить токсичные отношения)."
+        )
         prompt = (
             f"{prompt_base}\n\n"
-            f"Базовая тема: «{topic}».\n\n"
+            f"{topic_case_instruction}\n\n"
             "Дополнительные требования:\n"
             f"- Акценты: {jitter_caps}.\n"
             "- СТРОГО БЕЗ ПРИВЕТСТВИЙ. Пиши сразу к сути.\n"
@@ -603,10 +598,12 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
         data = json.loads(clean_ai_json(raw_response))
         ai_text = data.get("text", "")
         quote = data.get("quote", "")
+        first_comment = data.get("first_comment", "")
     except Exception as e:
         logger.error(f"Ошибка парсинга JSON поста: {e}")
         ai_text = raw_response
         quote = ""
+        first_comment = ""
 
     if ai_text:
         ai_text = ai_text.replace("\\n", "\n")
@@ -616,23 +613,20 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
         # Подчищаем лишние пробелы и пустые строки, образовавшиеся после удаления хэштегов
         ai_text = "\n".join([line.strip() for line in ai_text.split("\n")]).strip()
 
-    if not ai_text or len(ai_text.strip()) < 400:
-        logger.error(f"Генерация поста прервана: чистый ИИ-текст слишком короткий или отсутствует ({len(ai_text) if ai_text else 0} < 400)")
+    if not ai_text or len(ai_text.strip()) < 600:
+        logger.error(f"Генерация поста прервана: чистый ИИ-текст слишком короткий или отсутствует ({len(ai_text) if ai_text else 0} < 600)")
         return None
 
     if not quote or len(quote.strip()) < 5:
         clean_text_for_quote = re.sub(r'РУБРИКА:.*?\n', '', ai_text, flags=re.DOTALL).strip()
-        quote = clean_text_for_quote[:90].strip()
-        if len(quote) == 90:
+        quote = clean_text_for_quote[:95].strip()
+        if len(quote) == 95:
             quote += "..."
+    elif len(quote.strip()) > 100:
+        quote = quote.strip()[:97] + "..."
 
     main_body = ai_text.strip()
-
-    final_text = main_body
-
-    final_text = final_text.replace("\\n", "\n")
-    final_text = final_text.replace("—", "-")
-    final_text = final_text.replace("*", "")
+    main_body = main_body.replace("\\n", "\n").replace("—", "-").replace("*", "")
 
     rubric_label = RUBRIC_NAMES.get(rubric, rubric)
     header = f"РУБРИКА: {rubric_label}"
@@ -647,7 +641,8 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
         skin_short_name = SKIN_SHORT_NAMES.get(skin_id, skin_name).upper()
         header += f"\n{skin_emoji} {skin_short_name}"
 
-    final_text = f"{header}\n\n{final_text}"
+    # Переносим техническую шапку в самый низ поста в качестве эстетичной подписи автора
+    final_text = f"{main_body}\n\n{header}"
 
     return {
         "text": final_text,
@@ -658,8 +653,11 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
         "category": category,
         "rubric": rubric,
         "quote": quote,
+        "first_comment": first_comment,
         "is_sunday": is_sunday,
         "hidden_code": hidden_code,
+        "energy_reward": energy_reward,
+        "has_promo": has_promo,
         "card_id": card_id,
         "card_name": card_name
     }
@@ -690,8 +688,8 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             return
 
         ai_text = post_data.get("ai_text", "")
-        if len(ai_text.strip()) < 400:
-            logger.error(f"Аборт публикации: текст ИИ слишком короткий ({len(ai_text)} < 400 символов)")
+        if len(ai_text.strip()) < 600:
+            logger.error(f"Аборт публикации: текст ИИ слишком короткий ({len(ai_text)} < 600 символов)")
             alert_msg = "🚨 Сбой автопостинга! Публикация отменена. Причина: ИИ вернул пустой текст или сработал тайтмаут прокси. Проверь логи Cloudflare"
             try:
                 await bot.api.messages.send(peer_id=ADMIN_ID, message=alert_msg, random_id=random.getrandbits(63))
@@ -818,9 +816,16 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         except Exception as e:
             logger.error(f"Ошибка сохранения привязки скина в Redis: {e}")
 
-        comment_parts = []
-        comment_parts.append("Напиши в комментариях свою дату рождения - и Проводник раскроет твою кармическую задачу на сегодня.")
-        comment_text = "\n\n".join(comment_parts)
+        ai_first_comment = post_data.get("first_comment", "").strip()
+        if not ai_first_comment:
+            comment_text = "Напиши в комментариях свою дату рождения - и Проводник раскроет твою кармическую задачу на сегодня."
+        else:
+            comment_text = ai_first_comment
+
+        if post_data.get("has_promo") and post_data.get("energy_reward"):
+            reward = post_data["energy_reward"]
+            comment_text += f"\n\nP.S. В тексте этого поста спрятан сакральный шифр на {reward} ✨. Нашел? Отправь его мне в личные сообщения."
+
         comment_text = comment_text.replace("\\n", "\n").replace("—", "-")
 
         try:
@@ -839,14 +844,14 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         logger.exception(f"Ошибка при автопостинге: {e}")
 
 def setup_autoposter():
-    bash_tz = "Asia/Yekaterinburg"
-    scheduler = AsyncIOScheduler(timezone=bash_tz)
+    msk_tz = "Europe/Moscow"
+    scheduler = AsyncIOScheduler(timezone=msk_tz)
 
-    morning_hour = 5
-    morning_minute = 0
+    morning_hour = 9
+    morning_minute = 30
 
-    evening_hour = 12
-    evening_minute = 0
+    evening_hour = 19
+    evening_minute = 30
 
     scheduler.add_job(
         post_to_vk,
@@ -863,5 +868,5 @@ def setup_autoposter():
     )
 
     scheduler.start()
-    logger.info(f"Автопостинг настроен (UTC+5): Утро {morning_hour}:{morning_minute:02d}, Вечер {evening_hour}:{evening_minute:02d}")
+    logger.info(f"Автопостинг настроен (MSK): Утро {morning_hour}:{morning_minute:02d}, Вечер {evening_hour}:{evening_minute:02d}")
     return scheduler
