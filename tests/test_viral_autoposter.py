@@ -1,8 +1,8 @@
 import json
 import os
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import patch, AsyncMock
 import pytest
-from modules.autoposter import generate_post, post_to_vk, handle_diagnosis_comment
+from modules.autoposter import generate_post, post_to_vk
 from modules.utils.visual import generate_card_history_image
 
 @pytest.mark.asyncio
