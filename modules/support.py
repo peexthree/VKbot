@@ -585,9 +585,18 @@ async def process_feedback_comment(message: Message):
     # Публикация отзыва в группу (сработает при накоплении 4 штук)
     await send_feedback_to_chat(vk_id, section, rating, comment_text)
 
-    # Начисление 50 энергии за отзыв
-    from database.users import add_energy
-    await add_energy(vk_id, 50)
+    # Начисление +200 энергии за отзыв (строго после реальной покупки и не чаще раз в неделю)
+    from database.users import add_energy, get_user, update_user
+    from modules.utils.logic import can_receive_feedback_bonus
+    import datetime
+
+    user = await get_user(vk_id)
+    bonus_given = False
+    if user and can_receive_feedback_bonus(user):
+        await add_energy(vk_id, 200)
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        await update_user(vk_id, {"last_feedback_bonus_date": now_iso})
+        bonus_given = True
 
     await set_user_state(vk_id, "")
 
@@ -604,10 +613,12 @@ async def process_feedback_comment(message: Message):
     kb.row()
     kb.add(Callback("🏠 Главное меню", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
-    await message.answer(
-        "Спасибо за обратную связь! На твой баланс начислено +50 ✨ Энергии звёзд. Твой вклад помогает системе эволюционировать.",
-        keyboard=kb.get_json()
-    )
+    if bonus_given:
+        resp_msg = "Спасибо за обратную связь! На твой баланс начислено +200 ✨ Энергии звёзд. Твой вклад помогает системе эволюционировать."
+    else:
+        resp_msg = "Спасибо за обратную связь! Твой отзыв принят и помогает системе эволюционировать."
+
+    await message.answer(resp_msg, keyboard=kb.get_json())
 
 @labeler.message(func=is_waiting_support_question)
 async def process_support_question(message: Message):

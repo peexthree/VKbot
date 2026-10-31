@@ -104,8 +104,7 @@ def category_menu_kb(category_key: str, user_purchased: dict = None, vip_unlimit
     buttons = []
     if category_key == "biometrics":
         buttons.append(("👁 Окуломантия (1200 ✨)", {"cmd": "secret_arts_item", "key": "oculomancy"}, KeyboardButtonColor.PRIMARY))
-        hiro_label = "✋ Хиромантия (Бесплатно)" if vip_unlimited else "✋ Хиромантия (1200 ✨)"
-        buttons.append((hiro_label, {"cmd": "secret_arts_item", "key": "palmistry"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("✋ Хиромантия (1200 ✨)", {"cmd": "secret_arts_item", "key": "palmistry"}, KeyboardButtonColor.PRIMARY))
     elif category_key == "artifacts":
         buttons.append(("🎨 Сигил-Мастер (1000 ✨)", {"cmd": "secret_arts_item", "key": "sigil"}, KeyboardButtonColor.PRIMARY))
         buttons.append(("🧪 Алхимик Кода (700 ✨)", {"cmd": "secret_arts_item", "key": "alchemist"}, KeyboardButtonColor.PRIMARY))
@@ -121,8 +120,7 @@ def category_menu_kb(category_key: str, user_purchased: dict = None, vip_unlimit
     elif category_key == "energy_sync":
         buttons.append(("❤️ Совместимость (1500 ✨)", {"cmd": "secret_arts_item", "key": "synastry"}, KeyboardButtonColor.PRIMARY))
         buttons.append(("⭐ Карта Судьбы (1500 ✨)", {"cmd": "secret_arts_item", "key": "destiny_card"}, KeyboardButtonColor.PRIMARY))
-        dream_label = "🌙 Сонник (Бесплатно)" if vip_unlimited else "🌙 Сонник (1000 ✨)"
-        buttons.append((dream_label, {"cmd": "secret_arts_item", "key": "dream"}, KeyboardButtonColor.PRIMARY))
+        buttons.append(("🌙 Сонник (1000 ✨)", {"cmd": "secret_arts_item", "key": "dream"}, KeyboardButtonColor.PRIMARY))
         buttons.append(("🔥 Сексуальность (1000 ✨)", {"cmd": "secret_arts_item", "key": "sex"}, KeyboardButtonColor.PRIMARY))
         buttons.append(("💰 Денежный поток (900 ✨)", {"cmd": "secret_arts_item", "key": "money"}, KeyboardButtonColor.PRIMARY))
         buttons.append(("👹 Ваши демоны (700 ✨)", {"cmd": "secret_arts_item", "key": "shadow"}, KeyboardButtonColor.PRIMARY))
@@ -327,16 +325,8 @@ def get_catalog_inline_keyboard(idx: int, total_items: int, item_type: str, butt
                     actual_label = f"⌛ {hours:02d}:{minutes:02d}"
         kb.add(Callback(actual_label, payload={"cmd": button_cmd, "type": item_type, "key": item_key}), color=actual_color)
     elif user and item_key in ["palmistry", "dream"]:
-        from modules.utils.logic import is_vip_unlimited
-        actual_label = button_label
-        actual_color = KeyboardButtonColor.POSITIVE
-
-        if is_vip_unlimited(user):
-            actual_label = "✨ ПОЛУЧИТЬ БЕСПЛАТНО"
-            kb.add(Callback(actual_label, payload={"cmd": "use_section", "key": item_key}), color=actual_color)
-        else:
-            # Сначала ведем на подтверждение
-            kb.add(Callback(button_label, payload={"cmd": "confirm_buy", "type": item_type, "key": item_key}), color=KeyboardButtonColor.POSITIVE)
+        # Каталог «Тайные искусства» требует списания энергии со всех пользователей
+        kb.add(Callback(button_label, payload={"cmd": "confirm_buy", "type": item_type, "key": item_key}), color=KeyboardButtonColor.POSITIVE)
     else:
         # Для остальных - ведем на экран подтверждения
         kb.add(Callback(button_label, payload={"cmd": "confirm_buy", "type": item_type, "key": item_key}), color=KeyboardButtonColor.POSITIVE)
