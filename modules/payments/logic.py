@@ -893,25 +893,38 @@ async def execute_generation(
 
             core_profile = await get_core_profile(vk_id)
 
-            res_data = await generate_section(
-                target_section,
-                birth_data.get("date"),
-                birth_data.get("time"),
-                birth_data.get("city"),
-                core_profile,
-                u_name,
-                u_sex,
-                partner_name=partner_name,
-                partner_date=partner_date,
-                skin=active_skin,
-                card_id=card_id,
-                card_data=card_data,
-                tags=tags,
-                return_json=True,
-                current_date=current_date_str,
-                image_urls=image_urls,
-                purchased_skins=user.get("purchased_skins", []),
-            )
+            try:
+                res_data = await generate_section(
+                    target_section,
+                    birth_data.get("date"),
+                    birth_data.get("time"),
+                    birth_data.get("city"),
+                    core_profile,
+                    u_name,
+                    u_sex,
+                    partner_name=partner_name,
+                    partner_date=partner_date,
+                    skin=active_skin,
+                    card_id=card_id,
+                    card_data=card_data,
+                    tags=tags,
+                    return_json=True,
+                    current_date=current_date_str,
+                    image_urls=image_urls,
+                    purchased_skins=user.get("purchased_skins", []),
+                )
+            except Exception as e:
+                logger.error(f"AI Generation exception for {target_section}: {e}")
+                await handle_generation_failure(
+                    vk_id,
+                    peer_id,
+                    target_section,
+                    conversation_message_id=conversation_message_id,
+                    partner_name=partner_name,
+                    partner_date=partner_date,
+                    card_id=card_id,
+                )
+                return
 
             if isinstance(res_data, dict):
                 res_text = synthesize_chat_text(res_data, target_section)
@@ -1667,11 +1680,9 @@ async def handle_generation_failure(
         "charoslov": 600,
     }
     price_of_service = prices.get(target_section, 0)
-    user = await get_user(vk_id)
-    if user and price_of_service > 0:
-        # Атомарный инкремент через SQL был бы лучше, но здесь используем текущую практику проекта
-        new_balance = int(user.get("balance", 0) or 0) + price_of_service
-        await update_user(vk_id, {"balance": new_balance})
+    if price_of_service > 0:
+        from database.users import add_energy
+        await add_energy(vk_id, price_of_service)
 
     msg = "🛑 ПОТОКИ КОСМОСА ПЕРЕГРУЖЕНЫ\n\nЗвезды скрылись за облаками матрицы. Повтори попытку через минуту, твоя Энергия сохранена и возвращена на баланс."
 

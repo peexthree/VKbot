@@ -17,6 +17,19 @@ async def get_fsm_step(vk_id: int) -> dict | None:
             return {"step": data}
     return None
 
+def extract_20_percent_teaser(text: str) -> str:
+    """Извлекает первые 20% текста с обрезкой по границе предложения"""
+    if not text:
+        return ""
+    target_len = max(80, int(len(text) * 0.20))
+    if len(text) <= target_len:
+        return text
+    match = re.search(r'[.!?\n]', text[target_len:])
+    if match:
+        cut_idx = target_len + match.end()
+        return text[:cut_idx].strip()
+    return text[:target_len].strip() + "..."
+
 async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int):
     if not user:
         return
@@ -277,6 +290,41 @@ def is_vip_unlimited(user: dict) -> bool:
         return vip_exp > datetime.now(timezone.utc)
     except Exception:
         return False
+
+def has_made_purchase(user: dict) -> bool:
+    """Проверяет, совершал ли пользователь реальную покупку"""
+    if not user:
+        return False
+    if user.get("has_real_purchase"):
+        return True
+    if (user.get("total_paid_rubles", 0) or 0) > 0:
+        return True
+    if user.get("has_full_chart"):
+        return True
+    if user.get("is_first_payment") is False:
+        return True
+    purchased = user.get("purchased_sections", {})
+    if isinstance(purchased, dict):
+        if purchased.get("all"):
+            return True
+        for k, v in purchased.items():
+            if k not in ["conversion_step", "first_name", "card_of_day_last_used", "sex_val", "oracle_access", "whisper_fomo_sent", "used_skins"] and v is True:
+                return True
+    return False
+
+def can_receive_feedback_bonus(user: dict) -> bool:
+    """Проверяет возможность получения бонуса +200 ✨ за отзыв (после реальной покупки и не чаще раз в неделю)"""
+    if not has_made_purchase(user):
+        return False
+    last_bonus_str = user.get("last_feedback_bonus_date")
+    if not last_bonus_str:
+        return True
+    try:
+        from datetime import datetime, timezone, timedelta
+        last_bonus_date = datetime.fromisoformat(last_bonus_str.replace('Z', '+00:00'))
+        return (datetime.now(timezone.utc) - last_bonus_date) >= timedelta(days=7)
+    except Exception:
+        return True
 
 def extract_russian_date(text: str) -> str | None:
     """

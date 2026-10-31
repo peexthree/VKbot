@@ -127,6 +127,9 @@ def clean_slang(text: str) -> str:
     for pattern, replacement in replacements:
         text = re.sub(pattern, replacement, text)
 
+    from ai.logic import sanitize_premium_tov
+    text = sanitize_premium_tov(text)
+
     return text
 
 def generate_premium_pdf(

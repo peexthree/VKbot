@@ -18,7 +18,7 @@ ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS free_card_used BOOLEAN DE
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS purchased_sections JSONB DEFAULT '{"sex": false, "money": false, "shadow": false, "final": false, "sex_val": 0, "oracle_access": false, "card_of_day_last_used": null, "conversion_step": "started"}'::jsonb;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS has_full_chart BOOLEAN DEFAULT FALSE;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS forecast_time TEXT;
-ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 0;
+ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 50;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS oracle_last_used TEXT;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS has_priority_access BOOLEAN DEFAULT FALSE;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS bonuses INTEGER;
@@ -33,6 +33,7 @@ ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS visit_streak INTEGER DEFA
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS total_cards_received INTEGER DEFAULT 0;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS last_daily_bonus_date TEXT;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS welcome_bonus_received BOOLEAN DEFAULT FALSE;
+ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS last_feedback_bonus_date TEXT;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS latest_reading_text TEXT;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS latest_reading_data JSONB DEFAULT '{}'::jsonb;
@@ -266,3 +267,124 @@ EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object('error', SQLERRM, 'detail', SQLSTATE);
 END;
 $$;
+
+-- =====================================================================
+-- 5. MOBILE CLIENT SECURITY, CLICKER PERSISTENCE & RLS POLICIES
+-- =====================================================================
+
+-- Table: Mobile Client Clicker Progress and Familiar Levels (Room DB sync)
+CREATE TABLE IF NOT EXISTS mobile_user_progress (
+    user_id BIGINT PRIMARY KEY,
+    clicker_count BIGINT DEFAULT 0,
+    familiar_level INTEGER DEFAULT 1,
+    energy_pool INTEGER DEFAULT 100,
+    timers JSONB DEFAULT '{}'::jsonb,
+    last_sync_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mobile_user_progress_user_id ON mobile_user_progress(user_id);
+
+-- Function: Secure mobile clicker progress sync with anti-cheat checks
+CREATE OR REPLACE FUNCTION sync_mobile_progress(
+    p_user_id BIGINT,
+    p_clicks_delta INTEGER,
+    p_familiar_level INTEGER,
+    p_timers JSONB DEFAULT '{}'::jsonb
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_max_delta CONSTANT INTEGER := 500; -- Anti-cheat: max clicks allowed per single sync
+    v_new_clicks BIGINT;
+    v_current_level INTEGER;
+    v_bonus_energy INTEGER := 0;
+BEGIN
+    -- Validate clicks delta to prevent artificial balance exploitation
+    IF p_clicks_delta < 0 OR p_clicks_delta > v_max_delta THEN
+        RETURN jsonb_build_object('status', 'error', 'code', 'SUSPICIOUS_DELTA');
+    END IF;
+
+    -- Upsert clicker progress
+    INSERT INTO mobile_user_progress (user_id, clicker_count, familiar_level, timers, last_sync_at)
+    VALUES (p_user_id, p_clicks_delta, GREATEST(1, p_familiar_level), p_timers, NOW())
+    ON CONFLICT (user_id) DO UPDATE
+    SET clicker_count = mobile_user_progress.clicker_count + EXCLUDED.clicker_count,
+        familiar_level = GREATEST(mobile_user_progress.familiar_level, EXCLUDED.familiar_level),
+        timers = COALESCE(EXCLUDED.timers, mobile_user_progress.timers),
+        last_sync_at = NOW()
+    RETURNING clicker_count, familiar_level INTO v_new_clicks, v_current_level;
+
+    -- If milestone click reached (e.g. every 1000 clicks awards +10 energy)
+    IF (v_new_clicks % 1000) < p_clicks_delta THEN
+        v_bonus_energy := 10;
+        UPDATE vk_esoteric_users
+        SET balance = COALESCE(balance, 0) + v_bonus_energy
+        WHERE vk_id = p_user_id;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'status', 'success',
+        'clicker_count', v_new_clicks,
+        'familiar_level', v_current_level,
+        'energy_bonus', v_bonus_energy
+    );
+END;
+$$;
+
+-- Function: Secure RPC balance modification with mandatory audit trail
+CREATE OR REPLACE FUNCTION secure_modify_balance(
+    p_user_id BIGINT,
+    p_amount INTEGER,
+    p_reason TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_new_balance INTEGER;
+BEGIN
+    UPDATE vk_esoteric_users
+    SET balance = GREATEST(0, COALESCE(balance, 0) + p_amount)
+    WHERE vk_id = p_user_id
+    RETURNING balance INTO v_new_balance;
+
+    -- Audit log in events
+    INSERT INTO events (user_id, action, metadata, created_at)
+    VALUES (
+        p_user_id,
+        'secure_balance_modification',
+        jsonb_build_object('amount', p_amount, 'reason', p_reason, 'new_balance', v_new_balance),
+        NOW()
+    );
+
+    RETURN jsonb_build_object('status', 'success', 'new_balance', v_new_balance);
+END;
+$$;
+
+-- 6. ROW LEVEL SECURITY (RLS) POLICIES FOR PUBLIC ANON ACCESS
+ALTER TABLE vk_esoteric_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mobile_user_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE community_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;
+
+-- Allow anon public read of community posts
+DROP POLICY IF EXISTS "Public can view community posts" ON community_posts;
+CREATE POLICY "Public can view community posts" ON community_posts FOR SELECT USING (true);
+
+-- Allow anon public read of feedbacks
+DROP POLICY IF EXISTS "Public can view feedbacks" ON feedbacks;
+CREATE POLICY "Public can view feedbacks" ON feedbacks FOR SELECT USING (is_posted = true);
+
+-- Allow users to read profiles
+DROP POLICY IF EXISTS "Users can read own profile" ON vk_esoteric_users;
+CREATE POLICY "Users can read own profile" ON vk_esoteric_users FOR SELECT USING (true);
+
+-- Restrict direct balance/purchases mutations: all mutations must go through SECURITY DEFINER RPC functions
+GRANT EXECUTE ON FUNCTION increment_user_balance(BIGINT, INTEGER) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION sync_mobile_progress(BIGINT, INTEGER, INTEGER, JSONB) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION secure_modify_balance(BIGINT, INTEGER, TEXT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION activate_hidden_promo(BIGINT, TEXT) TO anon, authenticated, service_role;

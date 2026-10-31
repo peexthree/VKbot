@@ -157,6 +157,65 @@ def generate_diagnosis_card(quote_text: str, output_path: str = "cards/temp_diag
     base.save(output_path, "JPEG", quality=95)
     return output_path
 
+def generate_shadow_mirror_card(vk_id: int, user_name: str, shadow_archetype: str, output_path: str = None) -> str:
+    """
+    Генерирует брендированную карточку «Зеркало Тени»:
+    Космический радиальный фон, заголовок «ЗЕРКАЛО ТЕНИ • АНТИ-ТАР»,
+    имя пользователя, архетип тени и сакральный совет.
+    """
+    if not output_path:
+        output_path = f"cards/mirror_{vk_id}.png"
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    width, height = 1080, 1080
+
+    base = Image.new('RGB', (width, height), (10, 4, 20))
+    mask = Image.new('L', (256, 256))
+    for y in range(256):
+        for x in range(256):
+            dist = (((x - 128) ** 2 + (y - 128) ** 2) ** 0.5) / 128
+            mask.putpixel((x, y), int(min(dist * 255, 255)))
+
+    mask = mask.resize((width, height), Image.Resampling.LANCZOS)
+    inner_layer = Image.new('RGB', (width, height), (35, 12, 60))
+    base = Image.composite(base, inner_layer, mask)
+
+    draw = ImageDraw.Draw(base)
+
+    font_path = "Lora-Bold.ttf" if os.path.exists("Lora-Bold.ttf") else "DejaVuSans-Bold.ttf"
+    font_reg = "Lora-Regular.ttf" if os.path.exists("Lora-Regular.ttf") else "DejaVuSans.ttf"
+
+    try:
+        font_header = ImageFont.truetype(font_path, 40)
+        font_title = ImageFont.truetype(font_path, 54)
+        font_body = ImageFont.truetype(font_reg, 32)
+        font_footer = ImageFont.truetype(font_reg, 24)
+    except Exception:
+        font_header = font_title = font_body = font_footer = ImageFont.load_default()
+
+    header_text = "✦ ЗЕРКАЛО ТЕНИ • МАТРИЦА ✦"
+    bbox = draw.textbbox((0, 0), header_text, font=font_header)
+    draw.text(((width - (bbox[2] - bbox[0])) // 2, 80), header_text, font=font_header, fill=(220, 180, 255))
+
+    name_text = f"ИСКАТЕЛЬ: {user_name.upper()}"
+    bbox_n = draw.textbbox((0, 0), name_text, font=font_body)
+    draw.text(((width - (bbox_n[2] - bbox_n[0])) // 2, 220), name_text, font=font_body, fill=(200, 200, 220))
+
+    arch_text = f"«{shadow_archetype.upper()}»"
+    bbox_a = draw.textbbox((0, 0), arch_text, font=font_title)
+    draw.text(((width - (bbox_a[2] - bbox_a[0])) // 2, 320), arch_text, font=font_title, fill=(255, 215, 0))
+
+    insight = "В твоей тени скрыт ключ к истинному могуществу. Осознай свои скрытые импульсы, трансформируй сомнения в несгибаемую волю."
+    wrapped = textwrap.fill(insight, width=32)
+    bbox_w = draw.multiline_textbbox((0, 0), wrapped, font=font_body, align="center")
+    draw.multiline_text(((width - (bbox_w[2] - bbox_w[0])) // 2, 460), wrapped, font=font_body, fill=(240, 240, 250), align="center", spacing=20)
+
+    footer = "vk.com/taroanti • Проект «Анти-Тар»"
+    bbox_f = draw.textbbox((0, 0), footer, font=font_footer)
+    draw.text(((width - (bbox_f[2] - bbox_f[0])) // 2, 980), footer, font=font_footer, fill=(150, 150, 180))
+
+    base.save(output_path, "PNG")
+    return output_path
+
 if __name__ == "__main__":
-    # Тестовый запуск
     generate_diagnosis_card("Таро — это костыль для тех, кто боится принимать решения самостоятельно.")

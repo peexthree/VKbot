@@ -484,7 +484,7 @@ async def send_onboarding_teaser(vk_id: int, peer_id: int, conversation_message_
     final_text = (
         "✨ ТВОЙ ПУТЬ ОТКРЫТ ✨\n\n"
         f"{teaser_text}\n\n"
-        "Я дарю тебе 700 Энергии звезд для первых шагов к познанию себя.\n\n"
+        "Я дарю тебе 50 Энергии звезд для первых шагов к познанию себя.\n\n"
         "С чего начнем наш разговор?"
     )
 

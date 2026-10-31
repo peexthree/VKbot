@@ -155,6 +155,34 @@ async def yookassa_webhook(request: web.Request):
 
             logger.info(f"ЮKassa УСПЕХ: Начислено {energy_bonus} энергии пользователю vk_id={user_id}")
 
+            # Начисление 20% комиссии партнеру в реферальной системе Синдикат
+            purchased_sec = user.get("purchased_sections", {}) or {}
+            referrer_id = purchased_sec.get("referrer_id")
+            if referrer_id:
+                ref_energy = int(amount_rub * 0.20 * 10)  # 20% от рублей, по курсу 10 ✨ = 1 ₽
+                if ref_energy > 0:
+                    from database import add_energy as add_ref_energy
+                    if await add_ref_energy(referrer_id, ref_energy):
+                        await add_event(referrer_id, "referral_revenue_bonus", {
+                            "referee_id": user_id,
+                            "amount_rub": amount_rub,
+                            "energy_reward": ref_energy
+                        })
+                        try:
+                            from modules.bot_init import bot
+                            ref_push = f"💸 СИНДИКАТ: Твой агент пополнил баланс на {amount_rub} ₽! Тебе зачислено +{ref_energy} ✨ Энергии (20% от суммы)."
+                            await bot.api.messages.send(
+                                peer_id=referrer_id,
+                                message=ref_push,
+                                random_id=random.getrandbits(63)
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to send referral revenue notification: {e}")
+
+            # Проверка незавершенного разбора (Hook & Pay teaser)
+            latest_reading = user.get("latest_reading_text")
+            has_pending_teaser = bool(latest_reading)
+
             # Логгируем событие в таблицу events
             ev_metadata = {
                 "payment_id": payment_id,
@@ -173,7 +201,17 @@ async def yookassa_webhook(request: web.Request):
                 from modules.utils.consts import SKIN_DISPLAY_NAMES
                 active_skin = user.get("active_skin", "olesya")
                 character_name = SKIN_DISPLAY_NAMES.get(active_skin, "Твой Проводник")
-                push_text = f"✨ БАЛАНС ПОПОЛНЕН! ✨\nЗачислено {energy_bonus} Энергии звезд за оплату {amount_rub} RUB.\n{character_name} приветствует тебя!"
+
+                if has_pending_teaser:
+                    push_text = (
+                        f"✨ БАЛАНС ПОПОЛНЕН! (+{energy_bonus} ✨) ✨\n\n"
+                        f"🔓 ЗАВЕСА СНЯТА — ВОТ ТВОЙ ПОЛНЫЙ РАЗБОР:\n\n"
+                        f"{latest_reading}"
+                    )
+                    from database import update_user
+                    await update_user(user_id, {"latest_reading_text": None})
+                else:
+                    push_text = f"✨ БАЛАНС ПОПОЛНЕН! ✨\nЗачислено {energy_bonus} Энергии звезд за оплату {amount_rub} RUB.\n{character_name} приветствует тебя!"
 
                 # Ручное создание клавиатуры во избежание циклического импорта
                 keyboard = {

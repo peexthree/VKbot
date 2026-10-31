@@ -629,12 +629,11 @@ async def show_tariffs(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int 
     header_att = await upload_local_photo(bot.api, "uslugi/tariffs.jpeg", peer_id=vk_id)
 
     tariffs = [
-        {"key": "tariff_1", "title": "🛰 Спутник 7 дней", "desc": "990 Энергии. Твое ежедневное напутствие на неделю.", "image_name": "uslugi/7day.jpeg"},
-        {"key": "tariff_2", "title": "🔮 Оракул 30 дней", "desc": "2900 Энергии. Выгода 400% — Хит! Целый месяц под защитой звезд.", "image_name": "uslugi/30day.jpeg"},
-        {"key": "tariff_vip", "title": "👑 VIP-Адепт", "desc": "5900 Энергии. Полный безлимит на 30 дней на ВСЁ, включая Хиромантию и Сонник + вечный доступ к натальной карте.", "image_name": "uslugi/VIPTOP.jpeg"},
-        {"key": "topup_5000", "title": "✨ Пакет 5000 Энергии", "desc": "400 руб. Выгодный старт для глубокого погружения.", "image_name": "uslugi/tariffs.jpeg"},
-        {"key": "topup_10000", "title": "✨ Пакет 10000 Энергии", "desc": "750 руб. Оптимальный выбор для истинных искателей.", "image_name": "uslugi/tariffs.jpeg"},
-        {"key": "topup_50000", "title": "👑 VIP Пакет 50000 Энергии", "desc": "3500 руб. Максимальная выгода и безграничные возможности.", "image_name": "uslugi/VIP.jpeg"},
+        {"key": "topup_tripwire", "title": "⚡️ Стартовый Трипвайер", "desc": "99 руб. Начисляет 1200 ✨ Энергии — ровно на одну флагманскую услугу!", "image_name": "uslugi/7day.jpeg"},
+        {"key": "all", "title": "🔮 Полная Натальная Карта", "desc": "300 руб. (3000 ✨). Навсегда открывает 4 базовых раздела матрицы («Сексуальность», «Богатство», «Тень», «Путь»).", "image_name": "uslugi/WAYLIFE.jpeg"},
+        {"key": "tariff_vip", "title": "👑 VIP-Доступ (30 дней)", "desc": "590 руб. (5900 ✨). Безлимит на ежедневные прогнозы, карту дня и базовые расклады.", "image_name": "uslugi/VIPTOP.jpeg"},
+        {"key": "topup_5000", "title": "✨ Пакет 5000 Энергии", "desc": "500 руб. Выгодный старт для глубокого погружения.", "image_name": "uslugi/tariffs.jpeg"},
+        {"key": "topup_10000", "title": "✨ Пакет 10000 Энергии", "desc": "1000 руб. Оптимальный выбор для истинных искателей.", "image_name": "uslugi/tariffs.jpeg"},
     ]
 
     await _send_catalog_page(

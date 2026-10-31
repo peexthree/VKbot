@@ -5,6 +5,7 @@ import math
 import os
 import random
 from loguru import logger
+from cache import redis_client
 from vkbottle import Callback, GroupEventType, Keyboard, KeyboardButtonColor, OpenLink
 from vkbottle.bot import BotLabeler
 
@@ -35,7 +36,6 @@ from cache import (
     check_throttle,
     release_lock,
     set_fsm_state,
-    redis_client,
 )
 from cards_data import get_card_data
 from database import get_user, set_user_state, update_user, save_feedback
@@ -51,6 +51,7 @@ from modules.utils import (
     upload_pdf_to_vk,
     delete_bot_message,
 )
+from modules.utils.visual import generate_shadow_mirror_card
 from modules.utils.consts import MYSTIC_STATUS_PHRASES
 from modules.admin import process_admin_cmd, show_admin_console
 from modules.profile import (
@@ -542,7 +543,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
             # Начисляем приветственный бонус если еще не получал
             if user and not user.get("welcome_bonus_received"):
-                updates["balance"] = (user.get("balance", 0) or 0) + 700
+                updates["balance"] = (user.get("balance", 0) or 0) + 50
                 updates["welcome_bonus_received"] = True
 
             # Сбрасываем флаг FOMO при любой успешной регистрации/обновлении данных
@@ -632,10 +633,10 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     if purchased.get("all") or user.get("has_full_chart"):
                         has_access = True
 
-                # Проверка VIP-безлимита
+                # Проверка VIP-безлимита (не распространяется на каталог «Тайные искусства»)
                 from modules.utils.logic import is_vip_unlimited
-
-                if is_vip_unlimited(user):
+                secret_arts_keys = {"oculomancy", "palmistry", "sigil", "alchemist", "karma", "totem", "astro_geo", "egyptian_oracle", "shadow_oracle", "chrono", "charoslov", "dream"}
+                if is_vip_unlimited(user) and target_section not in secret_arts_keys:
                     has_access = True
 
                 if has_access:
@@ -832,26 +833,14 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         elif cmd == "secret_arts_item":
             key = payload.get("key")
 
-            # Проверяем, есть ли уже купленный доступ или VIP-безлимит для услуг
+            # В каталоге «Тайные искусства» (600–1200 ✨) флаги all, has_full_chart и tariff_vip
+            # НЕ дают бесплатного доступа, энергия списывается со всех без исключений.
             user = await get_user(vk_id)
             if user:
                 purchased = user.get("purchased_sections", {})
-                has_access = purchased.get(key, False)
-                if key in ["sex", "money", "shadow", "final"]:
-                    if purchased.get("all") or user.get("has_full_chart"):
-                        has_access = True
-                elif key == "oracle":
-                    has_access = purchased.get("oracle_access", False)
-
-                from modules.utils.logic import is_vip_unlimited
-
-                # Сонник и Хиромантия бесплатны для VIP-безлимита
-                if key in ["palmistry", "dream"] and is_vip_unlimited(user):
-                    has_access = True
-
+                # Доступ разрешен только если услуга была только что оплачена разово
+                has_access = bool(purchased.get(key, False))
                 if has_access:
-                    # Сразу запускаем услугу!
-                    # Для этого мы просто имитируем вызов use_section
                     payload_use = {"cmd": "use_section", "key": key}
                     event_copy = event.copy()
                     event_copy["object"]["payload"] = payload_use
@@ -991,23 +980,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 key, ("Услуга", "Описание", "biometrics", 700)
             )
 
-            # Проверка VIP-безлимита для Хиромантии и Сонника
+            # Все 10 услуг каталога «Тайные искусства» требуют списания энергии
             user = await get_user(vk_id)
-            from modules.utils.logic import is_vip_unlimited
-
-            if user and is_vip_unlimited(user):
-                if key == "palmistry":
-                    cost = 0
-                    desc = desc.replace(
-                        "Стоимость: 1200 ✨",
-                        "Вам доступно БЕСПЛАТНО по VIP-тарификации!",
-                    )
-                elif key == "dream":
-                    cost = 0
-                    desc = desc.replace(
-                        "Стоимость: 1000 ✨",
-                        "Вам доступно БЕСПЛАТНО по VIP-тарификации!",
-                    )
 
             kb = Keyboard(inline=True)
             kb.add(
@@ -1123,6 +1097,93 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 skip_lock=True,
                 conversation_message_id=obj.get("conversation_message_id"),
             )
+        elif cmd == "shadow_mirror":
+            user = await get_user(vk_id)
+            user_name = user.get("first_name", "Искатель") if user else "Искатель"
+            purchased = user.get("purchased_sections", {}) if user else {}
+            has_bonus = purchased.get("shadow_mirror_bonus_received", False)
+
+            card_path = f"cards/mirror_{vk_id}.png"
+            att = None
+            try:
+                generate_shadow_mirror_card(vk_id, user_name, "Страж Глубин", card_path)
+                att = await upload_local_photo(bot.api, card_path, peer_id=peer_id)
+            finally:
+                if os.path.exists(card_path):
+                    try:
+                        os.remove(card_path)
+                    except Exception as e:
+                        logger.error(f"Error removing mirror card: {e}")
+
+            kb = Keyboard(inline=True)
+            if not has_bonus:
+                kb.add(Callback("🔄 ПРОВЕРИТЬ РЕПОСТ (+300 ✨)", payload={"cmd": "check_shadow_repost"}), color=KeyboardButtonColor.POSITIVE).row()
+            kb.add(Callback("🏠 ГЛАВНОЕ МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+
+            msg = (
+                "✦ ВИРАЛЬНОЕ ЗЕРКАЛО ТЕНИ ✦\n\n"
+                "Твоя персональная карточка матрицы сформирована!\n"
+                "Опубликуй эту карточку или запись себе на стену ВКонтакте и нажми кнопку ниже.\n\n"
+                "🎁 За подтвержденный репост на твой баланс будет зачислено +300 ✨ Энергии!"
+            )
+            await bot.api.messages.send(
+                peer_id=peer_id,
+                message=msg,
+                attachment=att,
+                keyboard=kb.get_json(),
+                random_id=random.getrandbits(63)
+            )
+
+        elif cmd == "check_shadow_repost":
+            user = await get_user(vk_id)
+            if not user:
+                return
+            purchased = user.get("purchased_sections", {})
+            if purchased.get("shadow_mirror_bonus_received"):
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="✨ Бонус +300 ✨ за репост «Зеркала Тени» уже был зачислен ранее на твой баланс!",
+                    random_id=random.getrandbits(63)
+                )
+                return
+
+            is_reposted = False
+            try:
+                wall_items = await bot.api.wall.get(owner_id=vk_id, count=10)
+                if wall_items and hasattr(wall_items, "items"):
+                    for item in wall_items.items:
+                        copy_hist = getattr(item, "copy_history", None)
+                        if copy_hist:
+                            is_reposted = True
+                            break
+                        post_text = (getattr(item, "text", "") or "").lower()
+                        if "анти-тар" in post_text or "зеркало тени" in post_text:
+                            is_reposted = True
+                            break
+            except Exception as e:
+                logger.warning(f"Error checking user wall via VK API: {e}")
+                is_reposted = False
+
+            if is_reposted:
+                from database import add_energy
+                await add_energy(vk_id, 300)
+                purchased["shadow_mirror_bonus_received"] = True
+                await update_user(vk_id, {"purchased_sections": purchased})
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="🎉 РЕПОСТ ПОДТВЕРЖДЕН!\n\nНа твой баланс начислено +300 ✨ Энергии звезд. Используй ее для раскрытия сакральных глубин в каталоге услуг!",
+                    random_id=random.getrandbits(63)
+                )
+            else:
+                kb = Keyboard(inline=True)
+                kb.add(Callback("🔄 ПРОВЕРИТЬ СНОВА", payload={"cmd": "check_shadow_repost"}), color=KeyboardButtonColor.POSITIVE).row()
+                kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+                await bot.api.messages.send(
+                    peer_id=peer_id,
+                    message="🛑 Репост пока не найден на твоей стене.\nСделай репост карточки или записи сообщества к себе на стену и нажми кнопку проверки снова!",
+                    keyboard=kb.get_json(),
+                    random_id=random.getrandbits(63)
+                )
         elif cmd == "natal_chart_menu":
             user = await get_user(vk_id)
             if not user:
@@ -1290,7 +1351,21 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     latest_data = {"text": latest_reading.get("text")}
 
             if not latest_data or "text" not in latest_data:
-                # Попытка восстановить из readings_history
+                # Прямая загрузка из Supabase latest_reading_text или readings_history
+                if user.get("latest_reading_text"):
+                    latest_data = {"text": user.get("latest_reading_text")}
+                else:
+                    user_history = user.get("readings_history") or []
+                    for item in reversed(user_history):
+                        if isinstance(item, dict) and (item.get("section") == section or not section or section == "report"):
+                            t = item.get("text") or (item.get("data", {}).get("text") if isinstance(item.get("data"), dict) else None)
+                            if t:
+                                latest_data = item.get("data") if isinstance(item.get("data"), dict) else {}
+                                latest_data["text"] = t
+                                break
+
+            if not latest_data or "text" not in latest_data:
+                # Попытка восстановить из Redis readings_history
                 history = await get_readings_history(vk_id)
                 found_item = None
                 for item in reversed(history):
@@ -1309,7 +1384,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             if not latest_data or "text" not in latest_data:
                 await bot.api.messages.send(
                     peer_id=peer_id,
-                    message="🔮 ДАННЫЕ СТЕРТЫ В ЦЕЛЯХ БЕЗОПАСНОСТИ\n\nТекст разбора был очищен. Сгенерируйте разбор заново в разделе Услуг.",
+                    message="🔮 Текст разбора недоступен. Сгенерируйте разбор заново в разделе Услуг.",
                     random_id=random.getrandbits(63),
                 )
                 return
@@ -1743,8 +1818,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "tariff_1": 990,
                 "tariff_2": 2900,
                 "tariff_vip": 5900,
-                "topup_5000": 400,
-                "topup_10000": 750,
+                "topup_tripwire": 99,
+                "topup_5000": 500,
+                "topup_10000": 1000,
                 "topup_50000": 3500,
                 "oculomancy": 1200,
                 "sigil": 1000,
@@ -1761,14 +1837,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             if not amount_needed:
                 return
 
-            # ПРОВЕРКА VIP-БЕЗЛИМИТА
+            # ПРОВЕРКА VIP-БЕЗЛИМИТА (не распространяется на каталог «Тайные искусства»)
             user = await get_user(vk_id)
-            if user and key in ["palmistry", "dream"]:
-                from modules.utils.logic import is_vip_unlimited
-
-                if is_vip_unlimited(user):
-                    amount_needed = 0
-                    logger.info(f"VIP UNLIMITED: User {vk_id} gets {key} for free")
 
             # ПРОВЕРКА ДАТЫ РОЖДЕНИЯ ПЕРЕД ПОКУПКОЙ УСЛУГ (кроме пополнений и тарифов)
             if buy_type == "service" or key in ["destiny_card", "destiny_card_update"]:
@@ -1801,7 +1871,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                                 "conv_id": conv_id,
                                 "original_intent": original_intent,
                             }
-                            await set_user_state(vk_id, json.dumps(state_dict))
+                            await set_user_state(peer_id, json.dumps(state_dict))
+                            if peer_id != vk_id:
+                                await set_user_state(vk_id, json.dumps(state_dict))
 
                             kb = Keyboard(inline=True)
                             kb.add(
@@ -1840,7 +1912,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                                 "conv_id": conv_id,
                                 "original_intent": original_intent,
                             }
-                            await set_user_state(vk_id, json.dumps(state_data))
+                            await set_user_state(peer_id, json.dumps(state_data))
+                            if peer_id != vk_id:
+                                await set_user_state(vk_id, json.dumps(state_data))
                             await safe_edit(
                                 peer_id=peer_id,
                                 conversation_message_id=conv_id,
@@ -1906,6 +1980,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 await update_user(vk_id, {"purchased_sections": p})
                 # Определяем количество энергии по ключу
                 energy_map = {
+                    "topup_tripwire": 1200,
+                    "all": 3000,
+                    "tariff_vip": 5900,
                     "topup_5000": 5000,
                     "topup_10000": 10000,
                     "topup_50000": 50000,
@@ -2117,13 +2194,80 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
                 payment_url = await create_yookassa_payment(
                     amount=diff_rubles,
-                    description=f"Доплата за услугу {key}",
+                    description=f"Разблокировка расклада {key}",
                     user_id=vk_id,
                 )
 
+                free_teaser_used = user.get("free_teaser_used", False) if user else False
+
+                if not free_teaser_used and buy_type == "service":
+                    # Механика платного тизера Hook & Pay (генерация 20% тизера)
+                    from cache import get_temp_birth_data, get_core_profile
+                    birth_data = await get_temp_birth_data(vk_id) or {}
+                    core_profile = await get_core_profile(vk_id) or ""
+                    u_name = user.get("first_name", "") if user else ""
+
+                    await safe_edit(
+                        peer_id=peer_id,
+                        conversation_message_id=obj.get("conversation_message_id"),
+                        message="✨ ВХОЖУ В ПОТОК МАТРИЦЫ ДЛЯ ФОРМИРОВАНИЯ ТИЗЕРА...",
+                    )
+
+                    try:
+                        from ai_service import generate_section
+                        res_data = await generate_section(
+                            key,
+                            birth_data.get("date"),
+                            birth_data.get("time"),
+                            birth_data.get("city"),
+                            core_profile,
+                            u_name,
+                            user.get("sex", "f") if user else "f",
+                            skin=user.get("active_skin", "olesya") if user else "olesya",
+                            return_json=True
+                        )
+                        from modules.payments.logic import synthesize_chat_text
+                        full_text = synthesize_chat_text(res_data, key) if isinstance(res_data, dict) else res_data
+                    except Exception as e:
+                        logger.error(f"Error generating teaser text: {e}")
+                        full_text = None
+
+                    if full_text and full_text != "ERROR_RPM_LIMIT":
+                        await update_user(vk_id, {"latest_reading_text": full_text, "free_teaser_used": True})
+                        from modules.utils.logic import extract_20_percent_teaser
+                        teaser_part = extract_20_percent_teaser(full_text)
+
+                        kb = Keyboard(inline=True)
+                        if payment_url:
+                            kb.add(OpenLink(link=payment_url, label="💳 ПОПОЛНИТЬ И ОТКРЫТЬ 100%")).row()
+                        kb.add(
+                            Callback("🎁 ПОЗВАТЬ ДРУГА (+500 ✨)", payload={"cmd": "get_referral"}),
+                            color=KeyboardButtonColor.POSITIVE,
+                        ).row()
+                        kb.add(OpenLink(link="https://vk.com/@taroanti-oferta", label="📜 ПУБЛИЧНАЯ ОФЕРТА"))
+
+                        teaser_msg = (
+                            f"✨ [БЕСПЛАТНЫЙ ТИЗЕР: 20%] ✨\n\n"
+                            f"{teaser_part}\n\n"
+                            "───────────────────────\n"
+                            "🔒 Дальнейший сакральный анализ скрыт за завесой матрицы...\n"
+                            "Это лишь 20% твоего полного разбора от ИИ.\n\n"
+                            f"Пополни баланс на {diff_rubles} RUB ({amount_needed - balance} ✨), чтобы мгновенно получить 100% текста!"
+                        )
+
+                        await ghost_edit(
+                            bot.api,
+                            peer_id=peer_id,
+                            message=teaser_msg,
+                            conversation_message_id=obj.get("conversation_message_id"),
+                            keyboard=kb.get_json(),
+                        )
+                        return
+
+                # Обычный экран недостатка энергии (если тизер уже использован)
                 kb = Keyboard(inline=True)
                 if payment_url:
-                    kb.add(OpenLink(link=payment_url, label="💳 ОПЛАТИТЬ КАРТОЙ")).row()
+                    kb.add(OpenLink(link=payment_url, label="💳 ОПЛАТИТЬ ЮKASSA")).row()
 
                 kb.add(
                     Callback(
@@ -2333,14 +2477,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             }
             cost = prices.get(key, 0)
 
-            # Проверка VIP-безлимита для отображения стоимости
+            # Проверка VIP-безлимита для отображения стоимости (каталог «Тайные искусства» платный для всех)
             user = await get_user(vk_id)
-            if user and key in ["palmistry", "dream"]:
-                from modules.utils.logic import is_vip_unlimited
-
-                if is_vip_unlimited(user):
-                    cost = 0
-
             from modules.keyboards import confirmation_kb
 
             kb = confirmation_kb({"cmd": "buy", "type": buy_type, "key": key}, cost)

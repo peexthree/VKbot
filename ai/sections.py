@@ -95,9 +95,9 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         skin = "olesya"
 
     if sex == 1:
-        gender_instruction = "ПОЛЬЗОВАТЕЛЬ - ЖЕНЩИНА. ОБРАЩАЙСЯ К НЕЙ В ЖЕНСКОМ РОДЕ."
+        gender_instruction = "ПОЛЬЗОВАТЕЛЬ - ЖЕНСКОГО ПОЛА. ОБРАЩАЙСЯ В ЖЕНСКОМ РОДЕ."
     elif sex == 2:
-        gender_instruction = "ПОЛЬЗОВАТЕЛЬ - МУЖЧИНА. ОБРАЩАЙСЯ К НЕМУ В МУЖСКОМ РОДЕ."
+        gender_instruction = "ПОЛЬЗОВАТЕЛЬ - МУЖСКОГО ПОЛА. ОБРАЩАЙСЯ В МУЖСКОМ РОДЕ."
     else:
         gender_instruction = "ОБРАЩАЙСЯ К ПОЛЬЗОВАТЕЛЮ НЕЙТРАЛЬНО, БЕЗ УКАЗАНИЯ ПОЛА."
 
