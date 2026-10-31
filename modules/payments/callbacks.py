@@ -36,7 +36,6 @@ from cache import (
     check_throttle,
     release_lock,
     set_fsm_state,
-    redis_client,
 )
 from cards_data import get_card_data
 from database import get_user, set_user_state, update_user, save_feedback
