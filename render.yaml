@@ -25,6 +25,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"
+      # КРИТИЧНО: poetry.lock сгенерирован Poetry 2.4.1. Дефолтный на Render
+      # 2.1.3 читает его как "pyproject changed significantly" - пиним версию
+      - key: POETRY_VERSION
+        value: "2.4.1"
       - key: USE_WEBHOOKS
         value: "true"
       - key: PORT

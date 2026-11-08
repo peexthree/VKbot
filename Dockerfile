@@ -28,9 +28,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Зависимости - отдельным слоем (кэш Docker не пересобирает их при правке кода)
+# Зависимости - отдельным слоем (кэш Docker не пересобирает их при правке кода).
+# poetry 2.4.1 - ровно та версия, что сгенерировала poetry.lock (мismatch
+# версий poetry читается как "pyproject changed significantly")
 COPY pyproject.toml poetry.lock ./
-RUN pip install --no-cache-dir poetry==2.1.3 \
+RUN pip install --no-cache-dir poetry==2.4.1 \
     && poetry install --no-root --no-cache
 
 COPY . .
