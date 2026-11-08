@@ -13,9 +13,12 @@ services:
     name: vkbot
     runtime: python
     plan: starter # сверить с фактическим тарифом сервиса в dashboard
-    # poetry install без "poetry lock": lock уже синхронизирован с pyproject,
-    # повторный lock перерешает версии онлайн (медленно + риск неожиданных апгрейдов)
-    buildCommand: apt-get update && apt-get install -y libpango-1.44-0 libpangoft2-1.44-0 && poetry install --no-root --no-cache
+    # ВАЖНО (2026-11-09): в нативном Python-рантайме Render файловая система
+    # при сборке read-only - apt-get там НЕ работает (ошибка "Read-only file
+    # system"). Поэтому Pango для WeasyPrint ставится только через Docker:
+    # в корне есть Dockerfile -> Settings -> Language -> Docker.
+    # poetry lock не нужен: lock уже синхронизирован с pyproject.
+    buildCommand: poetry install --no-root --no-cache
     startCommand: python main.py
     healthCheckPath: /
     autoDeploy: true

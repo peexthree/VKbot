@@ -50,19 +50,26 @@
     ```
 
 ### 2. Деплой на Render
-1.  Создайте новый **Web Service** (или примените готовый `render.yaml` через Blueprint).
-2.  Укажите Runtime: `Python 3.12`.
-3.  Build Command:
+
+**Вариант A - нативный Python (проще, но без PDF):**
+1.  Runtime: `Python 3.12`.
+2.  Build Command:
     ```bash
-    apt-get update && apt-get install -y libpango-1.44-0 libpangoft2-1.44-0 && poetry install --no-root --no-cache
+    poetry install --no-root --no-cache
     ```
-    Библиотеки Pango обязательны для WeasyPrint: без них платные PDF-отчеты молча падают.
-    `poetry.lock` уже синхронизирован с `pyproject.toml` - отдельный `poetry lock` перед установкой не нужен.
-4.  Start Command: `python main.py`.
-5.  Добавьте все переменные из `.env.example` в разделе Environment Variables
+    (`poetry.lock` уже синхронизирован с `pyproject.toml`; apt-get в нативном рантайме не работает - файловая система read-only)
+3.  Start Command: `python main.py`.
+
+**Вариант B - Docker (рекомендуется: работают платные PDF-отчеты):**
+1.  Runtime: `Docker` - Render сам возьмет `Dockerfile` из корня
+    (в нем уже установлены Pango для WeasyPrint и шрифты).
+2.  Start Command не нужен.
+
+Дальше для обоих вариантов:
+-   Добавьте все переменные из `.env.example` в разделе Environment Variables
     (в проде используйте `SUPABASE_SERVICE_KEY` вместо anon-ключа и задайте `ADMIN_ID`).
-6.  Порт по умолчанию: `10000`, health check path: `/`.
-7.  Примените `database/security_fixes.sql` в Supabase SQL Editor ДО первого деплоя с этим кодом
+-   Порт по умолчанию: `10000`, health check path: `/`.
+-   Примените `database/security_fixes.sql` в Supabase SQL Editor ДО первого деплоя с этим кодом
     (новый код использует RPC `spend_user_balance` из Phase A).
 
 ---
