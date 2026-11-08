@@ -3,6 +3,115 @@ from database.config import URL, KEY, HEADERS
 import database.core as core
 from cache import get_fsm_state, set_fsm_state
 
+# Маппинг шага FSM -> стейт vkbottle dispenser'а.
+# Dispenser - in-memory зеркало Redis: главный источник истины - Redis
+# (fsm:{vk_id}), а dispenser восстанавливается из него при старте
+# (см. restore_fsm_dispenser), чтобы стейт жил после рестарта Render.
+STATE_MAP = {
+    "waiting_for_onboarding_data": "waiting_for_onboarding_data",
+    "date": "waiting_for_date",
+    "time": "waiting_for_time",
+    "city": "waiting_for_city",
+    "confirm_data": "waiting_confirm_data",
+    "waiting_synastry_name": "waiting_synastry_name",
+    "waiting_synastry_date": "waiting_synastry_date",
+    "waiting_synastry_time": "waiting_synastry_time",
+    "waiting_synastry_city": "waiting_synastry_city",
+    "waiting_oracle_question": "waiting_oracle_question",
+    "oracle_cut": "oracle_cut",
+    "oracle_draw": "oracle_draw",
+    "waiting_palmistry_photos": "waiting_palmistry_photos",
+    "waiting_support_question": "waiting_support_question",
+    "waiting_admin_reply": "waiting_admin_reply",
+    "waiting_for_seal": "waiting_for_seal",
+    "admin_user_search": "admin_user_search",
+    "admin_broadcast_message": "admin_broadcast_message",
+    "admin_energy_target": "admin_energy_target",
+    "admin_user_edit_balance": "admin_user_edit_balance",
+    "admin_user_give_card": "admin_user_give_card",
+    "global_cut": "global_cut",
+    "waiting_reset_confirm": "waiting_reset_confirm",
+    "waiting_oculomancy_photo": "waiting_oculomancy_photo",
+    "waiting_sigil_wish": "waiting_sigil_wish",
+    "waiting_geo_location": "waiting_geo_location",
+    "waiting_totem_step1": "waiting_totem_step1",
+    "waiting_totem_step2": "waiting_totem_step2",
+    "waiting_karma_step1": "waiting_karma_step1",
+    "waiting_karma_step2": "waiting_karma_step2",
+    "waiting_dream_text": "waiting_dream_text",
+    "waiting_feedback_comment": "waiting_feedback_comment",
+    "waiting_email_input": "waiting_email_input",
+    "waiting_email_code": "waiting_email_code",
+}
+
+
+async def restore_fsm_dispenser(bot):
+    """Восстанавливает in-memory state_dispenser из Redis после рестарта.
+
+    Без этого хендлеры с фильтром state=MyStates... переставали работать
+    до следующего действия пользователя: Redis-стейт жив, а dispenser пуст
+    (аудит 2026-11: юзер зависал в waiting_email_code после деплоя).
+    """
+    from loguru import logger
+    from modules.states import MyStates
+
+    steps_to_states = {
+        "waiting_for_onboarding_data": MyStates.WAITING_FOR_ONBOARDING_DATA,
+        "date": MyStates.WAITING_FOR_DATE,
+        "time": MyStates.WAITING_FOR_TIME,
+        "city": MyStates.WAITING_FOR_CITY,
+        "confirm_data": MyStates.WAITING_CONFIRM_DATA,
+        "waiting_synastry_name": MyStates.WAITING_SYNASTRY_NAME,
+        "waiting_synastry_date": MyStates.WAITING_SYNASTRY_DATE,
+        "waiting_synastry_time": MyStates.WAITING_SYNASTRY_TIME,
+        "waiting_synastry_city": MyStates.WAITING_SYNASTRY_CITY,
+        "waiting_oracle_question": MyStates.WAITING_ORACLE_QUESTION,
+        "oracle_cut": MyStates.ORACLE_CUT,
+        "oracle_draw": MyStates.ORACLE_DRAW,
+        "waiting_palmistry_photos": MyStates.WAITING_PALMISTRY_PHOTOS,
+        "waiting_support_question": MyStates.WAITING_SUPPORT_QUESTION,
+        "global_cut": MyStates.GLOBAL_CUT,
+        "waiting_reset_confirm": MyStates.WAITING_RESET_CONFIRM,
+        "waiting_oculomancy_photo": MyStates.WAITING_OCULOMANCY_PHOTO,
+        "waiting_sigil_wish": MyStates.WAITING_SIGIL_WISH,
+        "waiting_geo_location": MyStates.WAITING_GEO_LOCATION,
+        "waiting_totem_step1": MyStates.WAITING_TOTEM_STEP1,
+        "waiting_totem_step2": MyStates.WAITING_TOTEM_STEP2,
+        "waiting_karma_step1": MyStates.WAITING_KARMA_STEP1,
+        "waiting_karma_step2": MyStates.WAITING_KARMA_STEP2,
+        "waiting_dream_text": MyStates.WAITING_DREAM_TEXT,
+        "waiting_feedback_comment": MyStates.WAITING_FEEDBACK_COMMENT,
+        "waiting_email_input": MyStates.WAITING_EMAIL_INPUT,
+        "waiting_email_code": MyStates.WAITING_EMAIL_CODE,
+    }
+
+    restored = 0
+    try:
+        from cache import redis_client
+
+        keys = await redis_client.keys("fsm:*")
+        for key in keys:
+            raw_vk_id = key.split(":", 1)[1] if isinstance(key, str) else key.decode().split(":", 1)[1]
+            raw = await get_fsm_state(raw_vk_id)
+            if not raw:
+                continue
+            try:
+                state = json.loads(raw)
+            except Exception:
+                continue
+            step = state.get("step") if isinstance(state, dict) else None
+            target = steps_to_states.get(step)
+            if target:
+                try:
+                    await bot.state_dispenser.set(int(raw_vk_id), target, raw_json=raw)
+                    restored += 1
+                except Exception:
+                    pass
+        logger.info(f"FSM восстановлен из Redis: {restored} активных стейтов")
+    except Exception as e:
+        logger.error(f"Ошибка восстановления FSM из Redis: {e}")
+    return restored
+
 async def check_and_save_transaction(transaction_id: str, vk_id: int, amount: int) -> bool:
     if not URL or not KEY or core.session is None: return False
     try:

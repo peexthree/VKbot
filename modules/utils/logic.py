@@ -79,10 +79,16 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
 
             # Эскалация бонуса в зависимости от стрика
             bonus_amount = 100 + min(visit_streak * 20, 400) # Макс бонус 500
-            new_balance = current_balance + bonus_amount
+            # Награда за верность (аудит 2026-11): каждые 7 дней стрика - доп. дар
+            streak_bonus = 100 if visit_streak % 7 == 0 else 0
+            total_bonus = bonus_amount + streak_bonus
+
+            # Атомарное начисление вместо read-modify-write
+            from database.users import add_energy
+            await add_energy(vk_id, total_bonus)
+            new_balance = current_balance + total_bonus
 
             await update_user(vk_id, {
-                "balance": new_balance,
                 "last_daily_bonus_date": now_date.isoformat(),
                 "visit_streak": visit_streak,
                 "rituals_count": (fresh_user.get("rituals_count", 0) or 0) + 1
@@ -100,6 +106,8 @@ async def check_and_give_daily_bonus(vk_id: int, user: dict | None, peer_id: int
                 bonus_text = f"🎁 ТВОЙ ЕЖЕДНЕВНЫЙ ДАР: +{bonus_amount} Энергии звезд.\n"
                 if visit_streak > 1:
                     bonus_text += f"🔥 Стрик: {visit_streak} дней! Бонус увеличен.\n"
+                if streak_bonus:
+                    bonus_text += f"⭐ {visit_streak} ДНЕЙ ВЕРНОСТИ: дополнительный дар +100 ✨!\n"
                 bonus_text += f"Возвращайся завтра. Твой баланс: {new_balance} ✨."
 
                 await bot.api.messages.send(

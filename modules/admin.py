@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import datetime
 import asyncio
 import random
@@ -24,6 +25,58 @@ async def admin_console_handler(message: Message):
         return
     await show_admin_main(message.peer_id)
 
+# ==================== ПАСХАЛКА «ЛАЙН ГОЛОС»: УПРАВЛЕНИЕ СПИСКОМ БЛИЗКИХ ====================
+
+@labeler.message(func=lambda m: m.text and any(
+    m.text.lower().startswith(p) for p in ("лайн добавить", "лайн убрать", "лайн список")
+))
+async def line_god_mode_admin_handler(message: Message):
+    if message.from_id != ADMIN_ID:
+        return
+    from cache import god_mode_allow, god_mode_disallow, god_mode_list
+
+    parts = message.text.strip().lower().split()
+    cmd = parts[1] if len(parts) > 1 else ""
+
+    if cmd == "список":
+        ids = await god_mode_list()
+        if ids:
+            text = "🐾 ТЕ, КОГО СЛЫШИТ ЛАЙН:\n" + "\n".join(f"- vk.com/id{i}" for i in ids)
+        else:
+            text = "🐾 Лайн пока молчит. Список пуст.\n\nФормат: «лайн добавить <vk_id>»"
+        await message.answer(text)
+        return
+
+    if cmd in ("добавить", "убрать", "+", "-"):
+        if len(parts) < 3:
+            await message.answer("Формат: «лайн добавить <vk_id>» (только цифры ID)")
+            return
+        digits = re.sub(r"\D", "", parts[2])
+        if not digits:
+            await message.answer("Не вижу числового ID. Пример: «лайн добавить 12345678»")
+            return
+        target_id = int(digits)
+        if cmd in ("добавить", "+"):
+            ok = await god_mode_allow(target_id)
+            status = (
+                f"✅ Лайн теперь слышит vk.com/id{target_id}.\n"
+                "Повторное «лайн голос» для него = +100 000 ✨ в любой момент."
+            )
+        else:
+            ok = await god_mode_disallow(target_id)
+            status = f"🔕 vk.com/id{target_id} убран из списка: «лайн голос» для него теперь тихий."
+        if not ok:
+            await message.answer("❌ Хранилище недоступно - попробуй через минуту.")
+            return
+        ids = await god_mode_list()
+        extra = ("\n\nВ списке: " + ", ".join(f"vk.com/id{i}" for i in ids)) if ids else "\n\nСписок пуст."
+        await message.answer(status + extra)
+        return
+
+    await message.answer(
+        "🐾 Команды Лайна:\n- «лайн добавить <vk_id>»\n- «лайн убрать <vk_id>»\n- «лайн список»"
+    )
+
 async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     """Главная страница консоли"""
     user_count = await get_user_count()
@@ -46,8 +99,9 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
     kb.add(Callback("💬 ОТЗЫВЫ", payload={"cmd": "admin_nav", "menu": "feedbacks"}), color=KeyboardButtonColor.POSITIVE)
     kb.add(Callback("💎 VIP ХАБ", payload={"cmd": "admin_nav", "menu": "vip"}), color=KeyboardButtonColor.POSITIVE)
     kb.row()
-    kb.add(Callback("⚡ SQL", payload={"cmd": "admin_cmd", "action": "sql_exec_start"}), color=KeyboardButtonColor.NEGATIVE)
-    kb.row()
+    # SQL-консоль удалена (аудит 2026-11): RPC exec_sql отозван у anon -
+    # он давал произвольный SQL любому владельцу anon-ключа. Работа с
+    # данными - через Supabase Dashboard / SQL Editor.
     kb.add(Callback("📜 ЛОГИ", payload={"cmd": "admin_nav", "menu": "logs"}), color=KeyboardButtonColor.SECONDARY)
     kb.add(Callback("🏠 ВЫХОД", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
 
@@ -123,9 +177,7 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None, p
         kb.add(Callback("ДАЛЕЕ ➡️", payload={"cmd": "admin_nav", "menu": "system", "page": 1}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
     else:
-        kb.add(Callback("⚡ ВЫПОЛНИТЬ SQL", payload={"cmd": "admin_cmd", "action": "sql_exec_start"}), color=KeyboardButtonColor.NEGATIVE)
-        kb.row()
-
+        # Кнопка SQL удалена (аудит 2026-11): exec_sql отозван у anon
         kb.add(Callback("🧹 ОЧИСТИТЬ REDIS", payload={"cmd": "admin_cmd", "action": "clear_redis", "page": page}), color=KeyboardButtonColor.NEGATIVE)
         kb.row()
 
@@ -189,6 +241,22 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
     )
     for key, count in sorted(purchased_stats.items(), key=lambda x: x[1], reverse=True)[:5]:
         stats_text += f"- {key.upper()}: {count}\n"
+
+    # ТОП постов по кликам (аудит 2026-11: данные post_clicks были не видны)
+    try:
+        from database.autoposter import get_top_posts
+
+        top_posts = await get_top_posts(limit=5, days=30)
+        if top_posts:
+            stats_text += "\n📰 ТОП ПОСТОВ (30 дней, клики):\n"
+            for p in top_posts:
+                topic = (p.get("topic_name") or "?")[:40]
+                stats_text += f"- {p.get('clicks', 0)} кликов: {topic}\n"
+        else:
+            stats_text += "\n📰 ТОП ПОСТОВ: данных пока нет\n"
+    except Exception as e:
+        logger.error(f"Ошибка загрузки топа постов: {e}")
+
     kb = Keyboard(inline=True).add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
     await ghost_edit(bot.api, peer_id, stats_text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
@@ -542,8 +610,10 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         await bot.api.messages.send(peer_id=peer_id, message=f"✅ Задача на автопостинг{label} поставлена в очередь.", random_id=random.getrandbits(63))
         await show_admin_broadcast(peer_id, conversation_message_id)
     elif action == "sql_exec_start":
-        await set_fsm_state(vk_id, json.dumps({"step": "admin_sql_exec", "conv_id": conversation_message_id}))
-        await bot.api.messages.send(peer_id=peer_id, message="⚡ ВВЕДИТЕ SQL-ЗАПРОС ДЛЯ ВЫПОЛНЕНИЯ:\n\nБудьте осторожны, изменения необратимы.", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "main"})).get_json(), random_id=random.getrandbits(63))
+        # SQL-консоль удалена (аудит 2026-11): exec_sql отозван у anon-ключа -
+        # произвольный SQL из чата был RCE-каналом в прод-БД.
+        await bot.api.messages.send(peer_id=peer_id, message="🔒 SQL-консоль отключена по результатам аудита безопасности. Работа с данными - через Supabase Dashboard.", random_id=random.getrandbits(63))
+        await show_admin_main(peer_id, conversation_message_id)
     elif action == "mass_energy_start":
         await set_fsm_state(vk_id, json.dumps({"step": "admin_energy_target", "conv_id": conversation_message_id}))
         await bot.api.messages.send(peer_id=peer_id, message="Введите ID и количество энергии через пробел (например: 12345 500):", keyboard=Keyboard(inline=True).add(Callback("Отмена", payload={"cmd": "admin_nav", "menu": "users"})).get_json(), random_id=random.getrandbits(63))
@@ -734,28 +804,9 @@ async def admin_fsm_handler(message: Message):
         kb.add(Callback("❌ ОТМЕНА", payload={"cmd": "admin_nav", "menu": "broadcast"}), color=KeyboardButtonColor.NEGATIVE)
         await ghost_edit(bot.api, message.peer_id, f"ПРЕВЬЮ ПРИЗЫВА:\n\n📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{text}\n\nОтправить всем адептам?", keyboard=kb.get_json(), conversation_message_id=conv_id)
     elif step == "admin_sql_exec":
-        sql = message.text.strip()
+        # Защитная ветка: стейт мог остаться с прошлой версии - мягко выходим
         await set_fsm_state(vk_id, "")
-        from database import call_rpc
-        await bot.api.messages.send(peer_id=vk_id, message="⏳ Выполнение запроса...", random_id=random.getrandbits(63))
-
-        result = await call_rpc("exec_sql", {"sql_query": sql})
-
-        if result is True or result is None:
-             await bot.api.messages.send(peer_id=vk_id, message="✅ Запрос выполнен (без возвращаемых данных).", random_id=random.getrandbits(63))
-        elif isinstance(result, list):
-            res_json = json.dumps(result, ensure_ascii=False, indent=2)
-            if len(res_json) < 3800:
-                await bot.api.messages.send(peer_id=vk_id, message=f"✅ РЕЗУЛЬТАТ:\n\n{res_json}", random_id=random.getrandbits(63))
-            else:
-                with open(f"sql_result_{vk_id}.json", "w", encoding="utf-8") as f:
-                    f.write(res_json)
-                from modules.utils import upload_pdf_to_vk
-                doc = await upload_pdf_to_vk(bot.api, f"sql_result_{vk_id}.json", "result.json", peer_id=vk_id)
-                await bot.api.messages.send(peer_id=vk_id, message="✅ Результат слишком велик, отправляю файлом:", attachment=doc, random_id=random.getrandbits(63))
-                os.remove(f"sql_result_{vk_id}.json")
-        else:
-            await bot.api.messages.send(peer_id=vk_id, message=f"❓ РЕЗУЛЬТАТ:\n\n{result}", random_id=random.getrandbits(63))
+        await message.answer("🔒 SQL-консоль отключена по результатам аудита безопасности.")
         await show_admin_main(vk_id, conv_id)
 
 async def show_admin_console(peer_id: int, conversation_message_id: int = None):

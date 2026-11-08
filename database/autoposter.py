@@ -162,6 +162,83 @@ async def record_post_click(vk_id: int, topic_name: str):
         logger.error(f"Error in record_post_click: {e}")
     return False
 
+async def get_rubric_ctr_stats(days: int = 45) -> dict:
+    """Средние клики по рубрикам за период (для CTR-взвешивания ротации).
+
+    Рубрики живут в post_daily_log, клики - в post_history; связка по topic_name.
+    """
+    if not URL or not KEY or core.session is None: return {}
+    time_limit = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).isoformat()
+    try:
+        async with core.session.get(
+            f"{URL}/rest/v1/post_daily_log?select=rubric,topic_name&published_at=gt.{time_limit}",
+            headers=HEADERS
+        ) as r:
+            if r.status not in (200, 206): return {}
+            logs = await r.json()
+
+        async with core.session.get(
+            f"{URL}/rest/v1/post_history?select=topic_name,clicks&published_at=gt.{time_limit}",
+            headers=HEADERS
+        ) as r:
+            if r.status not in (200, 206): return {}
+            history = await r.json()
+
+        clicks_by_topic = {}
+        for h in history:
+            try:
+                clicks_by_topic[h.get("topic_name")] = int(h.get("clicks", 0) or 0)
+            except (ValueError, TypeError):
+                continue
+
+        rubric_clicks, rubric_counts = {}, {}
+        for item in logs:
+            rub = item.get("rubric")
+            topic = item.get("topic_name")
+            if not rub or not topic: continue
+            rubric_clicks[rub] = rubric_clicks.get(rub, 0) + clicks_by_topic.get(topic, 0)
+            rubric_counts[rub] = rubric_counts.get(rub, 0) + 1
+
+        return {
+            rub: rubric_clicks[rub] / rubric_counts[rub]
+            for rub in rubric_clicks if rubric_counts[rub]
+        }
+    except Exception as e:
+        logger.error(f"Error in get_rubric_ctr_stats: {e}")
+    return {}
+
+
+async def get_top_posts(limit: int = 5, days: int = 30) -> list:
+    """Топ постов по кликам за период - для сводки в админ-консоли"""
+    if not URL or not KEY or core.session is None: return []
+    time_limit = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).isoformat()
+    try:
+        url = f"{URL}/rest/v1/post_history?select=topic_name,clicks,published_at&published_at=gt.{time_limit}&order=clicks.desc&limit={limit}"
+        async with core.session.get(url, headers=HEADERS) as r:
+            if r.status in (200, 206):
+                return await r.json()
+    except Exception as e:
+        logger.error(f"Error in get_top_posts: {e}")
+    return []
+
+
+async def delete_hidden_promo(code: str):
+    """Удаляет осиротевший промокод (шифр не вшился в пост - обещать его нельзя)"""
+    if not URL or not KEY or core.session is None: return False
+    try:
+        # Сначала активации (FK на hidden_promos), затем сам код
+        async with core.session.delete(f"{URL}/rest/v1/promo_activations?code=eq.{code}", headers=HEADERS) as r:
+            if r.status not in (200, 204):
+                logger.error(f"Error deleting activations for promo {code}: {r.status}")
+        async with core.session.delete(f"{URL}/rest/v1/hidden_promos?code=eq.{code}", headers=HEADERS) as r:
+            if r.status in (200, 204):
+                logger.info(f"🗑 Осиротевший промокод {code} удален")
+                return True
+            logger.error(f"Error deleting hidden promo {code}: {r.status}")
+    except Exception as e:
+        logger.error(f"Error deleting hidden promo {code}: {e}")
+    return False
+
 async def save_hidden_promo(code: str, reward: int, max_uses: int = 10):
     """Сохраняет новый скрытый промокод в базу"""
     if not URL or not KEY or core.session is None: return False

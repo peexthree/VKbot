@@ -25,7 +25,8 @@ GROUP_A_TEMPLATE = """<!DOCTYPE html>
             margin: 0;
             padding: 0;
             font-family: 'Lora', serif;
-            background: #0f0b14; /* Темный угольный фон для Сигила */
+            background: linear-gradient(rgba(15, 11, 20, 0.85), rgba(15, 11, 20, 0.85)), url('cards/uslugi/pdf_background_final.png') no-repeat center center; /* Тинт угля + общий мистический фон */
+            background-size: cover;
             color: #f7e9cc;
         }
         .container {
@@ -210,7 +211,8 @@ GROUP_B_TEMPLATE = """<!DOCTYPE html>
             margin: 0;
             padding: 0;
             font-family: 'Lora', serif;
-            background: #080c14; /* Глубокий синий/серебряный фон */
+            background: linear-gradient(rgba(8, 12, 20, 0.85), rgba(8, 12, 20, 0.85)), url('cards/uslugi/pdf_background_final.png') no-repeat center center; /* Тинт глубокого синего + общий мистический фон */
+            background-size: cover;
             color: #e2ebf5;
         }
         .container {
@@ -392,7 +394,8 @@ GROUP_C_TEMPLATE = """<!DOCTYPE html>
             margin: 0;
             padding: 0;
             font-family: 'Lora', serif;
-            background: #140d0d; /* Древний песчано-бордовый фон */
+            background: linear-gradient(rgba(20, 13, 13, 0.85), rgba(20, 13, 13, 0.85)), url('cards/uslugi/pdf_background_final.png') no-repeat center center; /* Тинт древней бордо + общий мистический фон */
+            background-size: cover;
             color: #fcece2;
         }
         .container {
@@ -561,7 +564,8 @@ GROUP_D_TEMPLATE = """<!DOCTYPE html>
             margin: 0;
             padding: 0;
             font-family: 'Lora', serif;
-            background: #09091a; /* Космический фиолетовый/бирюзовый */
+            background: linear-gradient(rgba(9, 9, 26, 0.85), rgba(9, 9, 26, 0.85)), url('cards/uslugi/pdf_background_final.png') no-repeat center center; /* Тинт космоса + общий мистический фон */
+            background-size: cover;
             color: #e0f2f1;
         }
         .container {

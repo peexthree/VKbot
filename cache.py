@@ -130,13 +130,31 @@ async def set_destiny_card_data(vk_id: int | str, data: dict, ttl: int = 86400):
 
 
 async def get_destiny_card_data(vk_id: int | str) -> dict | None:
-    """Получает данные карты судьбы из Redis"""
+    """Получает данные карты судьбы из Redis; при отсутствии - из БД.
+
+    Карта продается как вечная, а Redis-ключ жил только 24 часа (QA-аудит
+    2026-11): через сутки юзеру снова показывали экран покупки за 1500.
+    """
     res = await redis_client.get(f"user:destiny_card:{vk_id}")
     if res:
         try:
             return json.loads(res)
         except Exception:
             pass
+
+    try:
+        from database import get_user
+
+        user = await get_user(int(vk_id))
+        if user and isinstance(user.get("destiny_card_data"), dict):
+            data = user.get("destiny_card_data")
+            if data and data.get("text"):
+                await set_destiny_card_data(vk_id, data)
+                return data
+    except Exception as e:
+        from loguru import logger
+
+        logger.error(f"Ошибка получения карты судьбы из БД для {vk_id}: {e}")
     return None
 
 
@@ -298,6 +316,90 @@ async def get_tarot_names() -> dict:
     except Exception as e:
         logger.error(f"Ошибка загрузки имен таро из файла: {str(e)}")
         return {}
+
+
+GOD_MODE_ALLOWED_KEY = "godmode:allowed"
+
+
+async def god_mode_is_allowed(vk_id: int | str) -> bool:
+    """Пасхалка 'лайн голос': энергия выдается только близким из списка."""
+    from loguru import logger
+
+    try:
+        return bool(await redis_client.sismember(GOD_MODE_ALLOWED_KEY, str(vk_id)))
+    except Exception as e:
+        logger.error(f"Ошибка проверки god_mode списка для {vk_id}: {e}")
+        return False
+
+
+async def god_mode_allow(vk_id: int | str) -> bool:
+    from loguru import logger
+
+    try:
+        await redis_client.sadd(GOD_MODE_ALLOWED_KEY, str(vk_id))
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка добавления {vk_id} в god_mode список: {e}")
+        return False
+
+
+async def god_mode_disallow(vk_id: int | str) -> bool:
+    from loguru import logger
+
+    try:
+        await redis_client.srem(GOD_MODE_ALLOWED_KEY, str(vk_id))
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка удаления {vk_id} из god_mode списка: {e}")
+        return False
+
+
+async def god_mode_list() -> list[int]:
+    from loguru import logger
+
+    try:
+        members = await redis_client.smembers(GOD_MODE_ALLOWED_KEY) or []
+        result = []
+        for m in members:
+            if isinstance(m, bytes):
+                m = m.decode()
+            try:
+                result.append(int(str(m)))
+            except ValueError:
+                continue
+        return sorted(result)
+    except Exception as e:
+        logger.error(f"Ошибка чтения god_mode списка: {e}")
+        return []
+
+
+PENDING_TEASER_TTL = 604800  # 7 дней
+
+
+async def set_pending_teaser(vk_id: int | str, data: dict, ttl: int = PENDING_TEASER_TTL):
+    """Сохраняет информацию о незавершенном Hook&Pay тизере (какой разбор и сколько энергии не хватает)"""
+    await redis_client.set(
+        f"teaser:{vk_id}", json.dumps(data, ensure_ascii=False), ex=ttl
+    )
+
+
+async def get_pending_teaser(vk_id: int | str) -> dict | None:
+    """Читает незавершенный тизер, не удаляя его"""
+    res = await redis_client.get(f"teaser:{vk_id}")
+    if res:
+        try:
+            return json.loads(res)
+        except Exception:
+            pass
+    return None
+
+
+async def pop_pending_teaser(vk_id: int | str) -> dict | None:
+    """Читает и удаляет незавершенный тизер (после оплаты)"""
+    teaser = await get_pending_teaser(vk_id)
+    if teaser:
+        await redis_client.delete(f"teaser:{vk_id}")
+    return teaser
 
 
 async def get_birth_data_or_fallback(

@@ -50,12 +50,20 @@
     ```
 
 ### 2. Деплой на Render
-1.  Создайте новый **Web Service**.
-2.  Укажите Runtime: `Python 3.11+`.
-3.  Build Command: `pip install -r requirements.txt.old`.
+1.  Создайте новый **Web Service** (или примените готовый `render.yaml` через Blueprint).
+2.  Укажите Runtime: `Python 3.12`.
+3.  Build Command:
+    ```bash
+    apt-get update && apt-get install -y libpango-1.44-0 libpangoft2-1.44-0 && poetry install --no-root --no-cache
+    ```
+    Библиотеки Pango обязательны для WeasyPrint: без них платные PDF-отчеты молча падают.
+    `poetry.lock` уже синхронизирован с `pyproject.toml` - отдельный `poetry lock` перед установкой не нужен.
 4.  Start Command: `python main.py`.
-5.  Добавьте все переменные из `.env` в разделе Environment Variables.
-6.  Порт по умолчанию: `10000`.
+5.  Добавьте все переменные из `.env.example` в разделе Environment Variables
+    (в проде используйте `SUPABASE_SERVICE_KEY` вместо anon-ключа и задайте `ADMIN_ID`).
+6.  Порт по умолчанию: `10000`, health check path: `/`.
+7.  Примените `database/security_fixes.sql` в Supabase SQL Editor ДО первого деплоя с этим кодом
+    (новый код использует RPC `spend_user_balance` из Phase A).
 
 ---
 

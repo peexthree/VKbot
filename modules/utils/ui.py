@@ -7,6 +7,17 @@ import random
 import asyncio
 from cache import redis_client
 
+def vk_error_code(e: Exception) -> int | None:
+    """Достает числовой код ошибки VK API (vkbottle дает .code у VKAPIError).
+
+    Раньше flood-control определялся подстрокой '9' в str(e) - совпадало
+    с любым кодом, содержащим девятку (911 Invalid keyboard, 901, 19...).
+    """
+    code = getattr(e, "code", None)
+    if isinstance(code, int):
+        return code
+    return None
+
 def extract_msg_id(resp) -> int | None:
     """Извлекает целочисленный ID сообщения из различных форматов ответа VK API"""
     if resp is None:
@@ -52,7 +63,7 @@ async def delete_bot_message(bot_api, peer_id: int, cmid: int = None, mid: int =
             await bot_api.messages.delete(peer_id=peer_id, message_ids=[mid], delete_for_all=True)
     except Exception as e:
         # Игнорируем ошибки, если сообщение уже удалено или не найдено
-        if "15" in str(e) or "3" in str(e) or "Access denied" in str(e):
+        if vk_error_code(e) in (15, 3) or "Access denied" in str(e):
             return
         logger.debug(f"Failed to delete message: {e}")
 
@@ -112,7 +123,7 @@ async def ghost_edit(
                 return conversation_message_id
             except Exception as e:
                 # Flood control (error 9)
-                if "9" in str(e) or "Flood control" in str(e):
+                if vk_error_code(e) == 9 or "Flood control" in str(e):
                     logger.warning(f"Flood control (CMID={conversation_message_id}), waiting 1.5s...")
                     await asyncio.sleep(1.5)
                     # Повторная попытка после паузы
@@ -127,7 +138,7 @@ async def ghost_edit(
                     return conversation_message_id
 
                 # Если ошибка 15 (Access Denied) при использовании CMID, пробуем как message_id
-                if "15" in str(e) or "Access denied" in str(e):
+                if vk_error_code(e) == 15 or "Access denied" in str(e):
                     await bot_api.messages.edit(
                         peer_id=peer_id,
                         message=message,
@@ -150,7 +161,7 @@ async def ghost_edit(
                 )
                 return message_id
             except Exception as e:
-                if "9" in str(e) or "Flood control" in str(e):
+                if vk_error_code(e) == 9 or "Flood control" in str(e):
                     logger.warning(f"Flood control (MID={message_id}), waiting 1.5s...")
                     await asyncio.sleep(1.5)
                     # Повторная попытка
@@ -285,7 +296,7 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
 
                             await set_last_bot_msg(peer_id, clean_mid)
                         except Exception as edit_err:
-                            if "9" in str(edit_err) or "Flood control" in str(edit_err):
+                            if vk_error_code(edit_err) == 9 or "Flood control" in str(edit_err):
                                 logger.warning(f"Flood control in _typing_loop for {peer_id}, waiting 2s...")
                                 await asyncio.sleep(2.0)
                             # Если не удалось отредактировать (например, сообщение удалено), шлем новое

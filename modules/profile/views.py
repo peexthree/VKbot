@@ -1,13 +1,15 @@
 import re
 import random
 import json
+import asyncio
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
 from modules.bot_init import bot
 from database import get_user, update_user, set_user_state
-from cache import acquire_lock, release_lock
+from cache import acquire_lock, release_lock, god_mode_is_allowed
 from modules.utils import (
+    ADMIN_ID,
     HIDDEN_CIPHER_WORDS,
     upload_local_photo,
     get_sections_keyboard,
@@ -210,8 +212,17 @@ async def god_mode_logic(vk_id: int, message: Message, skip_lock: bool = False):
         if not user:
             await message.answer("Сначала напиши 'Начать'")
             return
+        # Пасхалка «лайн голос»: безлимит только для близких из списка магистра
+        if vk_id != ADMIN_ID and not await god_mode_is_allowed(vk_id):
+            await message.answer(
+                "🐾 Лайн вздохнул во сне и уткнулся носом в лапы.\n\nГолос пса слышат немногие."
+            )
+            return
         new_balance = int(user.get("balance", 0) or 0) + 100000
         await update_user(vk_id, {"balance": new_balance})
+        from database import add_event
+
+        asyncio.create_task(add_event(vk_id, "god_mode_activated"))
         kb_json = await get_sections_keyboard(vk_id, user)
         await bot.api.messages.send(
             peer_id=message.peer_id,
@@ -763,7 +774,7 @@ async def show_guide_energy_logic(vk_id: int, peer_id: int, conversation_message
             "💎 ЦЕННОСТЬ:\n"
             "Курс фиксирован: 10 ✨ = 1 рубль.\n\n"
             "🔋 СПОСОБЫ ПОЛУЧЕНИЯ:\n"
-            "• ПРИВЕТСТВЕННЫЙ ДАР: 700 ✨ ты получаешь сразу после синхронизации данных.\n"
+            "• ПРИВЕТСТВЕННЫЙ ДАР: 50 ✨ ты получаешь сразу после синхронизации данных.\n"
             "• ЕЖЕДНЕВНЫЙ ЦИКЛ: Заходи в систему каждые 24 часа. Стрик посещений увеличивает твой бонус до 500 ✨ в день.\n"
             "• СИНДИКАТ: Приглашай друзей. Каждый новый адепт приносит тебе 500 ✨, а ему дает мощный старт.\n"
             "• ПРЯМАЯ ПОДПИТКА: Ты всегда можешь пополнить баланс через VK Pay."

@@ -1,1 +1,0 @@
-print("Test DB script")

@@ -10,3 +10,4 @@ loguru==0.7.3
 sentry-sdk==2.59.0
 aiofiles==22.1.0
 watchfiles==0.18.1
+apscheduler==3.11.2

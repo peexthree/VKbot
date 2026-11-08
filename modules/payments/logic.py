@@ -707,6 +707,57 @@ async def execute_generation(
         if not user:
             return
 
+        # Анти-replay (аудит 2026-11): старые кнопки из истории чата
+        # ("СДВИНУТЬ КОЛОДУ", "Повторить") больше не могут перезапустить
+        # платный натальный разбор после того, как он уже состоялся.
+        # Права проверяем так же, как use_section: флаг покупки, пакет "all",
+        # has_full_chart или активная подписка.
+        NATAL_SECTIONS = {"sex", "money", "shadow", "final", "synastry"}
+        if target_section in NATAL_SECTIONS:
+            _p = user.get("purchased_sections", {}) or {}
+            from modules.utils.logic import is_vip_unlimited
+
+            has_generation_right = (
+                _p.get(target_section)
+                or _p.get("all")
+                or user.get("has_full_chart")
+                or is_vip_unlimited(user)
+            )
+            if not has_generation_right:
+                logger.warning(f"Anti-replay: {vk_id} попытался перезапустить {target_section} без прав")
+                await stop_dynamic_typing(peer_id)
+                await ghost_edit(
+                    bot.api,
+                    peer_id,
+                    "🔒 Врата этого ритуала закрыты. Открой его заново через Каталог услуг.",
+                    conversation_message_id=conversation_message_id,
+                )
+                return
+
+        # Анти-replay Карты Дня: кулдаун проверяем и здесь, а не только на входе
+        # в фичу (старые кнопки "СДВИНУТЬ КОЛОДУ" не должны давать +100 ✨ повторно)
+        if target_section == "card_of_day":
+            _p = user.get("purchased_sections", {}) or {}
+            _last_used = _p.get("card_of_day_last_used")
+            if _last_used:
+                try:
+                    _last_time = datetime.datetime.fromisoformat(
+                        _last_used.replace("Z", "+00:00")
+                    )
+                    if (
+                        datetime.datetime.now(datetime.timezone.utc) - _last_time
+                    ).total_seconds() < 24 * 3600:
+                        await stop_dynamic_typing(peer_id)
+                        await ghost_edit(
+                            bot.api,
+                            peer_id,
+                            "Ты уже получил напутствие на сегодня. Возвращайся завтра или спроси совета у Оракула ✨",
+                            conversation_message_id=conversation_message_id,
+                        )
+                        return
+                except (ValueError, TypeError):
+                    pass
+
         # Мгновенная реакция: заглушка перед стартом тяжелых процессов
         wait_msg = "🔮 Оракул настраивает связь с инфополем, подожди немного..."
         if conversation_message_id:
@@ -726,6 +777,11 @@ async def execute_generation(
         typing_task = await start_dynamic_typing(
             bot.api, peer_id, conversation_message_id=conversation_message_id
         )
+
+        # Инициализация ДО try: переменные объявлены здесь, чтобы finally
+        # не кидал UnboundLocalError при пустом ответе ИИ (двойной рефанд, QA-аудит)
+        sigil_img_path = None
+        eye_img_path = None
 
         try:
             p = user.get("purchased_sections", {})
@@ -931,7 +987,16 @@ async def execute_generation(
             else:
                 res_text = res_data
 
-            if res_text == "ERROR_RPM_LIMIT":
+            # 18+ пост-фильтр готового текста (аудит 2026-11): json_mode
+            # обходил промптовый STOP_WORDS-фильтр
+            from ai_service import filter_forbidden_content
+
+            res_text = filter_forbidden_content(res_text)
+
+            # ERROR_AI_UNAVAILABLE - маркер полного фейла генерации из generate_section
+            # (раньше текст "Ошибка генерации." сохранялся как успешный разбор,
+            #  а покупка сбрасывалась без рефанда - см. аудит 2026-11)
+            if res_text == "ERROR_RPM_LIMIT" or "ERROR_AI_UNAVAILABLE" in res_text:
                 msg = "Оракул перегружен космической энергией. Попробуй запустить ритуал через 30 секунд ✨"
                 await stop_dynamic_typing(peer_id)
                 from modules.keyboards import vertical_kb
@@ -1108,9 +1173,11 @@ async def execute_generation(
                         purchased[target_section] = False
                     save_data["purchased_sections"] = purchased
 
-                # Награда за Карту Дня
+                # Награда за Карту Дня (атомарно, без read-modify-write)
                 if target_section == "card_of_day":
-                    save_data["balance"] = user.get("balance", 0) + 100
+                    from database.users import add_energy
+
+                    await add_energy(vk_id, 100)
                     save_data["visit_streak"] = user.get("visit_streak", 0) + 1
                     purchased["card_of_day_last_used"] = datetime.datetime.now(
                         datetime.timezone.utc
@@ -1147,7 +1214,14 @@ async def execute_generation(
                 async def extract_and_save_tags(v_id: int, text: str):
                     new_tags = await extract_tags(text)
                     if new_tags:
-                        await update_user(v_id, {"tags": new_tags})
+                        # Теги накапливаются (последние 10), а не перезаписываются:
+                        # 1 разбор по снам не должен стирать 10 финансовых (аудит 2026-11)
+                        _u = await get_user(v_id)
+                        old_tags = (_u or {}).get("tags") or []
+                        if not isinstance(old_tags, list):
+                            old_tags = []
+                        merged_tags = list(dict.fromkeys(old_tags + new_tags))[-10:]
+                        await update_user(v_id, {"tags": merged_tags})
                         if "выход-из-кризиса" in new_tags and "свобода" in new_tags:
                             from modules.skins import unlock_skin
 
@@ -1665,6 +1739,8 @@ async def handle_generation_failure(
         "antitaro": 500,
         "micro_insight": 100,
         "oracle_upsell": 250,
+        "destiny_card": 1500,
+        "destiny_card_update": 1000,
         "tariff_1": 990,
         "tariff_2": 2900,
         "tariff_vip": 5900,
@@ -1680,11 +1756,30 @@ async def handle_generation_failure(
         "charoslov": 600,
     }
     price_of_service = prices.get(target_section, 0)
+    # VIP-адепты платят тарифом, а не за каждый разбор: рефанд по прайсу
+    # для них был фармом энергии через провокацию сбоев (аудит 2026-11)
+    refund_done = False
     if price_of_service > 0:
-        from database.users import add_energy
-        await add_energy(vk_id, price_of_service)
+        user_for_refund = await get_user(vk_id)
+        from modules.utils.logic import is_vip_unlimited
 
-    msg = "🛑 ПОТОКИ КОСМОСА ПЕРЕГРУЖЕНЫ\n\nЗвезды скрылись за облаками матрицы. Повтори попытку через минуту, твоя Энергия сохранена и возвращена на баланс."
+        if not (user_for_refund and is_vip_unlimited(user_for_refund)):
+            # Рефанд один раз на часовое окно: повторные клики "Повторить"
+            # при повторных сбоях не должны возвращать энергию снова (QA-аудит)
+            from cache import redis_client
+
+            refund_flag = await redis_client.set(
+                f"gen_refund:{vk_id}:{target_section}", "1", ex=3600, nx=True
+            )
+            if refund_flag:
+                from database.users import add_energy
+                await add_energy(vk_id, price_of_service)
+                refund_done = True
+
+    if refund_done:
+        msg = "🛑 ПОТОКИ КОСМОСА ПЕРЕГРУЖЕНЫ\n\nЗвезды скрылись за облаками матрицы. Энергия возвращена на баланс. Повтори попытку через минуту."
+    else:
+        msg = "🛑 ПОТОКИ КОСМОСА ПЕРЕГРУЖЕНЫ\n\nЗвезды скрылись за облаками матрицы. Повтори попытку через минуту - твоя покупка сохранена."
 
     await stop_dynamic_typing(peer_id)
 

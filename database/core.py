@@ -8,7 +8,12 @@ session: Optional[aiohttp.ClientSession] = None
 async def init_db():
     global session
     if session is None:
-        session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=100))
+        session = aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(limit=100),
+            # Таймаут по умолчанию у aiohttp ~5 минут: зависший вызов Supabase
+            # блокирует обработчик, пока истекает Redis-лок (см. audit 2026-11)
+            timeout=aiohttp.ClientTimeout(total=30),
+        )
 
 async def close_db():
     global session
@@ -37,12 +42,29 @@ async def get_user(vk_id: int):
     return None
 
 async def get_all_users():
+    """Все пользователи с пагинацией: без Range-заголовка PostgREST молча
+    обрезает ответ до 1000 строк (см. audit 2026-11)"""
     if not URL or not KEY or session is None: return []
+    users = []
+    page_size = 1000
+    offset = 0
     try:
-        async with session.get(f"{URL}/rest/v1/{TABLE_NAME}", headers=HEADERS) as r:
-            if r.status == 200: return await r.json()
+        while True:
+            headers = HEADERS.copy()
+            headers["Range"] = f"{offset}-{offset + page_size - 1}"
+            async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?select=*", headers=headers) as r:
+                if r.status not in (200, 206):
+                    logger.error(f"Supabase error in get_all_users: {r.status}")
+                    break
+                data = await r.json()
+                if not data:
+                    break
+                users.extend(data)
+                if len(data) < page_size:
+                    break
+                offset += page_size
     except Exception as e: logger.error(f"Ошибка в get_all_users: {e}")
-    return []
+    return users
 
 async def get_user_by_cipher(cipher: str):
     """Поиск пользователя по теневому шифру"""

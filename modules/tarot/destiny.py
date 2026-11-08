@@ -103,10 +103,15 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
     if not is_update:
         purchased["destiny_card_purchased"] = True
 
-    await update_user(vk_id, {
-        "balance": balance - cost,
-        "purchased_sections": purchased
-    })
+    # Атомарное списание вместо read-modify-write (аудит 2026-11):
+    # refund старым снимком баланса затирал параллельные пополнения
+    from database import spend_user_balance
+
+    new_balance = await spend_user_balance(vk_id, cost)
+    if new_balance is None:
+        await bot.api.messages.send(peer_id=peer_id, message=f"❌ Недостаточно энергии для {'обновления' if is_update else 'активации'} Карты Судьбы.", random_id=random.getrandbits(63))
+        return
+    await update_user(vk_id, {"purchased_sections": purchased})
 
     await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
@@ -115,10 +120,13 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         birth_data = await get_temp_birth_data(vk_id)
         if not birth_data:
             await stop_dynamic_typing(peer_id)
-            # Return energy
+            # Return energy (атомарно)
             if not is_update:
                 purchased.pop("destiny_card_purchased", None)
-            await update_user(vk_id, {"balance": balance, "purchased_sections": purchased})
+            from database.users import add_energy
+
+            await add_energy(vk_id, cost)
+            await update_user(vk_id, {"purchased_sections": purchased})
 
             # Пытаемся спарсить из ВК
             try:
@@ -170,8 +178,10 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
             db_idx = int(user.get("destiny_card_data").get("card_id", 0))
         else:
             card_index = calculate_destiny_card(birth_date)
-            # Арканы 1-22 в нашем tarot_db.json соответствуют индексам 1-22 (Шут там 0, но по нашей логике он может быть 22)
-            db_idx = card_index if card_index < 22 else 0
+            # FIX (аудит 2026-11): 22-й аркан = МИР (завершение большого цикла,
+            # идеально для Master Number 22). Раньше всё >= 22 молча схлопывалось
+            # в Шута (0), и карта 21/22 была недостижима
+            db_idx = card_index if card_index < 22 else 21
 
         from cards_data import get_card_data
         card_data = get_card_data(str(db_idx))
@@ -194,13 +204,23 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
 
         res_text = res_data.get("text", "") if isinstance(res_data, dict) else res_data
 
-        if not res_text:
+        # 18+ пост-фильтр готового текста (аудит 2026-11)
+        from ai_service import filter_forbidden_content
+
+        res_text = filter_forbidden_content(res_text)
+
+        # ERROR_RPM_LIMIT / ERROR_AI_UNAVAILABLE - маркеры сбоя генерации:
+        # раньше сохранялись как купленный текст разбора (аудит 2026-11)
+        if not res_text or res_text in ("ERROR_RPM_LIMIT", "ERROR_AI_UNAVAILABLE"):
             await stop_dynamic_typing(peer_id)
             purchased = user.get("purchased_sections", {})
             if not is_update:
                 purchased.pop("destiny_card_purchased", None)
-            await update_user(vk_id, {"balance": balance, "purchased_sections": purchased})
-            await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам (пустой ответ). Энергия возвращена.", random_id=random.getrandbits(63))
+            from database.users import add_energy
+
+            await add_energy(vk_id, cost)
+            await update_user(vk_id, {"purchased_sections": purchased})
+            await bot.api.messages.send(peer_id=peer_id, message="🛑 Оракул перегружен. Энергия возвращена на баланс, попробуй через минуту.", random_id=random.getrandbits(63))
             return
 
         # Сохраняем последний разбор в Redis на 24 часа
@@ -217,12 +237,16 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         })
 
         # Сохраняем данные карты в Redis
-        await set_destiny_card_data(vk_id, {
+        destiny_payload = {
             "card_id": str(db_idx),
             "text": res_text,
             "date": datetime.datetime.now().strftime("%d.%m.%Y"),
             "interesting_facts": res_data.get("interesting_facts", "") if isinstance(res_data, dict) else ""
-        })
+        }
+        await set_destiny_card_data(vk_id, destiny_payload)
+        # И в БД навсегда: карта продается как "доступна в профиле навсегда",
+        # а жила только 24 часа в Redis (QA-аудит 2026-11)
+        await update_user(vk_id, {"destiny_card_data": destiny_payload})
 
         # Получаем обновленную историю из Redis и сохраняем её в БД
         history = await get_readings_history(vk_id)
@@ -257,9 +281,12 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
     except Exception as e:
         logger.error(f"Error generating destiny card: {e}")
         await stop_dynamic_typing(peer_id)
-        # Возвращаем энергию в случае ошибки
+        # Возвращаем энергию в случае ошибки (атомарно)
         purchased = user.get("purchased_sections", {})
         if not is_update:
             purchased.pop("destiny_card_purchased", None)
-        await update_user(vk_id, {"balance": balance, "purchased_sections": purchased})
+        from database.users import add_energy
+
+        await add_energy(vk_id, cost)
+        await update_user(vk_id, {"purchased_sections": purchased})
         await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам. Энергия возвращена.", random_id=random.getrandbits(63))

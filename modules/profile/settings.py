@@ -299,7 +299,13 @@ async def process_skin_action_logic(
 
                 # Проверка на Клеопатру
                 if len(used_skins) >= 3:
-                    if user.get("birth_date") and user.get("birth_time") and user.get("birth_city"):
+                    # FIX (QA-аудит 2026-11): поля birth_* не существуют в таблице -
+                    # данные рождения живут в Redis. Условие было мертвым, квест
+                    # не засчитывался через смену скина
+                    from cache import get_temp_birth_data
+
+                    birth = await get_temp_birth_data(vk_id)
+                    if birth and birth.get("date") and birth.get("city"):
                         from modules.skins import unlock_skin
                         await unlock_skin(bot.api, vk_id, "cleopatra")
 
@@ -325,14 +331,19 @@ async def process_skin_action_logic(
 
             price = 1500
             if balance >= price:
-                new_balance = balance - price
+                # Атомарное списание (QA-аудит 2026-11): read-modify-write затирал
+                # параллельное пополнение через вебхук ЮKassa
+                from database import spend_user_balance
+
+                new_balance = await spend_user_balance(vk_id, price)
+                if new_balance is None:
+                    new_balance = balance  # гонка: энергия ушла между проверкой и списанием
                 purchased_skins.append(target_skin)
 
                 purchased = user.get("purchased_sections", {})
                 used_skins = purchased.get("used_skins", [])
                 counted_skins = purchased.get("counted_skins", [])
                 updates = {
-                    "balance": new_balance,
                     "purchased_skins": purchased_skins,
                     "active_skin": target_skin
                 }

@@ -1,6 +1,7 @@
 import json
 import random
 import os
+import asyncio
 import datetime
 from datetime import timezone, timedelta
 from loguru import logger
@@ -115,16 +116,115 @@ async def save_rubrics_pool(pool: list):
         logger.error(f"Ошибка сохранения пула рубрик в Redis: {e}")
 
 async def pull_next_rubric() -> str:
-    """Берет случайную рубрику из оставшихся в пуле и удаляет ее."""
+    """Берет рубрику из пула с весом по кликабельности (CTR).
+
+    Данные post_clicks собирались, но не использовались (аудит 2026-11):
+    теперь сильные рубрики (топ по средним кликам за 45 дней) получают x3
+    к вероятности, слабые - x1. Нет статистики - обычный случайный выбор.
+    """
     pool = await get_remaining_rubrics_pool()
     if not pool:
         pool = await reset_rubrics_pool()
 
-    rubric = random.choice(pool)
+    rubric = None
+    try:
+        from database.autoposter import get_rubric_ctr_stats
+
+        stats = await get_rubric_ctr_stats(days=45)
+        if stats and len(stats) >= 6:
+            avg_all = sum(stats.values()) / len(stats)
+            weights = []
+            for r in pool:
+                rub_avg = stats.get(r)
+                if rub_avg is None:
+                    weights.append(1.0)  # нет данных - базовый вес
+                elif rub_avg >= avg_all * 1.3:
+                    weights.append(3.0)  # сильная рубрика
+                elif rub_avg >= avg_all * 0.7:
+                    weights.append(2.0)  # нормальная
+                else:
+                    weights.append(1.0)  # слабая
+            rubric = random.choices(pool, weights=weights, k=1)[0]
+            logger.info(f"🔮 CTR-взвешенный выбор: {rubric} (средние клики по рубрикам: "
+                        + ", ".join(f"{k}={v:.1f}" for k, v in sorted(stats.items(), key=lambda x: -x[1])[:5]) + ")")
+    except Exception as e:
+        logger.error(f"Ошибка CTR-взвешивания, обычный выбор: {e}")
+
+    if not rubric:
+        rubric = random.choice(pool)
     pool.remove(rubric)
     await save_rubrics_pool(pool)
     logger.info(f"🔮 Из пула выбрана рубрика: {rubric}. Осталось в пуле: {len(pool)} рубрик.")
     return rubric
+
+
+# Серийники (аудит 2026-11): по понедельникам выходит очередная часть арки
+SERIES_ARCS = [
+    {
+        "theme": "Неделя Тени",
+        "parts": [
+            "Знакомство с Тенью: что твоя тень скрывает от тебя самого",
+            "Как Тень саботирует твои деньги и отношения",
+            "Три знака, что Тень управляет тобой прямо сейчас",
+            "Ритуал встречи с Тенью: безопасный первый шаг",
+            "Интеграция: когда Тень становится союзником",
+        ],
+    },
+    {
+        "theme": "Аркан за арканом: путь героя",
+        "parts": [
+            "Шут: почему старт без гарантий - единственно верный",
+            "Маг и Жрица: воля против интуиции",
+            "Влюбленные и Колесница: выбор, который все меняет",
+            "Отшельник и Колесо Фортуны: одиночество как точка роста",
+            "Мир: как душа проходит полный цикл",
+        ],
+    },
+    {
+        "theme": "Деньги и звёзды",
+        "parts": [
+            "Почему энергия утекает до зарплаты: три кармических дыры",
+            "2-й дом: твой личный код изобилия",
+            "Табу на бедность: фразы, которые блокируют поток",
+            "Ритуал притока: настройка канала изобилия",
+            "Протокол удержания: как не слить внезапно пришедшее",
+        ],
+    },
+]
+
+
+def _redis_int(raw) -> int:
+    if raw is None:
+        return 0
+    if isinstance(raw, bytes):
+        raw = raw.decode()
+    try:
+        return int(raw)
+    except (ValueError, TypeError):
+        return 0
+
+
+async def take_series_slot():
+    """Понедельник = день сериала. Возвращает (arc, part_idx, part_text) или None."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if now.weekday() != 0:  # Monday
+        return None
+    try:
+        got_slot = await redis.set("series:slot_taken", "1", ex=172800, nx=True)
+        if not got_slot:
+            return None  # на этой неделе сериал уже вышел
+        arc_idx = _redis_int(await redis.get("series:arc")) % len(SERIES_ARCS)
+        part_idx = _redis_int(await redis.get("series:part")) % 5
+        await redis.set("series:part", part_idx + 1)
+        if part_idx >= 4:
+            # арка пройдена - переходим к следующей
+            await redis.set("series:arc", (arc_idx + 1) % len(SERIES_ARCS))
+            await redis.set("series:part", 0)
+        arc = SERIES_ARCS[arc_idx]
+        return arc, part_idx, arc["parts"][part_idx]
+    except Exception as e:
+        logger.error(f"Ошибка слота сериала: {e}")
+        return None
 
 async def draw_fallback_rubric(failed_rubric: str) -> str:
     """
@@ -187,6 +287,15 @@ async def handle_diagnosis_comment(event: dict):
 
     # Проверка, что дата является основой сообщения (не слишком длинный текст и дата присутствует)
     if birth_date and len(text.strip()) < 50:
+        # Анти-фрод (аудит 2026-11): спамер с датами в комментариях монополизировал
+        # глобальные 15 RPM и блокировал платных юзеров. Лимит: 1 разбор/час/юзер
+        try:
+            if not await redis.set(f"comment_ai:{from_id}", "1", ex=3600, nx=True):
+                logger.info(f"Comment AI limit for {from_id} - skip (1/час)")
+                return
+        except Exception:
+            pass
+
         s_text = sanitize_user_input(text)
         logger.info(f"Получен запрос на вскрытие от {from_id} под постом {post_id}: {birth_date}")
 
@@ -267,6 +376,29 @@ async def handle_diagnosis_comment(event: dict):
 def load_content():
     with open(CONTENT_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+AI_CLICHES = [
+    "в современном мире", "в заключение", "не секрет, что",
+    "стоит отметить", "в наши дни", "в наше время",
+    "давайте разберемся", "день за днем",
+]
+
+
+def _passes_quality_gate(text: str) -> bool:
+    """Гейт качества поста (аудит 2026-11): раньше проверялась только длина."""
+    if not text or len(text.strip()) < 600:
+        return False
+    low = text.lower()
+    if any(c in low for c in AI_CLICHES):
+        return False
+    if text.count("\n") < 3:  # нет абзацной структуры
+        return False
+    # Переспам эмодзи (маркеры персонажей в Битве - исключение по объему)
+    emoji_count = sum(1 for ch in text if ord(ch) > 0x2190)
+    if emoji_count > 14:
+        return False
+    return True
 
 async def generate_post(is_morning: bool = True, forced_rubric: str = None, forced_skin: str = None):
     content = load_content()
@@ -405,6 +537,23 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
             f"СТРОЖАЙШЕ ЗАПРЕЩЕНО сводить проблему к банальной лени, ленивости или прокрастинации. "
             f"Покажи глубокое понимание этого деструктивного вектора и дай его детальный разбор в ToV нашего проекта."
         )
+
+    # СЕРИЙНИКИ (аудит 2026-11): по понедельникам - очередная часть арки.
+    # Перекрывает тему и векторы: тон увлеченного рассказчика, без нападок.
+    series_info = await take_series_slot()
+    if series_info and not forced_rubric:
+        _arc, _part_idx, _part_text = series_info
+        category = "Сериал"
+        topic = f"{_arc['theme']}. {_part_text}"
+        tone = random.choice(["Психологическое сочувствие", "Глубокий экспертный инсайт"])
+        is_targeted = True
+        vector_instruction = (
+            "КРИТИЧЕСКОЕ ТРЕБОВАНИЕ: этот пост - часть обучающего сериала. "
+            "Тон - увлеченного рассказчика, раскрывающего тему глубоко и воодушевляюще, без нападок на читателя. "
+            f"Это часть {_part_idx + 1} из 5 цикла «{_arc['theme']}». "
+            + ("" if _part_idx >= 4 else "В САМОМ КОНЦЕ добавь одну строку-тизер: «Продолжение - в понедельник.» ")
+        )
+        logger.info(f"📚 Серийник: часть {_part_idx + 1}/5 - {topic}")
 
     # ГЕНЕРАЦИЯ СКРЫТОГО ШИФРА (20% шанс)
     has_promo = random.random() < 0.2
@@ -564,6 +713,9 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
         "}"
     )
 
+    # Сезонный контекст (аудит 2026-11): врата года вплетаются в любой пост
+    from modules.utils.seasonal import seasonal_post_line
+
     if rubric in ["NEWS_BREAKDOWN", "STAR_SYNASTRY", "TREND_WATCH"]:
         prompt = (
             f"{prompt_base}\n\n"
@@ -572,6 +724,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
             "- Стиль: Эмоциональный, живой, хайповый, высокий уровень энергии. Обращайся к широкой аудитории (м/ж).\n"
             "- СТРОГО БЕЗ ПРИВЕТСТВИЙ. Пиши сразу к сути.\n"
             "- КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО добавлять хэштеги, знаки #, призывы к действию (CTA) или ссылки."
+            + seasonal_post_line()
         )
     else:
         topic_case_instruction = (
@@ -587,6 +740,7 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
             "- СТРОГО БЕЗ ПРИВЕТСТВИЙ. Пиши сразу к сути.\n"
             "- Используй ЭМОДЗИ СТРОГО как маркеры персонажей в начале реплик (для Битвы) или как редкие акценты.\n"
             "- КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО добавлять хэштеги, знаки #, призывы к действию (CTA) или ссылки."
+            + seasonal_post_line()
         )
 
     raw_response = await generate_text(prompt, skin=skin_id, json_mode=True, is_background=True)
@@ -600,10 +754,42 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
         quote = data.get("quote", "")
         first_comment = data.get("first_comment", "")
     except Exception as e:
-        logger.error(f"Ошибка парсинга JSON поста: {e}")
-        ai_text = raw_response
-        quote = ""
-        first_comment = ""
+        # FIX (аудит 2026-11): раньше сырой ответ ИИ (мусор/обрывок JSON)
+        # уходил прямо на стену сообщества. Теперь пост отменяется.
+        logger.error(f"Ошибка парсинга JSON поста - пост отменен: {e}")
+        return None
+
+    # Гейт качества (аудит 2026-11): клише, структура, эмодзи-спам.
+    # Не прошел - одна перегенерация с ужесточенным промптом, иначе отмена.
+    if not _passes_quality_gate(ai_text):
+        logger.warning(f"Гейт качества не пройден (len={len(ai_text or '')}) - перегенерация")
+        retry_prompt = (
+            prompt
+            + "\n\nВНИМАНИЕ: первая версия отклонена редактором. ЖЕСТКИЕ ПРАВИЛА: "
+            "запрещены фразы-клише (в современном мире, в заключение, не секрет что, стоит отметить, в наши дни); "
+            "минимум 4 абзаца (3+ переноса строки); эмодзи - не больше 8 на весь пост."
+        )
+        raw_response = await generate_text(retry_prompt, skin=skin_id, json_mode=True, is_background=True)
+        if raw_response and raw_response != "ERROR_RPM_LIMIT":
+            try:
+                data = json.loads(clean_ai_json(raw_response))
+                _retry_text = (data.get("text", "") or "").replace("\\n", "\n")
+                _retry_text = re.sub(r'#\w+', '', _retry_text).replace("#", "")
+                _retry_text = "\n".join([line.strip() for line in _retry_text.split("\n")]).strip()
+                if _passes_quality_gate(_retry_text):
+                    ai_text = _retry_text
+                    quote = data.get("quote", "")
+                    first_comment = data.get("first_comment", "")
+                    logger.info("Перегенерация прошла гейт качества")
+                else:
+                    logger.error("Повторная генерация не прошла гейт - пост отменен")
+                    return None
+            except Exception as e:
+                logger.error(f"Перегенерация: фейл парсинга - пост отменен: {e}")
+                return None
+        else:
+            logger.error("Перегенерация не удалась (пустой ответ/RPM) - пост отменен")
+            return None
 
     if ai_text:
         ai_text = ai_text.replace("\\n", "\n")
@@ -724,7 +910,9 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
                 card_path = os.path.join("cards", card_filename)
                 c_id = post_data.get("card_id", 0)
                 c_name = post_data.get("card_name", "Шут")
-                generate_card_history_image(c_id, c_name, card_path)
+                # to_thread: putpixel-цикл 256x256 + LANCZOS 1080x1080
+                # замораживали event loop всего бота
+                await asyncio.to_thread(generate_card_history_image, c_id, c_name, card_path)
                 att_card = await upload_wall_photo(bot.api, card_filename)
                 if att_card:
                     attachments.append(att_card)
@@ -756,7 +944,7 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
             try:
                 card_filename = f"diag_{random.randint(1000,9999)}.jpg"
                 card_path = os.path.join("cards", card_filename)
-                generate_diagnosis_card(quote, card_path)
+                await asyncio.to_thread(generate_diagnosis_card, quote, card_path)
                 att_diag = await upload_wall_photo(bot.api, card_filename)
                 if att_diag:
                     attachments.append(att_diag)
@@ -790,6 +978,11 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         post_id = res_wall.post_id
         logger.info(f"Пост опубликован на стену: {post_id}")
 
+        # Сторис (аудит 2026-11): дублируем арт поста в истории сообщества
+        # со ссылкой на бота. Best-effort: отсутствие права stories в токене
+        # или сбой загрузки не ломают постинг.
+        await publish_story_best_effort(skin_id)
+
         # Синхронизация с Supabase (community_posts)
         try:
             main_image_url = None
@@ -822,7 +1015,17 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         else:
             comment_text = ai_first_comment
 
-        if post_data.get("has_promo") and post_data.get("energy_reward"):
+        promo_promised = bool(post_data.get("has_promo") and post_data.get("energy_reward"))
+        if promo_promised and hidden_code and hidden_code not in text:
+            # FIX (аудит 2026-11): ИИ не вшил шифр в пост. Обещать код в комментарии
+            # нельзя - пользователи будут искать несуществующий шифр. Убираем
+            # обещание и удаляем осиротевший промокод из БД.
+            logger.warning(f"Скрытый шифр {hidden_code} не попал в текст поста - промо удалено, обещание снято")
+            from database.autoposter import delete_hidden_promo
+            await delete_hidden_promo(hidden_code)
+            promo_promised = False
+
+        if promo_promised:
             reward = post_data["energy_reward"]
             comment_text += f"\n\nP.S. В тексте этого поста спрятан сакральный шифр на {reward} ✨. Нашел? Отправь его мне в личные сообщения."
 
@@ -843,6 +1046,56 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
     except Exception as e:
         logger.exception(f"Ошибка при автопостинге: {e}")
 
+async def publish_story_best_effort(skin_id: str):
+    """Публикует арт персонажа в сторис сообщества со ссылкой на бота.
+
+    Требует право stories у токена сообщества. Любая ошибка глотается -
+    сторис никогда не ломает постинг.
+    """
+    photo_filename = SKIN_VISUALS.get(skin_id)
+    if not photo_filename:
+        return
+    photo_path = os.path.join("cards", photo_filename)
+    if not os.path.exists(photo_path):
+        return
+    try:
+        server = await bot.api.request("stories.getPhotoUploadServer", {
+            "group_id": GROUP_ID,
+            "link": json.dumps({"text": "Открыть бота", "url": f"https://vk.me/club{GROUP_ID}"}),
+        })
+        upload_url = (server or {}).get("upload_url")
+        if not upload_url:
+            logger.warning("stories.getPhotoUploadServer не вернул upload_url - сторис пропущена")
+            return
+
+        import aiofiles as _aiofiles
+
+        async with _aiofiles.open(photo_path, "rb") as f:
+            photo_bytes = await f.read()
+
+        from aiohttp import ClientSession as _CS
+
+        async with _CS() as session:
+            form = aiohttp.FormData()
+            form.add_field("photo", photo_bytes, filename=photo_filename, content_type="image/jpeg")
+            async with session.post(upload_url, data=form) as resp:
+                upload_result = await resp.json()
+
+        upload_results = upload_result.get("response") or upload_result
+        if not upload_results:
+            logger.warning(f"Сторис-загрузка не вернула результат: {upload_result}")
+            return
+
+        await bot.api.request("stories.createStory", {
+            "upload_results": json.dumps([upload_results]) if not isinstance(upload_results, list) else json.dumps(upload_results),
+            "group_id": GROUP_ID,
+            "add_to_news": 1,
+        })
+        logger.info(f"📖 Сторис с артом {photo_filename} опубликована")
+    except Exception as e:
+        logger.warning(f"Сторис не опубликована (не критично): {e}")
+
+
 def setup_autoposter():
     msk_tz = "Europe/Moscow"
     scheduler = AsyncIOScheduler(timezone=msk_tz)
@@ -855,16 +1108,21 @@ def setup_autoposter():
 
     scheduler.add_job(
         post_to_vk,
-        CronTrigger(hour=morning_hour, minute=morning_minute),
+        CronTrigger(hour=morning_hour, minute=morning_minute, jitter=1800),
         kwargs={"is_morning": True},
-        name="morning_autopost"
+        name="morning_autopost",
+        # Рестарт Render в окно публикации больше не пропускает пост молча
+        misfire_grace_time=3600,
+        coalesce=True,
     )
 
     scheduler.add_job(
         post_to_vk,
-        CronTrigger(hour=evening_hour, minute=evening_minute),
+        CronTrigger(hour=evening_hour, minute=evening_minute, jitter=1800),
         kwargs={"is_morning": False},
-        name="evening_autopost"
+        name="evening_autopost",
+        misfire_grace_time=3600,
+        coalesce=True,
     )
 
     scheduler.start()

@@ -37,6 +37,29 @@ STOP_WORDS_18PLUS = [
 ]
 
 
+def filter_forbidden_content(text: str) -> str:
+    """Пост-фильтр готового текста разбора.
+
+    STOP_WORDS_18PLUS проверяют промпт только в не-json режиме, а все
+    премиум-разборы идут через json_mode - фильтр там отключен (аудит
+    2026-11), и готовый текст уходил юзеру непроверенным. Строки с
+    запрещенными словами вырезаются целиком.
+    """
+    if not text:
+        return text
+    lower = text.lower()
+    if not any(word in lower for word in STOP_WORDS_18PLUS):
+        return text
+    clean_lines = [
+        line for line in text.split("\n")
+        if not any(word in line.lower() for word in STOP_WORDS_18PLUS)
+    ]
+    result = "\n".join(clean_lines).strip()
+    if not result:
+        return "Матрица предлагает тебе более светлую тему. Переформулируй запрос или вернись к нему позже."
+    return result
+
+
 def sanitize_premium_tov(text: str) -> str:
     if not text:
         return text
@@ -249,12 +272,14 @@ async def generate_text(
                 "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.8},
             }
 
+            # Один слот RPM на запрос (аудит 2026-11): раньше ретраи жгли слоты
+            # повторно - один сбойный прокси выжигал весь глобальный лимит 15 RPM
+            # и все пользователи получали ERROR_RPM_LIMIT
+            if not await acquire_ai_slot(limit=15, wait=is_background):
+                return "ERROR_RPM_LIMIT"
+
             # Ретраи для сетевых ошибок и тайм-аутов (2 попытки + основной запрос)
             for attempt in range(3):
-                # Перед КАЖДОЙ попыткой (включая ретраи) запрашиваем слот в глобальном лимитере
-                if not await acquire_ai_slot(limit=15, wait=is_background):
-                    return "ERROR_RPM_LIMIT"
-
                 try:
                     async with session.post(
                         url,
@@ -289,16 +314,19 @@ async def generate_text(
                                 f"Rate limit hit for {model}. attempt {attempt + 1}/3"
                             )
                             if attempt < 2:
-                                await asyncio.sleep(1)
+                                # Экспоненциальный бэккофф вместо бесполезной 1с
+                                await asyncio.sleep(2 ** attempt)
                                 continue
                             break
                         else:
                             error_text = await resp.text()
                             cf_ray = resp.headers.get("cf-ray", "N/A")
                             server = resp.headers.get("server", "N/A")
+                            # Ключ в query-string маскируем: он уезжал в логи и Sentry
+                            safe_url = url.split("?key=")[0]
                             logger.error(
                                 f"Cloudflare/API Error Status: {resp.status}\n"
-                                f"URL: {url}\n"
+                                f"URL: {safe_url}\n"
                                 f"CF-Ray: {cf_ray}\n"
                                 f"Server: {server}\n"
                                 f"Details: {error_text}"

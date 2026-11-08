@@ -1,0 +1,62 @@
+# Render Blueprint для АНТИ-ТАР (аудит 2026-11: конфиг деплоя версионирован в коде)
+#
+# ВНИМАНИЕ: это blueprint-описание. Применить можно через Render Dashboard ->
+# Blueprint -> New Blueprint Instance, либо просто скопировать buildCommand
+# в свой существующий сервис (Settings -> Build & Deploy).
+#
+# Ключевой момент: apt-get install libpango-1.44-0 libpangoft2-1.44-0 -
+# без Pango WeasyPrint не работает, и платные PDF-отчеты молча падали
+# (дефолтный образ Render Pango не содержит).
+
+services:
+  - type: web
+    name: vkbot
+    runtime: python
+    plan: starter # сверить с фактическим тарифом сервиса в dashboard
+    # poetry install без "poetry lock": lock уже синхронизирован с pyproject,
+    # повторный lock перерешает версии онлайн (медленно + риск неожиданных апгрейдов)
+    buildCommand: apt-get update && apt-get install -y libpango-1.44-0 libpangoft2-1.44-0 && poetry install --no-root --no-cache
+    startCommand: python main.py
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: USE_WEBHOOKS
+        value: "true"
+      - key: PORT
+        value: "10000"
+      # Все секреты (VK_TOKEN, VK_CONFIRMATION_CODE, VK_SECRET_KEY,
+      # VK_MINI_APP_SECRET, ADMIN_ID, GROUP_ID, GEMINI_API_KEYS,
+      # SUPABASE_URL, SUPABASE_SERVICE_KEY, UPSTASH_REDIS_REST_URL,
+      # UPSTASH_REDIS_REST_TOKEN, YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY,
+      # SENTRY_DSN) задаются ТОЛЬКО в Render Environment Variables.
+      # В git их не коммитить!
+      - key: VK_TOKEN
+        sync: false
+      - key: VK_CONFIRMATION_CODE
+        sync: false
+      - key: VK_SECRET_KEY
+        sync: false
+      - key: VK_MINI_APP_SECRET
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: GROUP_ID
+        sync: false
+      - key: GEMINI_API_KEYS
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: YOOKASSA_SHOP_ID
+        sync: false
+      - key: YOOKASSA_SECRET_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

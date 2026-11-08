@@ -23,8 +23,7 @@ YOOKASSA_TRUSTED_IPS = [
 def verify_yookassa_ip(ip_str: str) -> bool:
     """Проверяет, что вебхук пришел именно от серверов ЮKassa"""
     try:
-        # X-Forwarded-For может содержать несколько IP через запятую
-        client_ip = ipaddress.ip_address(ip_str.split(",")[0].strip())
+        client_ip = ipaddress.ip_address(ip_str.strip())
         if client_ip in YOOKASSA_TRUSTED_IPS:
             return True
         for network in YOOKASSA_TRUSTED_NETWORKS:
@@ -35,13 +34,49 @@ def verify_yookassa_ip(ip_str: str) -> bool:
         logger.error(f"IP validation error: {e}")
         return False
 
-async def create_yookassa_payment(amount: int, description: str, user_id: int) -> str | None:
-    """Создаёт платёж в ЮKassa и возвращает URL для перенаправления"""
+async def verify_yookassa_payment(payment_id: str) -> dict | None:
+    """Серверная верификация платежа через API ЮKassa.
+
+    Телу вебхука доверять нельзя: POST с фейковым payment.succeeded
+    раньше начислял энергию без оплаты. Возвращаем:
+    - dict с данными платежа из API, если API подтвердил платеж
+    - None, если платеж не подтвержден или API недоступен
+    """
+    if not SHOP_ID or not SECRET_KEY:
+        logger.error("YOOKASSA_SHOP_ID/YOOKASSA_SECRET_KEY не настроены - верификация невозможна")
+        return None
+    url = f"https://api.yookassa.ru/v3/payments/{payment_id}"
+    try:
+        async with ClientSession() as session:
+            async with session.get(
+                url,
+                auth=BasicAuth(SHOP_ID, SECRET_KEY),
+                timeout=15
+            ) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                text = await resp.text()
+                logger.error(f"Yookassa verification error for {payment_id}: {resp.status} - {text}")
+                return None
+    except Exception as e:
+        logger.exception(f"Exception during Yookassa payment verification: {e}")
+        return None
+
+async def create_yookassa_payment(amount: int, description: str, user_id: int, energy_amount: int = None) -> str | None:
+    """Создаёт платёж в ЮKassa и возвращает URL для перенаправления.
+
+    energy_amount - ожидаемое начисление энергии, сохраняется в metadata,
+    чтобы вебхук начислял ровно то, что обещано кнопкой (а не amount*10).
+    """
     if not SHOP_ID or not SECRET_KEY:
         logger.error("YOOKASSA_SHOP_ID или YOOKASSA_SECRET_KEY не настроены в .env")
         return None
 
     idempotency_key = str(uuid.uuid4())
+    metadata = {"user_id": str(user_id)}
+    if energy_amount:
+        metadata["energy_amount"] = str(int(energy_amount))
+
     payload = {
         "amount": {
             "value": f"{amount}.00",
@@ -53,9 +88,7 @@ async def create_yookassa_payment(amount: int, description: str, user_id: int) -
         },
         "capture": True,
         "description": description[:128],
-        "metadata": {
-            "user_id": str(user_id)
-        }
+        "metadata": metadata
     }
 
     headers = {
@@ -84,10 +117,14 @@ async def create_yookassa_payment(amount: int, description: str, user_id: int) -
             return None
 
 async def yookassa_webhook(request: web.Request):
-    """Webhook приемник платежей ЮKassa с IP-фильтрацией"""
-    forwarded_ip = request.headers.get("X-Forwarded-For") or request.remote
-    if not forwarded_ip or not verify_yookassa_ip(forwarded_ip):
-        logger.warning(f"Unauthorized Yookassa webhook attempt from IP: {forwarded_ip}")
+    """Webhook приемник платежей ЮKassa: IP-фильтр + обязательная серверная верификация"""
+    # За реверс-прокси (Render) реальный IP клиента - ПОСЛЕДНИЙ элемент цепочки
+    # X-Forwarded-For (добавленный доверенным прокси). Первый элемент клиент
+    # может подделать сам.
+    forwarded_ip = request.headers.get("X-Forwarded-For") or request.remote or ""
+    client_ip = forwarded_ip.split(",")[-1].strip()
+    if not verify_yookassa_ip(client_ip):
+        logger.warning(f"Unauthorized Yookassa webhook attempt from IP: {client_ip}")
         return web.Response(status=403, text="Access Denied")
 
     try:
@@ -98,21 +135,40 @@ async def yookassa_webhook(request: web.Request):
 
     event = data.get("event")
     payment_obj = data.get("object", {})
+    payment_id = payment_obj.get("id")
 
-    # Безопасное логирование (без PII)
+    if not payment_id:
+        return web.Response(status=400, text="Missing payment id")
+
+    # КРИТИЧНО (аудит 2026-11): телу вебхука не доверяем. Запрашиваем платеж
+    # через API ЮKassa. Если API недоступен - возвращаем 503, ЮKassa повторит
+    # доставку позже (идемпотентность обеспечена ниже).
+    verified = await verify_yookassa_payment(payment_id)
+    if verified is None:
+        logger.error(f"Cannot verify payment {payment_id} via Yookassa API - returning 503 for retry")
+        return web.Response(status=503, text="Verification unavailable")
+
+    if verified.get("status") != "succeeded":
+        logger.warning(
+            f"Payment {payment_id} is not succeeded per API (status={verified.get('status')}) - ignoring webhook"
+        )
+        return web.Response(status=200, text="OK")
+
+    metadata = verified.get("metadata", {}) or {}
+    amount_value = verified.get("amount", {}).get("value", "0")
+
+    # Безопасное логирование (без PII) - только данные из верифицированного API
     safe_log_data = {
         "event": event,
-        "id": payment_obj.get("id"),
-        "status": payment_obj.get("status"),
-        "amount": payment_obj.get("amount"),
-        "metadata": payment_obj.get("metadata")
+        "id": payment_id,
+        "status": verified.get("status"),
+        "amount": amount_value,
+        "metadata": metadata
     }
-    logger.info(f"Yookassa webhook received: {safe_log_data}")
+    logger.info(f"Yookassa webhook verified: {safe_log_data}")
 
-    if event == "payment.succeeded" and payment_obj.get("status") == "succeeded":
-        metadata = payment_obj.get("metadata", {})
+    if event == "payment.succeeded" and verified.get("status") == "succeeded":
         user_id_str = metadata.get("user_id")
-        payment_id = payment_obj.get("id")
 
         if not user_id_str:
             logger.error(f"Yookassa missing user_id in metadata for payment {payment_id}")
@@ -145,15 +201,42 @@ async def yookassa_webhook(request: web.Request):
             logger.warning(f"Unauthorized payment attempt for non-existent user_id: {user_id}")
             return web.Response(status=200)
 
-        amount_rub = int(float(payment_obj["amount"]["value"]))
-        energy_bonus = amount_rub * 10
+        amount_rub = int(float(amount_value))
+
+        # Энергия: приоритет - metadata платежа (обещанная кнопкой),
+        # fallback - курс 10 энергии за 1 рубль
+        try:
+            energy_bonus = int(metadata.get("energy_amount")) if metadata.get("energy_amount") else amount_rub * 10
+        except (ValueError, TypeError):
+            energy_bonus = amount_rub * 10
+
+        # Hook&Pay: если у пользователя неоплаченный тизер разбора, из начисления
+        # вычитается недостающая стоимость услуги (иначе юзер получал полный
+        # текст разбора И всю начисленную энергию - двойная ценность за одну оплату)
+        from cache import get_pending_teaser, pop_pending_teaser
+        teaser = await get_pending_teaser(user_id)
+        net_energy = energy_bonus
+        if teaser:
+            try:
+                shortfall = int(teaser.get("shortfall", 0))
+                net_energy = max(0, energy_bonus - shortfall)
+            except (ValueError, TypeError):
+                net_energy = energy_bonus
 
         # Атомарное начисление
-        if await add_energy(user_id, energy_bonus):
+        if await add_energy(user_id, net_energy):
             # Помечаем как обработанный в БД
             await mark_payment_as_processed(payment_id)
 
-            logger.info(f"ЮKassa УСПЕХ: Начислено {energy_bonus} энергии пользователю vk_id={user_id}")
+            logger.info(f"ЮKassa УСПЕХ: Начислено {net_energy} энергии пользователю vk_id={user_id} (payment {amount_rub} RUB)")
+
+            # Тизер закрывается только после успешного начисления
+            if teaser:
+                await pop_pending_teaser(user_id)
+                # Снимаем пометку тизера с сохраненного текста, чтобы бесплатный
+                # gen_pdf больше не мог отдать его как платный разбор
+                from database import update_user
+                await update_user(user_id, {"latest_reading_data": {}})
 
             # Начисление 20% комиссии партнеру в реферальной системе Синдикат
             purchased_sec = user.get("purchased_sections", {}) or {}
@@ -187,6 +270,7 @@ async def yookassa_webhook(request: web.Request):
             ev_metadata = {
                 "payment_id": payment_id,
                 "amount": amount_rub,
+                "energy_credited": net_energy,
                 "payment_method": "yookassa"
             }
             await add_event(user_id, "energy_purchased", ev_metadata)
@@ -204,14 +288,13 @@ async def yookassa_webhook(request: web.Request):
 
                 if has_pending_teaser:
                     push_text = (
-                        f"✨ БАЛАНС ПОПОЛНЕН! (+{energy_bonus} ✨) ✨\n\n"
-                        f"🔓 ЗАВЕСА СНЯТА — ВОТ ТВОЙ ПОЛНЫЙ РАЗБОР:\n\n"
+                        f"✨ ЗАВЕСА СНЯТА - ВОТ ТВОЙ ПОЛНЫЙ РАЗБОР:\n\n"
                         f"{latest_reading}"
                     )
                     from database import update_user
                     await update_user(user_id, {"latest_reading_text": None})
                 else:
-                    push_text = f"✨ БАЛАНС ПОПОЛНЕН! ✨\nЗачислено {energy_bonus} Энергии звезд за оплату {amount_rub} RUB.\n{character_name} приветствует тебя!"
+                    push_text = f"✨ БАЛАНС ПОПОЛНЕН! ✨\nЗачислено {net_energy} Энергии звезд за оплату {amount_rub} RUB.\n{character_name} приветствует тебя!"
 
                 # Ручное создание клавиатуры во избежание циклического импорта
                 keyboard = {

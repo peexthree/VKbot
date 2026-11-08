@@ -1,10 +1,25 @@
 -- =====================================================================
 -- VK Esoteric Bot (АНТИ-ТАР) - Complete Database Schema & Sync Script
 -- Run this script in the Supabase SQL Editor.
+-- Обновлено 2026-11-08 по результатам аудита безопасности
+-- (см. также database/security_fixes.sql)
 -- =====================================================================
+
+-- 0. BASE TABLE (на чистой БД "полный" скрипт раньше падал на первом ALTER)
+CREATE TABLE IF NOT EXISTS vk_esoteric_users (
+    vk_id BIGINT PRIMARY KEY,
+    first_name TEXT DEFAULT '',
+    is_registered BOOLEAN DEFAULT FALSE,
+    balance INTEGER DEFAULT 50,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
 -- 1. SYNCHRONIZE TABLE: vk_esoteric_users
 -- (Updates the existing table with any missing columns safely)
+ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS verification_code TEXT;
+ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'none';
+ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS first_name TEXT DEFAULT '';
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS birth_date TEXT DEFAULT '';
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS birth_time TEXT DEFAULT '12:00';
@@ -115,6 +130,14 @@ CREATE TABLE IF NOT EXISTS post_daily_log (
 
 -- Ensure post_daily_log has rubric column if table already existed without it
 ALTER TABLE post_daily_log ADD COLUMN IF NOT EXISTS rubric TEXT NOT NULL DEFAULT 'unknown';
+
+-- Payment idempotency table (защита от повторных вебхуков ЮKassa)
+CREATE TABLE IF NOT EXISTS processed_payments (
+    payment_id TEXT PRIMARY KEY,
+    user_id BIGINT,
+    amount_rub INTEGER,
+    processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
 -- Hidden Sacred Promo Codes Table
 CREATE TABLE IF NOT EXISTS hidden_promos (
@@ -245,6 +268,8 @@ END;
 $$;
 
 -- Function: Execution bridge for arbitrary SQL commands (Admin Panel)
+-- SECURITY (2026-11-08): доступ отозван у PUBLIC/anon/authenticated.
+-- SQL-консоль удалена из админки бота, манипуляции с данными - через Supabase Dashboard.
 CREATE OR REPLACE FUNCTION exec_sql(sql_query text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -267,6 +292,37 @@ EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object('error', SQLERRM, 'detail', SQLSTATE);
 END;
 $$;
+REVOKE ALL ON FUNCTION exec_sql(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION exec_sql(text) FROM anon;
+REVOKE ALL ON FUNCTION exec_sql(text) FROM authenticated;
+
+-- Function: Atomic energy spend with sufficient-funds check (защита от гонок)
+CREATE OR REPLACE FUNCTION spend_user_balance(p_vk_id BIGINT, p_amount INTEGER)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_new_balance INTEGER;
+BEGIN
+    IF p_amount IS NULL OR p_amount <= 0 THEN
+        RETURN jsonb_build_object('status', 'error', 'code', 'BAD_AMOUNT');
+    END IF;
+
+    UPDATE vk_esoteric_users
+    SET balance = COALESCE(balance, 0) - p_amount
+    WHERE vk_id = p_vk_id AND COALESCE(balance, 0) >= p_amount
+    RETURNING balance INTO v_new_balance;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('status', 'error', 'code', 'INSUFFICIENT_FUNDS');
+    END IF;
+
+    RETURN jsonb_build_object('status', 'success', 'new_balance', v_new_balance);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION spend_user_balance(BIGINT, INTEGER) TO anon, authenticated, service_role;
 
 -- =====================================================================
 -- 5. MOBILE CLIENT SECURITY, CLICKER PERSISTENCE & RLS POLICIES
@@ -280,12 +336,16 @@ CREATE TABLE IF NOT EXISTS mobile_user_progress (
     energy_pool INTEGER DEFAULT 100,
     timers JSONB DEFAULT '{}'::jsonb,
     last_sync_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    daily_clicks BIGINT DEFAULT 0,
+    click_day DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_mobile_user_progress_user_id ON mobile_user_progress(user_id);
 
 -- Function: Secure mobile clicker progress sync with anti-cheat checks
+-- SECURITY (2026-11-08): добавлены суточный кап кликов (3000) и минимальный
+-- интервал между синками (2 сек) - цикл вызовов больше не фармит энергию
 CREATE OR REPLACE FUNCTION sync_mobile_progress(
     p_user_id BIGINT,
     p_clicks_delta INTEGER,
@@ -297,24 +357,53 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    v_max_delta CONSTANT INTEGER := 500; -- Anti-cheat: max clicks allowed per single sync
+    v_max_delta CONSTANT INTEGER := 500;      -- Anti-cheat: max clicks allowed per single sync
+    v_daily_cap CONSTANT INTEGER := 3000;     -- Anti-cheat: max clicks per day
+    v_min_interval CONSTANT INTERVAL := '2 seconds';
     v_new_clicks BIGINT;
     v_current_level INTEGER;
     v_bonus_energy INTEGER := 0;
+    v_daily_clicks BIGINT := 0;
+    v_click_day DATE;
+    v_last_sync TIMESTAMP WITH TIME ZONE;
 BEGIN
     -- Validate clicks delta to prevent artificial balance exploitation
     IF p_clicks_delta < 0 OR p_clicks_delta > v_max_delta THEN
         RETURN jsonb_build_object('status', 'error', 'code', 'SUSPICIOUS_DELTA');
     END IF;
 
+    SELECT daily_clicks, click_day, last_sync_at
+    INTO v_daily_clicks, v_click_day, v_last_sync
+    FROM mobile_user_progress
+    WHERE user_id = p_user_id
+    FOR UPDATE;
+
+    IF FOUND THEN
+        IF v_last_sync > NOW() - v_min_interval THEN
+            RETURN jsonb_build_object('status', 'error', 'code', 'TOO_FAST');
+        END IF;
+        IF v_click_day IS DISTINCT FROM CURRENT_DATE THEN
+            v_daily_clicks := 0;  -- новый день: кап сбрасывается
+        END IF;
+        IF v_daily_clicks + p_clicks_delta > v_daily_cap THEN
+            RETURN jsonb_build_object('status', 'error', 'code', 'DAILY_CAP_REACHED');
+        END IF;
+    END IF;
+
     -- Upsert clicker progress
-    INSERT INTO mobile_user_progress (user_id, clicker_count, familiar_level, timers, last_sync_at)
-    VALUES (p_user_id, p_clicks_delta, GREATEST(1, p_familiar_level), p_timers, NOW())
+    INSERT INTO mobile_user_progress (user_id, clicker_count, familiar_level, timers, last_sync_at, daily_clicks, click_day)
+    VALUES (p_user_id, p_clicks_delta, GREATEST(1, p_familiar_level), p_timers, NOW(), p_clicks_delta, CURRENT_DATE)
     ON CONFLICT (user_id) DO UPDATE
     SET clicker_count = mobile_user_progress.clicker_count + EXCLUDED.clicker_count,
         familiar_level = GREATEST(mobile_user_progress.familiar_level, EXCLUDED.familiar_level),
         timers = COALESCE(EXCLUDED.timers, mobile_user_progress.timers),
-        last_sync_at = NOW()
+        last_sync_at = NOW(),
+        daily_clicks = CASE
+            WHEN mobile_user_progress.click_day IS DISTINCT FROM CURRENT_DATE
+            THEN EXCLUDED.clicker_count
+            ELSE mobile_user_progress.daily_clicks + EXCLUDED.clicker_count
+        END,
+        click_day = CURRENT_DATE
     RETURNING clicker_count, familiar_level INTO v_new_clicks, v_current_level;
 
     -- If milestone click reached (e.g. every 1000 clicks awards +10 energy)
@@ -386,5 +475,19 @@ CREATE POLICY "Users can read own profile" ON vk_esoteric_users FOR SELECT USING
 -- Restrict direct balance/purchases mutations: all mutations must go through SECURITY DEFINER RPC functions
 GRANT EXECUTE ON FUNCTION increment_user_balance(BIGINT, INTEGER) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION sync_mobile_progress(BIGINT, INTEGER, INTEGER, JSONB) TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION secure_modify_balance(BIGINT, INTEGER, TEXT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION spend_user_balance(BIGINT, INTEGER) TO anon, authenticated, service_role;
+
+-- SECURITY (2026-11-08): secure_modify_balance - только service_role (не используется ботом)
+REVOKE ALL ON FUNCTION secure_modify_balance(BIGINT, INTEGER, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION secure_modify_balance(BIGINT, INTEGER, TEXT) FROM anon;
+REVOKE ALL ON FUNCTION secure_modify_balance(BIGINT, INTEGER, TEXT) FROM authenticated;
+GRANT EXECUTE ON FUNCTION secure_modify_balance(BIGINT, INTEGER, TEXT) TO service_role;
+
 GRANT EXECUTE ON FUNCTION activate_hidden_promo(BIGINT, TEXT) TO anon, authenticated, service_role;
+
+-- =====================================================================
+-- PHASE B (см. database/security_fixes.sql): ТОЛЬКО после добавления
+-- SUPABASE_SERVICE_KEY в Render - раскомментировать строку ниже,
+-- чтобы закрыть anon-чтение всех профилей (email, ПДн, история):
+-- DROP POLICY IF EXISTS "Users can read own profile" ON vk_esoteric_users;
+-- =====================================================================

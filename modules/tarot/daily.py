@@ -155,10 +155,25 @@ async def card_of_day_logic(
             if last_mid:
                 await delete_bot_message(bot.api, vk_id, mid=last_mid)
 
+        # Персональный штрих (аудит 2026-11): тег пользователя + сезонный контекст
+        from modules.utils.logic import get_safe_tags
+        from modules.utils.seasonal import get_seasonal_context
+
+        _tags = get_safe_tags(user)
+        personal_line = ""
+        if _tags:
+            personal_line = (
+                f"\n\nЗвезды помнят твой запрос в теме «{random.choice(_tags)}» - "
+                "сегодняшняя карта ляжет именно туда."
+            )
+        _gate = get_seasonal_context()
+        if _gate:
+            personal_line += f"\n✦ Сегодня {_gate['name']} - врата {_gate['energy']}."
+
         await ghost_edit(
             bot.api,
             peer_id,
-            message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже.",
+            message="ШАГ 2 ИЗ 3: СИНХРОНИЗАЦИЯ. Жми кнопку ниже." + personal_line,
             conversation_message_id=conv_msg_id,
             message_id=typing_msg_id,
             attachment=att,

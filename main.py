@@ -12,6 +12,7 @@ import base64
 from urllib.parse import parse_qsl
 import sentry_sdk
 from modules.utils.logic import get_safe_tags
+from modules.utils.seasonal import seasonal_prompt_line
 from aiohttp import web
 from loguru import logger
 
@@ -21,8 +22,9 @@ if sentry_dsn:
         dsn=sentry_dsn,
         environment=os.environ.get("SENTRY_ENV", "production"),
         release=os.environ.get("SENTRY_RELEASE", "1.0.0"),
-        traces_sample_rate=1.0,
-        profiles_sample_rate=1.0,
+        # 100% трейсинг/профилирование - лишние деньги и ПДн в Sentry (аудит 2026-11)
+        traces_sample_rate=0.2,
+        profiles_sample_rate=0.2,
     )
 
 # Настройка логирования loguru (отключаем enqueue из-за проблем с пиклингом динамических исключений vkbottle)
@@ -286,6 +288,21 @@ async def handle_vk_webhook(request):
     # Process event safely in a task to prevent crashing the main loop
     async def _safe_process():
         try:
+            # Дедупликация (аудит 2026-11): VK повторяет доставку при таймауте
+            # ответа - без проверки event_id возможна двойная генерация платного
+            # контента
+            event_id = str(data.get("event_id") or "")
+            if event_id:
+                from cache import redis_client
+
+                # ВАЖНО: отдельный ключ (vk_event:), НЕ event_answered: -
+                # тот же ключ с nx=True используют колбэки в callbacks.py,
+                # коллизия глотала все inline-кнопки (QA-аудит 2026-11)
+                if not await redis_client.set(
+                    f"vk_event:{event_id}", "1", nx=True, ex=60
+                ):
+                    logger.debug(f"Duplicate event {event_type} skipped ({event_id})")
+                    return
             await bot.process_event(data)
         except Exception as e:
             logger.error(f"Critical error in bot.process_event ({event_type}): {e}. Data: {json.dumps(data, ensure_ascii=False)}")
@@ -338,12 +355,26 @@ async def main():
     import modules.admin as admin
     bot.labeler.load(admin.labeler)
 
+    # FSM-зеркало: восстанавливаем state_dispenser из Redis, чтобы стейты
+    # (email-ввод, вопросы Оракулу и т.д.) переживали рестарт Render (аудит 2026-11)
+    from database.states import restore_fsm_dispenser
+
+    await restore_fsm_dispenser(bot)
+
     # Фоновая задача для ежедневных прогнозов и реактивации
     async def daily_forecast_cron():
         while True:
             now = datetime.datetime.now(datetime.timezone.utc)
             # Перенос на 13:00 по Москве (10:00 UTC)
             if now.hour == 10 and now.minute == 30:
+                # Защита окна: деплой/долгая итерация больше не пропускает
+                # рассылку молча - ключ в Redis гарантирует один запуск в день
+                from cache import redis_client as _cron_redis
+
+                _cron_key = f"cron:daily_forecast:{now.date().isoformat()}"
+                if not await _cron_redis.set(_cron_key, "1", nx=True, ex=172800):
+                    await asyncio.sleep(30)
+                    continue
                 users = await get_all_users()
 
                 async def process_reactivation(user):
@@ -446,13 +477,13 @@ async def main():
                                         day_word = "день" if days_left == 1 else "дня"
                                         msg = f"🔮 ТВОЙ ПРЕМИУМ-ПЕРИОД ИСТЕКАЕТ 🔮\n\nДо конца действия транзита осталось {days_left} {day_word}. Связь с Оракулом может прерваться в самый неподходящий момент. Продли доступ заранее, чтобы не терять поток энергии."
                                         try:
-                                            kb = Keyboard(inline=True).add(Callback("💎 ПРОДЛИТЬ ДОСТУП", payload={"cmd": "tariff_page", "idx": 1}), color=KeyboardButtonColor.POSITIVE)
+                                            kb = Keyboard(inline=True).add(Callback("💎 ПРОДЛИТЬ ДОСТУП", payload={"cmd": "tariff_page", "idx": 2}), color=KeyboardButtonColor.POSITIVE)
                                             kb.row().add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
                                             await bot.api.messages.send(peer_id=vk_id, message=msg, keyboard=kb.get_json(), random_id=random.getrandbits(63))
                                             purchased[notif_key] = expires_str
                                             await update_user(vk_id, {"purchased_sections": purchased})
                                         except Exception: pass
-                        except ValueError:
+                        except (ValueError, TypeError):
                             pass
                     trial_days = user.get("transit_trial_days", 0)
                     is_muted = purchased.get("whisper_muted", False)
@@ -501,6 +532,8 @@ async def main():
                             f"Опирайся на этот профиль: {core_profile}. "
                             f"Учитывай текущие теги пользователя (его главные боли/запросы): {tags_str}. "
                             f"Сделай к ним тонкую, поддерживающую отсылку. "
+                            + seasonal_prompt_line()
+                            + f" "
                             f"КРИТИЧЕСКОЕ ПРАВИЛО: Строгий запрет на выделение текста маркерами. Никаких звездочек. Никакого жирного шрифта. Используй только короткие тире (-) для создания списков и структуры."
                         )
                         forecast = await generate_text(prompt, skin=active_skin, is_background=True)
@@ -509,8 +542,15 @@ async def main():
                             async def extract_and_save_tags(v_id: int, text: str):
                                 new_tags = await extract_tags(text)
                                 if new_tags:
-                                    from database import update_user
-                                    await update_user(v_id, {"tags": new_tags})
+                                    # Теги накапливаются (последние 10), а не перезаписываются
+                                    from database import get_user, update_user
+
+                                    _u = await get_user(v_id)
+                                    old_tags = (_u or {}).get("tags") or []
+                                    if not isinstance(old_tags, list):
+                                        old_tags = []
+                                    merged_tags = list(dict.fromkeys(old_tags + new_tags))[-10:]
+                                    await update_user(v_id, {"tags": merged_tags})
                             asyncio.create_task(extract_and_save_tags(vk_id, forecast))
                             try:
                                 # Форматирование даты
@@ -536,9 +576,9 @@ async def main():
                             keyboard_obj = {
                                 "inline": True,
                                 "buttons": [
-                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 0}), "label": "Спутник 7 дней"}, "color": "secondary"}],
-                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 1}), "label": "Оракул 30 дней"}, "color": "primary"}],
-                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 2}), "label": "VIP Архив"}, "color": "positive"}]
+                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 0}), "label": "⚡ Старт 99Р"}, "color": "secondary"}],
+                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 1}), "label": "🔮 Натальная Карта"}, "color": "primary"}],
+                                    [{"action": {"type": "callback", "payload": json.dumps({"cmd": "tariff_page", "idx": 2}), "label": "👑 VIP 30 дней"}, "color": "positive"}]
                                 ]
                             }
                             kb_json = json.dumps(keyboard_obj, ensure_ascii=False)
@@ -648,19 +688,40 @@ async def main():
 
     logger.info(f"Сервер запущен на порту {port}. Бот слушает сообщения...")
 
+    # Graceful shutdown (аудит 2026-11): Render шлет SIGTERM - без обработчика
+    # Python завершался немедленно, finally не выполнялся, фоновые задачи не
+    # отменялись, runner.cleanup() не вызывался
+    stop_event = asyncio.Event()
     try:
-        while True:
-            await asyncio.sleep(3600)
+        import signal as _signal
+
+        _loop = asyncio.get_running_loop()
+        for _sig in (_signal.SIGTERM, _signal.SIGINT):
+            _loop.add_signal_handler(_sig, stop_event.set)
+    except (NotImplementedError, ImportError, RuntimeError):
+        pass  # Windows: NotImplementedError, остановка через KeyboardInterrupt
+
+    try:
+        await stop_event.wait()
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        pass
+    logger.info("Получен сигнал остановки - плавное завершение...")
+
+    try:
+        from modules.utils import _typing_tasks, stop_dynamic_typing
+        for peer_id in list(_typing_tasks.keys()):
+            await stop_dynamic_typing(peer_id)
     except Exception as e:
-        logger.error(f"Global unhandled error: {str(e)}")
-    finally:
-        try:
-            from modules.utils import _typing_tasks, stop_dynamic_typing
-            for peer_id in list(_typing_tasks.keys()):
-                await stop_dynamic_typing(peer_id)
-        except Exception as e:
-            logger.error(f"Error cleaning up typing tasks: {str(e)}")
+        logger.error(f"Error cleaning up typing tasks: {str(e)}")
+    try:
         await close_session()
+    except Exception as e:
+        logger.warning(f"Error closing ai_session: {e}")
+    try:
+        await runner.cleanup()
+    except Exception as e:
+        logger.warning(f"runner.cleanup error: {e}")
+    logger.info("Остановка завершена")
 
 if __name__ == "__main__":
     try:

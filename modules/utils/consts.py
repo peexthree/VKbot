@@ -302,8 +302,26 @@ MYSTIC_STATUS_PHRASES = [
     "Всё идет именно так, как лучше для твоей души."
 ]
 
-ADMIN_ID = int(os.environ.get("ADMIN_ID", 27260796))
-GROUP_ID = int(os.environ.get("GROUP_ID", 219181948))
+# Аудит 2026-11: реальные ID были зашиты дефолтами. Дефолт оставлен как
+# fallback для локального запуска, но при его использовании пишем warning -
+# в проде ADMIN_ID/GROUP_ID должны быть заданы в окружении.
+_admin_env = os.environ.get("ADMIN_ID", "").strip()
+if _admin_env:
+    ADMIN_ID = int(_admin_env)
+else:
+    ADMIN_ID = 27260796  # TODO: задай ADMIN_ID в переменных окружения Render
+    import logging as _logging
+
+    _logging.getLogger(__name__).warning(
+        "ADMIN_ID не задан в окружении - используется дефолт из кода. "
+        "Задай ADMIN_ID в Render Environment Variables."
+    )
+
+_group_env = os.environ.get("GROUP_ID", "").strip()
+if _group_env:
+    GROUP_ID = int(_group_env)
+else:
+    GROUP_ID = 219181948  # TODO: задай GROUP_ID в переменных окружения Render
 
 # Global state for typing animations
 _typing_tasks: dict[int, asyncio.Task] = {}

@@ -313,7 +313,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             if await check_throttle(vk_id):
                 return
 
-        if not await acquire_lock(vk_id, ttl=5):
+        # ttl=90 (а не 5): лок должен жить дольше долгих операций
+        # (генерация ИИ, PDF), иначе параллельные клики проходят (аудит 2026-11)
+        if not await acquire_lock(vk_id, ttl=90):
             logger.warning(
                 f"Could not acquire lock for vk_id={vk_id} in message_event_handler"
             )
@@ -633,9 +635,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     if purchased.get("all") or user.get("has_full_chart"):
                         has_access = True
 
-                # Проверка VIP-безлимита (не распространяется на каталог «Тайные искусства»)
+                # Проверка VIP-безлимита (не распространяется на каталог «Тайные искусства»).
+                # palmistry/dream исключены из секретных искусств: тариф VIP обещает
+                # "Полный безлимит на Сонник и Хиромантию" (QA-аудит 2026-11)
                 from modules.utils.logic import is_vip_unlimited
-                secret_arts_keys = {"oculomancy", "palmistry", "sigil", "alchemist", "karma", "totem", "astro_geo", "egyptian_oracle", "shadow_oracle", "chrono", "charoslov", "dream"}
+                secret_arts_keys = {"oculomancy", "sigil", "alchemist", "karma", "totem", "astro_geo", "egyptian_oracle", "shadow_oracle", "chrono", "charoslov"}
                 if is_vip_unlimited(user) and target_section not in secret_arts_keys:
                     has_access = True
 
@@ -1106,7 +1110,10 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             card_path = f"cards/mirror_{vk_id}.png"
             att = None
             try:
-                generate_shadow_mirror_card(vk_id, user_name, "Страж Глубин", card_path)
+                # to_thread: Pillow-рендер не должен блокировать event loop
+                await asyncio.to_thread(
+                    generate_shadow_mirror_card, vk_id, user_name, "Страж Глубин", card_path
+                )
                 att = await upload_local_photo(bot.api, card_path, peer_id=peer_id)
             finally:
                 if os.path.exists(card_path):
@@ -1185,24 +1192,13 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     random_id=random.getrandbits(63)
                 )
         elif cmd == "natal_chart_menu":
-            user = await get_user(vk_id)
-            if not user:
-                return
-            from modules.keyboards import get_natal_chart_inline_keyboard
-
-            kb_json = get_natal_chart_inline_keyboard(
-                user.get("purchased_sections", {})
-            )
-            att = await upload_local_photo(
-                bot.api, "uslugi/services.jpeg", peer_id=vk_id
-            )
-            await ghost_edit(
-                bot.api,
-                peer_id,
-                "🔮 ТВОЯ ЗВЕЗДНАЯ КАРТА\n\nВыбери раздел для глубокого погружения. Каждый разбор можно получить один раз.",
+            # Мёртвая ветка удалена (QA-аудит 2026-11): get_natal_chart_inline_keyboard
+            # не существует - ImportError при гипотетическом клике. Никакая
+            # клавиатура эту команду не отправляла.
+            await safe_edit(
+                peer_id=peer_id,
+                message="🔮 Раздел переехал - смотри Каталог услуг.",
                 conversation_message_id=obj.get("conversation_message_id"),
-                keyboard=kb_json,
-                attachment=att,
             )
         elif cmd == "history_menu":
             from database import add_event
@@ -1351,8 +1347,13 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     latest_data = {"text": latest_reading.get("text")}
 
             if not latest_data or "text" not in latest_data:
-                # Прямая загрузка из Supabase latest_reading_text или readings_history
-                if user.get("latest_reading_text"):
+                # Прямая загрузка из Supabase latest_reading_text или readings_history.
+                # Текст с пометкой is_teaser НЕ отдаем: это неоплаченный Hook&Pay
+                # тизер платного разбора (аудит 2026-11)
+                _lr_data = user.get("latest_reading_data") or {}
+                if user.get("latest_reading_text") and not (
+                    isinstance(_lr_data, dict) and _lr_data.get("is_teaser")
+                ):
                     latest_data = {"text": user.get("latest_reading_text")}
                 else:
                     user_history = user.get("readings_history") or []
@@ -1460,7 +1461,10 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     wish = latest_data.get("sigil_wish") or "Удача и Изобилие"
                     from modules.tarot.secret_arts_logic import generate_sigil_image
 
-                    success_sigil = generate_sigil_image(wish, full_sigil_path)
+                    # to_thread: синхронный Pillow замораживал весь event loop
+                    success_sigil = await asyncio.to_thread(
+                        generate_sigil_image, wish, full_sigil_path
+                    )
                     if success_sigil:
                         temp_files_to_clean.append(full_sigil_path)
             elif latest_data.get("eye_photo"):
@@ -1480,7 +1484,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                             process_oculomancy_eye,
                         )
 
-                        success_eye = process_oculomancy_eye(eye_url, full_eye_path)
+                        # to_thread: внутри urlopen(timeout=15) - 15 секунд
+                        # блокировки всего сервера, если звать напрямую
+                        success_eye = await asyncio.to_thread(
+                            process_oculomancy_eye, eye_url, full_eye_path
+                        )
                         if success_eye:
                             temp_files_to_clean.append(full_eye_path)
 
@@ -1946,6 +1954,53 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 return
             balance = int(user.get("balance", 0) or 0)
 
+            # FIX (QA-аудит 2026-11): Карта Судьбы списывает энергию внутри
+            # generate_destiny_card_logic. Раньше buy списывал ЕЩЕ раз -
+            # двойное списание 1500/1000, а при нехватке - потеря денег без карты.
+            if buy_type == "service" and key in ["destiny_card", "destiny_card_update"]:
+                from modules.tarot.destiny import generate_destiny_card_logic
+
+                await generate_destiny_card_logic(
+                    vk_id,
+                    peer_id,
+                    conversation_message_id=obj.get("conversation_message_id"),
+                    is_update=(key == "destiny_card_update"),
+                )
+                return
+
+            # VIP-безлимит: Сонник и Хиромантия бесплатны по тарифу (обещание
+            # из описания тарифа, QA-аудит) - направляем на ввод данных без списания
+            if buy_type == "service" and key in ["palmistry", "dream"]:
+                from modules.utils.logic import is_vip_unlimited
+
+                if is_vip_unlimited(user):
+                    if key == "palmistry":
+                        await set_user_state(vk_id, json.dumps({"step": "waiting_palmistry_photos"}))
+                        vip_msg = (
+                            "💎 VIP-БЕЗЛИМИТ АКТИВЕН - РИТУАЛ БЕСПЛАТЕН\n\n"
+                            "✨ ДЛЯ НОВОГО АНАЛИЗА ПРИШЛИ ДВЕ ФОТОГРАФИИ ЛАДОНЕЙ:\n\n"
+                            "• Левая ладонь\n"
+                            "• Правая ладонь\n\n"
+                            "Убедись, что линии четко видны."
+                        )
+                    else:
+                        await set_user_state(vk_id, json.dumps({"step": "waiting_dream_text"}))
+                        vip_msg = (
+                            "💎 VIP-БЕЗЛИМИТ АКТИВЕН - РИТУАЛ БЕСПЛАТЕН\n\n"
+                            "Расскажи мне свой сон подробным текстом.\n\n"
+                            "Можно добавить:\n"
+                            "- Когда приснился (дата/время)\n"
+                            "- Настроение после пробуждения\n"
+                            "- Любые важные детали\n\n"
+                            "Чем подробнее опишешь - тем точнее будет разбор."
+                        )
+                    await safe_edit(
+                        peer_id=peer_id,
+                        conversation_message_id=obj.get("conversation_message_id"),
+                        message=vip_msg,
+                    )
+                    return
+
             # Process dynamically calculated discounts via abandoned cart payload
             if buy_type in ["abandoned_10", "abandoned_15"]:
                 amount_needed = int(
@@ -2000,10 +2055,14 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
                 from modules.payments.yookassa import create_yookassa_payment
 
+                # FIX (аудит 2026-11): обещанная энергия уезжает в metadata платежа -
+                # вебхук начислит ровно ее (раньше energy_map игнорировался и
+                # трипвайер 99 RUB давал 990 ✨ вместо обещанных 1200)
                 payment_url = await create_yookassa_payment(
                     amount=rubles,
                     description=f"Пополнение баланса: {energy_amount} энергии",
                     user_id=vk_id,
+                    energy_amount=energy_amount,
                 )
 
                 if payment_url:
@@ -2030,22 +2089,23 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 return
 
             if balance >= amount_needed:
-                new_balance = balance - amount_needed
-                await update_user(vk_id, {"balance": new_balance})
+                # Атомарное списание вместо read-modify-write: гонка больше
+                # не может обнулить параллельное пополнение (аудит 2026-11)
+                from database import spend_user_balance
+
+                new_balance = await spend_user_balance(vk_id, amount_needed)
+                if new_balance is None:
+                    logger.warning(f"Race on spend for {vk_id} ({key}): funds gone mid-purchase")
+                    # FIX (QA-аудит): раньше юзер получал тишину - теперь честное сообщение
+                    await bot.api.messages.send(
+                        peer_id=peer_id,
+                        message="✦ Энергия ушла в другой поток. Баланс изменился - глянь его в профиле и попробуй снова.",
+                        random_id=random.getrandbits(63),
+                    )
+                    return
 
                 if key == "oracle_upsell":
                     key = "oracle"  # resolve the upsell back to its base service
-
-                if key in ["destiny_card", "destiny_card_update"]:
-                    from modules.tarot.destiny import generate_destiny_card_logic
-
-                    await generate_destiny_card_logic(
-                        vk_id,
-                        peer_id,
-                        conversation_message_id=obj.get("conversation_message_id"),
-                        is_update=(key == "destiny_card_update"),
-                    )
-                    return
 
                 if buy_type == "skin":
                     from modules.utils.consts import SKIN_DISPLAY_NAMES
@@ -2097,6 +2157,19 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                             ),
                         )
                 elif buy_type == "tariff":
+                    # FIX (аудит 2026-11): key="all" из экрана тарифов - это
+                    # вечный пакет "Полная Натальная Карта" (3000 ✨), а не
+                    # подписка. Раньше юзер платил 3000 ✨ и получал лишь
+                    # 30-дневный транзит без has_full_chart.
+                    if key == "all":
+                        await process_payment_and_generate(
+                            vk_id,
+                            "all",
+                            peer_id=peer_id,
+                            conversation_message_id=obj.get("conversation_message_id"),
+                        )
+                        return
+
                     days = 7 if key == "tariff_1" else 30
                     new_expires = datetime.datetime.now(
                         datetime.timezone.utc
@@ -2233,7 +2306,21 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         full_text = None
 
                     if full_text and full_text != "ERROR_RPM_LIMIT":
-                        await update_user(vk_id, {"latest_reading_text": full_text, "free_teaser_used": True})
+                        # Помечаем сохраненный текст как НЕОПЛАЧЕННЫЙ тизер:
+                        # иначе бесплатный gen_pdf отдавал полный платный разбор
+                        # по старой кнопке (аудит 2026-11). В Redis кладем shortfall,
+                        # чтобы вебхук ЮKassa вычел его из начисления при оплате.
+                        await update_user(vk_id, {
+                            "latest_reading_text": full_text,
+                            "free_teaser_used": True,
+                            "latest_reading_data": {"is_teaser": True, "key": key},
+                        })
+                        from cache import set_pending_teaser
+                        await set_pending_teaser(vk_id, {
+                            "key": key,
+                            "shortfall": amount_needed - balance,
+                            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        })
                         from modules.utils.logic import extract_20_percent_teaser
                         teaser_part = extract_20_percent_teaser(full_text)
 
@@ -2545,8 +2632,20 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         elif cmd == "global_cut":
             target = payload.get("target")
             if target:
+                # FIX (QA-аудит 2026-11): сохраняем данные партнера Синастрии
+                # через переход - раньше имя и дата партнера стирались и юзер
+                # платил 1500 за разбор с пустыми полями партнера
+                _prev_state = (await get_fsm_step(vk_id)) or {}
                 await set_user_state(
-                    vk_id, json.dumps({"step": "global_cut", "target_section": target})
+                    vk_id,
+                    json.dumps(
+                        {
+                            "step": "global_cut",
+                            "target_section": target,
+                            "partner_name": _prev_state.get("partner_name", ""),
+                            "partner_date": _prev_state.get("partner_date", ""),
+                        }
+                    ),
                 )
             else:
                 state_dict = await get_fsm_step(vk_id)
@@ -2671,15 +2770,15 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         elif "oracle_card" in payload:
             card_id, state_dict = payload["oracle_card"], await get_fsm_step(vk_id)
             if not state_dict or state_dict.get("step") != "oracle_draw":
-                pool = list(range(0, 78))
-                random.shuffle(pool)
-                pool = pool[:10]
-                state_dict = {
-                    "step": "oracle_draw",
-                    "question": "Что меня ждет?",
-                    "drawn_cards": [],
-                    "pool": pool
-                }
+                # Анти-replay (аудит 2026-11): раньше состояние расклада
+                # фабриковалось заново - старые кнопки 🎴 давали бесконечные
+                # бесплатные расклады. Теперь требуем активный сеанс.
+                await safe_edit(
+                    peer_id=peer_id,
+                    message="Колода рассыпалась - время этого расклада истекло. Начни заново через Оракула в меню.",
+                    conversation_message_id=obj.get("conversation_message_id"),
+                )
+                return
             drawn, pool = state_dict.get("drawn_cards", []), state_dict.get("pool", [])
             if card_id not in drawn:
                 drawn.append(card_id)

@@ -479,8 +479,10 @@ async def send_feedback_to_chat(vk_id: int, section: str, rating: int, comment_t
             temp_filename = f"feedback_batch_{f_id}_{random.randint(1000, 9999)}.png"
             temp_path = os.path.join("cards", temp_filename)
 
-            # Рендерим карточку
-            create_neon_feedback_card(
+            # Рендерим карточку (to_thread: 200+ строк Pillow-рендера
+            # не должны замораживать event loop для всех юзеров)
+            await asyncio.to_thread(
+                create_neon_feedback_card,
                 user_name=full_name,
                 section_name=sec_ru,
                 rating=rat,

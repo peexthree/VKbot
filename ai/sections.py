@@ -24,7 +24,7 @@ async def extract_tags(text: str) -> list[str]:
         f"Верни строго JSON-список строк, например: [\"гармония-в-финансах\", \"исцеление-сердца\"]."
     )
     res = await generate_text(prompt, json_mode=True, is_background=True)
-    if not res:
+    if not res or res in ("ERROR_RPM_LIMIT", "ERROR_AI_UNAVAILABLE"):
         return []
     try:
         clean = clean_ai_json(res)
@@ -156,7 +156,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     context_info = base_info
 
     if section == "sigil":
-        wish_text = partner_date or "Удача и Изобилие"
+        wish_text = sanitize_user_input(partner_date or "Удача и Изобилие")
         raw_prompt_template = get_group_prompt(section)
         prompt = raw_prompt_template.format(wish_text=wish_text)
     else:
@@ -165,7 +165,7 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
         elif section == "palmistry":
             context_info += " Ритуал Хиромантии. Пользователь прислал фотографии своих ладоней (левой и правой) для детального разбора линий судьбы, сердца, ума и жизни."
         elif section == "dream":
-            dream_text = partner_date or "Неизвестный сон"
+            dream_text = sanitize_user_input(partner_date or "Неизвестный сон")
             context_info += f" Толкование снов. Пользователю приснился следующий сон: <user_input>{dream_text}</user_input>. Проведи разбор символов подсознания."
         elif section == "egyptian_oracle":
             from modules.tarot.secret_arts_logic import get_random_egyptian_oracle
@@ -178,11 +178,12 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
             drawn_str = "; ".join([f"{d['name']} ({d['desc']})" for d in drawn])
             context_info += f" Теневой Оракул Лилит выявил 3 руны теней по Юнгу: {drawn_str}."
         elif section == "totem":
-            context_info += f" Тотемный шаманский квиз. Выборы пользователя в квизе: {partner_date}."
+            # Ответы квиза - пользовательский ввод: санитизируем и оборачиваем
+            context_info += f" Тотемный шаманский квиз. Выборы пользователя в квизе: <user_input>{sanitize_user_input(partner_date)}</user_input>."
         elif section == "karma":
-            context_info += f" Кармический навигатор. Выборы пользователя в кармическом квизе: {partner_date}."
+            context_info += f" Кармический навигатор. Выборы пользователя в кармическом квизе: <user_input>{sanitize_user_input(partner_date)}</user_input>."
         elif section == "astro_geo":
-            location = partner_date or "Место силы"
+            location = sanitize_user_input(partner_date or "Место силы")
             context_info += f" Астро-Картография. Анализ географической точки силы пользователя в локации: '<user_input>{location}</user_input>'."
         elif section == "alchemist":
             from modules.tarot.secret_arts_logic import calculate_alchemy_element
@@ -239,7 +240,9 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
             except Exception as e:
                 logger.error(f"Failed to parse JSON from AI: {e}. Attempting manual extraction.")
                 return res.replace('\\\\n', '\n').replace('\\n', '\n')
-        return {"text": "Ошибка генерации."}
+        # Маркер полного фейла генерации: обрабатывается в execute_generation
+        # и destiny.py как ошибка (с рефандом), а не как текст разбора
+        return {"text": "ERROR_AI_UNAVAILABLE"}
     else:
         res = await generate_text(prompt, skin=skin, image_urls=image_urls, is_background=False)
         if res:

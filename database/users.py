@@ -84,3 +84,15 @@ async def add_energy(vk_id: int, energy: int):
         logger.success(f"✅ Атомарно начислено {energy} энергии пользователю vk_id={vk_id}")
         return True
     return False
+
+
+async def spend_user_balance(vk_id: int, amount: int) -> int | None:
+    """Атомарное списание энергии через RPC: возвращает новый баланс или None, если энергии не хватает"""
+    from database.core import call_rpc
+    result = await call_rpc("spend_user_balance", {"p_vk_id": vk_id, "p_amount": amount})
+    if isinstance(result, dict) and result.get("status") == "success":
+        try:
+            return int(result.get("new_balance"))
+        except (ValueError, TypeError):
+            return None
+    return None
