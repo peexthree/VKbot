@@ -400,7 +400,11 @@ async def apply_promo_logic(vk_id: int, message: Message, skip_lock: bool = Fals
         # 1. Проверка на Скрытый Сакральный Шифр (динамические коды)
         if re.match(rf"^({'|'.join(HIDDEN_CIPHER_WORDS)})-\d+$", text):
             from database import call_rpc
+            from cache import invalidate_user_cache
             res = await call_rpc("activate_hidden_promo", {"p_user_id": vk_id, "p_code": text})
+            if isinstance(res, dict) and res.get("status") == "success":
+                # RPC начислил энергию мимо ORM - сбрасываем кэш профиля
+                await invalidate_user_cache(vk_id)
 
             if not res or (isinstance(res, dict) and res.get("status") == "error"):
                 error_code = res.get("code") if isinstance(res, dict) else "UNKNOWN"

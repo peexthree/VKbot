@@ -27,8 +27,14 @@ if sentry_dsn:
         profiles_sample_rate=0.2,
     )
 
-# Настройка логирования loguru (отключаем enqueue из-за проблем с пиклингом динамических исключений vkbottle)
-logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=False)
+# Настройка логирования loguru (отключаем enqueue из-за проблем с пиклингом динамических исключений vkbottle).
+# stdout только INFO: DEBUG-дампы всех API-запросов vkbottle в консоль Render
+# тормозили обработку и раздували логи; полные DEBUG остаются в файле.
+import sys as _sys
+
+logger.remove()
+logger.add(_sys.stdout, level="INFO")
+logger.add("logs/bot_{time}.log", rotation="10 MB", enqueue=False, level="DEBUG")
 
 import logging
 logging.getLogger("vkbottle").setLevel(logging.INFO)

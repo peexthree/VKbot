@@ -40,6 +40,9 @@ async def update_user(vk_id: int, updates: Dict[str, Any]):
         async with core.session.patch(f"{URL}/rest/v1/{TABLE_NAME}?vk_id=eq.{vk_id}", headers=headers, json=updates) as r:
             if r.status in (200, 204):
                 data = await r.json()
+                # Любое изменение профиля сбрасывает Redis-кэш (см. core.get_user)
+                from cache import invalidate_user_cache
+                await invalidate_user_cache(vk_id)
                 if data: return data[0]
     except Exception as e: logger.error(f"Ошибка в update_user: {e}")
     return None
@@ -81,6 +84,8 @@ async def add_energy(vk_id: int, energy: int):
     from database.core import call_rpc
     result = await call_rpc("increment_user_balance", {"p_vk_id": vk_id, "p_amount": energy})
     if result:
+        from cache import invalidate_user_cache
+        await invalidate_user_cache(vk_id)
         logger.success(f"✅ Атомарно начислено {energy} энергии пользователю vk_id={vk_id}")
         return True
     return False
@@ -91,6 +96,8 @@ async def spend_user_balance(vk_id: int, amount: int) -> int | None:
     from database.core import call_rpc
     result = await call_rpc("spend_user_balance", {"p_vk_id": vk_id, "p_amount": amount})
     if isinstance(result, dict) and result.get("status") == "success":
+        from cache import invalidate_user_cache
+        await invalidate_user_cache(vk_id)
         try:
             return int(result.get("new_balance"))
         except (ValueError, TypeError):

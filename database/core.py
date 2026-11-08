@@ -1,3 +1,6 @@
+import asyncio
+import json
+
 import aiohttp
 from typing import Optional
 from loguru import logger
@@ -22,7 +25,24 @@ async def close_db():
         session = None
 
 async def get_user(vk_id: int):
+    """Профиль юзера с кэшем в Redis на 45с (ускорение: Supabase RT ~0.3с
+    на каждый кликmiddleware+обработчик -> один Redis hit ~0.05с).
+    Балансы всегда атомарны через RPC, поэтому кэш безопасен для отрисовки;
+    при любом изменении данных вызывается invalidate_user_cache."""
     if not URL or not KEY or session is None: return None
+
+    from cache import redis_client, USER_CACHE_TTL
+
+    try:
+        cached = await redis_client.get(f"ucache:{vk_id}")
+        if cached:
+            user = json.loads(cached)
+            # Незакоммиченная миграция bonuses обходит кэш (разовая конвертация)
+            if user.get("bonuses") is None:
+                return user
+    except Exception:
+        pass
+
     try:
         async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?vk_id=eq.{vk_id}", headers=HEADERS) as r:
             if r.status == 200:
@@ -33,9 +53,15 @@ async def get_user(vk_id: int):
                         new_balance = (user.get("balance", 0) * 10) + user["bonuses"]
                         user["balance"] = new_balance
                         del user["bonuses"]
-                        import asyncio
                         from .users import update_user # Local import to avoid circularity if needed
                         asyncio.create_task(update_user(vk_id, {"balance": new_balance, "bonuses": None}))
+                        return user
+                    try:
+                        await redis_client.set(
+                            f"ucache:{vk_id}", json.dumps(user, ensure_ascii=False), ex=USER_CACHE_TTL
+                        )
+                    except Exception:
+                        pass
                     return user
             else: logger.error(f"Supabase error in get_user: {r.status}")
     except Exception as e: logger.error(f"Ошибка в get_user: {e}")

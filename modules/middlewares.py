@@ -3,11 +3,16 @@ import json
 from loguru import logger
 import datetime
 import asyncio
+import time
 from vkbottle import BaseMiddleware
 from vkbottle.bot import Message
 
 from cache import check_and_set_throttle_warning, check_throttle
 from database import update_user, get_user, get_user_state
+
+# Режим техработ меняется редко - держим в памяти 10с, чтобы не ходить
+# в Redis на КАЖДОЕ сообщение (ускорение 2026-11-09)
+_maintenance_cache = {"value": False, "ts": 0.0}
 
 
 class ThrottleMiddleware(BaseMiddleware[Message]):
@@ -94,8 +99,14 @@ class ThrottleMiddleware(BaseMiddleware[Message]):
                 self.stop("Redirected to onboarding")
                 return
 
-        # Обновляем дату последней активности асинхронно
-        asyncio.create_task(update_user(vk_id, {"last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat()}))
+        # Обновляем дату последней активности асинхронно, но не чаще
+        # 1 раза в минуту на юзера (ускорение: минус Supabase RT на каждый клик)
+        from cache import redis_client as _redis
+        try:
+            if await _redis.set(f"last_active_sent:{vk_id}", "1", nx=True, ex=60):
+                asyncio.create_task(update_user(vk_id, {"last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat()}))
+        except Exception:
+            asyncio.create_task(update_user(vk_id, {"last_active_date": datetime.datetime.now(datetime.timezone.utc).isoformat()}))
 
         # Трекинг входящего сообщения
         from database import add_event
@@ -110,8 +121,12 @@ class ThrottleMiddleware(BaseMiddleware[Message]):
         from modules.utils import ADMIN_ID
 
         try:
-            maintenance_mode = await redis_client.get("system_config:maintenance_mode")
-            if maintenance_mode and int(maintenance_mode) == 1 and vk_id != ADMIN_ID:
+            now_ts = time.time()
+            if now_ts - _maintenance_cache["ts"] > 10:
+                maintenance_mode = await redis_client.get("system_config:maintenance_mode")
+                _maintenance_cache["value"] = bool(maintenance_mode and int(maintenance_mode) == 1)
+                _maintenance_cache["ts"] = now_ts
+            if _maintenance_cache["value"] and vk_id != ADMIN_ID:
                 try:
                     await self.event.answer("Синдикат в тени. Идет калибровка матрицы.")
                 except:

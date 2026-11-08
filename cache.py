@@ -375,6 +375,16 @@ async def god_mode_list() -> list[int]:
 
 PENDING_TEASER_TTL = 604800  # 7 дней
 
+USER_CACHE_TTL = 45  # кэш профиля юзера (сек) - экономит Supabase RT на каждый клик
+
+
+async def invalidate_user_cache(vk_id: int | str):
+    """Сбрасывает кэш профиля после любого изменения данных юзера"""
+    try:
+        await redis_client.delete(f"ucache:{vk_id}")
+    except Exception:
+        pass
+
 
 async def set_pending_teaser(vk_id: int | str, data: dict, ttl: int = PENDING_TEASER_TTL):
     """Сохраняет информацию о незавершенном Hook&Pay тизере (какой разбор и сколько энергии не хватает)"""
