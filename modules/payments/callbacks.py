@@ -72,6 +72,7 @@ from modules.profile.views import (
 )
 from modules.services import show_services, show_tariffs
 from modules.tarot import card_of_day_logic, process_oracle_final
+from configs.tarot_spreads import TAROT_SPREADS, TAROT_SPREAD_KEYS, TAROT_SPREAD_PRICES
 
 from .logic import process_payment_and_generate, execute_generation
 
@@ -1018,7 +1019,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     100,
                 ),
             }
-            from configs.tarot_spreads import TAROT_SPREADS
             item_att = None
             if key in TAROT_SPREADS:
                 sp = TAROT_SPREADS[key]
@@ -1540,7 +1540,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         if success_eye:
                             temp_files_to_clean.append(full_eye_path)
 
-            from configs.tarot_spreads import TAROT_SPREADS
             section_display_name = (
                 TAROT_SPREADS[section]["title"].upper()
                 if section in TAROT_SPREADS
@@ -1896,7 +1895,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "chrono": 700,
                 "charoslov": 600,
             }
-            from configs.tarot_spreads import TAROT_SPREAD_PRICES, TAROT_SPREAD_KEYS
             prices.update(TAROT_SPREAD_PRICES)
             amount_needed = prices.get(key)
             if not amount_needed:
