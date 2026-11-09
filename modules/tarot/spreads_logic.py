@@ -303,15 +303,17 @@ async def execute_spread_reading(
             return
 
         # Сохраняем результат в Гримуар и последний разбор
+        reading_payload_data = {
+            "title": spread["title"],
+            "section": spread_key,
+            "cards": [str(c) for c in card_ids],
+            "date": datetime.datetime.now().strftime("%d.%m.%Y"),
+            "text": res_text,
+        }
         await set_latest_reading(
             vk_id,
             res_text,
-            data={
-                "title": spread["title"],
-                "section": spread_key,
-                "cards": [str(c) for c in card_ids],
-                "date": datetime.datetime.now().strftime("%d.%m.%Y"),
-            },
+            data=reading_payload_data,
         )
         await add_reading_to_history(
             vk_id,
@@ -320,6 +322,7 @@ async def execute_spread_reading(
                 "date": datetime.datetime.now().strftime("%d.%m.%Y"),
                 "text": res_text,
                 "section": spread_key,
+                "data": reading_payload_data,
             },
         )
         history = await get_readings_history(vk_id)
@@ -327,11 +330,7 @@ async def execute_spread_reading(
             vk_id,
             {
                 "latest_reading_text": res_text,
-                "latest_reading_data": {
-                    "title": spread["title"],
-                    "section": spread_key,
-                    "cards": [str(c) for c in card_ids],
-                },
+                "latest_reading_data": reading_payload_data,
                 "readings_history": history,
             },
         )

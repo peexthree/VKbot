@@ -132,6 +132,84 @@ def clean_slang(text: str) -> str:
 
     return text
 
+def parse_tarot_reading(text: str, spread_positions: list = None) -> dict:
+    """Интеллектуальный парсер текста расклада Таро на пролог, позиции и синтез."""
+    if not text:
+        return {"prologue": "", "sections": [], "synthesis": ""}
+
+    cleaned = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+
+    # 1. Поиск блока синтеза / сакрального совета в конце
+    synthesis_pattern = re.compile(
+        r"(?im)^(?:\s*[*#_~✦🌟⚡]*\s*(?:СИНТЕЗ(?:\s+КАРТ)?|САКРАЛЬНЫЙ\s+СОВЕТ|СОВЕТ(?:\s+КАРТ|\s+ОРАКУЛА|\s+ОТ\s+КАРТ)?|ИТОГ|НАПУТСТВИЕ|РЕЗЮМЕ|ЗАКЛЮЧЕНИЕ)[\s\w]*[:—–\-]?\s*[*#_~✦🌟⚡]*\s*)\n*(.+)$",
+        re.DOTALL
+    )
+    synthesis_text = ""
+    main_text = cleaned
+
+    syn_match = synthesis_pattern.search(cleaned)
+    if syn_match:
+        synthesis_text = syn_match.group(1).strip()
+        main_text = cleaned[:syn_match.start()].strip()
+
+    # 2. Поиск номерованных позиций (1., 1), **1., ### 1., Позиция 1:, 🔮 1. и т.д.)
+    pos_split_regex = re.compile(
+        r"(?m)^(?:\s*[*#_~✦🔮⚡\s]*(?:(?:Позиция|Карта)\s*)?(\d+)[\.\)]\s*([^\n\r]+?)[*#_~]*\s*[:—–\-]?\s*)$"
+    )
+
+    matches = list(pos_split_regex.finditer(main_text))
+    prologue = ""
+    sections = []
+
+    if matches:
+        prologue = main_text[:matches[0].start()].strip()
+        prologue = re.sub(r"^[*#_~✦🔮⚡\s]+", "", prologue).strip()
+
+        for i, m in enumerate(matches):
+            num = int(m.group(1))
+            raw_title = m.group(2).strip()
+            title = re.sub(r"[*#_~`]", "", raw_title).strip()
+            title = re.sub(r"[:—–\-]+$", "", title).strip()
+
+            start_idx = m.end()
+            end_idx = matches[i + 1].start() if i + 1 < len(matches) else len(main_text)
+            body = main_text[start_idx:end_idx].strip()
+            body = re.sub(r"^[*#_~`\s]+", "", body).strip()
+
+            sections.append({
+                "num": num,
+                "title": title,
+                "content": body
+            })
+    else:
+        # Резервный режим: разделение по абзацам
+        paras = [p.strip() for p in main_text.split("\n\n") if p.strip()]
+        if len(paras) > 1:
+            prologue = paras[0]
+            for idx, p in enumerate(paras[1:], 1):
+                pos_title = (
+                    spread_positions[idx - 1]
+                    if spread_positions and idx - 1 < len(spread_positions)
+                    else f"Откровение {idx}"
+                )
+                sections.append({
+                    "num": idx,
+                    "title": pos_title,
+                    "content": p
+                })
+        else:
+            sections.append({
+                "num": 1,
+                "title": "Сакральное Толкование",
+                "content": main_text
+            })
+
+    return {
+        "prologue": prologue,
+        "sections": sections,
+        "synthesis": synthesis_text
+    }
+
 def generate_premium_pdf(
     user_name: str,
     birth_info: str,
@@ -160,12 +238,21 @@ def generate_premium_pdf(
     **kwargs
 ):
     try:
-        from prompts.pdf_templates import get_html_template
+        from prompts.pdf_templates import get_html_template, TAROT_SPREAD_TEMPLATE
+        from configs.tarot_spreads import TAROT_SPREADS, TAROT_SPREAD_KEYS
         from jinja2 import Template
 
-        section_key = section_name.lower()
-        template_str = get_html_template(section_key)
-        template = Template(template_str)
+        raw_section = (
+            kwargs.get("section_key")
+            or kwargs.get("raw_section")
+            or kwargs.get("section")
+            or section_name
+            or ""
+        )
+        if isinstance(raw_section, str):
+            raw_section = raw_section.lower().strip()
+        else:
+            raw_section = str(raw_section)
 
         def safe_br(val):
             if val is None:
@@ -192,96 +279,193 @@ def generate_premium_pdf(
         card_name = clean_slang(card_name) if card_name else ""
         card_description = clean_slang(card_description) if card_description else ""
 
-        # Format group-specific keys to be passed to templates
-        geom_analysis = safe_br(kwargs.get("geom_analysis", ""))
-        activation_ritual = safe_br(kwargs.get("activation_ritual", ""))
-        energy_vector = safe_br(kwargs.get("energy_vector", ""))
-
-        fm_val = kwargs.get("focus_mantras", "")
-        if isinstance(fm_val, list):
-            focus_mantras = "".join([f"<li>{clean_slang(str(m))}</li>" for m in fm_val])
-        else:
-            focus_mantras = safe_br(fm_val)
-
-        iris_or_line_decoding = safe_br(kwargs.get("iris_or_line_decoding", ""))
-        spiritual_vulnerability = safe_br(kwargs.get("spiritual_vulnerability", ""))
-        intuition_unlk = safe_br(kwargs.get("intuition_unlk", ""))
-        daily_mudras = safe_br(kwargs.get("daily_mudras", ""))
-
-        message_from_abyss = safe_br(kwargs.get("message_from_abyss", ""))
-        shadow_integration = safe_br(kwargs.get("shadow_integration", ""))
-        sacred_taboo = safe_br(kwargs.get("sacred_taboo", ""))
-        astral_totem_ritual = safe_br(kwargs.get("astral_totem_ritual", ""))
-
-        macrocosm_resonance = safe_br(kwargs.get("macrocosm_resonance", ""))
-        balance_formula = safe_br(kwargs.get("balance_formula", ""))
-        space_alignment = safe_br(kwargs.get("space_alignment", ""))
-        cosmic_frequency_status = clean_slang(str(kwargs.get("cosmic_frequency_status", "")))
-
-        tarot_arcana_analysis = safe_br(kwargs.get("tarot_arcana_analysis", ""))
-        karmic_lesson = safe_br(kwargs.get("karmic_lesson", ""))
-        energy_alignment_tips = safe_br(kwargs.get("energy_alignment_tips", ""))
-
-        da_val = kwargs.get("daily_affirmations", "")
-        if isinstance(da_val, list):
-            daily_affirmations = "".join([f"<li>{clean_slang(str(a))}</li>" for a in da_val])
-        else:
-            daily_affirmations = safe_br(da_val)
-
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        card_image_path = f"cards/{card_id}.jpeg" if card_id else ""
 
-        html_out = template.render(
-            user_name=user_name,
-            birth_info=birth_info,
-            section_name=section_name,
-            text_content=formatted_text,
-            advice_content=formatted_advice,
-            card_name=card_name or "",
-            card_description=card_description or "",
-            card_image_path=card_image_path,
-            shadow_side=shadow_side,
-            activation_level=activation_level,
-            activation_comment=activation_comment,
-            affirmations=affirmations,
-            next_activation_date=next_activation_date,
-            thirty_day_forecast=thirty_day_forecast,
-            activation_recommendations=activation_recommendations,
-            star_code=star_code,
-            energy_map=energy_map,
-            current_date=current_date,
-            palm_photos=palm_photos,
-            interesting_facts=interesting_facts,
-            character_name=character_name,
-            sigil_photo=sigil_photo,
-            eye_photo=eye_photo,
-
-            # Group specific fields
-            geom_analysis=geom_analysis,
-            activation_ritual=activation_ritual,
-            energy_vector=energy_vector,
-            focus_mantras=focus_mantras,
-
-            iris_or_line_decoding=iris_or_line_decoding,
-            spiritual_vulnerability=spiritual_vulnerability,
-            intuition_unlk=intuition_unlk,
-            daily_mudras=daily_mudras,
-
-            message_from_abyss=message_from_abyss,
-            shadow_integration=shadow_integration,
-            sacred_taboo=sacred_taboo,
-            astral_totem_ritual=astral_totem_ritual,
-
-            macrocosm_resonance=macrocosm_resonance,
-            balance_formula=balance_formula,
-            space_alignment=space_alignment,
-            cosmic_frequency_status=cosmic_frequency_status,
-
-            tarot_arcana_analysis=tarot_arcana_analysis,
-            karmic_lesson=karmic_lesson,
-            energy_alignment_tips=energy_alignment_tips,
-            daily_affirmations=daily_affirmations
+        # Определяем, является ли данный заказ сакральным раскладом Таро
+        cards_kw = kwargs.get("cards")
+        is_tarot_spread = (
+            raw_section in TAROT_SPREADS
+            or raw_section in TAROT_SPREAD_KEYS
+            or raw_section.startswith("tarot_")
+            or any(k in raw_section for k in TAROT_SPREAD_KEYS)
+            or (isinstance(cards_kw, list) and len(cards_kw) > 1)
         )
+
+        if is_tarot_spread:
+            # Находим метаданные расклада
+            spread = TAROT_SPREADS.get(raw_section)
+            if not spread:
+                for k, sp in TAROT_SPREADS.items():
+                    if k in raw_section or sp["title"].lower() in raw_section:
+                        spread = sp
+                        break
+
+            spread_title = clean_slang(
+                kwargs.get("title") or (spread["title"] if spread else section_name)
+            )
+            spread_cover = (
+                f"cards/uslugi/{spread['image_name']}"
+                if (spread and spread.get("image_name"))
+                else "cards/uslugi/tarot_cat.jpg"
+            )
+
+            cards_raw = cards_kw or ([card_id] if card_id else [])
+            positions = spread.get("positions", []) if spread else []
+            from cards_data import get_card_data
+
+            cards_list = []
+            for idx, cid in enumerate(cards_raw):
+                c_str = str(cid)
+                c_data = get_card_data(c_str)
+                pos_title = positions[idx] if idx < len(positions) else f"Позиция {idx + 1}"
+                c_name = c_data.get("name") or f"Аркан {c_str}"
+                c_img = f"cards/{c_str}.jpeg"
+                cards_list.append({
+                    "num": idx + 1,
+                    "cid": c_str,
+                    "name": clean_slang(c_name),
+                    "subtitle": clean_slang(c_data.get("subtitle", "")),
+                    "pos_title": clean_slang(pos_title),
+                    "img_path": c_img
+                })
+
+            parsed = parse_tarot_reading(text_content, positions)
+            prologue = safe_br(parsed.get("prologue", ""))
+            synthesis = safe_br(parsed.get("synthesis", ""))
+
+            sections = []
+            for s in parsed.get("sections", []):
+                s_num = s.get("num", 1)
+                card_name_match = ""
+                if 1 <= s_num <= len(cards_list):
+                    card_name_match = cards_list[s_num - 1]["name"]
+                sections.append({
+                    "num": s_num,
+                    "title": clean_slang(s.get("title", "")),
+                    "card_name": card_name_match,
+                    "content": safe_br(s.get("content", ""))
+                })
+
+            template = Template(TAROT_SPREAD_TEMPLATE)
+            html_out = template.render(
+                user_name=user_name,
+                birth_info=birth_info,
+                spread_title=spread_title,
+                spread_cover=spread_cover,
+                character_name=character_name,
+                current_date=current_date,
+                cards_list=cards_list,
+                prologue=prologue,
+                sections=sections,
+                synthesis=synthesis,
+                formatted_full_text=formatted_text,
+            )
+        else:
+            # Стандартные сервисы групп A, B, C, D, E
+            template_str = get_html_template(raw_section)
+            template = Template(template_str)
+
+            # Format group-specific keys to be passed to templates
+            geom_analysis = safe_br(kwargs.get("geom_analysis", ""))
+            activation_ritual = safe_br(kwargs.get("activation_ritual", ""))
+            energy_vector = safe_br(kwargs.get("energy_vector", ""))
+
+            fm_val = kwargs.get("focus_mantras", "")
+            if isinstance(fm_val, list):
+                focus_mantras = "".join([f"<li>{clean_slang(str(m))}</li>" for m in fm_val])
+            else:
+                focus_mantras = safe_br(fm_val)
+
+            iris_or_line_decoding = safe_br(kwargs.get("iris_or_line_decoding", ""))
+            spiritual_vulnerability = safe_br(kwargs.get("spiritual_vulnerability", ""))
+            intuition_unlk = safe_br(kwargs.get("intuition_unlk", ""))
+            daily_mudras = safe_br(kwargs.get("daily_mudras", ""))
+
+            message_from_abyss = safe_br(kwargs.get("message_from_abyss", ""))
+            shadow_integration = safe_br(kwargs.get("shadow_integration", ""))
+            sacred_taboo = safe_br(kwargs.get("sacred_taboo", ""))
+            astral_totem_ritual = safe_br(kwargs.get("astral_totem_ritual", ""))
+
+            macrocosm_resonance = safe_br(kwargs.get("macrocosm_resonance", ""))
+            balance_formula = safe_br(kwargs.get("balance_formula", ""))
+            space_alignment = safe_br(kwargs.get("space_alignment", ""))
+            cosmic_frequency_status = clean_slang(str(kwargs.get("cosmic_frequency_status", "")))
+
+            tarot_arcana_analysis = safe_br(kwargs.get("tarot_arcana_analysis", ""))
+            karmic_lesson = safe_br(kwargs.get("karmic_lesson", ""))
+            energy_alignment_tips = safe_br(kwargs.get("energy_alignment_tips", ""))
+
+            da_val = kwargs.get("daily_affirmations", "")
+            if isinstance(da_val, list):
+                daily_affirmations = "".join([f"<li>{clean_slang(str(a))}</li>" for a in da_val])
+            else:
+                daily_affirmations = safe_br(da_val)
+
+            # Гарантия от пустых блоков: если структурированные поля отсутствуют, используем полный текст
+            if not tarot_arcana_analysis and formatted_text:
+                tarot_arcana_analysis = formatted_text
+            if not geom_analysis and formatted_text:
+                geom_analysis = formatted_text
+            if not iris_or_line_decoding and formatted_text:
+                iris_or_line_decoding = formatted_text
+            if not message_from_abyss and formatted_text:
+                message_from_abyss = formatted_text
+            if not macrocosm_resonance and formatted_text:
+                macrocosm_resonance = formatted_text
+
+            card_image_path = f"cards/{card_id}.jpeg" if card_id else ""
+
+            html_out = template.render(
+                user_name=user_name,
+                birth_info=birth_info,
+                section_name=section_name,
+                text_content=formatted_text,
+                advice_content=formatted_advice,
+                card_name=card_name or "",
+                card_description=card_description or "",
+                card_image_path=card_image_path,
+                shadow_side=shadow_side,
+                activation_level=activation_level,
+                activation_comment=activation_comment,
+                affirmations=affirmations,
+                next_activation_date=next_activation_date,
+                thirty_day_forecast=thirty_day_forecast,
+                activation_recommendations=activation_recommendations,
+                star_code=star_code,
+                energy_map=energy_map,
+                current_date=current_date,
+                palm_photos=palm_photos,
+                interesting_facts=interesting_facts,
+                character_name=character_name,
+                sigil_photo=sigil_photo,
+                eye_photo=eye_photo,
+
+                # Group specific fields
+                geom_analysis=geom_analysis,
+                activation_ritual=activation_ritual,
+                energy_vector=energy_vector,
+                focus_mantras=focus_mantras,
+
+                iris_or_line_decoding=iris_or_line_decoding,
+                spiritual_vulnerability=spiritual_vulnerability,
+                intuition_unlk=intuition_unlk,
+                daily_mudras=daily_mudras,
+
+                message_from_abyss=message_from_abyss,
+                shadow_integration=shadow_integration,
+                sacred_taboo=sacred_taboo,
+                astral_totem_ritual=astral_totem_ritual,
+
+                macrocosm_resonance=macrocosm_resonance,
+                balance_formula=balance_formula,
+                space_alignment=space_alignment,
+                cosmic_frequency_status=cosmic_frequency_status,
+
+                tarot_arcana_analysis=tarot_arcana_analysis,
+                karmic_lesson=karmic_lesson,
+                energy_alignment_tips=energy_alignment_tips,
+                daily_affirmations=daily_affirmations
+            )
 
         from weasyprint import HTML
         HTML(string=html_out, base_url=project_root).write_pdf(output_filename)

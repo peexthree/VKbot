@@ -1580,6 +1580,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         character_name=char_name,
                         sigil_photo=latest_data.get("sigil_photo"),
                         eye_photo=latest_data.get("eye_photo"),
+                        section_key=section,
                         **{k: v for k, v in latest_data.items() if k not in [
                             "text", "shadow_side", "activation_level", "activation_comment",
                             "affirmations", "next_activation_date", "thirty_day_forecast",
