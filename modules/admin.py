@@ -7,7 +7,7 @@ import random
 from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
 
-from cache import redis_client, set_fsm_state
+from cache import redis_client, set_fsm_state, get_system_config, set_system_config
 from database import get_all_users, get_user, update_user, get_user_count, get_users_paginated
 from database.feedbacks import get_unposted_feedbacks
 from modules.support import send_feedback_to_chat
@@ -109,17 +109,10 @@ async def show_admin_main(peer_id: int, conversation_message_id: int = None):
 
 async def show_admin_system(peer_id: int, conversation_message_id: int = None, page: int = 0):
     """Раздел системных настроек с пагинацией"""
-    warmup_active = await redis_client.get("system_config:warmup_active")
-    warmup_active = bool(int(warmup_active)) if warmup_active else False
-
-    maintenance_mode = await redis_client.get("system_config:maintenance_mode")
-    maintenance_mode = bool(int(maintenance_mode)) if maintenance_mode else False
-
-    proxy_enabled = await redis_client.get("system_config:proxy_enabled")
-    proxy_enabled = bool(int(proxy_enabled)) if proxy_enabled is not None else True
-
-    tag_memory_active = await redis_client.get("system_config:tag_memory_active")
-    tag_memory_active = bool(int(tag_memory_active)) if tag_memory_active is not None else True
+    warmup_active = ((await get_system_config("system_config:warmup_active", default="0")) == "1")
+    maintenance_mode = ((await get_system_config("system_config:maintenance_mode", default="0")) == "1")
+    proxy_enabled = ((await get_system_config("system_config:proxy_enabled", default="1")) == "1")
+    tag_memory_active = ((await get_system_config("system_config:tag_memory_active", default="1")) == "1")
 
     try:
         keys = await redis_client.keys("photo:*")
@@ -542,28 +535,27 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
             await bot.api.messages.send(peer_id=peer_id, message=f"❌ {msg}", random_id=random.getrandbits(63))
         await show_admin_feedbacks(peer_id, conversation_message_id)
     elif action == "toggle_warmup":
-        c = await redis_client.get("system_config:warmup_active")
-        nv = 0 if c and int(c) == 1 else 1
-        await redis_client.set("system_config:warmup_active", str(nv))
+        c = await get_system_config("system_config:warmup_active", default="0")
+        nv = 0 if c == "1" else 1
+        await set_system_config("system_config:warmup_active", nv)
         if nv == 1:
             from modules.utils import warmup_task
             asyncio.create_task(warmup_task())
         await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "toggle_maintenance":
-        c = await redis_client.get("system_config:maintenance_mode")
-        nv = 0 if c and int(c) == 1 else 1
-        await redis_client.set("system_config:maintenance_mode", str(nv))
+        c = await get_system_config("system_config:maintenance_mode", default="0")
+        nv = 0 if c == "1" else 1
+        await set_system_config("system_config:maintenance_mode", nv)
         await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "toggle_proxy":
-        c = await redis_client.get("system_config:proxy_enabled")
-        # По умолчанию считаем что включен (None -> 1)
-        nv = 0 if c is None or int(c) == 1 else 1
-        await redis_client.set("system_config:proxy_enabled", str(nv))
+        c = await get_system_config("system_config:proxy_enabled", default="1")
+        nv = 0 if c == "1" else 1
+        await set_system_config("system_config:proxy_enabled", nv)
         await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "toggle_tag_memory":
-        c = await redis_client.get("system_config:tag_memory_active")
-        nv = 0 if c and int(c) == 1 else 1
-        await redis_client.set("system_config:tag_memory_active", str(nv))
+        c = await get_system_config("system_config:tag_memory_active", default="1")
+        nv = 0 if c == "1" else 1
+        await set_system_config("system_config:tag_memory_active", nv)
         await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "list_vips":
         users = await get_all_users()

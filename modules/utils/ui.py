@@ -67,23 +67,43 @@ async def delete_bot_message(bot_api, peer_id: int, cmid: int = None, mid: int =
             return
         logger.debug(f"Failed to delete message: {e}")
 
+_local_last_bot_msg: dict[int, int] = {}
+
+
 async def get_last_bot_msg(peer_id: int) -> int | None:
-    """Получает CMID последнего сообщения бота из кэша"""
-    res = await redis_client.get(f"last_bot_msg:{peer_id}")
-    if not res:
+    """Получает CMID последнего сообщения бота: сначала локальный RAM кэш (0мс), затем Redis"""
+    if peer_id in _local_last_bot_msg:
+        return _local_last_bot_msg[peer_id]
+
+    try:
+        res = await redis_client.get(f"last_bot_msg:{peer_id}")
+        if not res:
+            return None
+        if isinstance(res, bytes):
+            res = res.decode('utf-8')
+        cmid = extract_msg_id(res)
+        if cmid:
+            _local_last_bot_msg[peer_id] = cmid
+        return cmid
+    except Exception:
         return None
 
-    # Декодируем байты если нужно
-    if isinstance(res, bytes):
-        res = res.decode('utf-8')
-
-    return extract_msg_id(res)
 
 async def set_last_bot_msg(peer_id: int, cmid: int):
-    """Запоминает CMID последнего сообщения бота"""
+    """Запоминает CMID последнего сообщения бота в RAM и неблокирующе в фоне в Redis"""
     clean_id = extract_msg_id(cmid)
     if clean_id:
-        await redis_client.set(f"last_bot_msg:{peer_id}", str(clean_id), ex=86400)
+        if len(_local_last_bot_msg) > 5000:
+            _local_last_bot_msg.clear()
+        _local_last_bot_msg[peer_id] = clean_id
+
+        async def _save_bg():
+            try:
+                await redis_client.set(f"last_bot_msg:{peer_id}", str(clean_id), ex=86400)
+            except Exception:
+                pass
+
+        asyncio.create_task(_save_bg())
 
 async def ghost_edit(
     bot_api,

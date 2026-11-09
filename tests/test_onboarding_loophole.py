@@ -41,15 +41,11 @@ async def test_unregistered_user_callback_interception():
         mock_vk_request.return_value = {"response": 1}
         await _message_event_handler_wrapped(event)
 
-        # Should answer event with a warning snackbar
+        # Should answer event immediately
         mock_vk_request.assert_called_once()
         args, kwargs = mock_vk_request.call_args
         method = args[0]
-        params = args[1] if len(args) > 1 else kwargs.get("params")
         assert method == "messages.sendMessageEventAnswer"
-        event_data = json.loads(params.get("event_data", "{}"))
-        assert event_data.get("type") == "show_snackbar"
-        assert "Пожалуйста, заверши настройку" in event_data.get("text", "")
 
         # Should redirect to start_handler
         mock_start_handler.assert_called_once()

@@ -112,11 +112,11 @@ async def generate_section(section: str, date: str, time: str, city: str, core_p
     if core_profile:
         base_info += f" Прошлый анализ (учитывай это, чтобы показать, что ты знаешь пользователя): {core_profile}."
 
-    from cache import redis_client
+    from cache import get_system_config
     tag_memory_active = True
     try:
-        mem_val = await redis_client.get("system_config:tag_memory_active")
-        if mem_val is not None and int(mem_val) == 0:
+        mem_val = await get_system_config("system_config:tag_memory_active", default="1")
+        if mem_val == "0":
             tag_memory_active = False
     except Exception:
         pass

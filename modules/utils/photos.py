@@ -12,6 +12,7 @@ from modules.utils.consts import (
 )
 
 _user_api: API | None = None
+_wall_photo_cache: dict[str, str] = {}
 
 def get_user_api() -> API | None:
     """Инициализирует и возвращает API клиента пользователя (ленивая инициализация)."""
@@ -250,18 +251,22 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
             if os.path.exists(os.path.join("cards", alt_filename)):
                 filename = alt_filename
 
+    if filename in _wall_photo_cache:
+        return _wall_photo_cache[filename]
+
     try:
         cached_id = await redis_client.get(f"wall_photo_v2:{filename}")
         if cached_id:
+            cached_id_str = cached_id.decode() if isinstance(cached_id, bytes) else str(cached_id)
+            _wall_photo_cache[filename] = cached_id_str
             try:
-                cached_id_str = cached_id.decode() if isinstance(cached_id, bytes) else cached_id
                 direct_url = await redis_client.get(f"photo_url_by_filename:{filename}")
                 if direct_url:
                     direct_url_str = direct_url.decode() if isinstance(direct_url, bytes) else direct_url
                     await redis_client.set(f"photo_url:{cached_id_str}", direct_url_str, ex=3600)
             except Exception as ce:
-                logger.error(f"Error re-caching wall photo direct url from cache: {ce}")
-            return cached_id
+                logger.debug(f"Error re-caching wall photo direct url from cache: {ce}")
+            return cached_id_str
     except Exception as e:
         logger.error(f"Ошибка чтения wall_photo из Redis: {str(e)}")
 
@@ -376,6 +381,7 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
                             await asyncio.sleep(2)
 
             if photo_attachment_id:
+                _wall_photo_cache[filename] = photo_attachment_id
                 try:
                     await redis_client.set(f"wall_photo_v2:{filename}", photo_attachment_id)
                 except Exception as e:

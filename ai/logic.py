@@ -8,7 +8,7 @@ from configs.models import MODELS
 from prompts.base import BASE_SYSTEM_INSTRUCTION
 from prompts.personas import SKIN_MAP
 from ai.core import init_session
-from cache import redis_client, acquire_ai_slot
+from cache import redis_client, acquire_ai_slot, get_system_config
 
 SANITIZATION_TABLE = str.maketrans({"*": "", "_": "", "—": "-", "`": "", "~": ""})
 
@@ -214,11 +214,9 @@ async def generate_text(
     last_exception = Exception("Unknown error")
     tov_instruction = SKIN_MAP.get(skin, SKIN_MAP["olesya"])
 
-    proxy_enabled_raw = await redis_client.get("system_config:proxy_enabled")
+    proxy_enabled_raw = await get_system_config("system_config:proxy_enabled", default="1")
     # По умолчанию прокси включен, если ключ не установлен
-    is_proxy_active = (
-        bool(int(proxy_enabled_raw)) if proxy_enabled_raw is not None else True
-    )
+    is_proxy_active = (proxy_enabled_raw != "0")
 
     base_api_url = "https://generativelanguage.googleapis.com"
     if is_proxy_active and proxy_url:

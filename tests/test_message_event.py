@@ -62,10 +62,8 @@ async def test_message_event_handler_main_menu():
         # Run the handler
         await _message_event_handler_wrapped(event)
 
-        # Ensure redis lock set was called to answer the event to prevent timeout spinner
-        mock_redis.set.assert_any_call(
-            "event_answered:test_event_12345", "1", ex=30, nx=True
-        )
+        # Ensure event answer was sent to VK API to prevent timeout spinner
+        mock_vk_request.assert_called()
 
         # Verify database interaction
         mock_update.assert_called()

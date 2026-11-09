@@ -107,14 +107,10 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
     # --- ФИКС ТАЙМАУТА: Отвечаем мгновенно до тяжелых операций ---
     user_data = None
     if event_id and vk_id and not skip_lock:
-        lock_key = f"event_answered:{event_id}"
-        # Дедуп: сбой/лаг Redis не должен ронять клик (fail-open)
-        try:
-            res = await redis_client.set(lock_key, "1", ex=30, nx=True)
-        except Exception as dedup_err:
-            logger.warning(f"Redis dedup error (proceeding): {dedup_err}")
-            res = True
-        if not res:
+        from cache import check_and_mark_event_seen
+
+        # Мгновенный in-memory дедуп: исключает повторный ответ на один event_id без сетевых задержек
+        if not check_and_mark_event_seen(f"event_answered:{event_id}", ttl=30.0):
             logger.debug(f"Event {event_id} already answered or being processed")
             return
 
@@ -383,12 +379,10 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     "purchased_sections": p_stats,
                     "last_active_date": now_stats.isoformat(),
                 }
-                # Сохраняем в кэш Redis, чтобы последующие запросы были мгновенными
-                from cache import redis_client, USER_CACHE_TTL
+                # Обновляем локальный in-memory кэш профиля (0 сетевых вызовов к Upstash)
+                from database.core import _local_cache_put
                 current_user.update(updates)
-                await redis_client.set(
-                    f"ucache:{uid}", json.dumps(current_user, ensure_ascii=False), ex=USER_CACHE_TTL
-                )
+                _local_cache_put(uid, current_user)
                 # Записываем в Supabase без сброса кэша
                 await update_user(uid, updates, invalidate_cache=False)
             except Exception as st_err:
