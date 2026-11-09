@@ -13,6 +13,7 @@ from urllib.parse import parse_qsl
 import sentry_sdk
 from modules.utils.logic import get_safe_tags
 from modules.utils.seasonal import seasonal_prompt_line
+import aiohttp
 from aiohttp import web
 from loguru import logger
 
@@ -297,7 +298,7 @@ async def handle_vk_webhook(request):
             # Дедупликация (аудит 2026-11): VK повторяет доставку при таймауте
             # ответа - без проверки event_id возможна двойная генерация платного
             # контента
-            event_id = str(data.get("event_id") or "")
+            event_id = str(data.get("event_id") or (data.get("object") or {}).get("event_id") or "")
             if event_id:
                 from cache import redis_client
 

@@ -157,7 +157,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     event_id=event_id, user_id=vk_id, peer_id=peer_id
                 )
         except Exception as e:
-            logger.warning(f"Could not answer event {event_id}: {e}")
+            err_msg = str(e).lower()
+            if "invalid event_id" in err_msg or "event_id" in err_msg:
+                logger.debug(f"Event {event_id} already acknowledged or expired in VK: {e}")
+            else:
+                logger.warning(f"Could not answer event {event_id}: {e}")
 
         # 2. Проверка регистрации для предотвращения обхода онбординга
         user_data = await get_user(vk_id)
