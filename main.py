@@ -745,6 +745,16 @@ async def main():
     except Exception as e:
         logger.warning(f"Error closing ai_session: {e}")
     try:
+        from database.core import close_db
+        await close_db()
+    except Exception as e:
+        logger.debug(f"Error closing db session: {e}")
+    try:
+        if hasattr(bot.api, "http_client") and hasattr(bot.api.http_client, "close"):
+            await bot.api.http_client.close()
+    except Exception as e:
+        logger.debug(f"Error closing bot http client: {e}")
+    try:
         await runner.cleanup()
     except Exception as e:
         logger.warning(f"runner.cleanup error: {e}")
