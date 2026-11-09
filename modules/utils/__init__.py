@@ -1,10 +1,10 @@
 from .consts import (
-    THEATRICAL_PHRASES, SKIN_ASSETS, ADMIN_ID, jinja_env, pdf_semaphore, HIDDEN_CIPHER_WORDS
+    THEATRICAL_PHRASES, SKIN_ASSETS, ADMIN_ID, jinja_env, pdf_semaphore, HIDDEN_CIPHER_WORDS, _typing_tasks
 )
 from .ui import (
     ghost_edit, stop_dynamic_typing, start_dynamic_typing,
     delete_bot_message, get_last_bot_msg, set_last_bot_msg, send_temp_message,
-    extract_msg_id
+    extract_msg_id, safe_edit
 )
 from .photos import (
     get_cached_photo, flush_anchors, upload_local_photo, warmup_task, clear_photo_cache
@@ -24,8 +24,8 @@ from .logic import (
 from cache import acquire_lock, release_lock
 
 __all__ = [
-    "THEATRICAL_PHRASES", "SKIN_ASSETS", "ADMIN_ID", "jinja_env", "pdf_semaphore", "HIDDEN_CIPHER_WORDS",
-    "ghost_edit", "stop_dynamic_typing", "start_dynamic_typing",
+    "THEATRICAL_PHRASES", "SKIN_ASSETS", "ADMIN_ID", "jinja_env", "pdf_semaphore", "HIDDEN_CIPHER_WORDS", "_typing_tasks",
+    "ghost_edit", "stop_dynamic_typing", "start_dynamic_typing", "safe_edit",
     "delete_bot_message", "get_last_bot_msg", "set_last_bot_msg", "send_temp_message",
     "extract_msg_id",
     "get_cached_photo", "flush_anchors", "upload_local_photo", "warmup_task", "clear_photo_cache",

@@ -321,3 +321,29 @@ async def start_dynamic_typing(bot_api, peer_id: int, conversation_message_id: i
     task = asyncio.create_task(_typing_loop())
     _typing_tasks[peer_id] = task
     return task
+
+
+async def safe_edit(
+    peer_id,
+    message,
+    conversation_message_id=None,
+    keyboard=None,
+    attachment=None,
+    **kwargs,
+):
+    """Обертка для безопасного редактирования с защитой от Flood Control.
+
+    Каноническая реализация: spreads_logic.py и новые модули импортируют
+    отсюда (версия в callbacks.py идентична и оставлена для совместимости).
+    """
+    from modules.bot_init import bot
+
+    await ghost_edit(
+        bot.api,
+        peer_id=peer_id,
+        message=message,
+        conversation_message_id=conversation_message_id,
+        keyboard=keyboard,
+        attachment=attachment,
+        **kwargs,
+    )
