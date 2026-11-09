@@ -980,9 +980,19 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     100,
                 ),
             }
-            title, desc, cat, cost = item_data.get(
-                key, ("Услуга", "Описание", "biometrics", 700)
-            )
+            from configs.tarot_spreads import TAROT_SPREADS
+            item_att = None
+            if key in TAROT_SPREADS:
+                sp = TAROT_SPREADS[key]
+                title = sp["title"]
+                desc = f"{sp['desc']}\n\nПозиций карт: {sp['cards_count']}\nСтоимость: {sp['cost']} ✨ ({sp['price_rub']})"
+                cat = "tarot_spreads"
+                cost = sp["cost"]
+                item_att = await upload_local_photo(bot.api, sp["image_name"], peer_id=vk_id)
+            else:
+                title, desc, cat, cost = item_data.get(
+                    key, ("Услуга", "Описание", "biometrics", 700)
+                )
 
             # Все 10 услуг каталога «Тайные искусства» требуют списания энергии
             user = await get_user(vk_id)
@@ -1003,7 +1013,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 color=KeyboardButtonColor.SECONDARY,
             )
 
-            att = await upload_local_photo(
+            att = item_att or await upload_local_photo(
                 bot.api, "uslugi/services.jpeg", peer_id=vk_id
             )
             await ghost_edit(
@@ -1492,13 +1502,20 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         if success_eye:
                             temp_files_to_clean.append(full_eye_path)
 
+            from configs.tarot_spreads import TAROT_SPREADS
+            section_display_name = (
+                TAROT_SPREADS[section]["title"].upper()
+                if section in TAROT_SPREADS
+                else section.upper()
+            )
+
             try:
                 async with pdf_semaphore:
                     success = await asyncio.to_thread(
                         generate_premium_pdf,
                         user_name=u_name,
                         birth_info=b_info,
-                        section_name=section.upper(),
+                        section_name=section_display_name,
                         text_content=latest_data.get("text", ""),
                         output_filename=pdf_name,
                         card_id=card_id,
@@ -1841,6 +1858,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "chrono": 700,
                 "charoslov": 600,
             }
+            from configs.tarot_spreads import TAROT_SPREAD_PRICES, TAROT_SPREAD_KEYS
+            prices.update(TAROT_SPREAD_PRICES)
             amount_needed = prices.get(key)
             if not amount_needed:
                 return
@@ -1848,8 +1867,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             # ПРОВЕРКА VIP-БЕЗЛИМИТА (не распространяется на каталог «Тайные искусства»)
             user = await get_user(vk_id)
 
-            # ПРОВЕРКА ДАТЫ РОЖДЕНИЯ ПЕРЕД ПОКУПКОЙ УСЛУГ (кроме пополнений и тарифов)
-            if buy_type == "service" or key in ["destiny_card", "destiny_card_update"]:
+            # ПРОВЕРКА ДАТЫ РОЖДЕНИЯ ПЕРЕД ПОКУПКОЙ УСЛУГ (кроме пополнений, тарифов и раскладов Таро)
+            if (buy_type == "service" and key not in TAROT_SPREAD_KEYS) or key in ["destiny_card", "destiny_card_update"]:
                 from cache import get_birth_data_or_fallback
 
                 birth_data = await get_birth_data_or_fallback(vk_id, user)
@@ -2138,12 +2157,22 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     asyncio.create_task(
                         add_event(vk_id, "paid_feature_used", {"service": key})
                     )
-                    await process_payment_and_generate(
-                        vk_id,
-                        key,
-                        peer_id=peer_id,
-                        conversation_message_id=obj.get("conversation_message_id"),
-                    )
+                    if key in TAROT_SPREAD_KEYS:
+                        from modules.tarot.spreads_logic import initiate_spread_flow
+
+                        await initiate_spread_flow(
+                            vk_id,
+                            peer_id,
+                            key,
+                            edit_msg_id=obj.get("conversation_message_id"),
+                        )
+                    else:
+                        await process_payment_and_generate(
+                            vk_id,
+                            key,
+                            peer_id=peer_id,
+                            conversation_message_id=obj.get("conversation_message_id"),
+                        )
                     if event_id:
                         await bot.api.messages.send_message_event_answer(
                             event_id=event_id,
@@ -2562,6 +2591,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "chrono": 700,
                 "charoslov": 600,
             }
+            prices.update(TAROT_SPREAD_PRICES)
             cost = prices.get(key, 0)
 
             # Проверка VIP-безлимита для отображения стоимости (каталог «Тайные искусства» платный для всех)
@@ -2628,6 +2658,16 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 message="✨ ШАГ 3 ИЗ 3: ТВОЙ ВЫБОР ✨\nПрислушайся к интуиции и выбери 3 карты, которые откликаются тебе сейчас.",
                 conversation_message_id=obj.get("conversation_message_id"),
                 keyboard=kb.get_json(),
+            )
+        elif cmd == "spread_cut":
+            spread_key = payload.get("key")
+            from modules.tarot.spreads_logic import handle_spread_cut
+
+            await handle_spread_cut(
+                vk_id,
+                peer_id,
+                spread_key,
+                edit_msg_id=obj.get("conversation_message_id"),
             )
         elif cmd == "global_cut":
             target = payload.get("target")
@@ -2818,5 +2858,17 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         conversation_message_id=conv_id,
                     )
                 )
+        elif "spread_card" in payload:
+            card_id = payload.get("spread_card")
+            spread_key = payload.get("key")
+            from modules.tarot.spreads_logic import handle_spread_card_draw
+
+            await handle_spread_card_draw(
+                vk_id,
+                peer_id,
+                card_id,
+                spread_key,
+                edit_msg_id=obj.get("conversation_message_id"),
+            )
     finally:
         await release_lock(vk_id)

@@ -11,6 +11,7 @@ from vkbottle import (
 from vkbottle.bot import BotLabeler, Message
 
 from cache import acquire_lock, release_lock
+from configs.tarot_spreads import TAROT_SPREADS
 from database import get_user, set_user_state
 from modules.bot_init import bot
 from modules.utils import (
@@ -112,9 +113,22 @@ async def show_services(vk_id: int, peer_id: int, idx: int = 0, edit_msg_id: int
         await ghost_edit(bot.api, peer_id, text, keyboard=services_menu_kb(), attachment=header_att, conversation_message_id=edit_msg_id)
         return
 
-    header_att = await upload_local_photo(bot.api, "uslugi/services.jpeg", peer_id=vk_id)
+    header_image = "uslugi/tarot_cat.jpg" if filter_val == "tarot_spreads" else "uslugi/services.jpeg"
+    header_att = await upload_local_photo(bot.api, header_image, peer_id=vk_id)
 
-    services = [
+    # Загружаем расклады Таро из конфига
+    tarot_spread_items = [
+        {
+            "key": sp["key"],
+            "title": sp["title"],
+            "desc": sp["desc"],
+            "image_name": sp["image_name"],
+            "category": "tarot_spreads",
+        }
+        for sp in TAROT_SPREADS.values()
+    ]
+
+    services = tarot_spread_items + [
         # --- BIOMETRICS ---
         {
             "key": "oculomancy",

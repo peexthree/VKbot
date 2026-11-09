@@ -85,6 +85,7 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
 def services_menu_kb() -> str:
     """Единый корневой каталог услуг по категориям (Кабинеты)"""
     return vertical_kb([
+        ("🔮 Расклады Таро", {"cmd": "secret_arts_cat", "cat": "tarot_spreads"}, KeyboardButtonColor.PRIMARY),
         ("👁 Биометрия и Фото", {"cmd": "secret_arts_cat", "cat": "biometrics"}, KeyboardButtonColor.PRIMARY),
         ("🎨 Сакральные Артефакты", {"cmd": "secret_arts_cat", "cat": "artifacts"}, KeyboardButtonColor.PRIMARY),
         ("🧭 Проекции Судьбы", {"cmd": "secret_arts_cat", "cat": "destiny"}, KeyboardButtonColor.PRIMARY),
@@ -102,7 +103,11 @@ def secret_arts_menu_kb() -> str:
 def category_menu_kb(category_key: str, user_purchased: dict = None, vip_unlimited: bool = False) -> str:
     """Меню конкретного кабинета (категории услуг)"""
     buttons = []
-    if category_key == "biometrics":
+    if category_key == "tarot_spreads":
+        from configs.tarot_spreads import TAROT_SPREADS
+        for sp_key, sp in TAROT_SPREADS.items():
+            buttons.append((sp["menu_title"], {"cmd": "secret_arts_item", "key": sp_key}, KeyboardButtonColor.PRIMARY))
+    elif category_key == "biometrics":
         buttons.append(("👁 Окуломантия (1200 ✨)", {"cmd": "secret_arts_item", "key": "oculomancy"}, KeyboardButtonColor.PRIMARY))
         buttons.append(("✋ Хиромантия (1200 ✨)", {"cmd": "secret_arts_item", "key": "palmistry"}, KeyboardButtonColor.PRIMARY))
     elif category_key == "artifacts":
