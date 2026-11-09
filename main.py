@@ -47,8 +47,111 @@ with warnings.catch_warnings():
         if not hasattr(ast, attr):
             setattr(ast, attr, type(attr, (ast.Constant,), {}))
 
+_START_TIME = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
 async def handle_ping(request):
     return web.Response(text="Bot is alive")
+
+async def handle_diag(request):
+    import time
+    from modules.bot_init import bot
+
+    diag = {
+        "status": "ok",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "start_time": _START_TIME,
+        "tests": {}
+    }
+
+    # 1. VK API
+    t0 = time.time()
+    try:
+        vk_res = await bot.api.request("utils.getServerTime", {})
+        diag["tests"]["vk_api"] = {
+            "status": "ok",
+            "latency_ms": round((time.time() - t0) * 1000, 1),
+            "server_time": vk_res.get("response")
+        }
+    except Exception as e:
+        diag["tests"]["vk_api"] = {
+            "status": "error",
+            "error": str(e),
+            "latency_ms": round((time.time() - t0) * 1000, 1)
+        }
+
+    # 2. Supabase DB
+    t0 = time.time()
+    try:
+        from database.core import session
+        from database.config import URL, HEADERS, TABLE_NAME
+        if session and URL:
+            async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?select=id&limit=1", headers=HEADERS) as r:
+                diag["tests"]["supabase"] = {
+                    "status": "ok" if r.status in (200, 206) else f"http_{r.status}",
+                    "latency_ms": round((time.time() - t0) * 1000, 1),
+                    "http_status": r.status
+                }
+        else:
+            diag["tests"]["supabase"] = {"status": "not_initialized"}
+    except Exception as e:
+        diag["tests"]["supabase"] = {
+            "status": "error",
+            "error": str(e),
+            "latency_ms": round((time.time() - t0) * 1000, 1)
+        }
+
+    # 3. Upstash Redis
+    t0 = time.time()
+    try:
+        from cache import redis_client
+        res = await redis_client.get("diag:ping")
+        diag["tests"]["redis"] = {
+            "status": "ok",
+            "latency_ms": round((time.time() - t0) * 1000, 1)
+        }
+    except Exception as e:
+        diag["tests"]["redis"] = {
+            "status": "error",
+            "error": str(e),
+            "latency_ms": round((time.time() - t0) * 1000, 1)
+        }
+
+    # 4. Gemini API & Cloudflare Proxy
+    t0 = time.time()
+    try:
+        from ai.logic import get_gemini_api_keys, proxy_url
+        keys = await get_gemini_api_keys()
+        if not keys:
+            diag["tests"]["gemini_proxy"] = {"status": "no_keys"}
+        else:
+            base_url = proxy_url.rstrip("/") if proxy_url else "https://generativelanguage.googleapis.com"
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8)) as t_sess:
+                async with t_sess.get(f"{base_url}/v1beta/models?key={keys[0]}") as r:
+                    diag["tests"]["gemini_proxy"] = {
+                        "status": "ok" if r.status == 200 else f"http_{r.status}",
+                        "latency_ms": round((time.time() - t0) * 1000, 1),
+                        "used_proxy": bool(proxy_url),
+                        "http_status": r.status
+                    }
+    except Exception as e:
+        diag["tests"]["gemini_proxy"] = {
+            "status": "error",
+            "error": str(e),
+            "latency_ms": round((time.time() - t0) * 1000, 1)
+        }
+
+    # 5. In-Memory State
+    try:
+        from cache import _memory_locks, _throttle_map, _seen_events
+        diag["memory_state"] = {
+            "locks": len(_memory_locks),
+            "throttles": len(_throttle_map),
+            "seen_events": len(_seen_events)
+        }
+    except Exception as e:
+        diag["memory_state"] = {"error": str(e)}
+
+    return web.json_response(diag)
 
 def verify_vk_signature(query_string: str, secret: str) -> bool:
     """Проверка подписи параметров запуска VK Mini App"""
@@ -694,6 +797,7 @@ async def main():
     })
 
     app.router.add_get('/', handle_ping)
+    app.router.add_get('/diag', handle_diag)
     app.router.add_post('/vk/callback', handle_vk_webhook)
 
     user_info_resource = app.router.add_resource("/api/user/info")

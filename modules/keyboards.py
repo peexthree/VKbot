@@ -1,5 +1,7 @@
+import os
 from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text, OpenLink
-from modules.utils.consts import ADMIN_ID
+
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "27260796"))
 
 def vertical_kb(buttons: list[tuple[str, str | dict, str]], nav_buttons: list[tuple[str, str | dict, str]] = None) -> str:
     """Хелпер для создания клавиатуры с защитой от превышения лимита 6 рядов VK API"""
