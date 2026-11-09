@@ -35,8 +35,6 @@ def test_template_syntax():
             raise e
 
 def test_spread_rendering():
-    # Load pdf.py directly using SourceFileLoader to avoid uninstalled dependencies in test env
-    # Mock loguru module if not present
     import types
     if "loguru" not in sys.modules:
         m = types.ModuleType("loguru")
@@ -60,9 +58,9 @@ def test_spread_rendering():
     from prompts.pdf_templates import TAROT_SPREAD_TEMPLATE
     from cards_data import get_card_data
 
-    spread = TAROT_SPREADS["tarot_pause_end"]
+    spread = TAROT_SPREADS["tarot_misses"]
     positions = spread["positions"]
-    card_ids = ["12", "0", "15"]
+    card_ids = ["28", "4", "42", "22", "39"]
 
     cards_list = []
     for idx, cid in enumerate(card_ids):
@@ -76,24 +74,30 @@ def test_spread_rendering():
             "img_path": f"cards/{cid}.jpeg"
         })
 
-    text = """В ночной тишине карты открывают истину. Тени прошлого отступают.
+    sample_user_text = """Добро пожаловать в пространство, где тишина обретает голос, а скрытое становится явным. Мы открываем Сакральная ясность для того, кто ищет истину сквозь завесу разлуки.
 
-🔮 1. Что сейчас: пауза или завершение?
-Сейчас связь находится в подвешенном состоянии. Не торопите события.
+1 СКУЧАЕТ ЛИ ОН - СЕМЕРКА ЖЕЗЛОВ.
+Этот человек ведет невидимую внутреннюю борьбу, защищая свое пространство от нахлынувших воспоминаний. Он держит оборону против собственных чувств, но сама необходимость защищаться доказывает - образ живет в его сердце.
 
-🔮 2. Есть ли у этой связи продолжение?
-Карты говорят, что шанс на новый виток отношений высок.
+🌙 Позиция 2. Что мешает быть вместе - Император.
+Между вами стоит непреклонная стена из гордости, принципов и жесткого контроля. Кто-то из вас привык подчинять эмоции разуму, воздвигнув ледяной трон из невысказанных амбиций.
 
-🔮 3. Что мешает возобновлению?
-Внутренние сомнения и страх снова обжечься.
+🕯 Позиция 3. Что он чувствует - Семерка Кубков.
+Его душа окутана туманом иллюзий, сомнений и сладких миражей. Он тонет в фантазиях о том, как всё могло быть иначе, но боится сделать шаг из мира грёз в суровую реальность.
 
-Совет от карт:
-Отпустите обиды и откройте сердце диалогу."""
+✨ Позиция 4. Будем ли мы вместе - Двойка Жезлов.
+Судьба замерла на перекрестке дорог в ожидании решительного импульса. Калибровка путей показывает состояние неопределенности, когда оба смотрят вдаль, но стоят на пороге выбора.
 
-    parsed = parse_tarot_reading(text, positions)
-    assert parsed["prologue"] == "В ночной тишине карты открывают истину. Тени прошлого отступают."
-    assert len(parsed["sections"]) == 3
-    assert "Отпустите обиды" in parsed["synthesis"]
+5 СОВЕТ ОТ КАРТ - ЧЕТВЕРКА КУБКОВ.
+Оракул шепчет о необходимости прекратить бездумно смотреть в пустые чаши прошлого. Обрати свой взор внутрь себя - Резонанс истины кроется в обретении внутренней целостности независимо от внешних обстоятельств.
+
+🌟 СИНТЕЗ КАРТ И САКРАЛЬНЫЙ СОВЕТ
+Главный урок этого союза заключается в прохождении через испытание гордостью и иллюзиями. Предостережение звучит просто - не трать жизненную силу на ожидание того, кто сам боится собственной тени. Вектор исхода зависит от твоей способности выйти из режима обороны и обрести самодостаточность. Когда ты перестанешь цепляться за призраки, пространство само переплетет ваши нити заново."""
+
+    parsed = parse_tarot_reading(sample_user_text, positions)
+    assert "Добро пожаловать" in parsed["prologue"]
+    assert len(parsed["sections"]) == 5, f"Expected 5 sections, got {len(parsed['sections'])}"
+    assert "Главный урок этого союза" in parsed["synthesis"]
 
     sections = []
     for s in parsed["sections"]:
@@ -106,33 +110,48 @@ def test_spread_rendering():
             "content": s["content"]
         })
 
+    # Ensure cover path resolves properly without double uslugi
+    raw_img = spread["image_name"].replace("\\", "/").strip()
+    if raw_img.startswith("cards/"):
+        spread_cover = raw_img
+    elif raw_img.startswith("uslugi/"):
+        spread_cover = f"cards/{raw_img}"
+    else:
+        spread_cover = f"cards/uslugi/{raw_img}"
+
+    assert spread_cover == "cards/uslugi/tarot_misses.jpg"
+    assert os.path.exists(spread_cover), f"Cover image {spread_cover} does not exist!"
+
     tmpl = jinja2.Template(TAROT_SPREAD_TEMPLATE)
     html_out = tmpl.render(
-        user_name="Адепт",
-        birth_info="12.04.1995 14:00 Москва",
-        spread_title=spread["title"],
-        spread_cover=f"cards/uslugi/{spread['image_name']}",
-        character_name="Олеся",
+        user_name="Игорь",
+        birth_info="15.6.1991 12:00 Казань",
+        spread_title="СКУЧАЕТ ЛИ ОН ПО МНЕ",
+        spread_cover=spread_cover,
+        character_name="Честный Оракул",
         current_date="09.11.2026",
         cards_list=cards_list,
         prologue=parsed["prologue"],
         sections=sections,
         synthesis=parsed["synthesis"],
-        formatted_full_text=text
+        formatted_full_text=sample_user_text
     )
 
     assert "СВЯЩЕННАЯ КАРТА РАСКЛАДА" in html_out
-    assert "Что сейчас: пауза или завершение?" in html_out
-    assert "Повешенный" in html_out
+    assert "cards/uslugi/tarot_misses.jpg" in html_out
+    assert "Семерка Жезлов" in html_out
     assert "СИНТЕЗ КАРТ И САКРАЛЬНЫЙ СОВЕТ" in html_out
-    assert "Отпустите обиды" in html_out
+    # Check no emoji remains in rendered text
+    assert "🌟" not in html_out
+    assert "🌙" not in html_out
+    assert "🕯" not in html_out
+    assert "✨" not in html_out
     print("test_spread_rendering passed!")
 
 def test_classic_group_e_fallback():
     from prompts.pdf_templates import GROUP_E_TEMPLATE
     tmpl = jinja2.Template(GROUP_E_TEMPLATE)
 
-    # When tarot_arcana_analysis is absent, formatted text is used
     html_out = tmpl.render(
         user_name="Иван",
         birth_info="01.01.2000",
@@ -146,7 +165,6 @@ def test_classic_group_e_fallback():
 
     assert "Сакральное Толкование" in html_out
     assert "Полный текст антитаро без пустых блоков." in html_out
-    # Ensure empty panels for karmic lesson etc are omitted
     assert "<h3>2. Кармический Урок Ситуации</h3>" not in html_out
     print("test_classic_group_e_fallback passed!")
 

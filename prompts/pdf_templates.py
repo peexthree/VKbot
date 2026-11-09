@@ -1019,24 +1019,26 @@ TAROT_SPREAD_TEMPLATE = """<!DOCTYPE html>
             position: relative;
             text-align: center;
             box-sizing: border-box;
-            padding-top: 35px;
+            padding-top: 25px;
+            page-break-inside: avoid;
+            overflow: hidden;
         }
         .cover-logo {
             display: block;
-            width: 26%;
-            max-width: 140px;
-            margin: 0 auto 15px auto;
+            width: 22%;
+            max-width: 120px;
+            margin: 0 auto 10px auto;
         }
         .cover-art-box {
-            margin: 15px auto 25px auto;
+            margin: 10px auto 18px auto;
             text-align: center;
         }
         .cover-art {
-            max-width: 110mm;
-            max-height: 110mm;
+            max-width: 95mm;
+            max-height: 95mm;
             border-radius: 14px;
             border: 3px solid #d4af37;
-            box-shadow: 0 0 45px rgba(212, 175, 55, 0.55);
+            box-shadow: 0 0 35px rgba(212, 175, 55, 0.55);
             object-fit: contain;
             display: inline-block;
         }
@@ -1045,9 +1047,9 @@ TAROT_SPREAD_TEMPLATE = """<!DOCTYPE html>
             border: 2px solid #d4af37;
             border-radius: 14px;
             box-shadow: 0 0 35px rgba(212, 175, 55, 0.45);
-            padding: 20px 40px;
+            padding: 16px 36px;
             margin: 0 auto;
-            max-width: 520px;
+            max-width: 500px;
         }
         .cover-ritual-type {
             font-size: 11pt;
@@ -1058,11 +1060,11 @@ TAROT_SPREAD_TEMPLATE = """<!DOCTYPE html>
             font-weight: 700;
         }
         .cover-title {
-            font-size: 21pt;
+            font-size: 18pt;
             font-weight: 700;
             color: #ffffff;
             letter-spacing: 1.2px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             text-transform: uppercase;
             text-shadow: 0 0 15px rgba(212, 175, 55, 0.6);
         }
@@ -1282,11 +1284,12 @@ TAROT_SPREAD_TEMPLATE = """<!DOCTYPE html>
 
         /* ---------------- FINAL PAGE ---------------- */
         .final-page {
-            height: 280mm;
+            min-height: 220mm;
             text-align: center;
             box-sizing: border-box;
-            padding-top: 65mm;
+            padding-top: 40mm;
             position: relative;
+            page-break-inside: avoid;
         }
         .final-logo {
             width: 170px;
@@ -1340,7 +1343,7 @@ TAROT_SPREAD_TEMPLATE = """<!DOCTYPE html>
         }
         .final-disclaimer {
             position: absolute;
-            bottom: 20mm;
+            bottom: 12mm;
             left: 0;
             right: 0;
             font-size: 8pt;
@@ -1355,12 +1358,12 @@ TAROT_SPREAD_TEMPLATE = """<!DOCTYPE html>
         <img src="cards/uslugi/logo.png" class="cover-logo" alt="Logo">
         {% if spread_cover %}
         <div class="cover-art-box">
-            <img src="{{ spread_cover }}" class="cover-art" alt="Расклад">
+            <img src="{{ spread_cover }}" class="cover-art" alt="">
         </div>
         {% endif %}
         <div class="cover-badge">
             <div class="cover-ritual-type">САКРАЛЬНЫЙ РАСКЛАД ТАРО</div>
-            <div class="cover-title">{{ spread_title }}</div>
+            <div class="cover-title">«{{ spread_title }}»</div>
             <div class="cover-divider">✦ ✦ ✦</div>
             <div class="cover-meta">
                 <div>ВОПРОШАЮЩИЙ: <strong>{{ user_name }}</strong></div>
@@ -1440,7 +1443,7 @@ TAROT_SPREAD_TEMPLATE = """<!DOCTYPE html>
         {% if synthesis %}
         <div class="synthesis-panel">
             <div class="synthesis-header">
-                <span>🌟</span> СИНТЕЗ КАРТ И САКРАЛЬНЫЙ СОВЕТ
+                <span>✦</span> СИНТЕЗ КАРТ И САКРАЛЬНЫЙ СОВЕТ <span>✦</span>
             </div>
             <div class="synthesis-body">
                 <p>{{ synthesis | safe }}</p>

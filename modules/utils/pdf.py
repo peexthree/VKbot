@@ -129,41 +129,66 @@ def clean_slang(text: str) -> str:
 
     from ai.logic import sanitize_premium_tov
     text = sanitize_premium_tov(text)
+    text = strip_emojis(text)
 
     return text
+
+def strip_emojis(text: str) -> str:
+    """Удаляет символы Unicode Emoji для предотвращения 'квадратиков' (□) в шрифтах WeasyPrint."""
+    if not text:
+        return ""
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags
+        "\U00002702-\U000027B0"
+        "\U000024C2-\U0001F251"
+        "\U0001F900-\U0001F9FF"  # supplemental symbols
+        "\U0001FA70-\U0001FAFF"  # symbols and pictographs extended-A
+        "\U00002600-\U000026FF"  # misc symbols
+        "\U00002300-\U000023FF"
+        "]+",
+        flags=re.UNICODE,
+    )
+    return emoji_pattern.sub("", text)
 
 def parse_tarot_reading(text: str, spread_positions: list = None) -> dict:
     """Интеллектуальный парсер текста расклада Таро на пролог, позиции и синтез."""
     if not text:
         return {"prologue": "", "sections": [], "synthesis": ""}
 
-    cleaned = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    cleaned = strip_emojis(text.replace("\r\n", "\n").replace("\r", "\n")).strip()
 
-    # 1. Поиск блока синтеза / сакрального совета в конце
-    synthesis_pattern = re.compile(
-        r"(?im)^(?:\s*[*#_~✦🌟⚡]*\s*(?:СИНТЕЗ(?:\s+КАРТ)?|САКРАЛЬНЫЙ\s+СОВЕТ|СОВЕТ(?:\s+КАРТ|\s+ОРАКУЛА|\s+ОТ\s+КАРТ)?|ИТОГ|НАПУТСТВИЕ|РЕЗЮМЕ|ЗАКЛЮЧЕНИЕ)[\s\w]*[:—–\-]?\s*[*#_~✦🌟⚡]*\s*)\n*(.+)$",
-        re.DOTALL
-    )
-    synthesis_text = ""
-    main_text = cleaned
-
-    syn_match = synthesis_pattern.search(cleaned)
-    if syn_match:
-        synthesis_text = syn_match.group(1).strip()
-        main_text = cleaned[:syn_match.start()].strip()
-
-    # 2. Поиск номерованных позиций (1., 1), **1., ### 1., Позиция 1:, 🔮 1. и т.д.)
-    pos_split_regex = re.compile(
-        r"(?m)^(?:\s*[*#_~✦🔮⚡\s]*(?:(?:Позиция|Карта)\s*)?(\d+)[\.\)]\s*([^\n\r]+?)[*#_~]*\s*[:—–\-]?\s*)$"
+    # Поиск номерованных позиций (1., 1), **1., ### 1., Позиция 1:, 🌙 Позиция 2., 1 СКУЧАЕТ ЛИ ОН и т.д.)
+    pos_regex = re.compile(
+        r"(?m)^[^\w\n\r]*?(?:(?:Позиция|Карта|Аркан)\s*)?(\d+)[\.\)\:\s]\s*([^\n\r]+)$",
+        re.UNICODE | re.IGNORECASE,
     )
 
-    matches = list(pos_split_regex.finditer(main_text))
+    matches = list(pos_regex.finditer(cleaned))
     prologue = ""
     sections = []
+    synthesis_text = ""
 
     if matches:
-        prologue = main_text[:matches[0].start()].strip()
-        prologue = re.sub(r"^[*#_~✦🔮⚡\s]+", "", prologue).strip()
+        prologue = cleaned[: matches[0].start()].strip()
+        prologue = re.sub(r"^[*#_~✦\s]+", "", prologue).strip()
+
+        # Поиск синтеза/совета после последней позиции
+        last_match = matches[-1]
+        last_pos_text = cleaned[last_match.start() :]
+
+        syn_regex = re.compile(
+            r"(?im)^[^\w\d\n\r]*?(?:СИНТЕЗ(?:\s+КАРТ)?|САКРАЛЬНЫЙ\s+СОВЕТ|ИТОГ|НАПУТСТВИЕ|РЕЗЮМЕ|ЗАКЛЮЧЕНИЕ)[\s\w]*?[:—–\-]?\s*?\n+(.+)$",
+            re.DOTALL | re.UNICODE,
+        )
+        syn_match = syn_regex.search(last_pos_text)
+        main_limit = len(cleaned)
+        if syn_match:
+            synthesis_text = syn_match.group(1).strip()
+            main_limit = last_match.start() + syn_match.start()
 
         for i, m in enumerate(matches):
             num = int(m.group(1))
@@ -172,18 +197,22 @@ def parse_tarot_reading(text: str, spread_positions: list = None) -> dict:
             title = re.sub(r"[:—–\-]+$", "", title).strip()
 
             start_idx = m.end()
-            end_idx = matches[i + 1].start() if i + 1 < len(matches) else len(main_text)
-            body = main_text[start_idx:end_idx].strip()
+            if i + 1 < len(matches):
+                end_idx = matches[i + 1].start()
+            else:
+                end_idx = main_limit
+
+            body = cleaned[start_idx:end_idx].strip()
             body = re.sub(r"^[*#_~`\s]+", "", body).strip()
 
             sections.append({
                 "num": num,
                 "title": title,
-                "content": body
+                "content": body,
             })
     else:
         # Резервный режим: разделение по абзацам
-        paras = [p.strip() for p in main_text.split("\n\n") if p.strip()]
+        paras = [p.strip() for p in cleaned.split("\n\n") if p.strip()]
         if len(paras) > 1:
             prologue = paras[0]
             for idx, p in enumerate(paras[1:], 1):
@@ -195,19 +224,19 @@ def parse_tarot_reading(text: str, spread_positions: list = None) -> dict:
                 sections.append({
                     "num": idx,
                     "title": pos_title,
-                    "content": p
+                    "content": p,
                 })
         else:
             sections.append({
                 "num": 1,
                 "title": "Сакральное Толкование",
-                "content": main_text
+                "content": cleaned,
             })
 
     return {
         "prologue": prologue,
         "sections": sections,
-        "synthesis": synthesis_text
+        "synthesis": synthesis_text,
     }
 
 def generate_premium_pdf(
@@ -300,14 +329,21 @@ def generate_premium_pdf(
                         spread = sp
                         break
 
-            spread_title = clean_slang(
-                kwargs.get("title") or (spread["title"] if spread else section_name)
-            )
-            spread_cover = (
-                f"cards/uslugi/{spread['image_name']}"
-                if (spread and spread.get("image_name"))
-                else "cards/uslugi/tarot_cat.jpg"
-            )
+            raw_title = kwargs.get("title") or (spread["title"] if spread else section_name)
+            spread_title = clean_slang(raw_title).strip()
+            spread_title = re.sub(r"^[\"«\s]+|[\"»\s]+$", "", spread_title)
+
+            # Корректное разрешение пути к обложке без дублирования префиксов
+            if spread and spread.get("image_name"):
+                raw_img = spread["image_name"].replace("\\", "/").strip()
+                if raw_img.startswith("cards/"):
+                    spread_cover = raw_img
+                elif raw_img.startswith("uslugi/"):
+                    spread_cover = f"cards/{raw_img}"
+                else:
+                    spread_cover = f"cards/uslugi/{raw_img}"
+            else:
+                spread_cover = "cards/uslugi/tarot_cat.jpg"
 
             cards_raw = cards_kw or ([card_id] if card_id else [])
             positions = spread.get("positions", []) if spread else []
@@ -337,11 +373,26 @@ def generate_premium_pdf(
             for s in parsed.get("sections", []):
                 s_num = s.get("num", 1)
                 card_name_match = ""
+                pos_fallback = ""
                 if 1 <= s_num <= len(cards_list):
                     card_name_match = cards_list[s_num - 1]["name"]
+                    pos_fallback = cards_list[s_num - 1].get("pos_title", "")
+
+                raw_t = s.get("title", "")
+                clean_t = raw_t
+                if card_name_match:
+                    patt = re.compile(
+                        r"[:—–\-\s(]+(" + re.escape(card_name_match) + r")[)\s.]*$",
+                        re.IGNORECASE,
+                    )
+                    clean_t = patt.sub("", clean_t).strip()
+                clean_t = re.sub(r"[:—–\-.\s]+$", "", clean_t).strip()
+                if not clean_t and pos_fallback:
+                    clean_t = pos_fallback
+
                 sections.append({
                     "num": s_num,
-                    "title": clean_slang(s.get("title", "")),
+                    "title": clean_slang(clean_t),
                     "card_name": card_name_match,
                     "content": safe_br(s.get("content", ""))
                 })
