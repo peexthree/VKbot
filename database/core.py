@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 
 import aiohttp
 from typing import Optional
@@ -24,24 +25,43 @@ async def close_db():
         await session.close()
         session = None
 
+# In-process кэш профиля (один воркер на Render): 0 сетевых вызовов на чтение.
+# Раньше кэш жил в Upstash - каждый клик гонял 1-2 REST-вызова Redis
+# (~100-200мс + квота команд), при лаге Upstash клики умирали.
+_user_cache: dict[int, tuple[float, dict]] = {}
+_USER_CACHE_TTL = 30.0
+
+
+def _local_cache_get(vk_id: int) -> dict | None:
+    entry = _user_cache.get(vk_id)
+    if not entry:
+        return None
+    ts, user = entry
+    import time
+
+    if time.time() - ts > _USER_CACHE_TTL:
+        _user_cache.pop(vk_id, None)
+        return None
+    if user.get("bonuses") is not None:
+        return None  # незакоммиченная миграция bonuses - идём в БД
+    return user
+
+
+def _local_cache_put(vk_id: int, user: dict):
+    if len(_user_cache) > 5000:  # защита от роста памяти
+        _user_cache.clear()
+    _user_cache[vk_id] = (time.time(), user)
+
+
 async def get_user(vk_id: int):
-    """Профиль юзера с кэшем в Redis на 45с (ускорение: Supabase RT ~0.3с
-    на каждый кликmiddleware+обработчик -> один Redis hit ~0.05с).
-    Балансы всегда атомарны через RPC, поэтому кэш безопасен для отрисовки;
-    при любом изменении данных вызывается invalidate_user_cache."""
+    """Профиль юзера: in-memory кэш 30с (0 сети) -> Supabase.
+    Балансы меняются только атомарными RPC, при любом изменении профиля
+    кэш сбрасывается (update_user/add_energy/spend/promo)."""
     if not URL or not KEY or session is None: return None
 
-    from cache import redis_client, USER_CACHE_TTL
-
-    try:
-        cached = await redis_client.get(f"ucache:{vk_id}")
-        if cached:
-            user = json.loads(cached)
-            # Незакоммиченная миграция bonuses обходит кэш (разовая конвертация)
-            if user.get("bonuses") is None:
-                return user
-    except Exception:
-        pass
+    cached = _local_cache_get(vk_id)
+    if cached is not None:
+        return cached
 
     try:
         async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?vk_id=eq.{vk_id}", headers=HEADERS) as r:
@@ -56,12 +76,7 @@ async def get_user(vk_id: int):
                         from .users import update_user # Local import to avoid circularity if needed
                         asyncio.create_task(update_user(vk_id, {"balance": new_balance, "bonuses": None}))
                         return user
-                    try:
-                        await redis_client.set(
-                            f"ucache:{vk_id}", json.dumps(user, ensure_ascii=False), ex=USER_CACHE_TTL
-                        )
-                    except Exception:
-                        pass
+                    _local_cache_put(vk_id, user)
                     return user
             else: logger.error(f"Supabase error in get_user: {r.status}")
     except Exception as e: logger.error(f"Ошибка в get_user: {e}")

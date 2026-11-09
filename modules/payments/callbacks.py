@@ -108,8 +108,12 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
     user_data = None
     if event_id and vk_id and not skip_lock:
         lock_key = f"event_answered:{event_id}"
-        # nx=True вернет True если ключ установлен, иначе False/None
-        res = await redis_client.set(lock_key, "1", ex=30, nx=True)
+        # Дедуп: сбой/лаг Redis не должен ронять клик (fail-open)
+        try:
+            res = await redis_client.set(lock_key, "1", ex=30, nx=True)
+        except Exception as dedup_err:
+            logger.warning(f"Redis dedup error (proceeding): {dedup_err}")
+            res = True
         if not res:
             logger.debug(f"Event {event_id} already answered or being processed")
             return
@@ -118,11 +122,12 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         action = payload.get("action")
 
         # 1. МГНОВЕННЫЙ ОТВЕТ VK API ДЛЯ СНЯТИЯ СПИННЕРА (<50мс)
-        # Определяем текст снэкбара исключительно из payload в оперативной памяти (0 запросов к БД)
+        # Определяем текст снэкбара исключительно из payload в оперативной памяти (0 запросов к БД).
+        # ВАЖНО: здесь НЕ должно быть ни одного await к БД/ИИ/Redis до ответа -
+        # get_short_quest_text раньше ходил в БД ДО ответа и вешал спиннер.
         nav_msg = None
         if cmd == "skin_quest":
-            from modules.skins import get_short_quest_text
-            nav_msg = await get_short_quest_text(vk_id, payload.get("skin"))
+            nav_msg = "Квест Проводника открыт... 🎭"
         elif cmd in ["buy", "buy_skin"]:
             nav_msg = "✦ Настраиваю связь со звездами..."
         elif cmd == "share_click":

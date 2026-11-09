@@ -11,12 +11,23 @@ redis_client = Redis(
 
 
 async def acquire_lock(vk_id: int | str, ttl: int = 90) -> bool:
-    res = await redis_client.set(f"lock:{vk_id}", "1", nx=True, ex=ttl)
-    return bool(res)
+    """Лок с fail-open: если Redis недоступен - пропускаем (лучше редкий
+    дубль обработки, чем замороженный интерфейс на весь таймаут Redis)"""
+    try:
+        res = await redis_client.set(f"lock:{vk_id}", "1", nx=True, ex=ttl)
+        return bool(res)
+    except Exception as e:
+        from loguru import logger
+
+        logger.warning(f"acquire_lock redis error (fail-open) for {vk_id}: {e}")
+        return True
 
 
 async def release_lock(vk_id: int | str):
-    await redis_client.delete(f"lock:{vk_id}")
+    try:
+        await redis_client.delete(f"lock:{vk_id}")
+    except Exception:
+        pass
 
 
 async def check_throttle(vk_id: int | str) -> bool:
@@ -379,7 +390,17 @@ USER_CACHE_TTL = 45  # кэш профиля юзера (сек) - эконом�
 
 
 async def invalidate_user_cache(vk_id: int | str):
-    """Сбрасывает кэш профиля после любого изменения данных юзера"""
+    """Сбрасывает кэш профиля после любого изменения данных юзера.
+
+    In-memory кэш лежит в database.core._user_cache (импортируем оттуда),
+    Redis-ключ оставлен для межпроцессных случаев - сбрасываем оба.
+    """
+    try:
+        from database.core import _user_cache
+
+        _user_cache.pop(int(vk_id), None)
+    except Exception:
+        pass
     try:
         await redis_client.delete(f"ucache:{vk_id}")
     except Exception:

@@ -300,16 +300,19 @@ async def handle_vk_webhook(request):
             # контента
             event_id = str(data.get("event_id") or (data.get("object") or {}).get("event_id") or "")
             if event_id:
-                from cache import redis_client
+                try:
+                    from cache import redis_client
 
-                # ВАЖНО: отдельный ключ (vk_event:), НЕ event_answered: -
-                # тот же ключ с nx=True используют колбэки в callbacks.py,
-                # коллизия глотала все inline-кнопки (QA-аудит 2026-11)
-                if not await redis_client.set(
-                    f"vk_event:{event_id}", "1", nx=True, ex=60
-                ):
-                    logger.debug(f"Duplicate event {event_type} skipped ({event_id})")
-                    return
+                    # ВАЖНО: отдельный ключ (vk_event:), НЕ event_answered: -
+                    # тот же ключ с nx=True используют колбэки в callbacks.py,
+                    # коллизия глотала все inline-кнопки (QA-аудит 2026-11)
+                    if not await redis_client.set(
+                        f"vk_event:{event_id}", "1", nx=True, ex=60
+                    ):
+                        logger.debug(f"Duplicate event {event_type} skipped ({event_id})")
+                        return
+                except Exception as redis_err:
+                    logger.warning(f"Webhook dedup Redis error (proceeding fail-open): {redis_err}")
             await bot.process_event(data)
         except Exception as e:
             logger.error(f"Critical error in bot.process_event ({event_type}): {e}. Data: {json.dumps(data, ensure_ascii=False)}")
