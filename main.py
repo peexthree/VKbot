@@ -85,7 +85,7 @@ async def handle_diag(request):
         from database.core import session
         from database.config import URL, HEADERS, TABLE_NAME
         if session and URL:
-            async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?select=id&limit=1", headers=HEADERS) as r:
+            async with session.get(f"{URL}/rest/v1/{TABLE_NAME}?select=vk_id&limit=1", headers=HEADERS) as r:
                 diag["tests"]["supabase"] = {
                     "status": "ok" if r.status in (200, 206) else f"http_{r.status}",
                     "latency_ms": round((time.time() - t0) * 1000, 1),
