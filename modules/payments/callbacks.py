@@ -250,8 +250,18 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 random_id=random.getrandbits(63),
             )
         elif cmd in ["buy", "buy_skin"]:
-            # Defer answering until payment logic completes (to show success/error snackbar)
-            pass
+            try:
+                await bot.api.messages.send_message_event_answer(
+                    event_id=event_id,
+                    user_id=vk_id,
+                    peer_id=peer_id,
+                    event_data=json.dumps(
+                        {"type": "show_snackbar", "text": "✦ Настраиваю связь со звездами..."},
+                        ensure_ascii=False,
+                    ),
+                )
+            except Exception as e:
+                logger.warning(f"Could not answer event {event_id}: {e}")
         else:
             # Атмосферные снэкбары при переходах между разделами (ToV Анти-Тар)
             nav_msg = None
@@ -303,21 +313,49 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
     if not vk_id:
         return
 
+    FAST_NAV_CMDS = {
+        "profile_action",
+        "main_menu",
+        "services_menu",
+        "profile_menu",
+        "service_page",
+        "tariff_page",
+        "secret_arts_cat",
+        "secret_arts_item",
+        "spread_cut",
+        "oracle_cut",
+        "global_cut",
+        "spread_card",
+        "oracle_card",
+        "global_draw",
+        "grimoire_page",
+        "grimoire_cards_list",
+        "history_menu",
+        "view_history",
+        "show_rating",
+        "rate_reading",
+        "settings_menu",
+        "choose_character",
+        "skin_page",
+        "skins_page",
+        "feedback_skip",
+    }
+    is_fast_nav = (
+        payload.get("cmd") in FAST_NAV_CMDS
+        or "spread_card" in payload
+        or "oracle_card" in payload
+    )
+
     if not skip_lock:
-        if payload.get("cmd") not in [
-            "profile_action",
-            "main_menu",
-            "services_menu",
-            "profile_menu",
-        ]:
+        if not is_fast_nav:
             if await check_throttle(vk_id):
                 return
 
-        # ttl=90 (а не 5): лок должен жить дольше долгих операций
-        # (генерация ИИ, PDF), иначе параллельные клики проходят (аудит 2026-11)
-        if not await acquire_lock(vk_id, ttl=90):
+        # Для быстрой навигации лок 3с (защита от дребезга клика), для тяжелых операций - 90с
+        lock_ttl = 3 if is_fast_nav else 90
+        if not await acquire_lock(vk_id, ttl=lock_ttl):
             logger.warning(
-                f"Could not acquire lock for vk_id={vk_id} in message_event_handler"
+                f"Could not acquire lock for vk_id={vk_id} in message_event_handler (is_fast_nav={is_fast_nav})"
             )
             return
     try:

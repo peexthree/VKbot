@@ -96,9 +96,6 @@ async def ghost_edit(
     delete_last: bool = False,
     **kwargs
 ):
-    # Увеличенная задержка для стабильности Ghost Interface (Flood Control protection)
-    await asyncio.sleep(0.45)
-
     if isinstance(keyboard, dict):
         keyboard = json.dumps(keyboard, ensure_ascii=False)
 
