@@ -113,6 +113,14 @@ SERVICE_GROUP_MAP = {
     "card_of_day": "E"
 }
 
+# Автоматически регистрируем все сакральные расклады Таро в премиальную группу E (с картами и арканами)
+try:
+    from configs.tarot_spreads import TAROT_SPREAD_KEYS
+    for _tk in TAROT_SPREAD_KEYS:
+        SERVICE_GROUP_MAP[_tk] = "E"
+except Exception:
+    pass
+
 def get_group_prompt(section: str) -> str:
     group = SERVICE_GROUP_MAP.get(section, "E")
     if group == "A":

@@ -2065,18 +2065,36 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 )
                 buy_type = (
                     "service"
-                    if key
-                    in [
-                        "sex",
-                        "money",
-                        "shadow",
-                        "final",
-                        "synastry",
-                        "all",
-                        "oracle",
-                        "antitaro",
-                        "micro_insight",
-                    ]
+                    if (
+                        key
+                        in [
+                            "sex",
+                            "money",
+                            "shadow",
+                            "final",
+                            "synastry",
+                            "all",
+                            "oracle",
+                            "antitaro",
+                            "micro_insight",
+                        ]
+                        or key in TAROT_SPREAD_KEYS
+                        or key
+                        in [
+                            "oculomancy",
+                            "sigil",
+                            "alchemist",
+                            "karma",
+                            "totem",
+                            "astro_geo",
+                            "egyptian_oracle",
+                            "shadow_oracle",
+                            "chrono",
+                            "charoslov",
+                            "palmistry",
+                            "dream",
+                        ]
+                    )
                     else "tariff"
                     if key.startswith("tariff_")
                     else "topup"

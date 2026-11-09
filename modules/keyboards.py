@@ -2,15 +2,21 @@ from vkbottle import Callback, Keyboard, KeyboardButtonColor, Text, OpenLink
 from modules.utils.consts import ADMIN_ID
 
 def vertical_kb(buttons: list[tuple[str, str | dict, str]], nav_buttons: list[tuple[str, str | dict, str]] = None) -> str:
-    """Хелпер для создания клавиатуры с вертикальными основными кнопками и горизонтальными навигационными внизу"""
+    """Хелпер для создания клавиатуры с защитой от превышения лимита 6 рядов VK API"""
     kb = Keyboard(inline=True)
-    for i, btn in enumerate(buttons):
-        label, payload, color = btn
-        if isinstance(payload, str):
-            payload = {"cmd": payload}
-        kb.add(Callback(label, payload=payload), color=color)
-        # Добавляем ряд только если это не последняя основная кнопка ИЛИ если дальше будут nav_buttons
-        if i < len(buttons) - 1 or nav_buttons:
+    nav_rows = 1 if nav_buttons else 0
+    max_btn_rows = 6 - nav_rows
+
+    # Если кнопок больше доступных рядов, компактно пакуем по 2 кнопки в ряд
+    step = 2 if len(buttons) > max_btn_rows else 1
+    for i in range(0, len(buttons), step):
+        chunk = buttons[i:i + step]
+        for btn in chunk:
+            label, payload, color = btn
+            if isinstance(payload, str):
+                payload = {"cmd": payload}
+            kb.add(Callback(label, payload=payload), color=color)
+        if i + step < len(buttons) or nav_buttons:
             kb.row()
 
     if nav_buttons:
@@ -19,7 +25,6 @@ def vertical_kb(buttons: list[tuple[str, str | dict, str]], nav_buttons: list[tu
             if isinstance(payload, str):
                 payload = {"cmd": payload}
             kb.add(Callback(label, payload=payload), color=color)
-            # Навигационные кнопки идут в один (последний) горизонтальный ряд
 
     return kb.get_json()
 
@@ -83,18 +88,26 @@ def main_menu_kb(vk_id: int, user: dict | None = None) -> str:
     return kb.get_json()
 
 def services_menu_kb() -> str:
-    """Единый корневой каталог услуг по категориям (Кабинеты)"""
-    return vertical_kb([
-        ("🔮 Расклады Таро", {"cmd": "secret_arts_cat", "cat": "tarot_spreads"}, KeyboardButtonColor.PRIMARY),
-        ("👁 Биометрия и Фото", {"cmd": "secret_arts_cat", "cat": "biometrics"}, KeyboardButtonColor.PRIMARY),
-        ("🎨 Сакральные Артефакты", {"cmd": "secret_arts_cat", "cat": "artifacts"}, KeyboardButtonColor.PRIMARY),
-        ("🧭 Проекции Судьбы", {"cmd": "secret_arts_cat", "cat": "destiny"}, KeyboardButtonColor.PRIMARY),
-        ("🏺 Древние Оракулы", {"cmd": "secret_arts_cat", "cat": "oracles"}, KeyboardButtonColor.PRIMARY),
-        ("❤️ Энергия и Слияние", {"cmd": "secret_arts_cat", "cat": "energy_sync"}, KeyboardButtonColor.PRIMARY),
-    ], nav_buttons=[
-        ("⭐ Подписка / Тарифы", {"cmd": "tariff_page", "idx": 0}, KeyboardButtonColor.POSITIVE),
-        ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-    ])
+    """Единый корневой каталог услуг по категориям (Кабинеты) - строго до 6 рядов VK API"""
+    kb = Keyboard(inline=True)
+    # Ряд 1: Самый популярный раздел Раскладов Таро на всю ширину
+    kb.add(Callback("🔮 Расклады Таро", payload={"cmd": "secret_arts_cat", "cat": "tarot_spreads"}), color=KeyboardButtonColor.POSITIVE)
+    kb.row()
+    # Ряд 2: Биометрия и Артефакты
+    kb.add(Callback("👁 Биометрия", payload={"cmd": "secret_arts_cat", "cat": "biometrics"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🎨 Артефакты", payload={"cmd": "secret_arts_cat", "cat": "artifacts"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    # Ряд 3: Проекции Судьбы и Древние Оракулы
+    kb.add(Callback("🧭 Судьба", payload={"cmd": "secret_arts_cat", "cat": "destiny"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("🏺 Оракулы", payload={"cmd": "secret_arts_cat", "cat": "oracles"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    # Ряд 4: Энергия и Слияние
+    kb.add(Callback("❤️ Энергия и Слияние", payload={"cmd": "secret_arts_cat", "cat": "energy_sync"}), color=KeyboardButtonColor.PRIMARY)
+    kb.row()
+    # Ряд 5: Навигация
+    kb.add(Callback("⭐ Тарифы", payload={"cmd": "tariff_page", "idx": 0}), color=KeyboardButtonColor.SECONDARY)
+    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "main_menu"}), color=KeyboardButtonColor.SECONDARY)
+    return kb.get_json()
 
 def secret_arts_menu_kb() -> str:
     """Устаревшее имя, ведет на единое меню услуг"""

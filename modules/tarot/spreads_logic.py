@@ -336,13 +336,27 @@ async def execute_spread_reading(
             },
         )
 
-        # Подготовка карточки для вывода
-        att = None
+        # Подготовка карточки и выпавших Арканов для вывода (до 10 фото ВК)
+        attachments = []
         if spread.get("image_name"):
             try:
-                att = await upload_local_photo(bot.api, spread["image_name"], peer_id=vk_id)
+                cover_photo = await upload_local_photo(bot.api, spread["image_name"], peer_id=vk_id)
+                if cover_photo:
+                    attachments.append(cover_photo)
             except Exception as e:
                 logger.warning(f"Failed to upload spread image {spread['image_name']}: {e}")
+
+        # Прикрепляем выпавшие карты арканов (максимум до 10 вложений суммарно)
+        max_card_photos = min(len(card_ids), 9) if attachments else min(len(card_ids), 10)
+        for cid in card_ids[:max_card_photos]:
+            try:
+                card_photo = await upload_local_photo(bot.api, f"{cid}.jpeg", peer_id=vk_id)
+                if card_photo:
+                    attachments.append(card_photo)
+            except Exception as e:
+                logger.warning(f"Failed to upload card photo {cid}.jpeg: {e}")
+
+        att = ",".join(attachments) if attachments else None
 
         # Клавиатура итогового отчета
         kb = Keyboard(inline=True)
