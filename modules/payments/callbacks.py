@@ -105,6 +105,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         payload = {}
 
     # --- ФИКС ТАЙМАУТА: Отвечаем мгновенно до тяжелых операций ---
+    user_data = None
     if event_id and vk_id and not skip_lock:
         lock_key = f"event_answered:{event_id}"
         # nx=True вернет True если ключ установлен, иначе False/None
@@ -114,8 +115,51 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             return
 
         cmd = payload.get("cmd")
+        action = payload.get("action")
 
-        # Проверка регистрации для предотвращения обхода онбординга
+        # 1. МГНОВЕННЫЙ ОТВЕТ VK API ДЛЯ СНЯТИЯ СПИННЕРА (<50мс)
+        # Определяем текст снэкбара исключительно из payload в оперативной памяти (0 запросов к БД)
+        nav_msg = None
+        if cmd == "skin_quest":
+            from modules.skins import get_short_quest_text
+            nav_msg = await get_short_quest_text(vk_id, payload.get("skin"))
+        elif cmd in ["buy", "buy_skin"]:
+            nav_msg = "✦ Настраиваю связь со звездами..."
+        elif cmd == "share_click":
+            nav_msg = "Карточка для пересылки готова!"
+        elif cmd == "main_menu":
+            nav_msg = "Синхронизация с центром матрицы... ✨"
+        elif cmd in ["services_menu", "service_page", "secret_arts_menu"]:
+            nav_msg = "Вскрываю витрину глубоких откровений... 🔮"
+        elif action == "grimoire" or cmd in ["grimoire_page", "grimoire_cards_list"]:
+            nav_msg = "Доступ к Гримуару карт получен... 🃏"
+        elif cmd in ["history_menu", "view_history"]:
+            nav_msg = "Дешифровка хроники откровений... 📜"
+        elif cmd in ["balance", "tariff_page"]:
+            nav_msg = "Считывание энергетического потенциала... ✨"
+        elif action == "change_skin" or cmd in ["hall_of_prophets", "skin_page", "skins_page"]:
+            nav_msg = "Вход в Зал Проводников разблокирован... 🎭"
+
+        try:
+            if nav_msg:
+                await bot.api.messages.send_message_event_answer(
+                    event_id=event_id,
+                    user_id=vk_id,
+                    peer_id=peer_id,
+                    event_data=json.dumps(
+                        {"type": "show_snackbar", "text": nav_msg},
+                        ensure_ascii=False,
+                    ),
+                )
+            else:
+                # Универсальный пустой ответ для всех остальных нажатий (снимает спиннер мгновенно)
+                await bot.api.messages.send_message_event_answer(
+                    event_id=event_id, user_id=vk_id, peer_id=peer_id
+                )
+        except Exception as e:
+            logger.warning(f"Could not answer event {event_id}: {e}")
+
+        # 2. Проверка регистрации для предотвращения обхода онбординга
         user_data = await get_user(vk_id)
         is_registered = user_data.get("is_registered") if user_data else False
         if user_data and is_registered is None:
@@ -135,18 +179,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 "buy_skin",
             ]
             if cmd not in allowed_onboarding_cmds:
-                if event_id:
-                    await bot.api.messages.send_message_event_answer(
-                        event_id=event_id,
-                        user_id=vk_id,
-                        peer_id=peer_id,
-                        event_data=json.dumps(
-                            {
-                                "type": "show_snackbar",
-                                "text": "🌌 Пожалуйста, заверши настройку своего профиля!",
-                            }
-                        ),
-                    )
                 from modules.registration import start_handler
                 class DummyMessage:
                     def __init__(self, from_id, peer_id, conversation_message_id):
@@ -162,24 +194,14 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 await start_handler(dummy_msg, skip_lock=True)
                 return
 
-        # Специфические ответы для специальных кнопок
-        if cmd == "skin_quest":
-            from modules.skins import get_short_quest_text
-
-            clean_quest = await get_short_quest_text(vk_id, payload.get("skin"))
-            await bot.api.messages.send_message_event_answer(
-                event_id=event_id,
-                user_id=vk_id,
-                peer_id=peer_id,
-                event_data=json.dumps({"type": "show_snackbar", "text": clean_quest}),
-            )
-        elif cmd == "share_click":
+        # Специальная обработка для share_click
+        if cmd == "share_click":
             from modules.skins import unlock_skin
 
             await unlock_skin(bot.api, vk_id, "jack_sparrow")
 
             card_id = payload.get("card")
-            user = await get_user(vk_id)
+            user = user_data or await get_user(vk_id)
 
             card_name = "Тайный Аркан"
             thesis_snippet = "Твой путь начертан звездами."
@@ -210,17 +232,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     if sentences:
                         thesis_snippet = sentences[0].strip()
 
-            # 1. Отвечаем мгновенно, чтобы убрать спиннер
-            await bot.api.messages.send_message_event_answer(
-                event_id=event_id,
-                user_id=vk_id,
-                peer_id=peer_id,
-                event_data=json.dumps(
-                    {"type": "show_snackbar", "text": "Карточка для пересылки готова!"}
-                ),
-            )
-
-            # 2. Формируем виральное сообщение
+            # Формируем виральное сообщение
             ref_link = (
                 f"https://vk.me/club219181948?ref=result_{card_id}"
                 if card_id
@@ -236,7 +248,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             )
             attachment = await upload_local_photo(bot.api, photo_file, peer_id=vk_id)
 
-            # 3. Отправляем карточку для шаринга
+            # Отправляем карточку для шаринга
             await bot.api.messages.send(
                 peer_id=peer_id,
                 message=viral_text,
@@ -244,68 +256,12 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 random_id=random.getrandbits(63),
             )
 
-            # 4. Отправляем инструкцию отдельным сообщением
+            # Отправляем инструкцию отдельным сообщением
             await bot.api.messages.send(
                 peer_id=peer_id,
                 message="👆 Просто перешли это сообщение своим друзьям!",
                 random_id=random.getrandbits(63),
             )
-        elif cmd in ["buy", "buy_skin"]:
-            try:
-                await bot.api.messages.send_message_event_answer(
-                    event_id=event_id,
-                    user_id=vk_id,
-                    peer_id=peer_id,
-                    event_data=json.dumps(
-                        {"type": "show_snackbar", "text": "✦ Настраиваю связь со звездами..."},
-                        ensure_ascii=False,
-                    ),
-                )
-            except Exception as e:
-                logger.warning(f"Could not answer event {event_id}: {e}")
-        else:
-            # Атмосферные снэкбары при переходах между разделами (ToV Анти-Тар)
-            nav_msg = None
-            action = payload.get("action")
-
-            if cmd == "main_menu":
-                nav_msg = "Синхронизация с центром матрицы... ✨"
-            elif cmd in ["services_menu", "service_page"]:
-                nav_msg = "Вскрываю витрину глубоких откровений... 🔮"
-            elif action == "grimoire" or cmd in [
-                "grimoire_page",
-                "grimoire_cards_list",
-            ]:
-                nav_msg = "Доступ к Гримуару карт получен... 🃏"
-            elif cmd in ["history_menu", "view_history"]:
-                nav_msg = "Дешифровка хроники откровений... 📜"
-            elif cmd in ["balance", "tariff_page"]:
-                nav_msg = "Считывание энергетического потенциала... ✨"
-            elif action == "change_skin" or cmd in [
-                "hall_of_prophets",
-                "skin_page",
-                "skins_page",
-            ]:
-                nav_msg = "Вход в Зал Проводников разблокирован... 🎭"
-
-            try:
-                if nav_msg:
-                    await bot.api.messages.send_message_event_answer(
-                        event_id=event_id,
-                        user_id=vk_id,
-                        peer_id=peer_id,
-                        event_data=json.dumps(
-                            {"type": "show_snackbar", "text": nav_msg},
-                            ensure_ascii=False,
-                        ),
-                    )
-                else:
-                    # Универсальный пустой ответ для всех остальных нажатий
-                    await bot.api.messages.send_message_event_answer(
-                        event_id=event_id, user_id=vk_id, peer_id=peer_id
-                    )
-            except Exception as e:
-                logger.warning(f"Could not answer event {event_id}: {e}")
     elif event_id:
         logger.warning(
             f"Event {event_id} received without vk_id, cannot remove spinner"
@@ -318,6 +274,7 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         "profile_action",
         "main_menu",
         "services_menu",
+        "secret_arts_menu",
         "profile_menu",
         "service_page",
         "tariff_page",
@@ -334,12 +291,34 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
         "history_menu",
         "view_history",
         "show_rating",
+        "set_rating",
         "rate_reading",
         "settings_menu",
         "choose_character",
         "skin_page",
         "skins_page",
         "feedback_skip",
+        "skip_feedback",
+        "card_of_day_menu",
+        "destiny_card_info",
+        "guide",
+        "view_card",
+        "get_referral",
+        "back_to_forecast",
+        "check_shadow_repost",
+        "choose_onboarding_skin",
+        "confirm_registration",
+        "skip_birth_time",
+        "edit_onboarding_data",
+        "set_skin",
+        "buy_skin",
+        "buy",
+        "confirm_buy",
+        "gen_pdf",
+        "use_section",
+        "admin_cmd",
+        "admin_nav",
+        "admin_user_op",
     }
     is_fast_nav = (
         payload.get("cmd") in FAST_NAV_CMDS
@@ -352,8 +331,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             if await check_throttle(vk_id):
                 return
 
-        # Для быстрой навигации лок 3с (защита от дребезга клика), для тяжелых операций - 90с
-        lock_ttl = 3 if is_fast_nav else 90
+        # Для защиты от дребезга нажатий кнопок лок 3с (для любых UI-действий)
+        # Тяжелые операции (генерация ИИ) управляются собственными gen_lock
+        lock_ttl = 3
         if not await acquire_lock(vk_id, ttl=lock_ttl):
             logger.warning(
                 f"Could not acquire lock for vk_id={vk_id} in message_event_handler (is_fast_nav={is_fast_nav})"
@@ -364,35 +344,49 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             return
         cmd = payload.get("cmd")
 
-        # Трекинг статистики
-        user_for_stats = await get_user(vk_id)
-        if user_for_stats:
-            p_stats = user_for_stats.get("purchased_sections", {})
-            p_stats["stats_clicks"] = p_stats.get("stats_clicks", 0) + 1
+        # Трекинг активности и кликов: асинхронно в фоне, без блокировки интерфейса и без инвалидации кэша профиля
+        async def _track_stats_async(uid: int, current_user: dict | None):
+            try:
+                if not current_user:
+                    current_user = await get_user(uid)
+                if not current_user:
+                    return
+                p_stats = current_user.get("purchased_sections") or {}
+                p_stats["stats_clicks"] = p_stats.get("stats_clicks", 0) + 1
 
-            # Время в интерфейсе (активность)
-            now_stats = datetime.datetime.now(datetime.timezone.utc)
-            last_stats_at_str = p_stats.get("stats_last_action_at")
-            if last_stats_at_str:
-                last_stats_at = datetime.datetime.fromisoformat(
-                    last_stats_at_str.replace("Z", "+00:00")
-                )
-                diff_stats = (now_stats - last_stats_at).total_seconds()
-                # Если прошло меньше 10 минут, считаем это одной сессией
-                if diff_stats < 600:
-                    p_stats["stats_total_seconds"] = (
-                        p_stats.get("stats_total_seconds", 0) + diff_stats
-                    )
+                now_stats = datetime.datetime.now(datetime.timezone.utc)
+                last_stats_at_str = p_stats.get("stats_last_action_at")
+                if last_stats_at_str:
+                    try:
+                        last_stats_at = datetime.datetime.fromisoformat(
+                            last_stats_at_str.replace("Z", "+00:00")
+                        )
+                        diff_stats = (now_stats - last_stats_at).total_seconds()
+                        if diff_stats < 600:
+                            p_stats["stats_total_seconds"] = (
+                                p_stats.get("stats_total_seconds", 0) + diff_stats
+                            )
+                    except Exception:
+                        pass
 
-            p_stats["stats_last_action_at"] = now_stats.isoformat()
-            # Обновляем также общую дату последней активности для системы ретеншена
-            await update_user(
-                vk_id,
-                {
+                p_stats["stats_last_action_at"] = now_stats.isoformat()
+                updates = {
                     "purchased_sections": p_stats,
                     "last_active_date": now_stats.isoformat(),
-                },
-            )
+                }
+                # Сохраняем в кэш Redis, чтобы последующие запросы были мгновенными
+                from cache import redis_client, USER_CACHE_TTL
+                current_user.update(updates)
+                await redis_client.set(
+                    f"ucache:{uid}", json.dumps(current_user, ensure_ascii=False), ex=USER_CACHE_TTL
+                )
+                # Записываем в Supabase без сброса кэша
+                await update_user(uid, updates, invalidate_cache=False)
+            except Exception as st_err:
+                logger.debug(f"Click stats error for {uid}: {st_err}")
+
+        asyncio.create_task(_track_stats_async(vk_id, user_data))
+        await asyncio.sleep(0)
 
         if cmd in ["admin_cmd", "admin_nav", "admin_user_op"]:
             await process_admin_cmd(

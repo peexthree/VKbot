@@ -32,7 +32,7 @@ async def create_user(vk_id: int, first_name: str = ""):
     except Exception as e: logger.error(f"Ошибка в create_user: {e}")
     return None
 
-async def update_user(vk_id: int, updates: Dict[str, Any]):
+async def update_user(vk_id: int, updates: Dict[str, Any], invalidate_cache: bool = True):
     if not URL or not KEY or core.session is None: return None
     headers = HEADERS.copy()
     headers["Prefer"] = "return=representation"
@@ -40,9 +40,10 @@ async def update_user(vk_id: int, updates: Dict[str, Any]):
         async with core.session.patch(f"{URL}/rest/v1/{TABLE_NAME}?vk_id=eq.{vk_id}", headers=headers, json=updates) as r:
             if r.status in (200, 204):
                 data = await r.json()
-                # Любое изменение профиля сбрасывает Redis-кэш (см. core.get_user)
-                from cache import invalidate_user_cache
-                await invalidate_user_cache(vk_id)
+                if invalidate_cache:
+                    # Сбрасываем Redis-кэш только когда запрошено (по умолчанию)
+                    from cache import invalidate_user_cache
+                    await invalidate_user_cache(vk_id)
                 if data: return data[0]
     except Exception as e: logger.error(f"Ошибка в update_user: {e}")
     return None
