@@ -4,7 +4,7 @@ import os
 import re
 from loguru import logger
 import aiohttp
-from configs.models import MODELS
+from configs.models import MODELS, FAST_LITE_MODELS
 from prompts.base import BASE_SYSTEM_INSTRUCTION
 from prompts.personas import SKIN_MAP
 from ai.core import init_session
@@ -194,6 +194,50 @@ async def get_gemini_api_keys() -> list[str]:
     return keys
 
 
+def build_model_payload(
+    model: str,
+    parts: list[dict],
+    system_instruction_text: str = "",
+    max_output_tokens: int = 4096,
+    temperature: float | None = 0.8,
+) -> dict:
+    """Формирует payload под особенности конкретной линейки (Gemini 2.5/3.x, Gemma 4)."""
+    model_lower = (model or "").lower()
+    gen_config: dict = {"maxOutputTokens": max_output_tokens}
+
+    is_gemma = "gemma-" in model_lower
+    is_gemini_3 = "gemini-3." in model_lower or "gemini-3-" in model_lower
+    is_gemini_36_plus = any(
+        x in model_lower for x in ("gemini-3.6", "gemini-3.7", "gemini-3.8", "gemini-4")
+    )
+
+    if temperature is not None and not is_gemini_36_plus and not is_gemma:
+        gen_config["temperature"] = temperature
+
+    if is_gemini_3:
+        gen_config["thinkingConfig"] = {"thinkingLevel": "LOW"}
+
+    if is_gemma:
+        model_parts = [dict(p) for p in parts]
+        if system_instruction_text and model_parts and "text" in model_parts[0]:
+            model_parts[0]["text"] = (
+                f"Инструкция роли и стиля:\n{system_instruction_text}\n\n"
+                f"Запрос:\n{model_parts[0]['text']}"
+            )
+        return {
+            "contents": [{"parts": model_parts}],
+            "generationConfig": gen_config,
+        }
+
+    payload: dict = {
+        "contents": [{"parts": parts}],
+        "generationConfig": gen_config,
+    }
+    if system_instruction_text:
+        payload["system_instruction"] = {"parts": [{"text": system_instruction_text}]}
+    return payload
+
+
 async def generate_text(
     prompt: str,
     json_mode: bool = False,
@@ -263,36 +307,38 @@ async def generate_text(
             except Exception as e:
                 logger.error(f"Failed to fetch image for AI: {e}")
 
-    payload = {
-        "contents": [{"parts": parts}],
-        "system_instruction": {"parts": [{"text": system_instruction_text}]},
-        "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.8},
-    }
+    # Для фоновых/микро-задач приоритет у быстрых Flash-Lite (макс. 1500 RPD),
+    # для основных разборов - полная цепочка с флагманом 3.8 Flash во главе.
+    if is_background:
+        model_chain = list(FAST_LITE_MODELS) + [m for m in MODELS if m not in FAST_LITE_MODELS]
+    else:
+        model_chain = list(MODELS)
 
-    for model, version in MODELS:
+    for model, version in model_chain:
+        payload = build_model_payload(model, parts, system_instruction_text)
         for api_key in api_keys:
             url = f"{base_api_url}/{version}/{model}:generateContent?key={api_key}"
             safe_url = url.split("?key=")[0]
-            # Ретраи для сетевых ошибок и тайм-аутов (2 попытки + основной запрос)
-            for attempt in range(3):
+            # До 2 сетевых попыток на модель; при 429 сразу переключаемся на следующий резерв
+            for attempt in range(2):
                 try:
                     async with session.post(
                         url,
                         json=payload,
-                        timeout=aiohttp.ClientTimeout(total=60 if image_urls else 25),
+                        timeout=aiohttp.ClientTimeout(total=60 if image_urls else 20),
                     ) as resp:
                         if resp.status == 200:
                             res_data = await resp.json()
                             try:
-                                parts = res_data["candidates"][0]["content"]["parts"]
+                                resp_parts = res_data["candidates"][0]["content"]["parts"]
                                 text = "".join(
                                     part["text"]
-                                    for part in parts
+                                    for part in resp_parts
                                     if "text" in part and not part.get("thought")
                                 )
 
-                                if not text and parts:
-                                    text = parts[-1].get("text", "")
+                                if not text and resp_parts:
+                                    text = resp_parts[-1].get("text", "")
 
                                 # Жесткая очистка на уровне кода
                                 text = text.replace("*", "").replace("—", "-")
@@ -306,12 +352,8 @@ async def generate_text(
                                 break  # Ошибка формата, ретраи не помогут
                         elif resp.status == 429:
                             logger.warning(
-                                f"Rate limit hit for {model}. attempt {attempt + 1}/3"
+                                f"Rate limit hit for {model}, switching to next fallback/key"
                             )
-                            if attempt < 2:
-                                # Экспоненциальный бэккофф вместо бесполезной 1с
-                                await asyncio.sleep(2 ** attempt)
-                                continue
                             break
                         else:
                             error_text = await resp.text()
@@ -327,9 +369,9 @@ async def generate_text(
                             break
                 except (asyncio.TimeoutError, aiohttp.ClientError) as e:
                     logger.error(
-                        f"Network error/timeout on {model} (attempt {attempt + 1}/3) to URL {safe_url}: {e}"
+                        f"Network error/timeout on {model} (attempt {attempt + 1}/2) to URL {safe_url}: {e}"
                     )
-                    if attempt < 2:
+                    if attempt < 1:
                         await asyncio.sleep(1)
                         continue
                     last_exception = e

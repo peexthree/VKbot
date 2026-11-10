@@ -79,3 +79,29 @@ async def test_generate_section_json():
         assert isinstance(res, dict)
         assert res["text"] == "Ваш разбор..."
         assert "2024" in res["next_activation_date"]
+
+
+def test_build_model_payload_variants():
+    from ai.logic import build_model_payload
+
+    parts = [{"text": "Привет"}]
+    sys_text = "Ты Олеся"
+
+    # Gemini 3.8 Flash: thinkingLevel=LOW, без deprecated temperature
+    p38 = build_model_payload("models/gemini-3.8-flash", parts, sys_text)
+    assert "system_instruction" in p38
+    assert p38["generationConfig"].get("thinkingConfig") == {"thinkingLevel": "LOW"}
+    assert "temperature" not in p38["generationConfig"]
+
+    # Gemini 2.5 Flash: system_instruction и temperature, без thinkingLevel
+    p25 = build_model_payload("models/gemini-2.5-flash", parts, sys_text)
+    assert "system_instruction" in p25
+    assert "thinkingConfig" not in p25["generationConfig"]
+    assert p25["generationConfig"]["temperature"] == 0.8
+
+    # Gemma 4: system_instruction вклеен в user contents, верхнего ключа нет
+    pg4 = build_model_payload("models/gemma-4-31b-it", parts, sys_text)
+    assert "system_instruction" not in pg4
+    assert "Ты Олеся" in pg4["contents"][0]["parts"][0]["text"]
+    assert "Привет" in pg4["contents"][0]["parts"][0]["text"]
+    assert parts[0]["text"] == "Привет"  # исходный список не мутируется

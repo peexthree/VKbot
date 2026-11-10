@@ -222,18 +222,21 @@ async def handle_diag_proxy(request):
         except Exception as e:
             res["models_check"] = {"status": "error", "error": str(e)}
 
-        # 2. Реальный POST generateContent (с system_instruction, как в боте)
-        test_payload = {
-            "contents": [{"parts": [{"text": "Reply with one word: OK"}]}],
-            "system_instruction": {"parts": [{"text": "Be concise."}]},
-            "generationConfig": {"maxOutputTokens": 128, "temperature": 0.1},
-        }
+        # 2. Реальный POST generateContent (с тем же билдером payload, что и в боте)
+        from ai.logic import build_model_payload
 
         async def _probe_post(label: str, base_url: str, model: str, version: str):
             url = f"{base_url}/{version}/{model}:generateContent?key={api_key}"
+            model_payload = build_model_payload(
+                model,
+                [{"text": "Reply with one word: OK"}],
+                system_instruction_text="Be concise.",
+                max_output_tokens=128,
+                temperature=0.1,
+            )
             t0 = time.time()
             try:
-                async with sess.post(url, json=test_payload) as r:
+                async with sess.post(url, json=model_payload) as r:
                     lat = round((time.time() - t0) * 1000, 1)
                     headers_info = {
                         "server": r.headers.get("server"),
