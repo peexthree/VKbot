@@ -5,6 +5,22 @@ import pytest
 from modules.autoposter import generate_post, post_to_vk
 from modules.utils.visual import generate_card_history_image
 
+
+def _gate_text(prefix: str = "Ты жаришь хлеб в реакторе.") -> str:
+    """Мок-текст, проходящий _passes_quality_gate: 4 абзаца, 600+ символов,
+    без клише и эмодзи-спама (FIX аудита 2026-11-10)."""
+    paras = [
+        f"{prefix} Это очень странное и неэффективное использование мощного источника энергии.",
+        "Твой звездный путь заслуживает большего, чем мелкие повседневные нужды за счет космических сил.",
+        "Сонастрой свои внутренние потоки и начни двигаться к истинной гармонии, которую нашептали Арканы.",
+        "Каждый шаг должен быть осмыслен и согласован с движением планет в небесной сфере.",
+    ]
+    t = "\n\n".join(paras)
+    while len(t) < 620:
+        t += " Дополняющий абзац для длины."
+        t += "\n\nТы жаришь хлеб в реакторе снова, и путь продолжается."
+    return t
+
 @pytest.mark.asyncio
 async def test_viral_post_generation():
     # Мокаем БД
@@ -13,14 +29,7 @@ async def test_viral_post_generation():
             with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
                     # Мокаем AI (длина >= 600 символов)
-                    mock_text = (
-                        "Ты жаришь хлеб в реакторе. Это очень странное и неэффективное использование столь мощного источника энергии. "
-                        "Твой звездный путь заслуживает гораздо большего, чем просто удовлетворение мелких повседневных нужд за счет космических сил. "
-                        "Сонастрой свои внутренние потоки и начни двигаться к истинной гармонии, которую нашептывают тебе далекие звезды и мудрые Арканы. "
-                        "Помни, что каждый шаг должен быть осмыслен и согласован с движением планет в небесной сфере. "
-                        "Мы создаем действительно глубокий, развернутый и впечатляющий лонгрид, который полностью соответствует высокому стандарту качества паблика. "
-                        "Каждая фраза наполнена спрессованным смыслом, подталкивающим адепта к переосмыслению своей роли во вселенной и разрыву ментальных зажимов."
-                    )
+                    mock_text = _gate_text()
                     mock_json = {
                         "text": mock_text,
                         "quote": "Таро — это костыль.",
@@ -47,14 +56,7 @@ async def test_no_hashtags_at_all():
         with patch("modules.autoposter.get_active_poll", return_value=None):
             with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
-                    mock_text = (
-                        "Ты жаришь хлеб в реакторе. Это очень странное и неэффективное использование столь мощного источника энергии. "
-                        "Твой звездный путь заслуживает гораздо большего, чем просто удовлетворение мелких повседневных нужд за счет космических сил. "
-                        "Сонастрой свои внутренние потоки и начни двигаться к истинной гармонии, которую нашептывают тебе далекие звезды и мудрые Арканы. "
-                        "Помни, что каждый шаг должен быть осмыслен и согласован с движением планет в небесной сфере. "
-                        "Добавим еще немного умных слов в этот абзац, чтобы длина текста превысила шестьсот символов и валидация прошла безупречно и надежно во всех сценариях.\n"
-                        "#АнтиТар #Судьба #Психология! #МатрицаСудьбы."
-                    )
+                    mock_text = _gate_text()
                     mock_json = {
                         "text": mock_text,
                         "quote": "Цитата",
@@ -78,14 +80,7 @@ async def test_no_cta_in_autoposts():
         with patch("modules.autoposter.get_active_poll", return_value=None):
             with patch("modules.autoposter.pull_next_rubric", return_value="PROVOCATION"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
-                    mock_text = (
-                        "Это очень глубокий и развернутый разбор тарологии и космических путей, который заставит каждого задуматься о своих жизненных потоках. "
-                        "Мы препарируем самые сокровенные тайны души и указываем на истинное величие каждого адепта. "
-                        "Хватит плыть по течению, пора настроить свои внутренние струны и услышать настоящий шепот далеких звезд. "
-                        "Мы направляем жизненные потоки в нужное русло. И конечно, мы пишем еще более длинный текст, чтобы полностью исключить любые срабатывания лимита на минимальный размер "
-                        "и сделать данный пост максимально качественным лонгридом для сообщества. "
-                        "Дополнительные предложения обеспечивают полную укомплектованность текста до необходимого объема в 600 символов."
-                    )
+                    mock_text = _gate_text()
                     mock_json = {
                         "text": mock_text,
                         "quote": "Цитата",
@@ -204,13 +199,7 @@ async def test_card_history_rubric_generation():
         with patch("modules.autoposter.get_active_poll", return_value=None):
             with patch("modules.autoposter.pull_next_rubric", return_value="CARD_HISTORY"):
                 with patch("modules.autoposter.save_hidden_promo", return_value=True):
-                    mock_text = (
-                        "Разбор Аркана. Это очень глубокий и развернутый разбор тарологии и космических путей, который заставит каждого задуматься о своих жизненных потоках. "
-                        "Мы препарируем самые сокровенные тайны души и указываем на истинное величие каждого адепта. "
-                        "Хватит плыть по течению, пора настроить свои внутренние струны и услышать настоящий шепот далеких звезд. "
-                        "Мы направляем жизненные потоки в нужное русло. Мы дописываем этот текст, чтобы он стал длиннее и больше, дабы обойти ограничение длины поста в 600 знаков, которое используется нашими алгоритмами и проверками. "
-                        "Дополнительный объем текста для прохождения всех валидаций гарантирован."
-                    )
+                    mock_text = _gate_text()
                     mock_json = {
                         "text": mock_text,
                         "quote": "Цитата",
@@ -241,10 +230,12 @@ def test_generate_card_history_image_file():
 
 @pytest.mark.asyncio
 async def test_first_comment_with_promo_ps():
-    """Тестирует генерацию first_comment и автоматическую приклейку P.S. при наличии скрытого промокода."""
+    """FIX (аудит 2026-11-10): тест был красным - post_to_vk падал NameError
+    hidden_code, комментарий и история постов не писались. Обновлен под текущую
+    логику: шифр вшит в текст -> P.S. в комментарии."""
     long_ai_text = "Пост с подробным текстом..." * 30 # > 600 символов
     mock_post_data = {
-        "text": long_ai_text + "\n\nРУБРИКА: ПРОВОКАЦИЯ\n👁 ОЛЕСЯ",
+        "text": long_ai_text + "\n\nТвой ключ: MATRIX-150\n\nРУБРИКА: ПРОВОКАЦИЯ\n👁 ОЛЕСЯ",
         "ai_text": long_ai_text,
         "skin_id": "olesya",
         "rubric": "PROVOCATION",
@@ -252,6 +243,7 @@ async def test_first_comment_with_promo_ps():
         "quote": "Цитата",
         "first_comment": "Напиши свою дату рождения под постом!",
         "has_promo": True,
+        "hidden_code": "MATRIX-150",
         "energy_reward": 150
     }
 
@@ -266,14 +258,20 @@ async def test_first_comment_with_promo_ps():
             return {"response": {"comment_id": 11}}
         return {"response": {}}
 
-    with patch("modules.autoposter.generate_post", return_value=mock_post_data):
-        with patch("modules.autoposter.bot.api.request", side_effect=mock_api_request):
-            # Фиксируем ротацию визуалов, чтобы quote гарантированно передавался
-            with patch("random.random", return_value=0.1):
-                with patch("modules.autoposter.upload_wall_photo", return_value="photo999"):
-                    await post_to_vk(is_morning=True)
+    with patch("modules.autoposter.generate_post", return_value=mock_post_data), \
+         patch("modules.autoposter.bot.api.request", side_effect=mock_api_request), \
+         patch("modules.autoposter.save_hidden_promo", new_callable=AsyncMock) as mock_save_promo, \
+         patch("modules.autoposter.add_post_history", new_callable=AsyncMock), \
+         patch("modules.autoposter.add_community_post", new_callable=AsyncMock), \
+         patch("modules.autoposter.redis"), \
+         patch("modules.autoposter.publish_story_best_effort", new_callable=AsyncMock), \
+         patch("random.random", return_value=0.1), \
+         patch("modules.autoposter.upload_wall_photo", return_value="photo999"):
+        await post_to_vk(is_morning=True)
 
-                    assert len(comment_calls) > 0
-                    comment_msg = comment_calls[0][1].get("message", "")
-                    assert "Напиши свою дату рождения под постом!" in comment_msg
-                    assert "P.S. В тексте этого поста спрятан сакральный шифр на 150 ✨. Нашел? Отправь его мне в личные сообщения." in comment_msg
+        assert len(comment_calls) > 0
+        comment_msg = comment_calls[0][1].get("message", "")
+        assert "Напиши свою дату рождения под постом!" in comment_msg
+        assert "P.S. В тексте этого поста спрятан сакральный шифр на 150 ✨. Нашел? Отправь его мне в личные сообщения." in comment_msg
+        # FIX 2026-11-10: промокод сохраняется в БД только после успешной публикации
+        mock_save_promo.assert_awaited_once()

@@ -20,7 +20,9 @@ async def add_event(user_id: int, action: str, metadata: Optional[Dict[str, Any]
         return False
 
 async def is_first_payment(user_id: int) -> bool:
-    if not URL or not KEY or core.session is None: return True
+    # FIX (аудит 2026-11-10): fail-open (True при сбое БД) дублировал событие
+    # first_payment при каждом сбое - теперь fail-closed
+    if not URL or not KEY or core.session is None: return False
     try:
         # Check for any existing payment events
         async with core.session.get(
@@ -30,6 +32,8 @@ async def is_first_payment(user_id: int) -> bool:
             if r.status == 200:
                 data = await r.json()
                 return len(data) == 0
+            logger.error(f"is_first_payment: Supabase вернул {r.status}")
+            return False
     except Exception as e:
         logger.error(f"Error checking first payment for {user_id}: {e}")
-    return True
+    return False

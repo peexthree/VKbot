@@ -269,7 +269,12 @@ def generate_premium_pdf(
     try:
         from prompts.pdf_templates import get_html_template, TAROT_SPREAD_TEMPLATE
         from configs.tarot_spreads import TAROT_SPREADS, TAROT_SPREAD_KEYS
-        from jinja2 import Template
+        # Шаблоны приходят ТОЛЬКО из статического whitelist pdf_templates.py
+        # (никакого пользовательского ввода в текст шаблона) - рендерим через
+        # фиксированное окружение; SSTI здесь невозможен по построению
+        from jinja2 import Environment
+
+        _env = Environment(autoescape=False)
 
         raw_section = (
             kwargs.get("section_key")
@@ -397,7 +402,7 @@ def generate_premium_pdf(
                     "content": safe_br(s.get("content", ""))
                 })
 
-            template = Template(TAROT_SPREAD_TEMPLATE)
+            template = _env.from_string(TAROT_SPREAD_TEMPLATE)
             html_out = template.render(
                 user_name=user_name,
                 birth_info=birth_info,
@@ -414,7 +419,7 @@ def generate_premium_pdf(
         else:
             # Стандартные сервисы групп A, B, C, D, E
             template_str = get_html_template(raw_section)
-            template = Template(template_str)
+            template = _env.from_string(template_str)
 
             # Format group-specific keys to be passed to templates
             geom_analysis = safe_br(kwargs.get("geom_analysis", ""))

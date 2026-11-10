@@ -58,6 +58,11 @@ async def get_unposted_feedbacks(limit: int = 4):
 
     params = {
         "is_posted": "eq.false",
+        # FIX (аудит 2026-11-10): отзыв без service_name ронял рендер карточки
+        # (SECTION_NAMES.get(sec, sec.capitalize()) -> AttributeError на None) и
+        # навсегда блокировал всю карусель (head-of-line blocking). Битые записи
+        # просто не попадают в очередь
+        "service_name": "not.is.null",
         "order": "created_at.asc",
         "limit": str(limit)
     }

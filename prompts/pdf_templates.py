@@ -486,7 +486,7 @@ GROUP_C_TEMPLATE = """<!DOCTYPE html>
 <body>
     <div class="container cover">
         <img src="cards/uslugi/logo.png" class="logo-top" alt="Logo">
-        <img src="cards/uslugi/egypt_head.png" class="oracle-img" alt="Оракул древних">
+        <!-- FIX (аудит 2026-11-10): удален битый egypt_head.png - файла нет в cards/uslugi, WeasyPrint рисовал пустое место -->
         <div class="user-info-wrapper">
             <div class="user-info">
                 РИТУАЛ: <span class="highlight">{{ section_name }}</span><br>
@@ -669,7 +669,7 @@ GROUP_D_TEMPLATE = """<!DOCTYPE html>
 <body>
     <div class="container cover">
         <img src="cards/uslugi/logo.png" class="logo-top" alt="Logo">
-        <img src="cards/uslugi/astro_map.png" class="astro-map-img" alt="Звездная карта">
+        <!-- FIX (аудит 2026-11-10): удален битый astro_map.png - файла нет в cards/uslugi -->
         <div class="user-info-wrapper">
             <div class="user-info">
                 РИТУАЛ: <span class="highlight">{{ section_name }}</span><br>
@@ -886,7 +886,7 @@ GROUP_E_TEMPLATE = """<!DOCTYPE html>
 <body>
     <div class="container cover">
         <img src="cards/uslugi/logo.png" class="logo-top" alt="Logo">
-        <img src="cards/uslugi/taro_head.png" class="head-img" alt="Разбор Таро">
+        <!-- FIX (аудит 2026-11-10): удален битый taro_head.png - файла нет в cards/uslugi -->
         <div class="user-info-wrapper">
             <div class="user-info">
                 РИТУАЛ: <span class="highlight">{{ section_name }}</span><br>

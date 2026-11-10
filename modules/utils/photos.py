@@ -241,7 +241,17 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
     if filename in SKIN_ASSETS:
         filename = SKIN_ASSETS[filename]
 
-    if not os.path.exists(os.path.join("cards", filename)):
+    # FIX (аудит 2026-11-10): абсолютный путь (временные карточки из системного
+    # temp) используется как есть, без подстановки cards/
+    abs_filepath = None
+    if os.path.isabs(filename):
+        if not os.path.exists(filename):
+            logger.warning(f"upload_wall_photo: файл по абсолютному пути не найден: {filename}")
+            return ""
+        abs_filepath = filename
+        filename = os.path.basename(filename)  # ключ кэшей
+
+    if abs_filepath is None and not os.path.exists(os.path.join("cards", filename)):
         if "uslugi/" in filename:
             alt_filename = filename.replace("uslugi/", "")
             if os.path.exists(os.path.join("cards", alt_filename)):
@@ -280,7 +290,8 @@ async def upload_wall_photo(bot_api, filename: str) -> str:
         return ""
 
     try:
-        filepath = os.path.join("cards", filename)
+        # FIX (аудит 2026-11-10): абсолютный путь временных карточек не заворачиваем в cards/
+        filepath = abs_filepath or os.path.join("cards", filename)
 
         # Ожидание готовности файла (для динамических карточек)
         found = False

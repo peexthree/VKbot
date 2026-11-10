@@ -115,18 +115,30 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
 
     await start_dynamic_typing(bot.api, peer_id, conversation_message_id=conversation_message_id)
 
+    # FIX (аудит 2026-11-10): флаг "refund уже выполнен" - внешний except мог
+    # вернуть энергию повторно после refund в промежуточной ветке или после
+    # успешной выдачи карты (падение ghost_edit в финале)
+    refunded = False
+
+    async def _refund_once():
+        nonlocal refunded
+        if refunded:
+            return
+        refunded = True
+        p_sec = user.get("purchased_sections", {}) or {}
+        if not is_update:
+            p_sec.pop("destiny_card_purchased", None)
+        from database.users import add_energy
+
+        await add_energy(vk_id, cost)
+        await update_user(vk_id, {"purchased_sections": p_sec})
+
     try:
         from cache import get_temp_birth_data
         birth_data = await get_temp_birth_data(vk_id)
         if not birth_data:
             await stop_dynamic_typing(peer_id)
-            # Return energy (атомарно)
-            if not is_update:
-                purchased.pop("destiny_card_purchased", None)
-            from database.users import add_energy
-
-            await add_energy(vk_id, cost)
-            await update_user(vk_id, {"purchased_sections": purchased})
+            await _refund_once()
 
             # Пытаемся спарсить из ВК
             try:
@@ -193,10 +205,13 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         core_profile = await get_core_profile(vk_id)
 
         # Специальный промпт для карты судьбы
+        # FIX (аудит 2026-11-10): sex_val хранится внутри purchased_sections,
+        # а не на верхнем уровне - гендер-инструкция всегда была нейтральной
+        purchased_meta = user.get("purchased_sections", {}) or {}
         res_data = await generate_section(
             "destiny_card", birth_date, birth_data.get("time", ""),
             birth_data.get("city", ""), core_profile,
-            user.get("first_name", "Адепт"), user.get("sex_val", 0),
+            user.get("first_name", "Адепт"), purchased_meta.get("sex_val", 0),
             skin=active_skin, card_id=str(db_idx), card_data=card_data,
             return_json=True,
             purchased_skins=user.get("purchased_skins", [])
@@ -213,13 +228,7 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
         # раньше сохранялись как купленный текст разбора (аудит 2026-11)
         if not res_text or res_text in ("ERROR_RPM_LIMIT", "ERROR_AI_UNAVAILABLE"):
             await stop_dynamic_typing(peer_id)
-            purchased = user.get("purchased_sections", {})
-            if not is_update:
-                purchased.pop("destiny_card_purchased", None)
-            from database.users import add_energy
-
-            await add_energy(vk_id, cost)
-            await update_user(vk_id, {"purchased_sections": purchased})
+            await _refund_once()
             await bot.api.messages.send(peer_id=peer_id, message="🛑 Оракул перегружен. Энергия возвращена на баланс, попробуй через минуту.", random_id=random.getrandbits(63))
             return
 
@@ -281,12 +290,6 @@ async def generate_destiny_card_logic(vk_id: int, peer_id: int, conversation_mes
     except Exception as e:
         logger.error(f"Error generating destiny card: {e}")
         await stop_dynamic_typing(peer_id)
-        # Возвращаем энергию в случае ошибки (атомарно)
-        purchased = user.get("purchased_sections", {})
-        if not is_update:
-            purchased.pop("destiny_card_purchased", None)
-        from database.users import add_energy
-
-        await add_energy(vk_id, cost)
-        await update_user(vk_id, {"purchased_sections": purchased})
+        # Возвращаем энергию в случае ошибки (атомарно, однократно - ауд 2026-11-10)
+        await _refund_once()
         await bot.api.messages.send(peer_id=peer_id, message="🛑 Произошла ошибка при обращении к звездам. Энергия возвращена.", random_id=random.getrandbits(63))

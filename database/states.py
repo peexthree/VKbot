@@ -148,11 +148,11 @@ async def set_user_state(vk_id: int, state: str):
     from modules.states import MyStates
     if not state:
         try: await bot.state_dispenser.delete(vk_id)
-        except: pass
+        except Exception: pass
         await set_fsm_state(vk_id, state)
         return True
     try: step = json.loads(state).get("step", "")
-    except: step = state
+    except (ValueError, TypeError, AttributeError): step = state
     state_map = {
         "waiting_for_onboarding_data": MyStates.WAITING_FOR_ONBOARDING_DATA,
         "date": MyStates.WAITING_FOR_DATE,

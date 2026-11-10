@@ -40,14 +40,14 @@ def extract_msg_id(resp) -> int | None:
         if "conversation_message_id=" in resp:
             try:
                 return int(resp.split("conversation_message_id=")[1].split()[0])
-            except: pass
+            except ValueError: pass
         if "message_id=" in resp:
             try:
                 return int(resp.split("message_id=")[1].split()[0])
-            except: pass
+            except ValueError: pass
         try:
             return int(resp)
-        except: pass
+        except ValueError: pass
     return None
 
 async def delete_bot_message(bot_api, peer_id: int, cmid: int = None, mid: int = None):

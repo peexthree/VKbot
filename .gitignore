@@ -9,3 +9,5 @@ venv/
 logs/
 *.log
 sql_result_*.json
+.zcode/
+.mimosa/

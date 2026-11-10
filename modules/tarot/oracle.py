@@ -19,10 +19,10 @@ async def process_oracle_final(vk_id: int, text: str, card_ids: list, skip_lock:
 
         if conv_msg_id:
             try: await bot.api.messages.edit(peer_id=vk_id, conversation_message_id=conv_msg_id, message="✨ Раскладываю карты для тебя...", keyboard=Keyboard(inline=True).get_json())
-            except: pass
+            except Exception as e: logger.debug(f"oracle: не удалось отредактировать сообщение-статус: {e}")
         elif message_id:
             try: await bot.api.messages.edit(peer_id=vk_id, message_id=message_id, message="✨ Раскладываю карты для тебя...", keyboard=Keyboard(inline=True).get_json())
-            except: pass
+            except Exception as e: logger.debug(f"oracle: не удалось отредактировать сообщение-статус: {e}")
 
         user = await get_user(vk_id)
         if not user: return

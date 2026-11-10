@@ -1,5 +1,4 @@
 import asyncio
-import json
 import time
 
 import aiohttp
@@ -8,6 +7,9 @@ from loguru import logger
 from database.config import URL, KEY, HEADERS, TABLE_NAME
 
 session: Optional[aiohttp.ClientSession] = None
+# Сильные ссылки на фоновые таски: create_task без ссылки может быть собран GC
+# до завершения (аудит 2026-11-10)
+_background_tasks: set = set()
 
 async def init_db():
     global session
@@ -37,8 +39,6 @@ def _local_cache_get(vk_id: int) -> dict | None:
     if not entry:
         return None
     ts, user = entry
-    import time
-
     if time.time() - ts > _USER_CACHE_TTL:
         _user_cache.pop(vk_id, None)
         return None
@@ -74,7 +74,9 @@ async def get_user(vk_id: int):
                         user["balance"] = new_balance
                         del user["bonuses"]
                         from .users import update_user # Local import to avoid circularity if needed
-                        asyncio.create_task(update_user(vk_id, {"balance": new_balance, "bonuses": None}))
+                        _task = asyncio.create_task(update_user(vk_id, {"balance": new_balance, "bonuses": None}))
+                        _background_tasks.add(_task)
+                        _task.add_done_callback(_background_tasks.discard)
                         return user
                     _local_cache_put(vk_id, user)
                     return user
@@ -128,9 +130,14 @@ async def call_rpc(func_name: str, params: dict):
     try:
         async with session.post(f"{URL}/rest/v1/rpc/{func_name}", headers=HEADERS, json=params) as r:
             if r.status in (200, 201, 204):
+                # FIX (аудит 2026-11-10): 204 (void-RPC вроде increment_user_balance)
+                # - это успех с пустым телом, а не ошибка парсинга; bare except
+                # глотал и CancelledError
+                if r.status == 204:
+                    return True
                 try:
                     return await r.json()
-                except:
+                except Exception:
                     return True
             else:
                 text = await r.text()

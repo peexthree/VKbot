@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from modules.utils.docs import upload_pdf_to_vk
 import os
+import tempfile
 
 @pytest.mark.asyncio
 async def test_upload_pdf_to_vk_parsing_success():
@@ -28,9 +29,10 @@ async def test_upload_pdf_to_vk_parsing_success():
     bot_api.request.return_value = raw_response
 
     # Create a dummy file
-    filepath = "test_palmistry.pdf"
-    with open(filepath, "wb") as f:
-        f.write(b"dummy pdf content")
+    # FIX (аудит 2026-11-10): NamedTemporaryFile - безопасное создание в системном temp
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
+        tf.write(b"dummy pdf content")
+        filepath = tf.name
 
     # Mock aiohttp
     with patch("aiohttp.ClientSession.post") as mock_post:
@@ -67,9 +69,9 @@ async def test_upload_pdf_to_vk_parsing_no_access_key():
     bot_api.request.return_value = raw_response
 
     # Create a dummy file
-    filepath = "test_no_key.pdf"
-    with open(filepath, "wb") as f:
-        f.write(b"dummy pdf content")
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
+        tf.write(b"dummy pdf content")
+        filepath = tf.name
 
     # Mock aiohttp
     with patch("aiohttp.ClientSession.post") as mock_post:

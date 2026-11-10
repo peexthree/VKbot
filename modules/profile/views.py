@@ -117,7 +117,8 @@ async def show_profile_logic(
         level, rank = calculate_user_rank(user)
 
         # Прогресс по реальным открытым картам
-        unlocked_cards = user.get("unlocked_cards", {})
+        # FIX (аудит 2026-11-10): NULL в БД давал len(None) -> TypeError
+        unlocked_cards = user.get("unlocked_cards") or {}
         unlocked_count = len(unlocked_cards)
         progress = min(10, int((unlocked_count / 78) * 10))
         progress_bar = "█" * progress + "░" * (10 - progress)
@@ -323,7 +324,10 @@ async def get_seal_logic(
             purchased["shadow_cipher"] = cipher
             await update_user(vk_id, {"purchased_sections": purchased})
 
-        group_id = "219181948"
+        # FIX (аудит 2026-11-10): хардкод group_id заменен на GROUP_ID из env
+        # (при переносе сообщества ссылка-призыв осталась бы чужой)
+        from modules.utils.consts import GROUP_ID
+        group_id = GROUP_ID
         text = (
             "✨ ТВОЙ ТЕНЕВОЙ ШИФР ✨\n"
             "Используй его, чтобы призвать новых адептов в систему.\n\n"

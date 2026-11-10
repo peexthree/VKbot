@@ -395,17 +395,9 @@ def get_syndicate_inline_keyboard(is_promo_used: bool) -> str:
         ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
     ])
 
-def get_skin_inline_keyboard(skin_name: str, is_owned: bool) -> str:
-    if is_owned:
-        return vertical_kb([
-            ("✅ ВЫБРАТЬ", {"cmd": "set_skin", "skin": skin_name}, KeyboardButtonColor.POSITIVE),
-            ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-        ])
-    else:
-        return vertical_kb([
-            ("💎 КУПИТЬ (1500 ✨)", {"cmd": "confirm_buy", "type": "skin", "key": skin_name}, KeyboardButtonColor.PRIMARY),
-            ("🏠 В МЕНЮ", "main_menu", KeyboardButtonColor.SECONDARY)
-        ])
+# FIX (аудит 2026-11-10): удалена зомби-клавиатура get_skin_inline_keyboard -
+# нигде не вызывалась, а её confirm_buy с key=skin_name вёл в тупик
+# (prices.get(skin_name) = None -> молчаливый выход)
 
 def get_guide_main_keyboard() -> str:
     return vertical_kb([

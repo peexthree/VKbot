@@ -1,8 +1,14 @@
 import aiohttp
-import xml.etree.ElementTree as ET
 from loguru import logger
 import random
 import re
+
+# FIX (аудит 2026-11-10): XML entity expansion (billion laughs) - RSS парсится
+# defusedxml; при его отсутствии - стандартный парсер (фиды из доверенного списка)
+try:
+    import defusedxml.ElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
 
 # Тематические неполитические фиды Google News
 NEWS_URLS = [

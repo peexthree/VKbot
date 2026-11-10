@@ -8,7 +8,7 @@ import random
 from loguru import logger
 from vkbottle import Keyboard, KeyboardButtonColor, Callback
 
-from configs.tarot_spreads import TAROT_SPREADS
+from configs.tarot_spreads import TAROT_SPREADS, TAROT_SPREAD_PRICES
 from database import get_user, update_user, set_user_state
 from ai_service import generate_text
 from modules.bot_init import bot
@@ -106,7 +106,15 @@ async def handle_spread_cut(vk_id: int, peer_id: int, spread_key: str, edit_msg_
     """Обработка снятия колоды: показ карт для выбора или авто-расклад для VIP."""
     state_dict = await get_fsm_step(vk_id)
     spread = TAROT_SPREADS.get(spread_key)
-    if not state_dict or not spread:
+    # Анти-replay (аудит 2026-11-10): сверяем шаг И ключ расклада - старая кнопка
+    # другого расклада не должна запускаться поверх активного стейта
+    # (VIP-расклад на 20 карт по цене дешёвого)
+    if (
+        not state_dict
+        or not spread
+        or state_dict.get("step") != "spread_cut"
+        or state_dict.get("spread_key") != spread_key
+    ):
         await safe_edit(
             peer_id=peer_id,
             conversation_message_id=edit_msg_id,
@@ -167,7 +175,13 @@ async def handle_spread_card_draw(vk_id: int, peer_id: int, card_id: int, spread
     """Обработка клика по карте расклада."""
     state_dict = await get_fsm_step(vk_id)
     spread = TAROT_SPREADS.get(spread_key)
-    if not state_dict or not spread or state_dict.get("step") != "spread_draw":
+    # Анти-replay (аудит 2026-11-10): ключ расклада тоже сверяем
+    if (
+        not state_dict
+        or not spread
+        or state_dict.get("step") != "spread_draw"
+        or state_dict.get("spread_key") != spread_key
+    ):
         await safe_edit(
             peer_id=peer_id,
             conversation_message_id=edit_msg_id,
@@ -298,7 +312,21 @@ async def execute_spread_reading(
 
         res_text = await generate_text(prompt, skin=active_skin, is_background=False)
         if not res_text or res_text == "ERROR_RPM_LIMIT":
-            msg = "Космические потоки перегружены. Твой расклад зафиксирован — попробуй получить ответ через минуту ✨"
+            # FIX (аудит 2026-11-10): энергия возвращается при сбое ИИ, результат
+            # честно не сохраняется. Раньше писали "расклад зафиксирован", ничего
+            # не сохраняя и не возвращая 400-2900 ✨
+            refund_amount = TAROT_SPREAD_PRICES.get(spread_key, 0)
+            refunded_note = ""
+            if refund_amount > 0:
+                from database import add_energy
+
+                if await add_energy(vk_id, refund_amount):
+                    refunded_note = f"Оплаченные {refund_amount} ✨ возвращены на твой баланс. "
+                logger.warning(f"Spread {spread_key}: сбой ИИ, refund {refund_amount} для {vk_id}")
+            msg = (
+                "Космические потоки перегружены - звёзды не готовы отвечать прямо сейчас. "
+                f"{refunded_note}Попробуй через минуту ✨"
+            )
             await stop_dynamic_typing(peer_id)
             if conversation_message_id:
                 await safe_edit(peer_id=peer_id, conversation_message_id=conversation_message_id, message=msg)
@@ -363,14 +391,17 @@ async def execute_spread_reading(
 
         # Клавиатура итогового отчета
         kb = Keyboard(inline=True)
-        kb.add(
-            Callback(
-                "📜 ПОЛНЫЙ PDF-ОТЧЕТ",
-                payload={"cmd": "gen_pdf", "section": spread_key, "card": str(card_ids[0])},
-            ),
-            color=KeyboardButtonColor.POSITIVE,
-        )
-        kb.row()
+        # FIX (аудит 2026-11-10): флаг has_pdf у 7 из 10 раскладов False, но кнопка
+        # PDF показывалась всем. Показываем только тем, у кого PDF заявлен
+        if spread.get("has_pdf", True):
+            kb.add(
+                Callback(
+                    "📜 ПОЛНЫЙ PDF-ОТЧЕТ",
+                    payload={"cmd": "gen_pdf", "section": spread_key, "card": str(card_ids[0])},
+                ),
+                color=KeyboardButtonColor.POSITIVE,
+            )
+            kb.row()
         kb.add(
             Callback(
                 "⭐️ Оценить расклад",
@@ -392,33 +423,33 @@ async def execute_spread_reading(
         typing_msg_id = await stop_dynamic_typing(peer_id)
         target_cmid = typing_msg_id or conversation_message_id
 
-        header_msg = f"✨ САВРАЛЬНЫЙ РАСКЛАД: {spread['title'].upper()} ✨\n\n{res_text}"
+        header_msg = f"✨ САКРАЛЬНЫЙ РАСКЛАД: {spread['title'].upper()} ✨\n\n{res_text}"
 
-        # Если текст длиннее лимита ВК (4096 символов), аккуратно режем
+        # Если текст длиннее лимита ВК (4096 символов), режем на куски по 3900.
+        # FIX (аудит 2026-11-10): старый сплит part1/part2 давал part2 длиной
+        # len-3900 - при тексте >7996 символов часть 2 сама превышала лимит ВК
+        # и терялась вместе с клавиатурой. Теперь режем на N равных кусков.
         if len(header_msg) > 4000:
-            part1 = header_msg[:3900]
-            part2 = header_msg[3900:]
-            if target_cmid:
-                await ghost_edit(
-                    bot.api,
-                    peer_id,
-                    part1,
-                    attachment=att,
-                    conversation_message_id=target_cmid,
-                )
-            else:
-                await bot.api.messages.send(
-                    peer_id=peer_id,
-                    message=part1,
-                    attachment=att,
-                    random_id=random.getrandbits(63),
-                )
-            await bot.api.messages.send(
-                peer_id=peer_id,
-                message=part2,
-                keyboard=kb.get_json(),
-                random_id=random.getrandbits(63),
-            )
+            chunks = [header_msg[i:i + 3900] for i in range(0, len(header_msg), 3900)]
+            for chunk_idx, chunk in enumerate(chunks):
+                is_first = chunk_idx == 0
+                is_last = chunk_idx == len(chunks) - 1
+                if is_first and target_cmid:
+                    await ghost_edit(
+                        bot.api,
+                        peer_id,
+                        chunk,
+                        attachment=att,
+                        conversation_message_id=target_cmid,
+                    )
+                else:
+                    await bot.api.messages.send(
+                        peer_id=peer_id,
+                        message=chunk,
+                        keyboard=kb.get_json() if is_last else None,
+                        attachment=att if is_first else None,
+                        random_id=random.getrandbits(63),
+                    )
         else:
             if target_cmid:
                 await ghost_edit(

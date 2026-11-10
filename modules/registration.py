@@ -280,6 +280,19 @@ async def send_registration_confirmation(message: Message, state_dict: dict):
         random_id=random.getrandbits(63)
     )
 
+async def _ghost_answer(message: Message, state_dict: dict, text: str, keyboard: str = None):
+    """FIX (аудит 2026-11-10): призрачное редактирование сообщения онбординга по
+    conv_id из стейта вместо нового сообщения на каждый ввод (правило
+    «призрачного интерфейса»). Фоллбэк - обычное сообщение, если conv_id нет."""
+    conv_id = (state_dict or {}).get("conv_id")
+    if conv_id:
+        try:
+            await ghost_edit(bot.api, message.peer_id, text, keyboard=keyboard, conversation_message_id=conv_id)
+            return
+        except Exception as e:
+            logger.warning(f"onboarding ghost_edit failed, fallback to answer: {e}")
+    await message.answer(text, keyboard=keyboard)
+
 async def is_waiting_birth_date(message: Message) -> bool:
     if not message.text or any(message.text.startswith(e) for e in ["✦", "💳", "🃏", "📖", "🛰", "🔮", "👤", "🎴", "⚙️", "✅", "🔄", "✨", "🕸", "📜", "✒", "⚡️", "📢"]): return False
     state_dict = await get_fsm_step(message.from_id)
@@ -314,7 +327,8 @@ async def process_birth_date(message: Message):
             state_dict.update({"step": "waiting_birth_time", "date": text})
             await set_user_state(vk_id, json.dumps(state_dict))
             kb = Keyboard(inline=True).add(Callback("⏳ НЕ ПОМНЮ", payload={"cmd": "skip_birth_time"}), color=KeyboardButtonColor.SECONDARY)
-            await message.answer(
+            await _ghost_answer(
+                message, state_dict,
                 f"☾ {text} — прекрасный день для начала пути.\n\n"
                 "Теперь шепни мне ВРЕМЯ своего рождения (например, 14:30).\n"
                 "Если время скрыто в тумане прошлого — просто нажми кнопку ниже.",
@@ -385,7 +399,7 @@ async def process_birth_time(message: Message):
         if re.match(r"^\d{2}:\d{2}$", text):
             state_dict.update({"step": "waiting_birth_city", "time": text})
             await set_user_state(vk_id, json.dumps(state_dict))
-            await message.answer("🕯 Время зафиксировано. И последний штрих — в каком ГОРОДЕ ты увидел свой первый звездный свет?")
+            await _ghost_answer(message, state_dict, "🕯 Время зафиксировано. И последний штрих — в каком ГОРОДЕ ты увидел свой первый звездный свет?")
             return
 
         # Fallback на ИИ
@@ -402,9 +416,9 @@ async def process_birth_time(message: Message):
             else:
                 state_dict["step"] = "waiting_birth_city"
                 await set_user_state(vk_id, json.dumps(state_dict))
-                await message.answer(f"Время {found_time} зафиксировано. А в каком городе ты родился?")
+                await _ghost_answer(message, state_dict, f"Время {found_time} зафиксировано. А в каком городе ты родился?")
         else:
-            await message.answer("Пожалуйста, введи время в формате ЧЧ:ММ (например, 14:30) или нажми кнопку 'НЕ ПОМНЮ':")
+            await _ghost_answer(message, state_dict, "Пожалуйста, введи время в формате ЧЧ:ММ (например, 14:30) или нажми кнопку 'НЕ ПОМНЮ':")
     finally:
         await release_lock(vk_id)
 

@@ -6,6 +6,7 @@ import asyncio
 import random
 from vkbottle import Callback, Keyboard, KeyboardButtonColor
 from vkbottle.bot import BotLabeler, Message
+from loguru import logger
 
 from cache import redis_client, set_fsm_state, get_system_config, set_system_config
 from database import get_all_users, get_user, update_user, get_user_count, get_users_paginated
@@ -213,10 +214,20 @@ async def show_admin_analytics(peer_id: int, conversation_message_id: int = None
                     if created_at >= today_start: new_today += 1
                 except: pass
             purchased = u.get("purchased_sections", {})
+            # FIX (аудит 2026-11-10): словарь цен был протухшим (без oculomancy,
+            # sigil, dream и др.) и пересоздавался на каждой итерации
+            prices = {
+                "sex": 1000, "money": 900, "shadow": 700, "final": 1200,
+                "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500,
+                "palmistry": 1200, "dream": 1000, "oculomancy": 1200,
+                "sigil": 1000, "karma": 900, "totem": 900, "astro_geo": 900,
+                "egyptian_oracle": 700, "shadow_oracle": 700, "alchemist": 700,
+                "chrono": 700, "charoslov": 600, "destiny_card_purchased": 1500,
+                "oracle_access": 500,
+            }
             for key, val in purchased.items():
                 if val is True:
                     purchased_stats[key] = purchased_stats.get(key, 0) + 1
-                    prices = {"sex": 1000, "money": 900, "shadow": 700, "final": 1200, "synastry": 1500, "all": 3000, "oracle": 500, "antitaro": 500}
                     revenue_est += prices.get(key, 0)
             last_active = u.get("last_active_date")
             if last_active:
@@ -596,7 +607,10 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
                 await bot.api.messages.send(peer_id=u["vk_id"], message=f"📢 ПРИЗЫВ СИНДИКАТА 📢\n\n{bt}", random_id=random.getrandbits(63))
                 success += 1
                 await asyncio.sleep(0.05)
-            except: pass
+            except Exception as e:
+                # FIX (аудит 2026-11-10): глушение всех ошибок рассылки скрывало
+                # флуд-контрол и баны; теперь ошибки видны в логах
+                logger.warning(f"Рассылка: не доставлено vk_id={u.get('vk_id')}: {e}")
         await bot.api.messages.send(peer_id=peer_id, message=f"✅ Рассылка завершена. Доставлено: {success}/{len(users)}", random_id=random.getrandbits(63))
         await show_admin_broadcast(peer_id, conversation_message_id)
     elif action == "trigger_autopost":
@@ -725,9 +739,15 @@ async def _is_admin_fsm(message: Message) -> bool:
 async def admin_fsm_handler(message: Message):
     fsm_data = await get_fsm_step(message.from_id)
     step, vk_id, conv_id = fsm_data.get("step"), message.from_id, fsm_data.get("conv_id")
-    if message.text.lower() == "отмена":
+    # FIX (аудит 2026-11-10): сообщение с вложением (фото/док) имеет text=None -
+    # .lower() падал AttributeError и хендлер умирал
+    msg_text = (message.text or "").lower()
+    if msg_text == "отмена":
         await set_fsm_state(vk_id, "")
         await show_admin_main(message.peer_id, conv_id)
+        return
+    if not message.text:
+        await message.answer("Здесь нужен текст. Пришлите сообщение без вложений или нажмите Отмена.")
         return
     if step == "admin_user_search":
         try:
@@ -750,7 +770,7 @@ async def admin_fsm_handler(message: Message):
             curr_page = fsm_data.get("page", 0)
             user = await get_user(target_id)
             if not user: return
-            unlocked = user.get("unlocked_cards", {})
+            unlocked = user.get("unlocked_cards") or {}
             from cards_data import get_card_data
             card_data = get_card_data(card_id)
             if not card_data:

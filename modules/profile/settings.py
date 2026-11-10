@@ -233,7 +233,8 @@ async def settings_choose_character_logic(
             await ghost_edit(bot.api, peer_id, msg, conversation_message_id=edit_msg_id)
             return
 
-        purchased_skins = user.get("purchased_skins", [])
+        # FIX (аудит 2026-11-10): NULL в БД давал TypeError на проверке `in`
+        purchased_skins = user.get("purchased_skins") or []
 
         await _send_skins_page(
             vk_id=vk_id,
@@ -274,7 +275,8 @@ async def process_skin_action_logic(
         action = payload.get("cmd")
         target_skin = payload.get("skin")
 
-        purchased_skins = user.get("purchased_skins", [])
+        # FIX (аудит 2026-11-10): NULL в БД давал TypeError на проверке `in`
+        purchased_skins = user.get("purchased_skins") or []
         free_skins = ["olesya", "sheps_alex", "messing"]
         balance = int(user.get("balance", 0) or 0)
 
@@ -337,7 +339,15 @@ async def process_skin_action_logic(
 
                 new_balance = await spend_user_balance(vk_id, price)
                 if new_balance is None:
-                    new_balance = balance  # гонка: энергия ушла между проверкой и списанием
+                    # FIX (аудит 2026-11-10): None = не хватило энергии (гонка) или сбой RPC.
+                    # Раньше покупка продолжалась - скин выдавался бесплатно. Теперь abort.
+                    logger.warning(f"buy_skin: списание {price} не прошло для {vk_id} (skin={target_skin})")
+                    await ghost_edit(
+                        bot.api, peer_id,
+                        "⚡ Энергия ушла между пальцами - списание не прошло. Попробуй ещё раз через минуту.",
+                        conversation_message_id=conversation_message_id
+                    )
+                    return
                 purchased_skins.append(target_skin)
 
                 purchased = user.get("purchased_sections", {})

@@ -20,6 +20,7 @@ sentry-sdk = "2.59.0"
 aiofiles = "22.1.0"
 watchfiles = "0.18.1"
 apscheduler = "^3.11.2"
+defusedxml = "^0.7.1"
 
 [tool.ruff]
 line-length = 88

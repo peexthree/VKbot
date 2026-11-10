@@ -67,6 +67,10 @@ ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS dreams_analyzed_count INT
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS rituals_count INTEGER DEFAULT 0;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS active_referrals_count INTEGER DEFAULT 0;
 ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS level_3_counted BOOLEAN DEFAULT FALSE;
+-- FIX (аудит 2026-11-10): колонка писалась кодом (tariff_vip в callbacks.py) и читалась
+-- is_vip_unlimited (utils/logic.py), но отсутствовала в схеме - PATCH падал 400 (PGRST204),
+-- весь VIP-безлимит не работал
+ALTER TABLE vk_esoteric_users ADD COLUMN IF NOT EXISTS vip_unlimited_expires_at TEXT;
 
 
 -- 2. CREATE AUXILIARY TABLES

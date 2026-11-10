@@ -1,7 +1,6 @@
 from modules.keyboards import (
     get_profile_inline_keyboard,
     get_settings_inline_keyboard,
-    get_skin_inline_keyboard,
     get_syndicate_inline_keyboard
 )
 
@@ -18,8 +17,8 @@ def get_advanced_settings_keyboard(vk_id: int, is_muted: bool = False) -> str:
     return get_advanced_settings_inline_keyboard(vk_id, is_muted=is_muted)
 
 
-def get_skin_keyboard(skin_name: str, is_owned: bool) -> str:
-    return get_skin_inline_keyboard(skin_name, is_owned)
+# FIX (аудит 2026-11-10): удалены мёртвые get_skin_inline_keyboard /
+# get_skin_keyboard - confirm_buy с key=skin_name вёл в тупик
 
 def get_syndicate_keyboard(is_promo_used: bool) -> str:
     return get_syndicate_inline_keyboard(is_promo_used)

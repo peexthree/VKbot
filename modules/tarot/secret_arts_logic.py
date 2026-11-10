@@ -2,8 +2,30 @@ import hashlib
 import os
 import math
 import random
+import asyncio
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from loguru import logger
+
+def validate_public_http_url(url: str) -> bool:
+    """SSRF-гейт: схема http(s), хост резолвится в публичный адрес
+    (не private/loopback/link-local/reserved)."""
+    from urllib.parse import urlparse
+    import socket
+    import ipaddress
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+    try:
+        resolved = {ai[4][0] for ai in socket.getaddrinfo(parsed.hostname, None)}
+    except socket.gaierror:
+        return False
+    for ip_str in resolved:
+        ip = ipaddress.ip_address(ip_str)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return False
+    return True
+
 
 # 1. Pillow-генератор сигилов
 def generate_sigil_image(wish_text: str, output_path: str, background_path: str = "cards/uslugi/Новый проект (13).png"):
@@ -131,15 +153,43 @@ def process_oculomancy_eye(image_url_or_path: str, output_path: str, background_
     накладывает космическое небула-свечение и вписывает в изящное золотое кольцо с алхимическими символами.
     """
     try:
+        temp_eye_path = None
         if image_url_or_path.startswith("http"):
             import urllib.request
+            import socket
+            import ipaddress
+            from urllib.parse import urlparse
+
+            # SSRF-гейт: URL приходит из ответа VK API, проверяем схему
+            # и что хост не резолвится в приватную/loopback-сеть
+            parsed = urlparse(image_url_or_path)
+            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                logger.warning(f"Окуломантия: небезопасная схема URL глаза: {parsed.scheme}")
+                return False
+            try:
+                resolved = {ai[4][0] for ai in socket.getaddrinfo(parsed.hostname, None)}
+            except socket.gaierror:
+                logger.warning(f"Окуломантия: не удалось резолвить хост глаза: {parsed.hostname}")
+                return False
+            for ip_str in resolved:
+                ip = ipaddress.ip_address(ip_str)
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    logger.warning(f"Окуломантия: URL глаза резолвится в приватный адрес ({ip_str}) - заблокировано")
+                    return False
+
+            # FIX (аудит 2026-11-10): изображение открывается прямо из памяти -
+            # никакого temp-файла, никаких гонок/утечек с общим temp_eye.jpg
+            import io as _io
+
             with urllib.request.urlopen(image_url_or_path, timeout=15) as response:
                 content = response.read()
-                with open("temp_eye.jpg", "wb") as f:
-                    f.write(content)
-                eye_img = Image.open("temp_eye.jpg")
+            eye_img = Image.open(_io.BytesIO(content))
         else:
-            eye_img = Image.open(image_url_or_path)
+            # FIX (аудит 2026-11-10): локальные пути больше не поддерживаются -
+            # прод-вызовы всегда идут с URL (после SSRF-гейта). Убрана ветка
+            # Image.open(произвольный локальный путь) - gate path traversal
+            logger.warning("Окуломантия: локальные пути не поддерживаются, ожидается http(s) URL")
+            return False
 
         eye_img = eye_img.convert("RGBA")
 
@@ -214,16 +264,45 @@ def process_oculomancy_eye(image_url_or_path: str, output_path: str, background_
         composite_bg.convert("RGB").save(output_path, "JPEG", quality=95)
 
         # Удаляем временный файл глаза, если он был скачан
-        if os.path.exists("temp_eye.jpg"):
-            os.remove("temp_eye.jpg")
+        if temp_eye_path and os.path.exists(temp_eye_path):
+            os.remove(temp_eye_path)
 
         logger.success(f"Окуломантия-карточка глаза успешно создана: {output_path}")
         return True
     except Exception as e:
         logger.error(f"Ошибка Pillow при обработке окуломантии: {e}")
-        if os.path.exists("temp_eye.jpg"):
-            os.remove("temp_eye.jpg")
+        try:
+            if temp_eye_path and os.path.exists(temp_eye_path):
+                os.remove(temp_eye_path)
+        except NameError:
+            pass
         return False
+
+
+async def restore_eye_image(vk_id: int, full_eye_path: str, initial_url: str = None) -> bool:
+    """FIX (аудит 2026-11-10): восстановление фото глаза после рестарта Render
+    (эфемерный FS). Достаёт URL из Redis/latest_data, проверяет SSRF-гейт и
+    пересобирает карточку в отдельном потоке. URL-флоу полностью внутри модуля."""
+    from cache import redis_client as _redis
+
+    eye_url = initial_url
+    if not eye_url:
+        try:
+            res_eye = await _redis.get(f"oculomancy_photo:{vk_id}")
+            if res_eye:
+                eye_url = res_eye.decode() if isinstance(res_eye, bytes) else res_eye
+        except Exception as e:
+            logger.warning(f"restore_eye_image: ошибка Redis: {e}")
+    if not eye_url:
+        logger.warning(f"restore_eye_image: URL глаза для {vk_id} не найден")
+        return False
+
+    if not validate_public_http_url(eye_url):
+        logger.warning("restore_eye_image: URL глаза не прошел SSRF-гейт")
+        return False
+
+    # to_thread: внутри urlopen(timeout=15) - не блокируем event loop
+    return await asyncio.to_thread(process_oculomancy_eye, eye_url, full_eye_path)
 
 
 # 3. Нумерологический Цифровой Алхимик

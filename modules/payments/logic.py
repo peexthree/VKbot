@@ -5,6 +5,7 @@ import datetime
 import json
 import re
 import hashlib
+import tempfile
 from loguru import logger
 from vkbottle import Keyboard, Callback, KeyboardButtonColor
 from database import get_user, update_user, set_user_state
@@ -713,6 +714,16 @@ async def execute_generation(
         # Права проверяем так же, как use_section: флаг покупки, пакет "all",
         # has_full_chart или активная подписка.
         NATAL_SECTIONS = {"sex", "money", "shadow", "final", "synastry"}
+        # Анти-replay для одноразовых секций (аудит 2026-11-10): флаг
+        # purchased[section] ставится при оплате и сбрасывается после успешной
+        # генерации - старые кнопки/квизы больше не перезапускают платный контент.
+        # Пакет "all" покрывает только натальные разделы (см. has_permanent_access),
+        # VIP-безлимит - только palmistry/dream
+        ONE_SHOT_SECTIONS = {
+            "antitaro", "oculomancy", "sigil", "astro_geo", "totem",
+            "karma", "palmistry", "dream", "alchemist", "chrono",
+            "charoslov", "egyptian_oracle", "shadow_oracle",
+        }
         if target_section in NATAL_SECTIONS:
             _p = user.get("purchased_sections", {}) or {}
             from modules.utils.logic import is_vip_unlimited
@@ -724,6 +735,21 @@ async def execute_generation(
                 or is_vip_unlimited(user)
             )
             if not has_generation_right:
+                logger.warning(f"Anti-replay: {vk_id} попытался перезапустить {target_section} без прав")
+                await stop_dynamic_typing(peer_id)
+                await ghost_edit(
+                    bot.api,
+                    peer_id,
+                    "🔒 Врата этого ритуала закрыты. Открой его заново через Каталог услуг.",
+                    conversation_message_id=conversation_message_id,
+                )
+                return
+        elif target_section in ONE_SHOT_SECTIONS:
+            _p = user.get("purchased_sections", {}) or {}
+            from modules.utils.logic import is_vip_unlimited
+
+            vip_covers = target_section in ("palmistry", "dream") and is_vip_unlimited(user)
+            if not (_p.get(target_section) or vip_covers):
                 logger.warning(f"Anti-replay: {vk_id} попытался перезапустить {target_section} без прав")
                 await stop_dynamic_typing(peer_id)
                 await ghost_edit(
@@ -774,7 +800,7 @@ async def execute_generation(
             conversation_message_id = extract_msg_id(resp)
 
         # Если мы не редактируем старое сообщение, то dynamic_typing создаст новое
-        typing_task = await start_dynamic_typing(
+        await start_dynamic_typing(
             bot.api, peer_id, conversation_message_id=conversation_message_id
         )
 
@@ -1517,7 +1543,8 @@ async def execute_generation(
                     async def auto_gen_pdf_task(
                         v_id, p_id, txt, s_name, u_n, b_i, char_n
                     ):
-                        pdf_name = f"report_{v_id}_{s_name}.pdf"
+                        # FIX (аудит 2026-11-10): tempdir вместо CWD (эфемерный/read-only FS Render)
+                        pdf_name = os.path.join(tempfile.gettempdir(), f"report_{v_id}_{s_name}.pdf")
                         from modules.utils import (
                             generate_premium_pdf,
                             upload_pdf_to_vk,
@@ -1764,17 +1791,31 @@ async def handle_generation_failure(
         from modules.utils.logic import is_vip_unlimited
 
         if not (user_for_refund and is_vip_unlimited(user_for_refund)):
-            # Рефанд один раз на часовое окно: повторные клики "Повторить"
-            # при повторных сбоях не должны возвращать энергию снова (QA-аудит)
+            # FIX (аудит 2026-11-10): рефанд только при факте оплаты в ЭТОМ запуске
+            # (ключ paid_run ставится при успешном списании в callbacks.buy и гасится
+            # после возврата). Раньше рефанд по прайсу начислялся при любом сбое -
+            # старые кнопки и провокация сбоев давали +прайс энергии бесплатно.
+            # Дополнительно гасим старый NX-флаг: одноразовость теперь даёт paid_run
             from cache import redis_client
 
-            refund_flag = await redis_client.set(
-                f"gen_refund:{vk_id}:{target_section}", "1", ex=3600, nx=True
-            )
-            if refund_flag:
-                from database.users import add_energy
-                await add_energy(vk_id, price_of_service)
-                refund_done = True
+            paid_run_key = f"paid_run:{vk_id}:{target_section}"
+            try:
+                paid_now = await redis_client.get(paid_run_key)
+            except Exception:
+                paid_now = None
+            if paid_now:
+                refund_flag = await redis_client.set(
+                    f"gen_refund:{vk_id}:{target_section}", "1", ex=3600, nx=True
+                )
+                if refund_flag:
+                    from database.users import add_energy
+
+                    await add_energy(vk_id, price_of_service)
+                    try:
+                        await redis_client.delete(paid_run_key)
+                    except Exception:
+                        pass
+                    refund_done = True
 
     if refund_done:
         msg = "🛑 ПОТОКИ КОСМОСА ПЕРЕГРУЖЕНЫ\n\nЗвезды скрылись за облаками матрицы. Энергия возвращена на баланс. Повтори попытку через минуту."

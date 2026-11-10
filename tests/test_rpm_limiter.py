@@ -36,13 +36,15 @@ async def test_rpm_limiter_wait():
 
 @pytest.mark.asyncio
 async def test_generate_text_uses_limiter():
-    # Mock everything generate_text needs before it hits the network or redis
+    # FIX (аудит 2026-11-10): раньше патчился ai.logic.redis_client, но
+    # proxy_enabled читается через get_system_config (cache.redis_client) -
+    # в CI шел реальный вызов Upstash и тест проходил лишь по fail-open дефолту
     with patch("ai.logic.get_gemini_api_keys", new_callable=AsyncMock) as mock_keys, \
-         patch("ai.logic.redis_client") as mock_redis, \
+         patch("ai.logic.get_system_config", new_callable=AsyncMock) as mock_cfg, \
          patch("ai.logic.acquire_ai_slot", new_callable=AsyncMock) as mock_acquire:
 
         mock_keys.return_value = ["key1"]
-        mock_redis.get = AsyncMock(return_value=b"1") # proxy_enabled
+        mock_cfg.return_value = "1"  # proxy_enabled
         mock_acquire.return_value = False # Simulate limit hit
 
         from ai.logic import generate_text

@@ -318,5 +318,11 @@ async def yookassa_webhook(request: web.Request):
                 )
             except Exception as push_err:
                 logger.error(f"Failed to send VK payment push notification: {push_err}")
+        else:
+            # FIX (аудит 2026-11-10): при неудачном начислении отвечаем 503 -
+            # ЮKassa повторит доставку. Раньше возвращался 200, платёж не
+            # помечался обработанным, начисление терялось навсегда
+            logger.error(f"ЮKassa: add_energy не сработал для {user_id} ({net_energy} ✨, payment {payment_id}) - 503, ждём повторную доставку")
+            return web.Response(status=503, text="Credit failed, retry later")
 
     return web.Response(status=200, text="OK")

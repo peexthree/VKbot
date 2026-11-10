@@ -1,6 +1,5 @@
 import re
 import json
-import random
 from vkbottle.bot import BotLabeler, Message
 from modules.states import MyStates
 from modules.utils import get_fsm_step
@@ -190,18 +189,26 @@ async def process_email_input(message: Message):
         return
 
     email = text.lower()
-    code = "".join(random.choices("0123456789", k=6))
 
     from modules.utils.email_sender import send_verification_email
-    success = await send_verification_email(email, code)
+    success = await send_verification_email(email)
     if not success:
+        # FIX (аудит 2026-11-10): при провале отправки юзеру честно сообщаем и
+        # оставляем шаг ввода email - раньше писали "код отправлен", юзер ждал
+        # письмо, которое не ушло, и залипал в стейте waiting_email_code
         from loguru import logger
         logger.warning(f"Could not send verification email to {email}")
+        kb = Keyboard(inline=True)
+        kb.add(Callback("❌ Отмена", payload={"cmd": "profile_action", "action": "back_to_profile"}), color=KeyboardButtonColor.NEGATIVE)
+        await message.answer(
+            "🛑 Письмо не смогло пробиться сквозь облака. Проверь адрес и попробуй ещё раз, или нажми Отмена:",
+            keyboard=kb.get_json()
+        )
+        return
 
     from database import update_user
     await update_user(vk_id, {
         "email": email,
-        "verification_code": code,
         "verification_status": "waiting_verification"
     })
 

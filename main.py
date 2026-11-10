@@ -706,7 +706,10 @@ async def main():
                     # Проверка доступности Карты Дня
                     purchased = user.get("purchased_sections", {})
                     last_used_str = purchased.get("card_of_day_last_used")
-                    if last_used_str:
+                    # FIX (аудит 2026-11-10): пуш гейтится whisper_muted - раньше
+                    # замьютившие "Шепот" продолжали получать этот пуш
+                    is_muted = purchased.get("whisper_muted", False)
+                    if last_used_str and not is_muted:
                         last_time = datetime.datetime.fromisoformat(last_used_str.replace('Z', '+00:00'))
                         if (now - last_time).total_seconds() >= 24 * 3600:
                             # Проверяем, не отправляли ли мы уже уведомление сегодня
@@ -860,7 +863,7 @@ async def main():
                     async with sem:
                         # ПРОВЕРКА НА ИНАКТИВНОСТЬ (БОЛЕЕ 7 ДНЕЙ)
                         last_active = u.get("last_active_date")
-                        purchased = u.get("purchased_sections", {})
+                        # FIX (аудит 2026-11-10): purchased читался и не использовался
 
                         if last_active:
                             try:

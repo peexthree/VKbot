@@ -3,6 +3,7 @@ import random
 import os
 import asyncio
 import datetime
+import tempfile
 from datetime import timezone, timedelta
 from loguru import logger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -418,12 +419,18 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
                 "owner_id": active_poll["owner_id"],
                 "poll_id": active_poll["poll_id"]
             })
-            if res and isinstance(res, list) and len(res) > 0:
+            # FIX (аудит 2026-11-10): polls.getById возвращает объект (или envelope
+            # {"response": {...}}), а не список - проверка isinstance(res, list)
+            # всегда была False и голосования молча игнорировались
+            poll_data = None
+            if isinstance(res, dict):
+                poll_data = res.get("response") if isinstance(res.get("response"), dict) else res
+            elif isinstance(res, list) and res:
                 poll_data = res[0]
-                if poll_data.get("answers"):
-                    winner = max(poll_data["answers"], key=lambda a: a.get("votes", 0))
-                    forced_topic = winner.get("text")
-                    logger.info(f"Тема выбрана пользователями через опрос: {forced_topic}")
+            if poll_data and poll_data.get("answers"):
+                winner = max(poll_data["answers"], key=lambda a: a.get("votes", 0))
+                forced_topic = winner.get("text")
+                logger.info(f"Тема выбрана пользователями через опрос: {forced_topic}")
         except Exception as e:
             logger.error(f"Не удалось получить результаты опроса: {e}")
             forced_topic = active_poll["topic_name"]
@@ -566,8 +573,8 @@ async def generate_post(is_morning: bool = True, forced_rubric: str = None, forc
         hidden_code = f"{cipher_base}-{cipher_num}"
         energy_reward = random.randint(50, 200)
 
-        # Сохраняем код в БД
-        await save_hidden_promo(hidden_code, energy_reward)
+        # FIX (аудит 2026-11-10): в БД код сохраняется в post_to_vk ПОСЛЕ успешной
+        # публикации (раньше - здесь, до всех точек abort, оставляя сироты в hidden_promos)
         logger.info(f"Сгенерирован скрытый шифр для поста: {hidden_code} на {energy_reward} ✨")
 
         cipher_masks = [
@@ -907,13 +914,14 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         elif rubric == "CARD_HISTORY":
             try:
                 card_filename = f"card_hist_{random.randint(1000,9999)}.jpg"
-                card_path = os.path.join("cards", card_filename)
+                # FIX (аудит 2026-11-10): карточки постов в системный temp, не в cards/
+                card_path = os.path.join(tempfile.gettempdir(), card_filename)
                 c_id = post_data.get("card_id", 0)
                 c_name = post_data.get("card_name", "Шут")
                 # to_thread: putpixel-цикл 256x256 + LANCZOS 1080x1080
                 # замораживали event loop всего бота
                 await asyncio.to_thread(generate_card_history_image, c_id, c_name, card_path)
-                att_card = await upload_wall_photo(bot.api, card_filename)
+                att_card = await upload_wall_photo(bot.api, card_path)
                 if att_card:
                     attachments.append(att_card)
                 if os.path.exists(card_path):
@@ -943,9 +951,9 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         if quote:
             try:
                 card_filename = f"diag_{random.randint(1000,9999)}.jpg"
-                card_path = os.path.join("cards", card_filename)
+                card_path = os.path.join(tempfile.gettempdir(), card_filename)
                 await asyncio.to_thread(generate_diagnosis_card, quote, card_path)
-                att_diag = await upload_wall_photo(bot.api, card_filename)
+                att_diag = await upload_wall_photo(bot.api, card_path)
                 if att_diag:
                     attachments.append(att_diag)
                 if os.path.exists(card_path):
@@ -977,6 +985,13 @@ async def post_to_vk(is_morning: bool = True, forced_rubric: str = None):
         )
         post_id = res_wall.post_id
         logger.info(f"Пост опубликован на стену: {post_id}")
+
+        # FIX (аудит 2026-11-10): промокод сохраняем в БД только ПОСЛЕ успешной
+        # публикации. Раньше save_hidden_promo звался в generate_post до всех
+        # точек abort - отменённые посты оставляли осиротевшие коды в hidden_promos
+        hidden_code = post_data.get("hidden_code")
+        if hidden_code:
+            await save_hidden_promo(hidden_code, post_data.get("energy_reward", 0))
 
         # Сторис (аудит 2026-11): дублируем арт поста в истории сообщества
         # со ссылкой на бота. Best-effort: отсутствие права stories в токене
@@ -1073,10 +1088,12 @@ async def publish_story_best_effort(skin_id: str):
         async with _aiofiles.open(photo_path, "rb") as f:
             photo_bytes = await f.read()
 
-        from aiohttp import ClientSession as _CS
+        import aiohttp as _aiohttp
 
-        async with _CS() as session:
-            form = aiohttp.FormData()
+        async with _aiohttp.ClientSession() as session:
+            # FIX (аудит 2026-11-10): было aiohttp.FormData() без импорта aiohttp -
+            # NameError на каждой сторис, фича никогда не работала
+            form = _aiohttp.FormData()
             form.add_field("photo", photo_bytes, filename=photo_filename, content_type="image/jpeg")
             async with session.post(upload_url, data=form) as resp:
                 upload_result = await resp.json()

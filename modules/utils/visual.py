@@ -1,9 +1,14 @@
 import os
 import textwrap
+import tempfile
 from loguru import logger
 from PIL import Image, ImageDraw, ImageFont
 
-def generate_card_history_image(card_id: int, card_name: str, output_path: str = "cards/temp_card_history.jpg"):
+def generate_card_history_image(card_id: int, card_name: str, output_path: str = None):
+    # FIX (аудит 2026-11-10): дефолтный путь в cards/ заменен на системный temp
+    # (эфемерный/read-only FS Render; артефакты больше не копятся в cards/)
+    if output_path is None:
+        output_path = os.path.join(tempfile.gettempdir(), "temp_card_history.jpg")
     """
     Генерирует стильную карточку для рубрики CARD_HISTORY:
     глубокий фиолетовый радиальный градиент, Аркан по центру,
@@ -86,7 +91,9 @@ def generate_card_history_image(card_id: int, card_name: str, output_path: str =
     return output_path
 
 
-def generate_diagnosis_card(quote_text: str, output_path: str = "cards/temp_diagnosis.jpg"):
+def generate_diagnosis_card(quote_text: str, output_path: str = None):
+    if output_path is None:
+        output_path = os.path.join(tempfile.gettempdir(), "temp_diagnosis.jpg")
     """
     Генерирует стильную карточку с цитатой: глубокий фиолетовый градиент,
     логотип Анти-Тар вместо текста, шрифт Lora-Bold.
@@ -164,7 +171,8 @@ def generate_shadow_mirror_card(vk_id: int, user_name: str, shadow_archetype: st
     имя пользователя, архетип тени и сакральный совет.
     """
     if not output_path:
-        output_path = f"cards/mirror_{vk_id}.png"
+        # FIX (аудит 2026-11-10): tempdir вместо cards/ (эфемерный/read-only FS Render)
+        output_path = os.path.join(tempfile.gettempdir(), f"mirror_{vk_id}.png")
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     width, height = 1080, 1080

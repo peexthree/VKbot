@@ -40,15 +40,27 @@ def test_generate_sigil_image_default_bg(tmp_path):
     assert os.path.exists(output_file)
 
 
-def test_process_oculomancy_eye_dummy_file(tmp_path):
+def test_process_oculomancy_eye_from_url(tmp_path):
+    """FIX (аудит 2026-11-10): локальные пути больше не поддерживаются -
+    функция принимает только http(s) URL (после SSRF-гейта). Мокаем urlopen."""
+    import io
+    from unittest.mock import patch
+    from PIL import Image
+
     output_file = os.path.join(tmp_path, "test_eye_out.jpeg")
 
-    # Создаем фиктивное маленькое изображение глаза для теста
-    from PIL import Image
-    dummy_eye_path = os.path.join(tmp_path, "dummy_eye.png")
-    Image.new("RGBA", (200, 200), (100, 50, 200, 255)).save(dummy_eye_path)
+    buf = io.BytesIO()
+    Image.new("RGBA", (200, 200), (100, 50, 200, 255)).save(buf, format="PNG")
+    png_bytes = buf.getvalue()
 
-    success = process_oculomancy_eye(dummy_eye_path, output_file, background_path="nonexistent.jpeg")
+    fake_url = "https://sun1.example.cdn/v/eye.png"
+    # Мокаем и резолв DNS для SSRF-гейта (пример.домен не резолвится в CI)
+    fake_addr = [(2, 1, 6, "", ("93.184.216.34", 0))]
+    with patch("urllib.request.urlopen") as mock_open, \
+         patch("socket.getaddrinfo", return_value=fake_addr):
+        mock_open.return_value.__enter__.return_value.read.return_value = png_bytes
+        success = process_oculomancy_eye(fake_url, output_file, background_path="nonexistent.jpeg")
+
     assert success is True
     assert os.path.exists(output_file)
 

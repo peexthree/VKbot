@@ -4,6 +4,7 @@ import json
 import math
 import os
 import random
+import tempfile
 from loguru import logger
 from cache import redis_client
 from vkbottle import Callback, GroupEventType, Keyboard, KeyboardButtonColor, OpenLink
@@ -1152,7 +1153,8 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             purchased = user.get("purchased_sections", {}) if user else {}
             has_bonus = purchased.get("shadow_mirror_bonus_received", False)
 
-            card_path = f"cards/mirror_{vk_id}.png"
+            # FIX (аудит 2026-11-10): карточка зеркала в системный temp, не в cards/
+            card_path = os.path.join(tempfile.gettempdir(), f"mirror_{vk_id}.png")
             att = None
             try:
                 # to_thread: Pillow-рендер не должен блокировать event loop
@@ -1440,7 +1442,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 message="Создаю PDF-файл, подожди секунду...",
                 random_id=random.getrandbits(63),
             )
-            pdf_name = f"report_{vk_id}_{section}.pdf"
+            # FIX (аудит 2026-11-10): запись в CWD ненадёжна (эфемерный FS, на Render
+            # может быть read-only) - временные файлы только в системный temp
+            pdf_name = os.path.join(tempfile.gettempdir(), f"report_{vk_id}_{section}.pdf")
 
             # Берем данные рождения из Redis, с надежным фолбэком на Supabase/VK
             from cache import get_temp_birth_data, set_temp_birth_data
@@ -1515,27 +1519,12 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
             elif latest_data.get("eye_photo"):
                 full_eye_path = latest_data.get("eye_photo")
                 if not os.path.exists(full_eye_path):
-                    eye_url = latest_data.get("eye_url")
-                    if not eye_url:
-                        res_eye = await redis_client.get(f"oculomancy_photo:{vk_id}")
-                        if res_eye:
-                            eye_url = (
-                                res_eye.decode()
-                                if isinstance(res_eye, bytes)
-                                else res_eye
-                            )
-                    if eye_url:
-                        from modules.tarot.secret_arts_logic import (
-                            process_oculomancy_eye,
-                        )
+                    # FIX (аудит 2026-11-10): восстановление фото глаза вынесено в
+                    # secret_arts_logic (URL из Redis + SSRF-гейт + to_thread)
+                    from modules.tarot.secret_arts_logic import restore_eye_image
 
-                        # to_thread: внутри urlopen(timeout=15) - 15 секунд
-                        # блокировки всего сервера, если звать напрямую
-                        success_eye = await asyncio.to_thread(
-                            process_oculomancy_eye, eye_url, full_eye_path
-                        )
-                        if success_eye:
-                            temp_files_to_clean.append(full_eye_path)
+                    if await restore_eye_image(vk_id, full_eye_path, latest_data.get("eye_url")):
+                        temp_files_to_clean.append(full_eye_path)
 
             section_display_name = (
                 TAROT_SPREADS[section]["title"].upper()
@@ -2178,6 +2167,17 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 if key == "oracle_upsell":
                     key = "oracle"  # resolve the upsell back to its base service
 
+                # FIX (аудит 2026-11-10): фиксируем факт оплаты в этом запуске.
+                # handle_generation_failure вернёт энергию только при живом ключе -
+                # раньше рефанд по прайсу начислялся при любом сбое, даже без оплаты
+                # (фарм энергии через старые кнопки и провокацию сбоев)
+                from cache import redis_client as _rc
+
+                try:
+                    await _rc.set(f"paid_run:{vk_id}:{key}", "1", ex=600)
+                except Exception as e:
+                    logger.warning(f"paid_run set failed for {vk_id}/{key}: {e}")
+
                 if buy_type == "skin":
                     await process_skin_action_logic(
                         vk_id,
@@ -2317,6 +2317,11 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
                     try:
                         from ai_service import generate_section
+                        # FIX (аудит 2026-11-10): sex_val хранится в purchased_sections
+                        # (user.get("sex") не существует - тизер всегда был без гендера);
+                        # purchased_skins обязателен - без него премиум-скины ловили ложный
+                        # "Security Alert" и тизер деградировал в голос Олеси
+                        _u_p = (user.get("purchased_sections", {}) or {}) if user else {}
                         res_data = await generate_section(
                             key,
                             birth_data.get("date"),
@@ -2324,8 +2329,9 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                             birth_data.get("city"),
                             core_profile,
                             u_name,
-                            user.get("sex", "f") if user else "f",
+                            _u_p.get("sex_val", 0),
                             skin=user.get("active_skin", "olesya") if user else "olesya",
+                            purchased_skins=user.get("purchased_skins", ["olesya"]) if user else ["olesya"],
                             return_json=True
                         )
                         from modules.payments.logic import synthesize_chat_text
@@ -2628,12 +2634,23 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                 message="🕯 Время скрыто, но это не помешает нам. И последний штрих — в каком ГОРОДЕ ты увидел свой первый звездный свет?",
             )
         elif cmd == "oracle_cut":
+            # Анти-replay (аудит 2026-11-10): кнопка валидна только при активной
+            # сессии (step=oracle_cut после ввода вопроса). Раньше старая кнопка
+            # из истории фабриковала новую сессию с выдуманным вопросом
+            # "Что меня ждет?" и пересоздавала расклад бесплатно
             state = await get_fsm_step(vk_id)
-            question = ""
-            if state:
-                question = state.get("question", "")
-            if not question:
-                question = "Что меня ждет?"
+            if not state or state.get("step") != "oracle_cut" or not state.get("question"):
+                await safe_edit(
+                    peer_id=peer_id,
+                    conversation_message_id=obj.get("conversation_message_id"),
+                    message="🔮 Сессия Оракула завершена. Активируй Оракула заново через Каталог услуг.",
+                    keyboard=Keyboard(inline=True).add(
+                        Callback("🔮 ВСЕ УСЛУГИ", payload={"cmd": "services_menu"}),
+                        color=KeyboardButtonColor.PRIMARY,
+                    ).get_json(),
+                )
+                return
+            question = state.get("question", "")
             pool = list(range(0, 78))
             random.shuffle(pool)
             pool = pool[:10]
