@@ -284,14 +284,25 @@ async def handle_diag_proxy(request):
                     "error": f"{type(e).__name__}: {e}",
                 }
 
-        check_all = request.query.get("all") == "1"
-        models_to_probe = MODELS if check_all else [MODELS[0], MODELS[1]]
+        custom_models = request.query.get("models")
+        if custom_models:
+            models_to_probe = [
+                (m if m.startswith("models/") else f"models/{m}", "v1beta")
+                for m in (x.strip() for x in custom_models.split(","))
+                if m
+            ]
+        elif request.query.get("all") == "1":
+            models_to_probe = MODELS
+        else:
+            models_to_probe = [MODELS[0], MODELS[1]]
+
         if proxy_base:
             for model, version in models_to_probe:
                 res["post_tests"].append(await _probe_post("proxy", proxy_base, model, version))
 
-        first_model, first_ver = MODELS[0]
-        res["post_tests"].append(await _probe_post("direct", direct_base, first_model, first_ver))
+        if not custom_models:
+            first_model, first_ver = MODELS[0]
+            res["post_tests"].append(await _probe_post("direct", direct_base, first_model, first_ver))
 
     return web.json_response(res)
 
