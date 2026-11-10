@@ -278,19 +278,17 @@ async def handle_diag_proxy(request):
                     "model": f"{version}/{model}",
                     "status": "error",
                     "latency_ms": round((time.time() - t0) * 1000, 1),
-                    "error": str(e),
+                    "error": f"{type(e).__name__}: {e}",
                 }
 
+        check_all = request.query.get("all") == "1"
+        models_to_probe = MODELS if check_all else [MODELS[0], MODELS[1]]
         if proxy_base:
-            for model, version in MODELS:
+            for model, version in models_to_probe:
                 res["post_tests"].append(await _probe_post("proxy", proxy_base, model, version))
 
         first_model, first_ver = MODELS[0]
         res["post_tests"].append(await _probe_post("direct", direct_base, first_model, first_ver))
-
-        for candidate in ("models/gemini-3.8-flash", "models/gemini-3.6-flash"):
-            if proxy_base and candidate not in [x[0] for x in MODELS]:
-                res["post_tests"].append(await _probe_post("proxy_candidate", proxy_base, candidate, "v1beta"))
 
     return web.json_response(res)
 
