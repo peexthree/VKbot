@@ -153,6 +153,147 @@ async def handle_diag(request):
 
     return web.json_response(diag)
 
+
+async def handle_diag_proxy(request):
+    """Глубокая проверка конфигурации Cloudflare Proxy и моделей Gemini (GET + POST generateContent)."""
+    import time
+    from urllib.parse import urlparse
+    from ai.logic import get_gemini_api_keys, proxy_url
+    from cache import get_system_config
+    from configs.models import MODELS
+
+    res = {
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "config": {},
+        "models_check": {},
+        "post_tests": [],
+    }
+
+    parsed = urlparse(proxy_url) if proxy_url else None
+    proxy_enabled_raw = await get_system_config("system_config:proxy_enabled", default="1")
+    is_proxy_active = (proxy_enabled_raw != "0")
+    keys = await get_gemini_api_keys()
+
+    res["config"] = {
+        "gemini_proxy_env_set": bool(proxy_url),
+        "proxy_scheme": parsed.scheme if parsed else None,
+        "proxy_host": parsed.netloc if parsed else None,
+        "proxy_path": parsed.path if parsed else None,
+        "system_config_proxy_enabled_raw": proxy_enabled_raw,
+        "is_proxy_active_in_code": is_proxy_active,
+        "api_keys_count": len(keys),
+        "configured_models": [f"{v}/{m}" for m, v in MODELS],
+    }
+
+    if not keys:
+        res["error"] = "No Gemini API keys found"
+        return web.json_response(res)
+
+    api_key = keys[0]
+    proxy_base = proxy_url.rstrip("/") if proxy_url else None
+    direct_base = "https://generativelanguage.googleapis.com"
+
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as sess:
+        # 1. Получаем реальный список моделей через прокси (или напрямую)
+        list_base = proxy_base or direct_base
+        available_gen_models = []
+        try:
+            t0 = time.time()
+            async with sess.get(f"{list_base}/v1beta/models?key={api_key}") as r:
+                lat = round((time.time() - t0) * 1000, 1)
+                if r.status == 200:
+                    data = await r.json()
+                    for m in data.get("models", []):
+                        methods = m.get("supportedGenerationMethods", [])
+                        if "generateContent" in methods:
+                            available_gen_models.append(m.get("name"))
+                    res["models_check"] = {
+                        "status": "ok",
+                        "latency_ms": lat,
+                        "total_generateContent_models": len(available_gen_models),
+                        "flash_models_available": [m for m in available_gen_models if "flash" in (m or "").lower()][:15],
+                        "configured_models_present": {
+                            m: (m in available_gen_models) for m, _ in MODELS
+                        },
+                    }
+                else:
+                    body = (await r.text())[:300]
+                    res["models_check"] = {"status": f"http_{r.status}", "latency_ms": lat, "body": body}
+        except Exception as e:
+            res["models_check"] = {"status": "error", "error": str(e)}
+
+        # 2. Реальный POST generateContent (сначала через прокси на все модели из MODELS, затем напрямую)
+        test_payload = {
+            "contents": [{"parts": [{"text": "Reply with one word: OK"}]}],
+            "generationConfig": {"maxOutputTokens": 10, "temperature": 0.1},
+        }
+
+        async def _probe_post(label: str, base_url: str, model: str, version: str):
+            url = f"{base_url}/{version}/{model}:generateContent?key={api_key}"
+            t0 = time.time()
+            try:
+                async with sess.post(url, json=test_payload) as r:
+                    lat = round((time.time() - t0) * 1000, 1)
+                    headers_info = {
+                        "server": r.headers.get("server"),
+                        "cf-ray": r.headers.get("cf-ray"),
+                        "content-type": r.headers.get("content-type"),
+                    }
+                    if r.status == 200:
+                        data = await r.json()
+                        txt = ""
+                        try:
+                            parts = data["candidates"][0]["content"]["parts"]
+                            txt = "".join(p.get("text", "") for p in parts).strip()
+                        except Exception:
+                            txt = str(data)[:150]
+                        return {
+                            "target": label,
+                            "model": f"{version}/{model}",
+                            "status": "ok",
+                            "http_status": 200,
+                            "latency_ms": lat,
+                            "reply": txt[:100],
+                            "headers": headers_info,
+                        }
+                    else:
+                        err_body = (await r.text())[:300]
+                        return {
+                            "target": label,
+                            "model": f"{version}/{model}",
+                            "status": f"http_{r.status}",
+                            "http_status": r.status,
+                            "latency_ms": lat,
+                            "error_body": err_body,
+                            "headers": headers_info,
+                        }
+            except Exception as e:
+                return {
+                    "target": label,
+                    "model": f"{version}/{model}",
+                    "status": "error",
+                    "latency_ms": round((time.time() - t0) * 1000, 1),
+                    "error": str(e),
+                }
+
+        if proxy_base:
+            for model, version in MODELS:
+                res["post_tests"].append(await _probe_post("proxy", proxy_base, model, version))
+
+        # И проверка прямого запроса на первую модель (или первую доступную flash) для сравнения
+        first_model, first_ver = MODELS[0]
+        res["post_tests"].append(await _probe_post("direct", direct_base, first_model, first_ver))
+
+        # Если среди доступных есть новая flash-модель (например gemini-2.5-flash), проверим и её через прокси
+        extra_flash = next(
+            (m for m in available_gen_models if "2.5-flash" in m and m not in [x[0] for x in MODELS]),
+            None,
+        )
+        if extra_flash and proxy_base:
+            res["post_tests"].append(await _probe_post("proxy_extra_flash", proxy_base, extra_flash, "v1beta"))
+
+    return web.json_response(res)
+
 def verify_vk_signature(query_string: str, secret: str) -> bool:
     """Проверка подписи параметров запуска VK Mini App"""
     try:
@@ -798,6 +939,7 @@ async def main():
 
     app.router.add_get('/', handle_ping)
     app.router.add_get('/diag', handle_diag)
+    app.router.add_get('/diag/proxy', handle_diag_proxy)
     app.router.add_post('/vk/callback', handle_vk_webhook)
 
     user_info_resource = app.router.add_resource("/api/user/info")

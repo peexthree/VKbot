@@ -161,7 +161,7 @@ async def check_proxy_status():
                 server = resp.headers.get("server", "N/A")
                 logger.error(
                     f"WARNING: Cloudflare Proxy returned status {resp.status}.\n"
-                    f"URL: {test_url}\n"
+                    f"URL: {test_url.split('?key=')[0]}\n"
                     f"CF-Ray: {cf_ray}\n"
                     f"Server: {server}\n"
                     f"Details: {error_text}"
@@ -276,6 +276,7 @@ async def generate_text(
             if not await acquire_ai_slot(limit=15, wait=is_background):
                 return "ERROR_RPM_LIMIT"
 
+            safe_url = url.split("?key=")[0]
             # Ретраи для сетевых ошибок и тайм-аутов (2 попытки + основной запрос)
             for attempt in range(3):
                 try:
@@ -320,8 +321,6 @@ async def generate_text(
                             error_text = await resp.text()
                             cf_ray = resp.headers.get("cf-ray", "N/A")
                             server = resp.headers.get("server", "N/A")
-                            # Ключ в query-string маскируем: он уезжал в логи и Sentry
-                            safe_url = url.split("?key=")[0]
                             logger.error(
                                 f"Cloudflare/API Error Status: {resp.status}\n"
                                 f"URL: {safe_url}\n"
@@ -332,7 +331,7 @@ async def generate_text(
                             break
                 except (asyncio.TimeoutError, aiohttp.ClientError) as e:
                     logger.error(
-                        f"Network error/timeout on {model} (attempt {attempt + 1}/3) to URL {url}: {e}"
+                        f"Network error/timeout on {model} (attempt {attempt + 1}/3) to URL {safe_url}: {e}"
                     )
                     if attempt < 2:
                         await asyncio.sleep(1)
@@ -341,7 +340,7 @@ async def generate_text(
                     break
                 except Exception as e:
                     last_exception = e
-                    logger.error(f"Unexpected error on URL {url}: {str(e)}")
+                    logger.error(f"Unexpected error on URL {safe_url}: {str(e)}")
                     break
 
     logger.error(
