@@ -314,18 +314,21 @@ async def generate_text(
     else:
         model_chain = list(MODELS)
 
+    req_timeout = 60 if image_urls else (25 if is_background else 40)
+
     for model, version in model_chain:
         payload = build_model_payload(model, parts, system_instruction_text)
+        model_timed_out = False
         for api_key in api_keys:
             url = f"{base_api_url}/{version}/{model}:generateContent?key={api_key}"
             safe_url = url.split("?key=")[0]
-            # До 2 сетевых попыток на модель; при 429 сразу переключаемся на следующий резерв
+            # До 2 попыток при сетевом сбое; при 429 переключаем ключ, при таймауте - сразу следующую модель
             for attempt in range(2):
                 try:
                     async with session.post(
                         url,
                         json=payload,
-                        timeout=aiohttp.ClientTimeout(total=60 if image_urls else 20),
+                        timeout=aiohttp.ClientTimeout(total=req_timeout),
                     ) as resp:
                         if resp.status == 200:
                             res_data = await resp.json()
@@ -367,9 +370,16 @@ async def generate_text(
                                 f"Details: {error_text}"
                             )
                             break
-                except (asyncio.TimeoutError, aiohttp.ClientError) as e:
+                except asyncio.TimeoutError as e:
                     logger.error(
-                        f"Network error/timeout on {model} (attempt {attempt + 1}/2) to URL {safe_url}: {e}"
+                        f"Timeout on {model} after {req_timeout}s to URL {safe_url}: {type(e).__name__}"
+                    )
+                    last_exception = e
+                    model_timed_out = True
+                    break
+                except aiohttp.ClientError as e:
+                    logger.error(
+                        f"Network error on {model} (attempt {attempt + 1}/2) to URL {safe_url}: {type(e).__name__}: {e}"
                     )
                     if attempt < 1:
                         await asyncio.sleep(1)
@@ -378,11 +388,13 @@ async def generate_text(
                     break
                 except Exception as e:
                     last_exception = e
-                    logger.error(f"Unexpected error on URL {safe_url}: {str(e)}")
+                    logger.error(f"Unexpected error on URL {safe_url}: {type(e).__name__}: {e}")
                     break
+            if model_timed_out:
+                break
 
     logger.error(
-        f"All keys and models exhausted or failed for text generation. Last error: {last_exception}"
+        f"All keys and models exhausted or failed for text generation. Last error: {type(last_exception).__name__}: {last_exception}"
     )
     return None
 

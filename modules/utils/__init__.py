@@ -21,6 +21,9 @@ from .keyboards import (
 from .logic import (
     get_fsm_step, check_and_give_daily_bonus
 )
+from .keepalive import (
+    KEEPALIVE_CONFIG_KEY, is_keepalive_enabled, stop_keepalive_task, sync_keepalive_task
+)
 from cache import acquire_lock, release_lock
 
 __all__ = [
@@ -31,5 +34,7 @@ __all__ = [
     "get_cached_photo", "flush_anchors", "upload_local_photo", "warmup_task", "clear_photo_cache",
     "generate_premium_pdf", "upload_pdf_to_vk",
     "get_main_keyboard", "get_dynamic_keyboard", "get_sections_keyboard", "get_storefront_keyboard",
-    "get_fsm_step", "check_and_give_daily_bonus", "acquire_lock", "release_lock"
+    "get_fsm_step", "check_and_give_daily_bonus",
+    "KEEPALIVE_CONFIG_KEY", "is_keepalive_enabled", "stop_keepalive_task", "sync_keepalive_task",
+    "acquire_lock", "release_lock"
 ]

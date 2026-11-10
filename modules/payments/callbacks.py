@@ -2179,9 +2179,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                     key = "oracle"  # resolve the upsell back to its base service
 
                 if buy_type == "skin":
-                    from modules.utils.consts import SKIN_DISPLAY_NAMES
-
-                    char_name = SKIN_DISPLAY_NAMES.get(key, "Проводник")
                     await process_skin_action_logic(
                         vk_id,
                         peer_id,
@@ -2189,18 +2186,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         payload={"cmd": "set_skin", "skin": key},
                         conversation_message_id=obj.get("conversation_message_id"),
                     )
-                    if event_id:
-                        await bot.api.messages.send_message_event_answer(
-                            event_id=event_id,
-                            user_id=vk_id,
-                            peer_id=peer_id,
-                            event_data=json.dumps(
-                                {
-                                    "type": "show_snackbar",
-                                    "text": f"🎭 {char_name} теперь твой Проводник! ✨",
-                                }
-                            ),
-                        )
                     return
 
                 if buy_type == "service":
@@ -2224,18 +2209,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                             key,
                             peer_id=peer_id,
                             conversation_message_id=obj.get("conversation_message_id"),
-                        )
-                    if event_id:
-                        await bot.api.messages.send_message_event_answer(
-                            event_id=event_id,
-                            user_id=vk_id,
-                            peer_id=peer_id,
-                            event_data=json.dumps(
-                                {
-                                    "type": "show_snackbar",
-                                    "text": f"✨ Списано {amount_needed} энергии. Ритуал начат!",
-                                }
-                            ),
                         )
                 elif buy_type == "tariff":
                     # FIX (аудит 2026-11): key="all" из экрана тарифов - это
@@ -2286,19 +2259,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
 
                     await unlock_skin(bot.api, vk_id, "saint_germain")
 
-                    if event_id:
-                        await bot.api.messages.send_message_event_answer(
-                            event_id=event_id,
-                            user_id=vk_id,
-                            peer_id=peer_id,
-                            event_data=json.dumps(
-                                {
-                                    "type": "show_snackbar",
-                                    "text": f"✨ Транзит активирован! Баланс: {new_balance} ✨",
-                                }
-                            ),
-                        )
-
                     tariff_names = {
                         "tariff_1": "Спутник (7 дней)",
                         "tariff_2": "Оракул (30 дней)",
@@ -2331,18 +2291,6 @@ async def _message_event_handler_wrapped(event: dict, skip_lock: bool = False):
                         keyboard=kb.get_json(),
                     )
             else:
-                if event_id:
-                    await bot.api.messages.send_message_event_answer(
-                        event_id=event_id,
-                        user_id=vk_id,
-                        peer_id=peer_id,
-                        event_data=json.dumps(
-                            {
-                                "type": "show_snackbar",
-                                "text": "🛑 Недостаточно энергии для активации!",
-                            }
-                        ),
-                    )
                 diff_rubles = math.ceil((amount_needed - balance) / 10)
                 from modules.payments.yookassa import create_yookassa_payment
 

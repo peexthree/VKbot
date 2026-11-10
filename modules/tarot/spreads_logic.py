@@ -30,6 +30,20 @@ from cache import (
 )
 
 
+MAX_INLINE_BUTTONS = 10  # Жесткий лимит VK API для inline-клавиатуры (макс 10 кнопок, 6 рядов)
+
+
+def _build_spread_cards_keyboard(card_ids: list[int], spread_key: str) -> str:
+    """Строит inline-клавиатуру выбора карт в пределах лимитов VK (до 10 кнопок, 4 в ряд)."""
+    capped = card_ids[:MAX_INLINE_BUTTONS]
+    kb = Keyboard(inline=True)
+    for i, cid in enumerate(capped):
+        kb.add(Callback("🎴", payload={"spread_card": cid, "key": spread_key}))
+        if (i + 1) % 4 == 0 and (i + 1) < len(capped):
+            kb.row()
+    return kb.get_json()
+
+
 async def initiate_spread_flow(vk_id: int, peer_id: int, spread_key: str, edit_msg_id: int = None):
     """Инициализация расклада после списания энергии: переход к соприкосновению."""
     spread = TAROT_SPREADS.get(spread_key)
@@ -42,8 +56,8 @@ async def initiate_spread_flow(vk_id: int, peer_id: int, spread_key: str, edit_m
     random.shuffle(pool)
 
     cards_count = spread["cards_count"]
-    # Ограничиваем пул для интерактива
-    interactive_pool = pool[: min(12, max(cards_count + 4, 10))]
+    # Ограничиваем пул для интерактива лимитом inline-кнопок VK (максимум 10)
+    interactive_pool = pool[:MAX_INLINE_BUTTONS]
 
     state_dict = {
         "step": "spread_cut",
@@ -102,10 +116,10 @@ async def handle_spread_cut(vk_id: int, peer_id: int, spread_key: str, edit_msg_
         return
 
     cards_count = spread["cards_count"]
-    pool = state_dict.get("pool") or list(range(0, 78))
+    pool = (state_dict.get("pool") or list(range(0, 78)))[:MAX_INLINE_BUTTONS]
 
-    # Для больших VIP-раскладов (20 карт) кликать 20 раз неудобно: сдаем сакральным ритуалом
-    if cards_count >= 15:
+    # Для больших раскладов (>10 карт, например VIP 20 карт) кликать много раз неудобно и не влезает в лимит VK
+    if cards_count > MAX_INLINE_BUTTONS:
         full_deck = state_dict.get("full_deck") or list(range(0, 78))
         drawn = full_deck[:cards_count]
         await set_user_state(vk_id, "")
@@ -134,14 +148,9 @@ async def handle_spread_cut(vk_id: int, peer_id: int, spread_key: str, edit_msg_
 
     # Для раскладов до 10 карт — интерактивный выбор
     state_dict["step"] = "spread_draw"
+    state_dict["pool"] = pool
     state_dict["drawn_cards"] = []
     await set_user_state(vk_id, json.dumps(state_dict))
-
-    kb = Keyboard(inline=True)
-    for i, cid in enumerate(pool):
-        kb.add(Callback("🎴", payload={"spread_card": cid, "key": spread_key}))
-        if (i + 1) % 4 == 0 and (i + 1) < len(pool):
-            kb.row()
 
     await safe_edit(
         peer_id=peer_id,
@@ -150,7 +159,7 @@ async def handle_spread_cut(vk_id: int, peer_id: int, spread_key: str, edit_msg_
             f"✨ ВЫБОР АРКАНОВ: 0/{cards_count} ✨\n\n"
             f"Прислушайся к внутренней интуиции и выбери {cards_count} карт из разложенных:"
         ),
-        keyboard=kb.get_json(),
+        keyboard=_build_spread_cards_keyboard(pool, spread_key),
     )
 
 
@@ -179,17 +188,12 @@ async def handle_spread_card_draw(vk_id: int, peer_id: int, card_id: int, spread
         await set_user_state(vk_id, json.dumps(state_dict))
 
         remaining = [c for c in pool if c not in drawn]
-        kb = Keyboard(inline=True)
-        for i, cid in enumerate(remaining):
-            kb.add(Callback("🎴", payload={"spread_card": cid, "key": spread_key}))
-            if (i + 1) % 4 == 0 and (i + 1) < len(remaining):
-                kb.row()
 
         await safe_edit(
             peer_id=peer_id,
             conversation_message_id=edit_msg_id,
             message=f"✨ ВЫБОР АРКАНОВ: {len(drawn)}/{cards_count} ✨\n\nВыбери еще {cards_count - len(drawn)} карт:",
-            keyboard=kb.get_json(),
+            keyboard=_build_spread_cards_keyboard(remaining, spread_key),
         )
     else:
         # Все карты выбраны!

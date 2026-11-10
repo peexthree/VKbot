@@ -113,6 +113,7 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None, p
     maintenance_mode = ((await get_system_config("system_config:maintenance_mode", default="0")) == "1")
     proxy_enabled = ((await get_system_config("system_config:proxy_enabled", default="1")) == "1")
     tag_memory_active = ((await get_system_config("system_config:tag_memory_active", default="1")) == "1")
+    keepalive_active = ((await get_system_config("system_config:keepalive_active", default="0")) == "1")
 
     try:
         keys = await redis_client.keys("photo:*")
@@ -135,7 +136,9 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None, p
             f"ПРОКСИРОВАНИЕ ИИ: {'🟢 ВКЛ' if proxy_enabled else '🔴 ВЫКЛ'}\n"
             "- ИСПОЛЬЗОВАНИЕ GEMINI_PROXY ДЛЯ ЗАПРОСОВ\n\n"
             f"ТЕГОВАЯ ПАМЯТЬ ИИ: {'🟢 ВКЛ' if tag_memory_active else '🔴 ВЫКЛ'}\n"
-            "- СОХРАНЕНИЕ КОНТЕКСТА ПРОШЛЫХ ГАДАНИЙ\n"
+            "- СОХРАНЕНИЕ КОНТЕКСТА ПРОШЛЫХ ГАДАНИЙ\n\n"
+            f"МОНИТОР СНА (9 МИН): {'🟢 ВКЛ' if keepalive_active else '🔴 ВЫКЛ'}\n"
+            "- ВСТРОЕННЫЙ АВТОПИНГ RENDER (НЕ НУЖЕН ПРИ ВНЕШНЕМ ОБЗВОНЕ)\n"
         )
     else:
         text += (
@@ -167,8 +170,13 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None, p
         kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_tag_memory", "page": page}), color=KeyboardButtonColor.SECONDARY)
         kb.row()
 
-        kb.add(Callback("ДАЛЕЕ ➡️", payload={"cmd": "admin_nav", "menu": "system", "page": 1}), color=KeyboardButtonColor.PRIMARY)
+        # Keepalive monitor (9 min)
+        label = "🔴 ВЫКЛ МОНИТОР (9М)" if keepalive_active else "🟢 ВКЛ МОНИТОР (9М)"
+        kb.add(Callback(label, payload={"cmd": "admin_cmd", "action": "toggle_keepalive", "page": page}), color=KeyboardButtonColor.SECONDARY)
         kb.row()
+
+        kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("ДАЛЕЕ ➡️", payload={"cmd": "admin_nav", "menu": "system", "page": 1}), color=KeyboardButtonColor.PRIMARY)
     else:
         # Кнопка SQL удалена (аудит 2026-11): exec_sql отозван у anon
         kb.add(Callback("🧹 ОЧИСТИТЬ REDIS", payload={"cmd": "admin_cmd", "action": "clear_redis", "page": page}), color=KeyboardButtonColor.NEGATIVE)
@@ -177,7 +185,7 @@ async def show_admin_system(peer_id: int, conversation_message_id: int = None, p
         kb.add(Callback("⬅️ НАЗАД", payload={"cmd": "admin_nav", "menu": "system", "page": 0}), color=KeyboardButtonColor.PRIMARY)
         kb.row()
 
-    kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
+        kb.add(Callback("🏠 В МЕНЮ", payload={"cmd": "admin_nav", "menu": "main"}), color=KeyboardButtonColor.PRIMARY)
 
     await ghost_edit(bot.api, peer_id, text, keyboard=kb.get_json(), conversation_message_id=conversation_message_id)
 
@@ -510,6 +518,15 @@ async def show_admin_logs(peer_id: int, conversation_message_id: int = None):
 
 # ==================== ОБРАБОТКА КОМАНД ====================
 
+_SYSTEM_TOGGLES: dict[str, tuple[str, str]] = {
+    "toggle_warmup": ("system_config:warmup_active", "0"),
+    "toggle_maintenance": ("system_config:maintenance_mode", "0"),
+    "toggle_proxy": ("system_config:proxy_enabled", "1"),
+    "toggle_tag_memory": ("system_config:tag_memory_active", "1"),
+    "toggle_keepalive": ("system_config:keepalive_active", "0"),
+}
+
+
 async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversation_message_id: int = None):
     if vk_id != ADMIN_ID: return
     action, nav_menu = payload.get("action"), payload.get("menu")
@@ -534,28 +551,17 @@ async def process_admin_cmd(vk_id: int, peer_id: int, payload: dict, conversatio
         else:
             await bot.api.messages.send(peer_id=peer_id, message=f"❌ {msg}", random_id=random.getrandbits(63))
         await show_admin_feedbacks(peer_id, conversation_message_id)
-    elif action == "toggle_warmup":
-        c = await get_system_config("system_config:warmup_active", default="0")
+    elif action in _SYSTEM_TOGGLES:
+        cfg_key, default_val = _SYSTEM_TOGGLES[action]
+        c = await get_system_config(cfg_key, default=default_val)
         nv = 0 if c == "1" else 1
-        await set_system_config("system_config:warmup_active", nv)
-        if nv == 1:
+        await set_system_config(cfg_key, nv)
+        if action == "toggle_warmup" and nv == 1:
             from modules.utils import warmup_task
             asyncio.create_task(warmup_task())
-        await show_admin_system(peer_id, conversation_message_id, page=page)
-    elif action == "toggle_maintenance":
-        c = await get_system_config("system_config:maintenance_mode", default="0")
-        nv = 0 if c == "1" else 1
-        await set_system_config("system_config:maintenance_mode", nv)
-        await show_admin_system(peer_id, conversation_message_id, page=page)
-    elif action == "toggle_proxy":
-        c = await get_system_config("system_config:proxy_enabled", default="1")
-        nv = 0 if c == "1" else 1
-        await set_system_config("system_config:proxy_enabled", nv)
-        await show_admin_system(peer_id, conversation_message_id, page=page)
-    elif action == "toggle_tag_memory":
-        c = await get_system_config("system_config:tag_memory_active", default="1")
-        nv = 0 if c == "1" else 1
-        await set_system_config("system_config:tag_memory_active", nv)
+        elif action == "toggle_keepalive":
+            from modules.utils import sync_keepalive_task
+            await sync_keepalive_task(initial_delay=0.0)
         await show_admin_system(peer_id, conversation_message_id, page=page)
     elif action == "list_vips":
         users = await get_all_users()

@@ -918,24 +918,8 @@ async def main():
 
     asyncio.create_task(daily_forecast_cron_safe())
 
-    async def render_keepalive_task():
-        """Фоновый пинг для предотвращения засыпания контейнера на Render Free tier (каждые 9 минут)."""
-        await asyncio.sleep(60)  # Даем серверу подняться
-        app_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("APP_URL") or "https://vkbot-ad64.onrender.com"
-        ping_url = f"{app_url.rstrip('/')}/"
-        logger.info(f"Render keepalive task активен: периодический пинг {ping_url} (каждые 9 минут)")
-        async with aiohttp.ClientSession() as session:
-            while True:
-                try:
-                    await asyncio.sleep(540)  # 9 минут
-                    async with session.get(ping_url, timeout=15) as resp:
-                        logger.debug(f"Render keepalive ping: {resp.status}")
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    logger.debug(f"Render keepalive ping notice: {e}")
-
-    asyncio.create_task(render_keepalive_task())
+    from modules.utils import stop_keepalive_task, sync_keepalive_task
+    await sync_keepalive_task(initial_delay=60.0)
 
     app = web.Application()
 
@@ -991,6 +975,10 @@ async def main():
         pass
     logger.info("Получен сигнал остановки - плавное завершение...")
 
+    try:
+        await stop_keepalive_task()
+    except Exception as e:
+        logger.debug(f"Error stopping keepalive task: {e}")
     try:
         from modules.utils.consts import _typing_tasks
         from modules.utils.ui import stop_dynamic_typing
