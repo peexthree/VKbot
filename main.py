@@ -211,7 +211,7 @@ async def handle_diag_proxy(request):
                         "status": "ok",
                         "latency_ms": lat,
                         "total_generateContent_models": len(available_gen_models),
-                        "flash_models_available": [m for m in available_gen_models if "flash" in (m or "").lower()][:15],
+                        "flash_models_available": [m for m in available_gen_models if "flash" in (m or "").lower()],
                         "configured_models_present": {
                             m: (m in available_gen_models) for m, _ in MODELS
                         },
@@ -222,10 +222,11 @@ async def handle_diag_proxy(request):
         except Exception as e:
             res["models_check"] = {"status": "error", "error": str(e)}
 
-        # 2. Реальный POST generateContent (сначала через прокси на все модели из MODELS, затем напрямую)
+        # 2. Реальный POST generateContent (с system_instruction, как в боте)
         test_payload = {
             "contents": [{"parts": [{"text": "Reply with one word: OK"}]}],
-            "generationConfig": {"maxOutputTokens": 10, "temperature": 0.1},
+            "system_instruction": {"parts": [{"text": "Be concise."}]},
+            "generationConfig": {"maxOutputTokens": 128, "temperature": 0.1},
         }
 
         async def _probe_post(label: str, base_url: str, model: str, version: str):
@@ -244,7 +245,11 @@ async def handle_diag_proxy(request):
                         txt = ""
                         try:
                             parts = data["candidates"][0]["content"]["parts"]
-                            txt = "".join(p.get("text", "") for p in parts).strip()
+                            txt = "".join(
+                                p.get("text", "") for p in parts if "text" in p and not p.get("thought")
+                            ).strip()
+                            if not txt and parts:
+                                txt = parts[-1].get("text", "")
                         except Exception:
                             txt = str(data)[:150]
                         return {
@@ -280,17 +285,12 @@ async def handle_diag_proxy(request):
             for model, version in MODELS:
                 res["post_tests"].append(await _probe_post("proxy", proxy_base, model, version))
 
-        # И проверка прямого запроса на первую модель (или первую доступную flash) для сравнения
         first_model, first_ver = MODELS[0]
         res["post_tests"].append(await _probe_post("direct", direct_base, first_model, first_ver))
 
-        # Если среди доступных есть новая flash-модель (например gemini-2.5-flash), проверим и её через прокси
-        extra_flash = next(
-            (m for m in available_gen_models if "2.5-flash" in m and m not in [x[0] for x in MODELS]),
-            None,
-        )
-        if extra_flash and proxy_base:
-            res["post_tests"].append(await _probe_post("proxy_extra_flash", proxy_base, extra_flash, "v1beta"))
+        for candidate in ("models/gemini-3.8-flash", "models/gemini-3.6-flash"):
+            if proxy_base and candidate not in [x[0] for x in MODELS]:
+                res["post_tests"].append(await _probe_post("proxy_candidate", proxy_base, candidate, "v1beta"))
 
     return web.json_response(res)
 

@@ -224,58 +224,54 @@ async def generate_text(
         logger.info(f"Using Cloudflare Proxy for AI generation: {base_api_url}")
 
     session = init_session()
+
+    # Один слот RPM на логический запрос (до цикла по моделям и ключам)
+    if not await acquire_ai_slot(limit=15, wait=is_background):
+        return "ERROR_RPM_LIMIT"
+
+    # Премиальная инструкция и payload собираются один раз на запрос (включая загрузку фото)
+    premium_context = (
+        "Используй метафоры высокого уровня, но сочетай их с глубоким психологическим и сакральным контекстом. "
+        "Твой ответ должен казаться невероятно личным и глубоким. Избегай общих фраз. "
+        "Твой бот и услуги - это премиальное руководство для гармонизации судьбы, раскрытия внутренних потоков и интеграции космических энергий, а не просто дешевое гадание. "
+        "Структурируй ответ так, чтобы он был удобен для чтения в мессенджере (короткие абзацы, тире)."
+    )
+
+    system_instruction_text = (
+        f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}"
+    )
+
+    content_text = prompt.strip()
+    if json_mode:
+        content_text += "\nВерни ТОЛЬКО валидный JSON. Все переносы строк внутри строковых полей должны быть экранированы как \\\\n. Не используй реальные переносы строк внутри JSON-строк."
+
+    parts = [{"text": content_text}]
+    if image_urls:
+        for img_url in image_urls:
+            try:
+                async with session.get(img_url, timeout=10) as img_resp:
+                    if img_resp.status == 200:
+                        img_data = await img_resp.read()
+                        parts.append(
+                            {
+                                "inline_data": {
+                                    "mime_type": "image/jpeg",
+                                    "data": base64.b64encode(img_data).decode("utf-8"),
+                                }
+                            }
+                        )
+            except Exception as e:
+                logger.error(f"Failed to fetch image for AI: {e}")
+
+    payload = {
+        "contents": [{"parts": parts}],
+        "system_instruction": {"parts": [{"text": system_instruction_text}]},
+        "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.8},
+    }
+
     for model, version in MODELS:
         for api_key in api_keys:
             url = f"{base_api_url}/{version}/{model}:generateContent?key={api_key}"
-
-            # Премиальная инструкция для более глубоких ответов
-            premium_context = (
-                "Используй метафоры высокого уровня, но сочетай их с глубоким психологическим и сакральным контекстом. "
-                "Твой ответ должен казаться невероятно личным и глубоким. Избегай общих фраз. "
-                "Твой бот и услуги - это премиальное руководство для гармонизации судьбы, раскрытия внутренних потоков и интеграции космических энергий, а не просто дешевое гадание. "
-                "Структурируй ответ так, чтобы он был удобен для чтения в мессенджере (короткие абзацы, тире)."
-            )
-
-            system_instruction_text = (
-                f"{tov_instruction}\n{BASE_SYSTEM_INSTRUCTION}\n{premium_context}"
-            )
-
-            content_text = prompt.strip()
-            if json_mode:
-                content_text += "\nВерни ТОЛЬКО валидный JSON. Все переносы строк внутри строковых полей должны быть экранированы как \\\\n. Не используй реальные переносы строк внутри JSON-строк."
-
-            parts = [{"text": content_text}]
-            if image_urls:
-                for img_url in image_urls:
-                    try:
-                        async with session.get(img_url, timeout=10) as img_resp:
-                            if img_resp.status == 200:
-                                img_data = await img_resp.read()
-                                parts.append(
-                                    {
-                                        "inline_data": {
-                                            "mime_type": "image/jpeg",
-                                            "data": base64.b64encode(img_data).decode(
-                                                "utf-8"
-                                            ),
-                                        }
-                                    }
-                                )
-                    except Exception as e:
-                        logger.error(f"Failed to fetch image for AI: {e}")
-
-            payload = {
-                "contents": [{"parts": parts}],
-                "system_instruction": {"parts": [{"text": system_instruction_text}]},
-                "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.8},
-            }
-
-            # Один слот RPM на запрос (аудит 2026-11): раньше ретраи жгли слоты
-            # повторно - один сбойный прокси выжигал весь глобальный лимит 15 RPM
-            # и все пользователи получали ERROR_RPM_LIMIT
-            if not await acquire_ai_slot(limit=15, wait=is_background):
-                return "ERROR_RPM_LIMIT"
-
             safe_url = url.split("?key=")[0]
             # Ретраи для сетевых ошибок и тайм-аутов (2 попытки + основной запрос)
             for attempt in range(3):
